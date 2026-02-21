@@ -1,0 +1,304 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Condomeet UX Showcase - Fusion Direction</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Outfit:wght@400;600;700&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --brand-orange: #FA542F;
+            --brand-dark: #111827;
+            --bg-gray: #F9FAFB;
+            --surface: #FFFFFF;
+            --text-main: #1F2937;
+            --text-muted: #6B7280;
+            --success: #10B981;
+            --radius-pill: 9999px;
+            --radius-card: 16px;
+        }
+
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: var(--bg-gray);
+            color: var(--text-main);
+            margin: 0;
+            padding: 0;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        header {
+            width: 100%;
+            background: var(--surface);
+            padding: 20px 40px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-bottom: 1px solid #E5E7EB;
+        }
+
+        .logo {
+            font-family: 'Outfit', sans-serif;
+            font-weight: 700;
+            font-size: 24px;
+            color: var(--brand-orange);
+            text-transform: lowercase;
+        }
+
+        .showcase-container {
+            max-width: 1200px;
+            width: 100%;
+            padding: 40px;
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(350px, 1fr));
+            gap: 30px;
+        }
+
+        .mockup-card {
+            background: var(--surface);
+            border-radius: var(--radius-card);
+            padding: 24px;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+            border: 1px solid #E5E7EB;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .mockup-header {
+            margin-bottom: 20px;
+        }
+
+        .mockup-tag {
+            background: #FEE2E2;
+            color: var(--brand-orange);
+            font-size: 12px;
+            font-weight: 600;
+            padding: 4px 12px;
+            border-radius: var(--radius-pill);
+            display: inline-block;
+            margin-bottom: 8px;
+        }
+
+        .mockup-title {
+            font-family: 'Outfit', sans-serif;
+            font-size: 20px;
+            font-weight: 600;
+            margin: 0;
+        }
+
+        .screen-preview {
+            background: #F3F4F6;
+            border-radius: 12px;
+            padding: 16px;
+            height: 400px;
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+            border: 1px solid #E5E7EB;
+        }
+
+        /* Porteiro UI Concept */
+        .porter-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 16px;
+        }
+        .search-bar {
+            background: white;
+            padding: 12px;
+            border-radius: 8px;
+            border: 1px solid #D1D5DB;
+            font-size: 14px;
+            color: #9CA3AF;
+        }
+        .big-action-button {
+            background: var(--brand-orange);
+            color: white;
+            padding: 24px;
+            border-radius: 16px;
+            text-align: center;
+            font-weight: 700;
+            font-size: 18px;
+            margin-top: auto;
+            cursor: pointer;
+            box-shadow: 0 10px 15px -3px rgba(250, 84, 47, 0.3);
+        }
+        .activity-item {
+            background: white;
+            padding: 12px;
+            border-radius: 8px;
+            margin-bottom: 8px;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            font-size: 13px;
+        }
+        .activity-photo {
+            width: 40px;
+            height: 40px;
+            background: #E5E7EB;
+            border-radius: 4px;
+        }
+
+        /* Resident WhatsApp Concept */
+        .wa-bubble {
+            background: #E7FFDB;
+            padding: 12px;
+            border-radius: 8px 8px 0 8px;
+            align-self: flex-end;
+            max-width: 80%;
+            margin-bottom: 8px;
+            font-size: 14px;
+            position: relative;
+        }
+        .wa-photo {
+            width: 100%;
+            height: 120px;
+            background: #D1D5DB;
+            border-radius: 4px;
+            margin-bottom: 8px;
+        }
+        .wa-actions {
+            display: flex;
+            gap: 8px;
+            margin-top: 8px;
+        }
+        .wa-btn {
+            background: white;
+            border: 1px solid #D1D5DB;
+            padding: 6px 12px;
+            border-radius: var(--radius-pill);
+            font-size: 12px;
+            color: var(--brand-orange);
+            font-weight: 600;
+        }
+
+        /* Manager Dashboard Concept */
+        .manager-stat-row {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+            margin-bottom: 16px;
+        }
+        .stat-card {
+            background: white;
+            padding: 12px;
+            border-radius: 8px;
+            border-left: 4px solid var(--brand-orange);
+        }
+        .stat-val { font-weight: 700; font-size: 18px; }
+        .stat-label { font-size: 11px; color: var(--text-muted); }
+
+        .footer-note {
+            text-align: center;
+            padding: 40px;
+            color: var(--text-muted);
+            font-size: 14px;
+        }
+    </style>
+</head>
+<body>
+    <header>
+        <div class="logo">condomeet</div>
+        <div style="font-weight: 600; font-size: 14px;">UX Direction: Minimalist Tactile</div>
+    </header>
+
+    <div class="showcase-container">
+        
+        <!-- PORTEIRO UI -->
+        <div class="mockup-card">
+            <div class="mockup-header">
+                <div class="mockup-tag">Operacional</div>
+                <h2 class="mockup-title">Portaria: Registro Rápido</h2>
+            </div>
+            <div class="screen-preview">
+                <div class="porter-header">
+                    <div style="font-weight: 600;">Portaria Principal</div>
+                    <div style="font-size: 12px; color: var(--success);">● Offline Sync OK</div>
+                </div>
+                <div class="search-bar">🔍 Buscar Unidade ou Morador...</div>
+                <div style="margin-top: 16px; flex-grow: 1;">
+                    <div class="activity-item">
+                        <div class="activity-photo"></div>
+                        <div>
+                            <div style="font-weight: 600;">Entrega: Amazon</div>
+                            <div style="color: var(--text-muted); font-size: 11px;">Unidade 102B - Marina Porto</div>
+                        </div>
+                    </div>
+                </div>
+                <div class="big-action-button">📸 ESCANEAR ENCOMENDA</div>
+            </div>
+            <p style="font-size: 13px; color: var(--text-muted); margin-top: 16px;">
+                Foco em botões de impacto e OCR automático para limpar as filas na portaria.
+            </p>
+        </div>
+
+        <!-- RESIDENT WHATSAPP -->
+        <div class="mockup-card">
+            <div class="mockup-header">
+                <div class="mockup-tag">Engajamento</div>
+                <h2 class="mockup-title">Morador: WhatsApp-First</h2>
+            </div>
+            <div class="screen-preview" style="background: #ECE5DD; padding: 20px;">
+                <div style="text-align: center; font-size: 11px; color: #555; background: #DDF5FB; padding: 4px; border-radius: 4px; margin-bottom: 20px;">
+                    Mensagens são criptografadas
+                </div>
+                <div class="wa-bubble">
+                    <div class="wa-photo"></div>
+                    <b>Condomeet:</b> Marina, chegou uma encomenda para você!<br>
+                    <span style="font-size: 11px; color: var(--text-muted);">09:41</span>
+                    <div class="wa-actions">
+                        <div class="wa-btn">Confirmei!</div>
+                        <div class="wa-btn">Já li</div>
+                    </div>
+                </div>
+            </div>
+            <p style="font-size: 13px; color: var(--text-muted); margin-top: 16px;">
+                As ações vitais ocorrem sem sair do chat, reduzindo a fricção e gerando tranquilidade imediata.
+            </p>
+        </div>
+
+        <!-- MANAGER DASHBOARD -->
+        <div class="mockup-card">
+            <div class="mockup-header">
+                <div class="mockup-tag">Gestão</div>
+                <h2 class="mockup-title">Síndico: Dashboard Limpo</h2>
+            </div>
+            <div class="screen-preview" style="background: white;">
+                <div style="background: var(--brand-dark); color: white; padding: 16px; display: flex; justify-content: space-between;">
+                    <b>Olá, Paulo</b>
+                    <div style="font-size: 12px;">Condomínio Alpha</div>
+                </div>
+                <div style="padding:16px;">
+                    <div class="manager-stat-row">
+                        <div class="stat-card">
+                            <div class="stat-val">08</div>
+                            <div class="stat-label">Aprovações</div>
+                        </div>
+                        <div class="stat-card" style="border-left-color: #10B981;">
+                            <div class="stat-val">124</div>
+                            <div class="stat-label">Moradores</div>
+                        </div>
+                    </div>
+                    <div style="font-size: 12px; font-weight: 600; margin-bottom: 8px;">AÇÕES PENDENTES</div>
+                    <div class="activity-item" style="border: 1px solid #E5E7EB;">
+                        <div style="width: 8px; height: 8px; border-radius: 50%; background: var(--brand-orange);"></div>
+                        <div>Aprovar novo morador: Torre A, 402</div>
+                    </div>
+                </div>
+            </div>
+            <p style="font-size: 13px; color: var(--text-muted); margin-top: 16px;">
+                Visualização tipo "Fintech" para decisões rápidas e visibilidade total da saúde do condomínio.
+            </p>
+        </div>
+
+    </div>
+
+    <div class="footer-note">
+        Fusion: Minimalismo Tecnológico + Acessibilidade Tática. Focado na promessa de <b>Zero Lag</b>.
+    </div>
+</body>
+</html>
