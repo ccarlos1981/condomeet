@@ -1,9 +1,15 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:url_launcher/url_launcher.dart';
+import 'package:condomeet/core/utils/structure_helper.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:condomeet/features/auth/presentation/bloc/auth_bloc.dart';
 import 'package:condomeet/core/design_system/design_system.dart';
-import 'package:condomeet/core/errors/result.dart';
+import 'package:condomeet/core/design_system/theme.dart';
+import 'package:condomeet/core/services/powersync_service.dart';
 import 'package:condomeet/features/portaria/domain/repositories/resident_repository.dart';
 import 'package:condomeet/features/portaria/data/repositories/resident_repository_impl.dart';
+import 'package:condomeet/core/di/injection_container.dart';
 
 class ManagerApprovalScreen extends StatefulWidget {
   const ManagerApprovalScreen({super.key});
@@ -13,7 +19,6 @@ class ManagerApprovalScreen extends StatefulWidget {
 }
 
 class _ManagerApprovalScreenState extends State<ManagerApprovalScreen> {
-  final ResidentRepository _repository = ResidentRepositoryImpl();
   List<Resident> _pendingResidents = [];
   bool _isLoading = true;
 
@@ -25,42 +30,56 @@ class _ManagerApprovalScreenState extends State<ManagerApprovalScreen> {
 
   Future<void> _loadPending() async {
     setState(() => _isLoading = true);
-    final result = await _repository.getPendingResidents();
+    final condominiumId = context.read<AuthBloc>().state.condominiumId;
+    if (condominiumId == null) {
+      setState(() => _isLoading = false);
+      return;
+    }
+    final repository = sl<ResidentRepository>();
+    final result = await repository.getPendingResidents(condominiumId);
     if (mounted) {
-      setState(() {
-        if (result is Success<List<Resident>>) {
-          _pendingResidents = result.data;
-        }
-        _isLoading = false;
-      });
+      if (result.isSuccess) {
+        setState(() {
+          _pendingResidents = result.successData;
+          _isLoading = false;
+        });
+      } else {
+        setState(() => _isLoading = false);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(result.failureMessage), backgroundColor: AppColors.error),
+        );
+      }
     }
   }
 
   Future<void> _handleAction(Resident resident, bool approved) async {
     HapticFeedback.mediumImpact();
     
-    // Optimistic UI update
+    final originalList = List<Resident>.from(_pendingResidents);
     setState(() {
       _pendingResidents.removeWhere((r) => r.id == resident.id);
     });
 
+    final repository = sl<ResidentRepository>();
     final result = approved 
-      ? await _repository.approveResident(resident.id)
-      : await _repository.rejectResident(resident.id);
+      ? await repository.approveResident(resident.id)
+      : await repository.rejectResident(resident.id);
 
-    if (mounted && result is! Success) {
-      // Revert if error
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Erro ao processar ação. Tente novamente.')),
-      );
-      _loadPending();
-    } else if (mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(approved ? '${resident.fullName} aprovado!' : 'Solicitação removida.'),
-          backgroundColor: approved ? Colors.green : Colors.redAccent,
-        ),
-      );
+    if (mounted) {
+      if (!result.isSuccess) {
+        setState(() => _pendingResidents = originalList);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(result.failureMessage), backgroundColor: AppColors.error),
+        );
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(approved ? '${resident.fullName} aprovado!' : 'Solicitação removida.'),
+            backgroundColor: approved ? Colors.green : AppColors.error,
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+      }
     }
   }
 
@@ -69,8 +88,7 @@ class _ManagerApprovalScreenState extends State<ManagerApprovalScreen> {
     return Scaffold(
       appBar: AppBar(
         title: const Text('Aprovações Pendentes'),
-        backgroundColor: Colors.transparent,
-        elevation: 0,
+        centerTitle: true,
       ),
       body: _isLoading
           ? const Center(child: CircularProgressIndicator(color: AppColors.primary))
@@ -85,13 +103,23 @@ class _ManagerApprovalScreenState extends State<ManagerApprovalScreen> {
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          const Icon(Icons.verified_user_outlined, size: 80, color: AppColors.border),
-          const SizedBox(height: 16),
-          Text('Tudo em dia!', style: AppTypography.h2),
+          Container(
+            padding: const EdgeInsets.all(24),
+            decoration: BoxDecoration(
+              color: Colors.green.withValues(alpha: 0.1),
+              shape: BoxShape.circle,
+            ),
+            child: const Icon(Icons.verified_user_rounded, size: 80, color: Colors.green),
+          ),
+          const SizedBox(height: 24),
+          const Text(
+            'Tudo em dia!',
+            style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: AppColors.textMain),
+          ),
           const SizedBox(height: 8),
-          Text(
+          const Text(
             'Nenhuma solicitação de acesso pendente.',
-            style: AppTypography.bodyLarge.copyWith(color: AppColors.textSecondary),
+            style: TextStyle(color: AppColors.textSecondary),
           ),
         ],
       ),
@@ -104,19 +132,19 @@ class _ManagerApprovalScreenState extends State<ManagerApprovalScreen> {
         Padding(
           padding: const EdgeInsets.all(16.0),
           child: Container(
-            padding: const EdgeInsets.all(12),
+            padding: const EdgeInsets.all(16),
             decoration: BoxDecoration(
-              color: AppColors.primaryLight,
-              borderRadius: BorderRadius.circular(12),
+              color: AppColors.primary.withValues(alpha: 0.1),
+              borderRadius: BorderRadius.circular(16),
             ),
-            child: Row(
+            child: const Row(
               children: [
-                const Icon(Icons.info_outline, color: AppColors.primaryDark, size: 20),
-                const SizedBox(width: 12),
+                Icon(Icons.swipe_outlined, color: AppColors.primary, size: 24),
+                SizedBox(width: 16),
                 Expanded(
                   child: Text(
-                    'Dica: Deslize para a DIREITA para aprovar e para a ESQUERDA para recusar.',
-                    style: AppTypography.bodySmall.copyWith(color: AppColors.primaryDark),
+                    'Deslize para a DIREITA para aprovar e para a ESQUERDA para recusar.',
+                    style: TextStyle(color: AppColors.primary, fontSize: 13, fontWeight: FontWeight.w500),
                   ),
                 ),
               ],
@@ -125,7 +153,7 @@ class _ManagerApprovalScreenState extends State<ManagerApprovalScreen> {
         ),
         Expanded(
           child: ListView.separated(
-            padding: const EdgeInsets.symmetric(horizontal: 16),
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
             itemCount: _pendingResidents.length,
             separatorBuilder: (_, __) => const SizedBox(height: 12),
             itemBuilder: (context, index) {
@@ -142,39 +170,61 @@ class _ManagerApprovalScreenState extends State<ManagerApprovalScreen> {
     return Dismissible(
       key: Key(resident.id),
       direction: DismissDirection.horizontal,
-      background: _buildActionBackground(Alignment.centerLeft, Colors.green, Icons.check),
-      secondaryBackground: _buildActionBackground(Alignment.centerRight, Colors.red, Icons.close),
+      background: _buildActionBackground(Alignment.centerLeft, Colors.green, Icons.check_circle_outline),
+      secondaryBackground: _buildActionBackground(Alignment.centerRight, AppColors.error, Icons.cancel_outlined),
       onDismissed: (direction) {
         _handleAction(resident, direction == DismissDirection.startToEnd);
       },
       child: Container(
         padding: const EdgeInsets.all(16),
         decoration: BoxDecoration(
-          color: AppColors.surface,
-          borderRadius: BorderRadius.circular(16),
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(20),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withValues(alpha: 0.05),
+              blurRadius: 10,
+              offset: const Offset(0, 4),
+            ),
+          ],
           border: Border.all(color: AppColors.border),
         ),
         child: Row(
           children: [
-            CircleAvatar(
+            const CircleAvatar(
               radius: 28,
-              backgroundColor: AppColors.border,
-              child: const Icon(Icons.person, color: AppColors.textSecondary),
+              backgroundColor: AppColors.surface,
+              child: Icon(Icons.person_outline, color: AppColors.primary, size: 32),
             ),
             const SizedBox(width: 16),
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(resident.fullName, style: AppTypography.h3),
                   Text(
-                    'Unidade ${resident.unitNumber} • Bloco ${resident.block}',
-                    style: AppTypography.bodySmall.copyWith(color: AppColors.textSecondary),
+                    resident.fullName, 
+                    style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18, color: AppColors.textMain),
+                  ),
+                  const SizedBox(height: 4),
+                  Row(
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                        decoration: BoxDecoration(
+                          color: AppColors.surface,
+                          borderRadius: BorderRadius.circular(6),
+                        ),
+                        child: Text(
+                          StructureHelper.getFullUnitName(context.read<AuthBloc>().state.tipoEstrutura, resident.block ?? '?', resident.unitNumber ?? '?'),
+                          style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: AppColors.textSecondary),
+                        ),
+                      ),
+                    ],
                   ),
                 ],
               ),
             ),
-            const Icon(Icons.swap_horiz, color: AppColors.border, size: 20),
+            const Icon(Icons.chevron_right, color: AppColors.border),
           ],
         ),
       ),
@@ -184,12 +234,12 @@ class _ManagerApprovalScreenState extends State<ManagerApprovalScreen> {
   Widget _buildActionBackground(Alignment alignment, Color color, IconData icon) {
     return Container(
       alignment: alignment,
-      padding: const EdgeInsets.symmetric(horizontal: 24),
+      padding: const EdgeInsets.symmetric(horizontal: 32),
       decoration: BoxDecoration(
         color: color,
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(20),
       ),
-      child: Icon(icon, color: Colors.white, size: 32),
+      child: Icon(icon, color: Colors.white, size: 40),
     );
   }
 }

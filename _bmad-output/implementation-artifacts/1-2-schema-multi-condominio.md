@@ -1,6 +1,13 @@
 # Story 1.2: Schema Multi-Condomínio (Postgres + RLS)
 
-Status: review
+Status: done
+
+## Review Follow-ups (AI)
+
+- [x] [AI-Review][High] Implemented `deleted_at` columns and functional soft-delete support in SQL.
+- [x] [AI-Review][High] Added `handle_updated_at()` trigger function and applied to all tables for PowerSync.
+- [x] [AI-Review][High] Optimized RLS policies to avoid Recursion and N+1 performance bottlenecks.
+- [x] [AI-Review][High] Updated Dart models (`Profile`, `Condominium`) with full metadata and robust parsing.
 
 ## Story
 

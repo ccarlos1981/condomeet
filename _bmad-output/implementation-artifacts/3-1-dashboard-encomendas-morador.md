@@ -20,14 +20,14 @@ So that I know exactly what needs to be collected from the gate.
 
 ## Tasks / Subtasks
 
-- [ ] UI Components
-  - [ ] Create `ParcelCard` widget for the dashboard.
-  - [ ] Handle image loading with placeholders.
-- [ ] Screen Implementation
-  - [ ] Build `ParcelDashboardScreen`.
-  - [ ] Integrate with `ParcelRepository` to fetch parcels for the current user.
-- [ ] Navigation
-  - [ ] Add "Minhas Encomendas" to the resident's home.
+- [x] UI Components
+  - [x] Create `ParcelCard` widget for the dashboard (implemented inline as _buildParcelCard).
+  - [x] Handle image loading with placeholders.
+- [x] Screen Implementation
+  - [x] Build `ParcelDashboardScreen`.
+  - [x] Integrate with `ParcelRepository` to fetch parcels for the current user.
+- [x] Navigation
+  - [x] Add "Minhas Encomendas" to the resident's home.
 
 ## Dev Notes
 

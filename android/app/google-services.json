@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "239069018659",
+    "project_id": "condomeet-oficial",
+    "storage_bucket": "condomeet-oficial.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:239069018659:android:2bfa045c2823e9d4fccf96",
+        "android_client_info": {
+          "package_name": "com.beep.condomeet.condomeet"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCe2YbC2kOcxQAhs0IYtzT-h8ZOuybEKVM"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

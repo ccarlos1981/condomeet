@@ -1,10 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:condomeet/core/design_system/design_system.dart';
-import 'package:condomeet/core/errors/result.dart';
 import 'package:condomeet/features/security/domain/models/occurrence.dart';
-import 'package:condomeet/features/security/domain/repositories/occurrence_repository.dart';
-import 'package:condomeet/features/security/data/repositories/occurrence_repository_impl.dart';
+import 'package:condomeet/features/security/presentation/bloc/occurrence_bloc.dart';
+import 'package:condomeet/features/security/presentation/bloc/occurrence_event.dart';
+import 'package:condomeet/features/security/presentation/bloc/occurrence_state.dart';
+import 'package:condomeet/features/auth/presentation/bloc/auth_bloc.dart';
 
 class OccurrenceReportScreen extends StatefulWidget {
   final String residentId;
@@ -18,40 +20,31 @@ class OccurrenceReportScreen extends StatefulWidget {
 class _OccurrenceReportScreenState extends State<OccurrenceReportScreen> {
   final _formKey = GlobalKey<FormState>();
   final _descriptionController = TextEditingController();
-  final OccurrenceRepository _repository = OccurrenceRepositoryImpl();
   OccurrenceCategory _selectedCategory = OccurrenceCategory.maintenance;
-  bool _isLoading = false;
   final List<String> _simulatedPhotos = [];
 
-  Future<void> _handleSubmit() async {
+  void _handleSubmit() {
     if (!_formKey.currentState!.validate()) return;
 
-    setState(() => _isLoading = true);
-    HapticFeedback.mediumImpact();
-
-    final result = await _repository.reportOccurrence(
-      residentId: widget.residentId,
-      description: _descriptionController.text,
-      category: _selectedCategory,
-      photoPaths: _simulatedPhotos,
-    );
-
-    if (mounted) {
-      setState(() => _isLoading = false);
-      if (result is Success) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Ocorrência registrada com sucesso!'),
-            backgroundColor: Colors.green,
-          ),
-        );
-        Navigator.of(context).pop();
-      } else {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Erro ao registrar ocorrência.')),
-        );
-      }
+    final authState = context.read<AuthBloc>().state;
+    if (authState.condominiumId == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Erro: Condomínio não identificado.')),
+      );
+      return;
     }
+
+    HapticFeedback.mediumImpact();
+    
+    context.read<OccurrenceBloc>().add(
+      ReportOccurrenceRequested(
+        residentId: widget.residentId,
+        condominiumId: authState.condominiumId!,
+        description: _descriptionController.text,
+        category: _selectedCategory,
+        photoPaths: _simulatedPhotos,
+      ),
+    );
   }
 
   void _simulatePhotoCapture() {
@@ -69,58 +62,77 @@ class _OccurrenceReportScreenState extends State<OccurrenceReportScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('Registrar Ocorrência'),
-        backgroundColor: Colors.transparent,
-        elevation: 0,
-      ),
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.all(24),
-        child: Form(
-          key: _formKey,
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text('O que aconteceu?', style: AppTypography.h1),
-              const SizedBox(height: 8),
-              Text(
-                'Relate problemas de forma clara para que a administração possa resolvê-los.',
-                style: AppTypography.bodyLarge.copyWith(color: AppColors.textSecondary),
-              ),
-              const SizedBox(height: 32),
-              
-              Text('Categoria', style: AppTypography.label),
-              const SizedBox(height: 12),
-              _buildCategorySelector(),
-              
-              const SizedBox(height: 24),
-              
-              CondoInput(
-                label: 'Descrição do Problema',
-                hint: 'Ex: Lâmpada do 5º andar queimada ou barulho excessivo vindo da unidade 302...',
-                controller: _descriptionController,
-                maxLines: 4,
-                validator: (value) => value == null || value.isEmpty ? 'Descreva o problema' : null,
-              ),
-              
-              const SizedBox(height: 32),
-              
-              Text('Evidências Visuais (Opcional)', style: AppTypography.label),
-              const SizedBox(height: 12),
-              _buildPhotoEvidenceSection(),
-              
-              const SizedBox(height: 48),
-              
-              CondoButton(
-                label: 'Enviar Relato',
-                isLoading: _isLoading,
-                onPressed: _handleSubmit,
-              ),
-            ],
+    return BlocConsumer<OccurrenceBloc, OccurrenceState>(
+      listener: (context, state) {
+        if (state is OccurrenceSuccess) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Ocorrência registrada com sucesso!'),
+              backgroundColor: Colors.green,
+            ),
+          );
+          Navigator.of(context).pop();
+        } else if (state is OccurrenceError) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text(state.message)),
+          );
+        }
+      },
+      builder: (context, state) {
+        return Scaffold(
+          appBar: AppBar(
+            title: const Text('Registrar Ocorrência'),
+            backgroundColor: Colors.transparent,
+            elevation: 0,
           ),
-        ),
-      ),
+          body: SingleChildScrollView(
+            padding: const EdgeInsets.all(24),
+            child: Form(
+              key: _formKey,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text('O que aconteceu?', style: AppTypography.h1),
+                  const SizedBox(height: 8),
+                  Text(
+                    'Relate problemas de forma clara para que a administração possa resolvê-los.',
+                    style: AppTypography.bodyLarge.copyWith(color: AppColors.textSecondary),
+                  ),
+                  const SizedBox(height: 32),
+                  
+                  Text('Categoria', style: AppTypography.label),
+                  const SizedBox(height: 12),
+                  _buildCategorySelector(),
+                  
+                  const SizedBox(height: 24),
+                  
+                  CondoInput(
+                    label: 'Descrição do Problema',
+                    hint: 'Ex: Lâmpada do 5º andar queimada ou barulho excessivo vindo da unidade 302...',
+                    controller: _descriptionController,
+                    maxLines: 4,
+                    validator: (value) => value == null || value.isEmpty ? 'Descreva o problema' : null,
+                  ),
+                  
+                  const SizedBox(height: 32),
+                  
+                  Text('Evidências Visuais (Opcional)', style: AppTypography.label),
+                  const SizedBox(height: 12),
+                  _buildPhotoEvidenceSection(),
+                  
+                  const SizedBox(height: 48),
+                  
+                  CondoButton(
+                    label: 'Enviar Relato',
+                    isLoading: state is OccurrenceLoading,
+                    onPressed: _handleSubmit,
+                  ),
+                ],
+              ),
+            ),
+          ),
+        );
+      },
     );
   }
 
@@ -131,8 +143,12 @@ class _OccurrenceReportScreenState extends State<OccurrenceReportScreen> {
       children: OccurrenceCategory.values.map((category) {
         final isSelected = _selectedCategory == category;
         final occurrence = Occurrence(
-          id: '', residentId: '', description: '', 
-          category: category, timestamp: DateTime.now()
+          id: '', 
+          resident_id: '', 
+          condominium_id: '',
+          description: '', 
+          category: category, 
+          timestamp: DateTime.now(),
         );
 
         return ChoiceChip(
@@ -141,7 +157,7 @@ class _OccurrenceReportScreenState extends State<OccurrenceReportScreen> {
           onSelected: (selected) {
             if (selected) setState(() => _selectedCategory = category);
           },
-          selectedColor: AppColors.primary.withValues(alpha: 0.2),
+          selectedColor: AppColors.primary.withOpacity(0.2),
           labelStyle: TextStyle(
             color: isSelected ? AppColors.primary : AppColors.textMain,
             fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,

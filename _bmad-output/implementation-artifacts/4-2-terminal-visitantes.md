@@ -18,14 +18,14 @@ So that I can authorize entry without manual phone calls to residents.
 
 ## Tasks / Subtasks
 
-- [ ] UI Implementation
-  - [ ] Build `GuestCheckinScreen`.
-  - [ ] Implement live search/filtering of invitations.
-- [ ] Integration
-  - [ ] Use `InvitationRepository.getActiveInvitations()`.
-  - [ ] Use `InvitationRepository.markAsUsed()`.
-- [ ] Navigation
-  - [ ] Add "Terminal de Visitantes" to the porter's dashboard/menu.
+- [x] UI Implementation
+  - [x] Build `GuestCheckinScreen`.
+  - [x] Implement live search/filtering of invitations.
+- [x] Integration
+  - [x] Use `InvitationRepository.getActiveInvitations()`.
+  - [x] Use `InvitationRepository.markAsUsed()`.
+- [x] Navigation
+  - [x] Add "Terminal de Visitantes" to the porter's dashboard/menu.
 
 ## Dev Notes
 

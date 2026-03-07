@@ -2,24 +2,31 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:condomeet/core/design_system/design_system.dart';
-import 'package:condomeet/features/security/data/repositories/sos_repository_impl.dart';
+import 'package:condomeet/core/di/injection_container.dart';
+import 'package:condomeet/features/security/domain/repositories/sos_repository.dart';
+
+import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:condomeet/features/auth/presentation/bloc/auth_bloc.dart';
+import 'package:condomeet/features/auth/presentation/bloc/auth_state.dart';
 
 class SOSButton extends StatefulWidget {
-  final String residentId;
+  final String? residentId;
 
-  const SOSButton({super.key, required this.residentId});
+  const SOSButton({super.key, this.residentId});
 
   @override
   State<SOSButton> createState() => _SOSButtonState();
 }
 
 class _SOSButtonState extends State<SOSButton> with SingleTickerProviderStateMixin {
+  late final SOSRepository _sosRepository;
   late AnimationController _controller;
   bool _isSuccess = false;
 
   @override
   void initState() {
     super.initState();
+    _sosRepository = sl<SOSRepository>();
     _controller = AnimationController(
       vsync: this,
       duration: const Duration(seconds: 3),
@@ -37,11 +44,27 @@ class _SOSButtonState extends State<SOSButton> with SingleTickerProviderStateMix
   }
 
   Future<void> _triggerSOS() async {
+    final authState = context.read<AuthBloc>().state;
+    final condoId = authState.condominiumId;
+
+    if (condoId == null) {
+      debugPrint('SOS: Condomínio não identificado. SOS não enviado.');
+      _controller.reset();
+      return;
+    }
+
+    final effectiveResidentId = widget.residentId ?? authState.userId;
+    if (effectiveResidentId == null) {
+      _controller.reset();
+      return;
+    }
+
     HapticFeedback.heavyImpact();
     setState(() => _isSuccess = true);
     
-    await sosRepository.triggerSOS(
-      residentId: widget.residentId,
+    await _sosRepository.triggerSOS(
+      residentId: effectiveResidentId,
+      condominiumId: condoId,
       latitude: -23.5505, // Simulated
       longitude: -46.6333,
     );

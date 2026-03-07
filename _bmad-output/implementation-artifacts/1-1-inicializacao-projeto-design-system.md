@@ -1,6 +1,15 @@
 # Story 1.1: Inicialização do Projeto & Design System
 
-Status: review
+Status: done
+
+## Review Follow-ups (AI)
+
+- [x] [AI-Review][High] Added `focusNode`, `textInputAction` and `onFieldSubmitted` to `CondoInput`.
+- [x] [AI-Review][High] Implemented robust widget tests in `test/widget_test.dart`.
+- [x] [AI-Review][Medium] Converted `AppTypography` to static final constants for performance.
+- [x] [AI-Review][Medium] Completed `AppTheme.dark` with full `textTheme` mapping.
+- [x] [AI-Review][Medium] Added `fold` method to `Result` class for functional patterns.
+- [x] [AI-Review][Low] Removed TODO comments and cleaned up theme code.
 
 ## Story
 

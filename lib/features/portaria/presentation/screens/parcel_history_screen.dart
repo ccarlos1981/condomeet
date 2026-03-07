@@ -1,8 +1,14 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:condomeet/core/design_system/design_system.dart';
-import 'package:condomeet/core/errors/result.dart';
-import 'package:condomeet/features/portaria/domain/repositories/parcel_repository.dart';
-import 'package:condomeet/features/portaria/data/repositories/parcel_repository_impl.dart';
+import 'package:condomeet/core/utils/structure_helper.dart';
+import '../../../parcels/presentation/bloc/parcel_bloc.dart';
+import '../../../parcels/presentation/bloc/parcel_event.dart';
+import '../../../parcels/presentation/bloc/parcel_state.dart';
+import '../../../portaria/domain/entities/parcel.dart';
+
+import 'package:condomeet/features/auth/presentation/bloc/auth_bloc.dart';
+import 'package:condomeet/features/auth/presentation/bloc/auth_state.dart';
 
 class ParcelHistoryScreen extends StatefulWidget {
   final String? residentId; // Null means Porter view (all history)
@@ -14,41 +20,49 @@ class ParcelHistoryScreen extends StatefulWidget {
 }
 
 class _ParcelHistoryScreenState extends State<ParcelHistoryScreen> {
-  final ParcelRepository _repository = ParcelRepositoryImpl();
-  List<Parcel> _parcels = [];
-  bool _isLoading = true;
-
   @override
   void initState() {
     super.initState();
-    _loadHistory();
-  }
-
-  Future<void> _loadHistory() async {
-    final result = await _repository.getParcelHistory(residentId: widget.residentId);
-    if (mounted) {
-      setState(() {
-        if (result is Success<List<Parcel>>) {
-          _parcels = result.data;
-        }
-        _isLoading = false;
-      });
+    final condoId = context.read<AuthBloc>().state.condominiumId;
+    if (condoId != null) {
+      context.read<ParcelBloc>().add(FetchParcelHistoryRequested(
+        residentId: widget.residentId,
+        condominiumId: condoId,
+      ));
     }
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      backgroundColor: const Color(0xFFF8F9FA),
       appBar: AppBar(
         title: const Text('Histórico de Encomendas'),
-        backgroundColor: Colors.transparent,
+        backgroundColor: Colors.white,
+        foregroundColor: AppColors.primary,
         elevation: 0,
       ),
-      body: _isLoading
-          ? const Center(child: CircularProgressIndicator(color: AppColors.primary))
-          : _parcels.isEmpty
-              ? _buildEmptyState()
-              : _buildHistoryList(),
+      body: BlocBuilder<ParcelBloc, ParcelState>(
+        builder: (context, state) {
+          if (state is ParcelLoading) {
+            return const Center(child: CircularProgressIndicator(color: AppColors.primary));
+          }
+
+          if (state is ParcelError) {
+            return Center(child: Text(state.message, style: const TextStyle(color: Colors.red)));
+          }
+
+          if (state is ParcelLoaded) {
+            final parcels = state.historyParcels;
+            if (parcels.isEmpty) {
+              return _buildEmptyState();
+            }
+            return _buildHistoryList(parcels);
+          }
+
+          return const SizedBox.shrink();
+        },
+      ),
     );
   }
 
@@ -57,7 +71,7 @@ class _ParcelHistoryScreenState extends State<ParcelHistoryScreen> {
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Icon(Icons.history, size: 80, color: AppColors.border),
+          const Icon(Icons.history, size: 80, color: Color(0xFFCED4DA)),
           const SizedBox(height: 16),
           Text('Nenhum registro', style: AppTypography.h2),
           const SizedBox(height: 8),
@@ -70,31 +84,44 @@ class _ParcelHistoryScreenState extends State<ParcelHistoryScreen> {
     );
   }
 
-  Widget _buildHistoryList() {
+  Widget _buildHistoryList(List<Parcel> parcels) {
     return ListView.separated(
       padding: const EdgeInsets.all(16),
-      itemCount: _parcels.length,
+      itemCount: parcels.length,
       separatorBuilder: (_, __) => const SizedBox(height: 12),
       itemBuilder: (context, index) {
-        final parcel = _parcels[index];
+        final parcel = parcels[index];
         return _buildHistoryCard(parcel);
       },
     );
   }
 
   Widget _buildHistoryCard(Parcel parcel) {
+    final authState = context.read<AuthBloc>().state;
+    final unitName = StructureHelper.getFullUnitName(
+      authState.tipoEstrutura,
+      parcel.block,
+      parcel.unitNumber,
+    );
+
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: AppColors.surface,
+        color: Colors.white,
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: AppColors.border),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.05),
+            blurRadius: 10,
+            offset: const Offset(0, 4),
+          ),
+        ],
       ),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           CircleAvatar(
-            backgroundColor: Colors.green.withValues(alpha: 0.1),
+            backgroundColor: Colors.green.withOpacity(0.1),
             child: const Icon(Icons.check, color: Colors.green),
           ),
           const SizedBox(width: 16),
@@ -104,17 +131,17 @@ class _ParcelHistoryScreenState extends State<ParcelHistoryScreen> {
               children: [
                 Text(parcel.residentName, style: AppTypography.h3),
                 Text(
-                  'Unidade ${parcel.unitNumber} • Bloco ${parcel.block}',
+                  unitName,
                   style: AppTypography.bodySmall.copyWith(color: AppColors.textSecondary),
                 ),
                 const SizedBox(height: 8),
                 Row(
                   children: [
-                    Icon(Icons.access_time, size: 14, color: AppColors.textSecondary),
+                    const Icon(Icons.access_time, size: 14, color: AppColors.textSecondary),
                     const SizedBox(width: 4),
                     Text(
-                      'Entregue em: ${parcel.arrivalTime.day}/${parcel.arrivalTime.month} ${parcel.arrivalTime.hour}:${parcel.arrivalTime.minute.toString().padLeft(2, '0')}',
-                      style: AppTypography.bodySmall.copyWith(fontSize: 10),
+                      'Entregue em: ${parcel.deliveryTime?.day}/${parcel.deliveryTime?.month} às ${parcel.deliveryTime?.hour}:${parcel.deliveryTime?.minute.toString().padLeft(2, '0')}',
+                      style: AppTypography.bodySmall.copyWith(fontSize: 10, color: AppColors.textSecondary),
                     ),
                   ],
                 ),
@@ -123,11 +150,11 @@ class _ParcelHistoryScreenState extends State<ParcelHistoryScreen> {
           ),
           Column(
             children: [
-              const Icon(Icons.verified_user_outlined, size: 20, color: Colors.blue),
+              const Icon(Icons.verified_user_outlined, size: 20, color: AppColors.primary),
               const SizedBox(height: 4),
               Text(
                 'Auditado',
-                style: AppTypography.label.copyWith(fontSize: 8, color: Colors.blue),
+                style: AppTypography.label.copyWith(fontSize: 8, color: AppColors.primary),
               ),
             ],
           ),
@@ -136,3 +163,4 @@ class _ParcelHistoryScreenState extends State<ParcelHistoryScreen> {
     );
   }
 }
+

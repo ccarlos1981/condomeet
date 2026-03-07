@@ -1,5 +1,5 @@
 -- Migration: 1.3 Consentimento LGPD
--- Description: Creates user_consents table for LGPD compliance tracking.
+-- Description: Creates user_consents table with PowerSync audit columns and triggers.
 
 -- 1. User Consents Table
 CREATE TABLE IF NOT EXISTS public.user_consents (
@@ -10,6 +10,7 @@ CREATE TABLE IF NOT EXISTS public.user_consents (
     revoked_at TIMESTAMPTZ,
     created_at TIMESTAMPTZ DEFAULT now() NOT NULL,
     updated_at TIMESTAMPTZ DEFAULT now() NOT NULL,
+    deleted_at TIMESTAMPTZ, -- Soft delete support
     UNIQUE(user_id, consent_type)
 );
 
@@ -26,6 +27,11 @@ CREATE POLICY "Users can insert their own consents" ON public.user_consents
 CREATE POLICY "Users can update their own consents" ON public.user_consents
     FOR UPDATE USING (user_id = auth.uid());
 
--- 4. Index for performance
+-- 4. Triggers for PowerSync Sync
+CREATE TRIGGER set_updated_at_user_consents
+BEFORE UPDATE ON public.user_consents
+FOR EACH ROW EXECUTE FUNCTION public.handle_updated_at();
+
+-- 5. Indexes for performance
 CREATE INDEX IF NOT EXISTS idx_user_consents_user_id ON public.user_consents(user_id);
 CREATE INDEX IF NOT EXISTS idx_user_consents_active ON public.user_consents(user_id, consent_type) WHERE revoked_at IS NULL;

@@ -1,12 +1,28 @@
 import 'package:flutter/material.dart';
-import 'package:condomeet/core/errors/result.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:condomeet/core/design_system/design_system.dart';
 import 'package:condomeet/features/community/domain/models/common_area.dart';
-import 'package:condomeet/features/community/data/repositories/booking_repository_impl.dart';
+import 'package:condomeet/features/community/presentation/bloc/booking_bloc.dart';
+import 'package:condomeet/features/community/presentation/bloc/booking_bloc_components.dart';
 import 'package:condomeet/features/community/presentation/screens/area_availability_screen.dart';
+import 'package:condomeet/features/auth/presentation/bloc/auth_bloc.dart';
 
-class AreaPickerScreen extends StatelessWidget {
+class AreaPickerScreen extends StatefulWidget {
   const AreaPickerScreen({super.key});
+
+  @override
+  State<AreaPickerScreen> createState() => _AreaPickerScreenState();
+}
+
+class _AreaPickerScreenState extends State<AreaPickerScreen> {
+  @override
+  void initState() {
+    super.initState();
+    final authState = context.read<AuthBloc>().state;
+    if (authState.condominiumId != null) {
+      context.read<BookingBloc>().add(WatchCommonAreasRequested(authState.condominiumId!));
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -16,30 +32,31 @@ class AreaPickerScreen extends StatelessWidget {
         backgroundColor: Colors.transparent,
         elevation: 0,
       ),
-      body: FutureBuilder<List<CommonArea>>(
-        future: bookingRepository.getCommonAreas().then((res) {
-          if (res is Success<List<CommonArea>>) {
-            return res.data;
-          }
-          return [];
-        }),
-        builder: (context, snapshot) {
-          if (snapshot.connectionState == ConnectionState.waiting) {
+      body: BlocBuilder<BookingBloc, BookingState>(
+        builder: (context, state) {
+          if (state is BookingLoading) {
             return const Center(child: CircularProgressIndicator());
           }
-          
-          if (!snapshot.hasData || snapshot.data!.isEmpty) {
-            return const Center(child: Text('Nenhum espaço disponível.'));
+
+          if (state is BookingError) {
+            return Center(child: Text(state.message));
           }
 
-          final areas = snapshot.data!;
-          return ListView.builder(
-            padding: const EdgeInsets.all(24),
-            itemCount: areas.length,
-            itemBuilder: (context, index) {
-              return _buildAreaCard(context, areas[index]);
-            },
-          );
+          if (state is BookingAreasLoaded) {
+            if (state.areas.isEmpty) {
+              return const Center(child: Text('Nenhum espaço disponível.'));
+            }
+
+            return ListView.builder(
+              padding: const EdgeInsets.all(24),
+              itemCount: state.areas.length,
+              itemBuilder: (context, index) {
+                return _buildAreaCard(context, state.areas[index]);
+              },
+            );
+          }
+
+          return const SizedBox.shrink();
         },
       ),
     );

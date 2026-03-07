@@ -1,0 +1,15 @@
+{
+    "Simulator Target Bundle": "com.beep.condomeet.condomeet",
+    "aps": {
+        "alert": {
+            "title": "Condomeet",
+            "body": "Teste de Notificação Push no Simulador! 🚀"
+        },
+        "sound": "default",
+        "badge": 1
+    },
+    "data": {
+        "type": "test",
+        "click_action": "FLUTTER_NOTIFICATION_CLICK"
+    }
+}

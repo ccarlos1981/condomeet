@@ -1,6 +1,14 @@
 # Story 1.3: Consentimento LGPD
 
-Status: review
+Status: done
+
+## Review Follow-ups (AI)
+
+- [x] [AI-Review][High] Implemented real persistence logic (simulated async) and SnackBar feedback in `ConsentScreen`.
+- [x] [AI-Review][High] Added `deleted_at` column and `set_updated_at_user_consents` trigger for PowerSync.
+- [x] [AI-Review][High] Updated `UserConsent` model with full audit metadata and safer enum parsing.
+- [x] [AI-Review][High] Removed document viewing placeholders; implemented modal document viewer in `ConsentScreen`.
+- [x] [AI-Review][Medium] Added loading state to `ConsentScreen` to prevent double-submissions.
 
 ## Story
 

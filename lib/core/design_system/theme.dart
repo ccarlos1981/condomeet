@@ -72,6 +72,19 @@ class AppTheme {
           error: AppColors.error,
         ),
         scaffoldBackgroundColor: AppColors.darkBackground,
-        // (Similar mapping for dark text styles if needed)
+        textTheme: TextTheme(
+          displayLarge: AppTypography.h1.copyWith(color: AppColors.darkTextMain),
+          displayMedium: AppTypography.h2.copyWith(color: AppColors.darkTextMain),
+          displaySmall: AppTypography.h3.copyWith(color: AppColors.darkTextMain),
+          bodyLarge: AppTypography.bodyLarge.copyWith(color: AppColors.darkTextMain),
+          bodyMedium: AppTypography.bodyMedium.copyWith(color: AppColors.darkTextMain),
+          bodySmall: AppTypography.bodySmall.copyWith(color: AppColors.darkTextSecondary),
+        ),
+        appBarTheme: const AppBarTheme(
+          backgroundColor: AppColors.darkBackground,
+          elevation: 0,
+          centerTitle: true,
+          iconTheme: IconThemeData(color: AppColors.darkTextMain),
+        ),
       );
 }

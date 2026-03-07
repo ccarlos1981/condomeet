@@ -1,69 +1,67 @@
 import 'dart:async';
+import 'package:uuid/uuid.dart';
 import 'package:condomeet/core/errors/result.dart';
+import 'package:condomeet/core/services/powersync_service.dart';
 import 'package:condomeet/features/security/domain/models/chat_message.dart';
 import 'package:condomeet/features/security/domain/repositories/chat_repository.dart';
 
 class ChatRepositoryImpl implements ChatRepository {
-  final _messagesController = StreamController<List<ChatMessage>>.broadcast();
-  final List<ChatMessage> _messages = [
-    ChatMessage(
-      id: '1',
-      text: 'Olá! Como podemos ajudar hoje?',
-      timestamp: DateTime.now().subtract(const Duration(hours: 1)),
-      sender: MessageSender.administration,
-      senderName: 'Administração',
-    ),
-  ];
+  final PowerSyncService _powerSync;
 
-  ChatRepositoryImpl() {
-    _messagesController.add(List.from(_messages));
-  }
+  ChatRepositoryImpl(this._powerSync);
 
   @override
   Stream<List<ChatMessage>> watchMessages(String residentId) {
-    return _messagesController.stream;
+    return _powerSync.db.watch(
+      '''
+      SELECT c.*, p.full_name as sender_name
+      FROM chat_messages c
+      JOIN profiles p ON c.sender_id = p.id
+      WHERE c.resident_id = ?
+      ORDER BY c.created_at ASC
+      ''',
+      parameters: [residentId],
+    ).map((rows) => rows.map((row) => ChatMessage.fromMap(row)).toList());
+  }
+
+  @override
+  Stream<List<ChatMessage>> watchAllThreads(String condominiumId) {
+    // This query gets the last message from each thread (grouped by resident_id)
+    return _powerSync.db.watch(
+      '''SELECT * FROM mensagens_chat 
+        WHERE condominio_id = ? 
+        ORDER BY created_at ASC''',
+      parameters: [condominiumId],
+    ).map((rows) => rows.map((row) => ChatMessage.fromMap(row)).toList());
   }
 
   @override
   Future<Result<void>> sendMessage({
     required String residentId,
+    required String condominiumId,
+    required String senderId,
+    required MessageSenderRole senderRole,
     required String text,
   }) async {
-    final newMessage = ChatMessage(
-      id: DateTime.now().millisecondsSinceEpoch.toString(),
-      text: text,
-      timestamp: DateTime.now(),
-      sender: MessageSender.resident,
-      senderName: 'Cristiano Carlos',
-    );
-
-    _messages.add(newMessage);
-    _messagesController.add(List.from(_messages));
-
-    // Simulate auto-reply from Admin
-    _simulateAdminReply();
-
-    return const Success(null);
-  }
-
-  void _simulateAdminReply() {
-    Future.delayed(const Duration(seconds: 2), () {
-      final reply = ChatMessage(
-        id: DateTime.now().millisecondsSinceEpoch.toString(),
-        text: 'Obrigado pelo contato. Recebemos sua mensagem e um atendente falará com você em breve.',
-        timestamp: DateTime.now(),
-        sender: MessageSender.administration,
-        senderName: 'Administração',
+    try {
+      final id = const Uuid().v4();
+      await _powerSync.db.execute(
+        '''INSERT INTO mensagens_chat (id, resident_id, condominio_id, sender_id, sender_role, text, created_at, updated_at)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?)''',
+        [
+          id,
+          residentId,
+          condominiumId,
+          senderId,
+          senderRole.name,
+          text,
+          DateTime.now().toIso8601String(),
+          DateTime.now().toIso8601String(),
+        ],
       );
-      _messages.add(reply);
-      _messagesController.add(List.from(_messages));
-    });
-  }
-
-  void dispose() {
-    _messagesController.close();
+      return const Success(null);
+    } catch (e) {
+      return Failure('Erro ao enviar mensagem: ${e.toString()}');
+    }
   }
 }
-
-// Global instance for mock
-final chatRepository = ChatRepositoryImpl();

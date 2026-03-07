@@ -1,14 +1,20 @@
+import 'package:condomeet/core/design_system/design_system.dart';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:condomeet/core/design_system/design_system.dart';
-import 'package:condomeet/core/errors/result.dart';
-import 'package:condomeet/features/access/domain/models/invitation.dart';
-import 'package:condomeet/features/access/domain/repositories/invitation_repository.dart';
-import 'package:condomeet/features/access/data/repositories/invitation_repository_impl.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:qr_flutter/qr_flutter.dart';
+import 'package:share_plus/share_plus.dart';
+import 'package:condomeet/core/design_system/theme.dart';
+import 'package:condomeet/core/design_system/condo_button.dart';
+import 'package:condomeet/core/design_system/condo_input.dart';
+import 'package:condomeet/features/auth/presentation/bloc/auth_bloc.dart';
+import '../bloc/invitation_bloc.dart';
+import '../bloc/invitation_event.dart';
+import '../bloc/invitation_state.dart';
 
 class InvitationGeneratorScreen extends StatefulWidget {
   final String residentId;
-
   const InvitationGeneratorScreen({super.key, required this.residentId});
 
   @override
@@ -16,215 +22,208 @@ class InvitationGeneratorScreen extends StatefulWidget {
 }
 
 class _InvitationGeneratorScreenState extends State<InvitationGeneratorScreen> {
-  final InvitationRepository _repository = InvitationRepositoryImpl();
-  final TextEditingController _nameController = TextEditingController();
+  final _nameController = TextEditingController();
   DateTime _selectedDate = DateTime.now();
   bool _isGenerating = false;
 
-  Future<void> _handleGenerate() async {
-    if (_nameController.text.isEmpty) {
+  @override
+  void dispose() {
+    _nameController.dispose();
+    super.dispose();
+  }
+
+  void _presentDatePicker() async {
+    final now = DateTime.now();
+    final picked = await showDatePicker(
+      context: context,
+      initialDate: _selectedDate,
+      firstDate: now,
+      lastDate: now.add(const Duration(days: 30)),
+    );
+    if (picked != null) {
+      setState(() => _selectedDate = picked);
+    }
+  }
+
+  void _generateInvitation() {
+    if (_nameController.text.trim().isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Por favor, informe o nome do convidado.')),
+        const SnackBar(content: Text('Por favor, informe o nome do convidado')),
+      );
+      return;
+    }
+
+    final authState = context.read<AuthBloc>().state;
+    if (authState.condominiumId == null || authState.userId == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Erro: Usuário não identificado')),
       );
       return;
     }
 
     setState(() => _isGenerating = true);
     
-    final result = await _repository.createInvitation(
-      residentId: widget.residentId,
-      guestName: _nameController.text,
+    context.read<InvitationBloc>().add(CreateInvitationRequested(
+      residentId: authState.userId!,
+      condominiumId: authState.condominiumId!,
+      guestName: _nameController.text.trim(),
       validityDate: _selectedDate,
-    );
-
-    if (mounted) {
-      setState(() => _isGenerating = false);
-      if (result is Success<Invitation>) {
-        _showSuccess(result.data);
-      } else {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Erro ao gerar convite.')),
-        );
-      }
-    }
-  }
-
-  void _showSuccess(Invitation invitation) {
-    HapticFeedback.heavyImpact();
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.transparent,
-      builder: (context) => _buildSuccessSheet(invitation),
-    );
-  }
-
-  Widget _buildSuccessSheet(Invitation invitation) {
-    return Container(
-      padding: const EdgeInsets.all(24),
-      decoration: const BoxDecoration(
-        color: AppColors.background,
-        borderRadius: BorderRadius.vertical(top: Radius.circular(32)),
-      ),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Container(
-            width: 40,
-            height: 4,
-            decoration: BoxDecoration(
-              color: AppColors.border,
-              borderRadius: BorderRadius.circular(2),
-            ),
-          ),
-          const SizedBox(height: 24),
-          const Icon(Icons.check_circle, color: Colors.green, size: 64),
-          const SizedBox(height: 16),
-          Text('Convite Gerado!', style: AppTypography.h2),
-          const SizedBox(height: 8),
-          Text(
-            'Compartilhe com seu convidado para agilizar a entrada na portaria.',
-            textAlign: TextAlign.center,
-            style: AppTypography.bodyMedium.copyWith(color: AppColors.textSecondary),
-          ),
-          const SizedBox(height: 32),
-          Container(
-            padding: const EdgeInsets.all(16),
-            decoration: BoxDecoration(
-              color: AppColors.surface,
-              borderRadius: BorderRadius.circular(16),
-              border: Border.all(color: AppColors.border),
-            ),
-            child: Row(
-              children: [
-                const Icon(Icons.qr_code_2, size: 48, color: AppColors.textMain),
-                const SizedBox(width: 16),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(invitation.guestName, style: AppTypography.h3),
-                      Text(
-                        'Válido até: ${_selectedDate.day}/${_selectedDate.month}',
-                        style: AppTypography.bodySmall,
-                      ),
-                    ],
-                  ),
-                ),
-              ],
-            ),
-          ),
-          const SizedBox(height: 32),
-          CondoButton(
-            label: 'Compartilhar Convite',
-            onPressed: () {
-              Navigator.pop(context);
-              // Simulated share logic
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text('Abrindo menu de compartilhamento...')),
-              );
-            },
-          ),
-          const SizedBox(height: 12),
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: Text('Fechar', style: TextStyle(color: AppColors.textSecondary)),
-          ),
-          const SizedBox(height: 16),
-        ],
-      ),
-    );
+    ));
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Novo Convite'),
-        backgroundColor: Colors.transparent,
-        elevation: 0,
+        title: const Text('Gerar Convite'),
+        centerTitle: true,
       ),
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.all(24),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text('Quem é o convidado?', style: AppTypography.h2),
-            const SizedBox(height: 24),
-            CondoInput(
-              label: 'Nome do Convidado',
-              hint: 'Ex: João Silva',
-              controller: _nameController,
-              prefix: const Icon(Icons.person_outline),
+      body: BlocConsumer<InvitationBloc, InvitationState>(
+        listener: (context, state) {
+          if (state is InvitationCreated) {
+            setState(() => _isGenerating = false);
+            _showSuccessDialog(state.invitation.qrData, state.invitation.guestName);
+          } else if (state is InvitationError) {
+            setState(() => _isGenerating = false);
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(content: Text(state.message), backgroundColor: AppColors.error),
+            );
+          }
+        },
+        builder: (context, state) {
+          return SingleChildScrollView(
+            padding: const EdgeInsets.all(24),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                const Icon(
+                  Icons.qr_code_2,
+                  size: 64,
+                  color: AppColors.primary,
+                ),
+                const SizedBox(height: 16),
+                Text(
+                  'Crie um acesso rápido para seu convidado',
+                  textAlign: TextAlign.center,
+                  style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                const SizedBox(height: 32),
+                CondoInput(
+                  controller: _nameController,
+                  label: 'Nome do Convidado',
+                  hint: 'Dê um nome para o convite (ex: Aniversário)',
+                prefix: const Icon(Icons.edit_note),
+                ),
+                const SizedBox(height: 16),
+                InkWell(
+                  onTap: _presentDatePicker,
+                  child: Container(
+                    padding: const EdgeInsets.all(16),
+                    decoration: BoxDecoration(
+                      color: AppColors.surface,
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(color: AppColors.border),
+                    ),
+                    child: Row(
+                      children: [
+                        const Icon(Icons.calendar_today_outlined, color: AppColors.primary),
+                        const SizedBox(width: 12),
+                        Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              'Validade',
+                              style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                                color: AppColors.textSecondary,
+                              ),
+                            ),
+                            Text(
+                              '${_selectedDate.day}/${_selectedDate.month}/${_selectedDate.year}',
+                              style: const TextStyle(fontWeight: FontWeight.w600),
+                            ),
+                          ],
+                        ),
+                        const Spacer(),
+                        const Icon(Icons.arrow_drop_down, color: AppColors.textSecondary),
+                      ],
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 40),
+                CondoButton(
+                  label: 'Gerar Convite',
+                  onPressed: _isGenerating ? null : _generateInvitation,
+                  isLoading: _isGenerating,
+                ),
+              ],
             ),
-            const SizedBox(height: 32),
-            Text('Quando ele vem?', style: AppTypography.h2),
-            const SizedBox(height: 16),
-            _buildDateOption('Hoje', DateTime.now()),
-            const SizedBox(height: 12),
-            _buildDateOption('Amanhã', DateTime.now().add(const Duration(days: 1))),
-            const SizedBox(height: 12),
-            _buildDateOption('Outra Data', null, isCustom: true),
-            const SizedBox(height: 64),
-            CondoButton(
-              label: 'Gerar Convite Digital',
-              isLoading: _isGenerating,
-              onPressed: _handleGenerate,
-            ),
-          ],
-        ),
+          );
+        },
       ),
     );
   }
 
-  Widget _buildDateOption(String label, DateTime? date, {bool isCustom = false}) {
-    final isSelected = !isCustom && _selectedDate.day == date?.day && _selectedDate.month == date?.month;
-    
-    return InkWell(
-      onTap: () {
-        if (isCustom) {
-          showDatePicker(
-            context: context,
-            initialDate: DateTime.now(),
-            firstDate: DateTime.now(),
-            lastDate: DateTime.now().add(const Duration(days: 30)),
-          ).then((value) {
-            if (value != null) setState(() => _selectedDate = value);
-          });
-        } else if (date != null) {
-          setState(() => _selectedDate = date);
-        }
-      },
-      borderRadius: BorderRadius.circular(16),
-      child: Container(
-        padding: const EdgeInsets.all(16),
-        decoration: BoxDecoration(
-          color: isSelected ? AppColors.primary.withValues(alpha: 0.1) : AppColors.surface,
-          borderRadius: BorderRadius.circular(16),
-          border: Border.all(
-            color: isSelected ? AppColors.primary : AppColors.border,
-            width: isSelected ? 2 : 1,
-          ),
+  void _showSuccessDialog(String qrData, String guestName) {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (context) => Container(
+        decoration: const BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.vertical(top: Radius.circular(32)),
         ),
-        child: Row(
+        padding: const EdgeInsets.all(32),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(
-              isCustom ? Icons.calendar_today_outlined : Icons.event_available,
-              color: isSelected ? AppColors.primary : AppColors.textSecondary,
-            ),
-            const SizedBox(width: 16),
-            Text(
-              isSelected && !isCustom ? label : (isCustom ? 'Selecionar no calendário' : label),
-              style: AppTypography.bodyLarge.copyWith(
-                color: isSelected ? AppColors.primary : AppColors.textMain,
-                fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+            Container(
+              width: 40,
+              height: 4,
+              decoration: BoxDecoration(
+                color: Colors.grey[300],
+                borderRadius: BorderRadius.circular(2),
               ),
             ),
-            const Spacer(),
-            if (isSelected) const Icon(Icons.check_circle, color: AppColors.primary),
+            const SizedBox(height: 24),
+            const Text(
+              'Convite Gerado!',
+              style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              'Compartilhe o código com $guestName',
+              style: const TextStyle(color: Colors.grey),
+            ),
+            const SizedBox(height: 32),
+            QrImageView(
+              data: qrData,
+              version: QrVersions.auto,
+              size: 200.0,
+              foregroundColor: AppColors.primary,
+            ),
+            const SizedBox(height: 32),
+            CondoButton(
+              label: 'Compartilhar',
+              onPressed: () {
+                HapticFeedback.mediumImpact();
+                Share.share(
+                  'Olá $guestName! Aqui está seu convite para entrar no condomínio: $qrData',
+                  subject: 'Convite para visita - Condomeet',
+                );
+              },
+            ),
+            const SizedBox(height: 12),
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('Fechar'),
+            ),
+            const SizedBox(height: 16),
           ],
         ),
       ),
-    );
+    ).then((_) => Navigator.pop(context));
   }
 }

@@ -1,13 +1,18 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:camera/camera.dart';
+import 'package:uuid/uuid.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:condomeet/core/design_system/design_system.dart';
 import 'package:condomeet/core/errors/result.dart';
-import 'package:condomeet/features/portaria/domain/repositories/resident_repository.dart';
-import 'package:condomeet/features/portaria/domain/repositories/parcel_repository.dart';
-import 'package:condomeet/features/portaria/data/repositories/parcel_repository_impl.dart';
+import '../../domain/entities/parcel.dart';
+import '../../domain/repositories/resident_repository.dart';
+import '../../domain/repositories/parcel_repository.dart';
+import '../../../auth/presentation/bloc/auth_bloc.dart';
 import 'package:condomeet/core/services/messaging_service.dart';
+import 'package:condomeet/core/di/injection_container.dart';
+import 'package:condomeet/core/utils/structure_helper.dart';
+import 'package:condomeet/core/utils/error_sanitizer.dart';
 
 class ParcelRegistrationScreen extends StatefulWidget {
   final Resident resident;
@@ -19,23 +24,29 @@ class ParcelRegistrationScreen extends StatefulWidget {
 }
 
 class _ParcelRegistrationScreenState extends State<ParcelRegistrationScreen> {
-  final ParcelRepository _repository = ParcelRepositoryImpl();
+  late final ParcelRepository _repository;
   final MessagingService _messagingService = WhatsAppMessagingServiceMock();
-  XFile? _capturedPhoto;
+  dynamic _capturedPhoto;
   bool _isRegistering = false;
 
-  void _takePhoto() async {
-    final cameras = await availableCameras();
-    if (cameras.isEmpty) return;
+  @override
+  void initState() {
+    super.initState();
+    _repository = sl<ParcelRepository>();
+  }
 
-    // Simplified camera taking logic for MVP/Prototype
-    if (!mounted) return;
+  void _takePhoto() async {
+    // For simulator testing, we'll use a dummy photo path if the user taps the capture area
+    setState(() {
+      _capturedPhoto = File('/tmp/dummy_parcel.jpg'); // Dummy path for logic verification
+    });
+
     ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Câmera disparada (Simulado)')),
+      const SnackBar(
+        content: Text('Foto simulada capturada para teste.'),
+        behavior: SnackBarBehavior.floating,
+      ),
     );
-    
-    // For now, we simulate a photo captured (if we were on mobile/real device)
-    // setState(() => _capturedPhoto = ...);
   }
 
   void _handleRegister() async {
@@ -44,14 +55,18 @@ class _ParcelRegistrationScreenState extends State<ParcelRegistrationScreen> {
     // Haptic feedback (AC4)
     HapticFeedback.mediumImpact();
 
+    final authState = context.read<AuthBloc>().state;
+
     final parcel = Parcel(
-      id: DateTime.now().millisecondsSinceEpoch.toString(),
+      id: const Uuid().v4(),
       residentId: widget.resident.id,
       residentName: widget.resident.fullName,
       unitNumber: widget.resident.unitNumber ?? 'N/A',
       block: widget.resident.block ?? 'N/A',
       arrivalTime: DateTime.now(),
+      status: 'pending',
       photoUrl: _capturedPhoto?.path,
+      condominiumId: authState.condominiumId,
     );
 
     final result = await _repository.registerParcel(parcel);
@@ -62,13 +77,13 @@ class _ParcelRegistrationScreenState extends State<ParcelRegistrationScreen> {
         // Note: For now, we don't block the UI on the alert delivery
         _messagingService.sendParcelAlert(
           residentName: widget.resident.fullName,
-          residentPhone: '5511988887777', // Mock phone
+          residentPhone: widget.resident.phoneNumber ?? 'Unknown',
           unitNumber: widget.resident.unitNumber ?? 'N/A',
         );
         
         _showSuccessAnimation();
       } else {
-        final errorMessage = (result as Failure).message;
+        final errorMessage = ErrorSanitizer.sanitize((result as Failure).message);
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text(errorMessage), backgroundColor: AppColors.error),
         );
@@ -153,7 +168,7 @@ class _ParcelRegistrationScreenState extends State<ParcelRegistrationScreen> {
                 Text(widget.resident.fullName, style: AppTypography.h2),
                 const SizedBox(height: 4),
                 Text(
-                  'Bloco ${widget.resident.block} • Unidade ${widget.resident.unitNumber}',
+                  StructureHelper.getFullUnitName(context.read<AuthBloc>().state.tipoEstrutura, widget.resident.block ?? '?', widget.resident.unitNumber ?? '?'),
                   style: AppTypography.bodyMedium.copyWith(color: AppColors.textSecondary),
                 ),
               ],

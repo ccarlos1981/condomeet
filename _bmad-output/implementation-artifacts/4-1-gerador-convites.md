@@ -18,14 +18,14 @@ So that they can enter the condominium without the porter needing to call my uni
 
 ## Tasks / Subtasks
 
-- [ ] Data Layer
-  - [ ] Create `Invitation` model.
-  - [ ] Implement `InvitationRepository` (Mock).
-- [ ] UI Implementation
-  - [ ] Build `InvitationGeneratorScreen`.
-  - [ ] Implement "Share" logic using `share_plus` (Simulated for web).
-- [ ] Navigation
-  - [ ] Add "Gerar Convite" to the resident's home.
+- [x] Data Layer
+  - [x] Create `Invitation` model.
+  - [x] Implement `InvitationRepository` (Mock).
+- [x] UI Implementation
+  - [x] Build `InvitationGeneratorScreen`.
+  - [x] Implement "Share" logic using `share_plus` (Simulated for web).
+- [x] Navigation
+  - [x] Add "Gerar Convite" to the resident's home.
 
 ## Dev Notes
 

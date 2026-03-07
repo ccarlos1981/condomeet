@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:condomeet/core/di/injection_container.dart';
+import 'package:condomeet/core/services/security_service.dart';
 import 'package:condomeet/core/design_system/design_system.dart';
 
 enum VerificationMethod { pin, photo }
@@ -22,17 +24,34 @@ class _PickupVerificationDialogState extends State<PickupVerificationDialog> {
   String _pin = '';
   bool _isPinMode = true;
 
+  bool _isError = false;
+
   void _handleKeyPress(String value) {
     if (_pin.length < 6) {
-      setState(() => _pin += value);
+      setState(() {
+        _pin += value;
+        _isError = false;
+      });
       HapticFeedback.lightImpact();
       
       if (_pin.length == 6) {
-        // Simulate a small delay for "verification"
-        Future.delayed(const Duration(milliseconds: 300), () {
-          widget.onVerified(VerificationMethod.pin, _pin);
-        });
+        _verifyPin();
       }
+    }
+  }
+
+  Future<void> _verifyPin() async {
+    final security = sl<SecurityService>();
+    final isValid = await security.verifyPin(_pin);
+    
+    if (isValid) {
+      widget.onVerified(VerificationMethod.pin, _pin);
+    } else {
+      HapticFeedback.heavyImpact();
+      setState(() {
+        _pin = '';
+        _isError = true;
+      });
     }
   }
 
@@ -134,7 +153,9 @@ class _PickupVerificationDialogState extends State<PickupVerificationDialog> {
               height: 16,
               decoration: BoxDecoration(
                 shape: BoxShape.circle,
-                color: hasValue ? AppColors.primary : AppColors.border,
+                color: _isError 
+                  ? Colors.redAccent 
+                  : (hasValue ? AppColors.primary : AppColors.border),
               ),
             );
           }),

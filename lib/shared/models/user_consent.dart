@@ -8,6 +8,9 @@ class UserConsent extends Equatable {
   final ConsentType consentType;
   final DateTime grantedAt;
   final DateTime? revokedAt;
+  final DateTime? createdAt;
+  final DateTime? updatedAt;
+  final DateTime? deletedAt;
 
   const UserConsent({
     required this.id,
@@ -15,19 +18,23 @@ class UserConsent extends Equatable {
     required this.consentType,
     required this.grantedAt,
     this.revokedAt,
+    this.createdAt,
+    this.updatedAt,
+    this.deletedAt,
   });
 
-  bool get isActive => revokedAt == null;
+  bool get isActive => revokedAt == null && deletedAt == null;
 
   factory UserConsent.fromJson(Map<String, dynamic> json) {
     return UserConsent(
       id: json['id'] as String,
       userId: json['user_id'] as String,
-      consentType: _parseConsentType(json['consent_type'] as String),
+      consentType: _parseConsentType(json['consent_type'] as String?),
       grantedAt: DateTime.parse(json['granted_at'] as String),
-      revokedAt: json['revoked_at'] != null
-          ? DateTime.parse(json['revoked_at'] as String)
-          : null,
+      revokedAt: json['revoked_at'] != null ? DateTime.parse(json['revoked_at'] as String) : null,
+      createdAt: json['created_at'] != null ? DateTime.parse(json['created_at'] as String) : null,
+      updatedAt: json['updated_at'] != null ? DateTime.parse(json['updated_at'] as String) : null,
+      deletedAt: json['deleted_at'] != null ? DateTime.parse(json['deleted_at'] as String) : null,
     );
   }
 
@@ -38,11 +45,15 @@ class UserConsent extends Equatable {
       'consent_type': _consentTypeToString(consentType),
       'granted_at': grantedAt.toIso8601String(),
       'revoked_at': revokedAt?.toIso8601String(),
+      'created_at': createdAt?.toIso8601String(),
+      'updated_at': updatedAt?.toIso8601String(),
+      'deleted_at': deletedAt?.toIso8601String(),
     };
   }
 
-  static ConsentType _parseConsentType(String value) {
-    switch (value) {
+  static ConsentType _parseConsentType(String? value) {
+    final cleanValue = value?.trim().toLowerCase();
+    switch (cleanValue) {
       case 'terms_of_service':
         return ConsentType.termsOfService;
       case 'privacy_policy':

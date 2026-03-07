@@ -1,6 +1,9 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:condomeet/core/design_system/design_system.dart';
 import 'package:condomeet/core/services/security_service.dart';
+import 'package:condomeet/features/auth/presentation/bloc/auth_bloc.dart';
+import 'package:condomeet/features/auth/presentation/bloc/auth_event.dart';
 
 class PinUnlockScreen extends StatefulWidget {
   const PinUnlockScreen({super.key});
@@ -17,6 +20,7 @@ class _PinUnlockScreenState extends State<PinUnlockScreen> {
   );
   final List<FocusNode> _focusNodes = List.generate(6, (_) => FocusNode());
   int _attempts = 0;
+
   @override
   void initState() {
     super.initState();
@@ -46,61 +50,78 @@ class _PinUnlockScreenState extends State<PinUnlockScreen> {
     super.dispose();
   }
 
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      body: SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.all(24.0),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              const SizedBox(height: 48),
-              Text(
-                'Digite seu PIN',
-                style: AppTypography.h1,
-              ),
-              const SizedBox(height: 16),
-              Text(
-                'Digite seu código de 6 dígitos para entrar',
-                style: AppTypography.bodyMedium.copyWith(
-                  color: AppColors.textSecondary,
-                ),
-              ),
-              const SizedBox(height: 48),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: List.generate(
-                  6,
-                  (index) => _buildPinField(index),
-                ),
-              ),
-              const Spacer(),
-              Center(
-                child: TextButton(
-                  onPressed: () {
-                    // TODO: Reset app/session via OTP
-                    _showResetDialog();
-                  },
-                  child: Text(
-                    'Esqueci meu PIN',
-                    style: AppTypography.bodyMedium.copyWith(
-                      color: AppColors.primary,
-                    ),
-                  ),
-                ),
-              ),
-              const SizedBox(height: 16),
-            ],
-          ),
+  void _handlePinEntry() async {
+    final enteredPin = _controllers.map((c) => c.text).join();
+    final isValid = await _securityService.verifyPin(enteredPin);
+
+    if (isValid) {
+      if (mounted) {
+        Navigator.of(context).pushReplacementNamed('/home');
+      }
+    } else {
+      setState(() {
+        _attempts++;
+      });
+      _showError('PIN incorreto. Tentativas: $_attempts/5');
+      _clearFields();
+      
+      if (_attempts >= 5) {
+        _handleLockout();
+      }
+    }
+  }
+
+  void _clearFields() {
+    for (var controller in _controllers) {
+      controller.clear();
+    }
+    _focusNodes[0].requestFocus();
+  }
+
+  void _handleLockout() {
+    _showError('Muitas tentativas. Login via WhatsApp necessário.');
+    context.read<AuthBloc>().add(AuthLogoutRequested());
+    Navigator.of(context).pushNamedAndRemoveUntil('/login-phone', (route) => false);
+  }
+
+  void _showResetDialog() {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Redefinir PIN?'),
+        content: const Text(
+          'Para sua segurança, você precisará confirmar sua identidade via WhatsApp novamente.',
         ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Cancelar'),
+          ),
+          TextButton(
+            onPressed: () {
+              Navigator.pop(context);
+              context.read<AuthBloc>().add(AuthLogoutRequested());
+              Navigator.of(context).pushNamedAndRemoveUntil('/login-phone', (route) => false);
+            },
+            child: const Text('Confirmar'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showError(String message) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(message),
+        backgroundColor: AppColors.error,
       ),
     );
   }
 
   Widget _buildPinField(int index) {
     return SizedBox(
-      width: 50,
+      width: 45,
       child: TextField(
         controller: _controllers[index],
         focusNode: _focusNodes[index],
@@ -137,68 +158,51 @@ class _PinUnlockScreenState extends State<PinUnlockScreen> {
     );
   }
 
-  Future<void> _handlePinEntry() async {
-    final enteredPin = _controllers.map((c) => c.text).join();
-    final storedPin = await _securityService.getPin();
-
-    if (enteredPin == storedPin) {
-      if (mounted) {
-        Navigator.of(context).pushReplacementNamed('/home');
-      }
-    } else {
-      _attempts++;
-      _showError('PIN incorreto. Tentativas: $_attempts/5');
-      _clearFields();
-      
-      if (_attempts >= 5) {
-        _handleLockout();
-      }
-    }
-  }
-
-  void _clearFields() {
-    for (var controller in _controllers) {
-      controller.clear();
-    }
-    _focusNodes[0].requestFocus();
-  }
-
-  void _handleLockout() {
-    // TODO: Lock user out, force logout/re-auth
-    _showError('Muitas tentativas. Login via WhatsApp necessário.');
-    Navigator.of(context).pushReplacementNamed('/login-phone');
-  }
-
-  void _showResetDialog() {
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Redefinir PIN?'),
-        content: const Text(
-          'Para sua segurança, você precisará confirmar sua identidade via WhatsApp novamente.',
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      body: SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.all(24.0),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const SizedBox(height: 48),
+              Text(
+                'Digite seu PIN',
+                style: AppTypography.h1,
+              ),
+              const SizedBox(height: 16),
+              Text(
+                'Digite seu código de 6 dígitos para entrar',
+                style: AppTypography.bodyMedium.copyWith(
+                  color: AppColors.textSecondary,
+                ),
+              ),
+              const SizedBox(height: 48),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: List.generate(
+                  6,
+                  (index) => _buildPinField(index),
+                ),
+              ),
+              const Spacer(),
+              Center(
+                child: TextButton(
+                  onPressed: _showResetDialog,
+                  child: Text(
+                    'Esqueci meu PIN',
+                    style: AppTypography.bodyMedium.copyWith(
+                      color: AppColors.primary,
+                    ),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 16),
+            ],
+          ),
         ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('Cancelar'),
-          ),
-          TextButton(
-            onPressed: () {
-              Navigator.pop(context);
-              Navigator.of(context).pushReplacementNamed('/login-phone');
-            },
-            child: const Text('Confirmar'),
-          ),
-        ],
-      ),
-    );
-  }
-
-  void _showError(String message) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(message),
-        backgroundColor: AppColors.error,
       ),
     );
   }

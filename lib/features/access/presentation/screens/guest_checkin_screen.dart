@@ -1,10 +1,16 @@
+import 'package:condomeet/core/design_system/design_system.dart';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:condomeet/core/design_system/design_system.dart';
-import 'package:condomeet/core/errors/result.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:condomeet/core/design_system/theme.dart';
+import 'package:condomeet/core/design_system/condo_button.dart';
+import 'package:condomeet/core/design_system/condo_input.dart';
+import 'package:condomeet/features/auth/presentation/bloc/auth_bloc.dart';
 import 'package:condomeet/features/access/domain/models/invitation.dart';
-import 'package:condomeet/features/access/domain/repositories/invitation_repository.dart';
-import 'package:condomeet/features/access/data/repositories/invitation_repository_impl.dart';
+import '../bloc/invitation_bloc.dart';
+import '../bloc/invitation_event.dart';
+import '../bloc/invitation_state.dart';
 
 class GuestCheckinScreen extends StatefulWidget {
   const GuestCheckinScreen({super.key});
@@ -14,45 +20,28 @@ class GuestCheckinScreen extends StatefulWidget {
 }
 
 class _GuestCheckinScreenState extends State<GuestCheckinScreen> {
-  final InvitationRepository _repository = InvitationRepositoryImpl();
-  List<Invitation> _invitations = [];
-  bool _isLoading = true;
+  String _searchQuery = '';
 
   @override
   void initState() {
     super.initState();
-    _loadActiveInvitations();
-  }
-
-  Future<void> _loadActiveInvitations() async {
-    setState(() => _isLoading = true);
-    final result = await _repository.getActiveInvitations();
-    if (mounted) {
-      setState(() {
-        if (result is Success<List<Invitation>>) {
-          _invitations = result.data;
-        }
-        _isLoading = false;
-      });
+    final authState = context.read<AuthBloc>().state;
+    if (authState.condominiumId != null) {
+      context.read<InvitationBloc>().add(WatchAllActiveInvitationsRequested(authState.condominiumId!));
     }
   }
 
-  void _handleCheckin(Invitation invitation) async {
-    HapticFeedback.lightImpact();
-    final result = await _repository.markAsUsed(invitation.id);
+  void _handleCheckin(Invitation invitation) {
+    HapticFeedback.mediumImpact();
+    context.read<InvitationBloc>().add(MarkInvitationAsUsedRequested(invitation.id));
     
-    if (mounted) {
-      if (result is Success) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Entrada de ${invitation.guestName} autorizada!'),
-            backgroundColor: Colors.green,
-            behavior: SnackBarBehavior.floating,
-          ),
-        );
-        _loadActiveInvitations();
-      }
-    }
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text('Entrada de ${invitation.guestName} autorizada!'),
+        backgroundColor: Colors.green,
+        behavior: SnackBarBehavior.floating,
+      ),
+    );
   }
 
   @override
@@ -60,8 +49,7 @@ class _GuestCheckinScreenState extends State<GuestCheckinScreen> {
     return Scaffold(
       appBar: AppBar(
         title: const Text('Terminal de Visitantes'),
-        backgroundColor: Colors.transparent,
-        elevation: 0,
+        centerTitle: true,
       ),
       body: Column(
         children: [
@@ -69,19 +57,34 @@ class _GuestCheckinScreenState extends State<GuestCheckinScreen> {
             padding: const EdgeInsets.all(16.0),
             child: CondoInput(
               label: '',
-              hint: 'Buscar convidado por nome...',
+              hint: 'Pesquisar convites hoje...',
               prefix: const Icon(Icons.search, color: AppColors.textSecondary),
-              onChanged: (value) {
-                // TODO: Implement local filtering
-              },
+              onChanged: (value) => setState(() => _searchQuery = value.toLowerCase()),
             ),
           ),
           Expanded(
-            child: _isLoading
-                ? const Center(child: CircularProgressIndicator(color: AppColors.primary))
-                : _invitations.isEmpty
-                    ? _buildEmptyState()
-                    : _buildInvitationList(),
+            child: BlocBuilder<InvitationBloc, InvitationState>(
+              builder: (context, state) {
+                if (state is InvitationLoading) {
+                  return const Center(child: CircularProgressIndicator(color: AppColors.primary));
+                }
+                
+                if (state is InvitationError) {
+                  return Center(child: Text(state.message, style: const TextStyle(color: AppColors.error)));
+                }
+
+                if (state is InvitationLoaded) {
+                  final filtered = state.invitations.where((i) => 
+                    i.guestName.toLowerCase().contains(_searchQuery)
+                  ).toList();
+
+                  if (filtered.isEmpty) return _buildEmptyState();
+                  return _buildInvitationList(filtered);
+                }
+
+                return _buildEmptyState();
+              },
+            ),
           ),
         ],
       ),
@@ -93,49 +96,63 @@ class _GuestCheckinScreenState extends State<GuestCheckinScreen> {
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Icon(Icons.people_outline, size: 80, color: AppColors.border),
+          const Icon(Icons.people_outline, size: 80, color: AppColors.border),
           const SizedBox(height: 16),
-          Text('Nenhum convite ativo', style: AppTypography.h2),
+          const Text('Nenhum convite ativo', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
           const SizedBox(height: 8),
-          Text(
-            'Convide residentes a gerarem convites digitais.',
-            style: AppTypography.bodyLarge.copyWith(color: AppColors.textSecondary),
+          const Text(
+            'Aguardando novos convites digitais.',
+            style: TextStyle(color: AppColors.textSecondary),
           ),
         ],
       ),
     );
   }
 
-  Widget _buildInvitationList() {
+  Widget _buildInvitationList(List<Invitation> invitations) {
     return ListView.separated(
-      padding: const EdgeInsets.symmetric(horizontal: 16),
-      itemCount: _invitations.length,
-      separatorBuilder: (_, __) => const Divider(height: 1),
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      itemCount: invitations.length,
+      separatorBuilder: (_, __) => const SizedBox(height: 12),
       itemBuilder: (context, index) {
-        final invitation = _invitations[index];
+        final invitation = invitations[index];
         return _buildInvitationTile(invitation);
       },
     );
   }
 
   Widget _buildInvitationTile(Invitation invitation) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 12),
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.05),
+            blurRadius: 10,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
       child: Row(
         children: [
-          CircleAvatar(
+          const CircleAvatar(
             backgroundColor: AppColors.surface,
-            child: const Icon(Icons.person, color: AppColors.textMain),
+            child: Icon(Icons.person, color: AppColors.primary),
           ),
           const SizedBox(width: 16),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(invitation.guestName, style: AppTypography.h3),
                 Text(
-                  'Convidado por: Morador Unit 123', // Mock resident info
-                  style: AppTypography.bodySmall.copyWith(color: AppColors.textSecondary),
+                  invitation.guestName, 
+                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+                ),
+                Text(
+                  'Válido até: ${invitation.validityDate.day}/${invitation.validityDate.month}',
+                  style: const TextStyle(color: AppColors.textSecondary, fontSize: 12),
                 ),
               ],
             ),

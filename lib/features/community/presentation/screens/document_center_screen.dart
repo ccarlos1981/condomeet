@@ -1,8 +1,11 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:condomeet/core/design_system/design_system.dart';
-import 'package:condomeet/core/errors/result.dart';
 import 'package:condomeet/features/community/domain/models/document.dart';
-import 'package:condomeet/features/community/data/repositories/document_repository_impl.dart';
+import 'package:condomeet/features/community/presentation/bloc/document_bloc.dart';
+import 'package:condomeet/features/community/presentation/bloc/document_bloc_components.dart';
+import 'package:condomeet/features/auth/presentation/bloc/auth_bloc.dart';
 
 class DocumentCenterScreen extends StatefulWidget {
   const DocumentCenterScreen({super.key});
@@ -13,45 +16,34 @@ class DocumentCenterScreen extends StatefulWidget {
 
 class _DocumentCenterScreenState extends State<DocumentCenterScreen> {
   final TextEditingController _searchController = TextEditingController();
-  List<CondoDocument> _allDocuments = [];
-  List<CondoDocument> _filteredDocuments = [];
-  bool _isLoading = true;
+  String _searchQuery = '';
+  Timer? _debounce;
 
   @override
   void initState() {
     super.initState();
-    _loadDocuments();
-    _searchController.addListener(_filterDocuments);
+    final authState = context.read<AuthBloc>().state;
+    if (authState.condominiumId != null) {
+      context.read<DocumentBloc>().add(WatchDocumentsRequested(authState.condominiumId!));
+    }
+  }
+
+  void _onSearchChanged(String query) {
+    if (_debounce?.isActive ?? false) _debounce!.cancel();
+    _debounce = Timer(const Duration(milliseconds: 500), () {
+      if (mounted) {
+        setState(() {
+          _searchQuery = query.toLowerCase();
+        });
+      }
+    });
   }
 
   @override
   void dispose() {
+    _debounce?.cancel();
     _searchController.dispose();
     super.dispose();
-  }
-
-  Future<void> _loadDocuments() async {
-    setState(() => _isLoading = true);
-    final result = await documentRepository.getDocuments();
-    if (mounted) {
-      setState(() {
-        if (result is Success<List<CondoDocument>>) {
-          _allDocuments = result.data;
-          _filteredDocuments = _allDocuments;
-        }
-        _isLoading = false;
-      });
-    }
-  }
-
-  void _filterDocuments() {
-    final query = _searchController.text.toLowerCase();
-    setState(() {
-      _filteredDocuments = _allDocuments.where((doc) {
-        return doc.title.toLowerCase().contains(query) ||
-               doc.categoryName.toLowerCase().contains(query);
-      }).toList();
-    });
   }
 
   void _simulateDownload(CondoDocument doc) {
@@ -90,20 +82,42 @@ class _DocumentCenterScreenState extends State<DocumentCenterScreen> {
               hint: 'Buscar atas, regimentos...',
               controller: _searchController,
               prefix: const Icon(Icons.search, color: AppColors.textSecondary),
+              onChanged: _onSearchChanged,
             ),
           ),
           Expanded(
-            child: _isLoading
-                ? const Center(child: CircularProgressIndicator())
-                : _filteredDocuments.isEmpty
-                    ? const Center(child: Text('Nenhum documento encontrado.'))
-                    : ListView.builder(
-                        padding: const EdgeInsets.symmetric(horizontal: 24),
-                        itemCount: _filteredDocuments.length,
-                        itemBuilder: (context, index) {
-                          return _buildDocumentTile(_filteredDocuments[index]);
-                        },
-                      ),
+            child: BlocBuilder<DocumentBloc, DocumentState>(
+              builder: (context, state) {
+                if (state is DocumentLoading) {
+                  return const Center(child: CircularProgressIndicator());
+                }
+
+                if (state is DocumentError) {
+                  return Center(child: Text(state.message));
+                }
+
+                if (state is DocumentLoaded) {
+                  final filteredDocuments = state.documents.where((doc) {
+                    return doc.title.toLowerCase().contains(_searchQuery) ||
+                           doc.categoryName.toLowerCase().contains(_searchQuery);
+                  }).toList();
+
+                  if (filteredDocuments.isEmpty) {
+                    return const Center(child: Text('Nenhum documento encontrado.'));
+                  }
+
+                  return ListView.builder(
+                    padding: const EdgeInsets.symmetric(horizontal: 24),
+                    itemCount: filteredDocuments.length,
+                    itemBuilder: (context, index) {
+                      return _buildDocumentTile(filteredDocuments[index]);
+                    },
+                  );
+                }
+
+                return const SizedBox.shrink();
+              },
+            ),
           ),
         ],
       ),

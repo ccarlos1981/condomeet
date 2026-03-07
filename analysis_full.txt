@@ -1,0 +1,47 @@
+Analyzing condomeet-v2...                                       
+
+   info • The imported package 'path' isn't a dependency of the importing package • lib/core/services/powersync_service.dart:3:8 • depend_on_referenced_packages
+   info • The imported package 'path_provider' isn't a dependency of the importing package • lib/core/services/powersync_service.dart:4:8 • depend_on_referenced_packages
+   info • The imported package 'sqlite3_flutter_libs' isn't a dependency of the importing package • lib/core/services/powersync_service.dart:5:8 • depend_on_referenced_packages
+warning • Unused import: 'package:sqlite3_flutter_libs/sqlite3_flutter_libs.dart' • lib/core/services/powersync_service.dart:5:8 • unused_import
+   info • The prefix 'psSchema' isn't a lower_case_with_underscores identifier • lib/core/services/powersync_service.dart:6:46 • library_prefixes
+warning • Unused import: 'package:condomeet/features/access/data/repositories/invitation_repository_impl.dart' • lib/features/access/presentation/screens/guest_checkin_screen.dart:8:8 • unused_import
+warning • The declaration '_showSuccess' isn't referenced • lib/features/auth/presentation/screens/otp_verification_screen.dart:65:8 • unused_element
+warning • Unused import: 'package:supabase_flutter/supabase_flutter.dart' • lib/features/auth/presentation/screens/phone_input_screen.dart:3:8 • unused_import
+   info • Don't use 'BuildContext's across async gaps, guarded by an unrelated 'mounted' check • lib/features/auth/presentation/screens/pin_setup_screen.dart:157:26 • use_build_context_synchronously
+warning • The value of the field '_photoPath' isn't used • lib/features/auth/presentation/screens/self_registration_screen.dart:22:11 • unused_field
+warning • Unused import: 'package:condomeet/features/auth/presentation/bloc/auth_state.dart' • lib/features/community/presentation/screens/area_availability_screen.dart:9:8 • unused_import
+   info • Don't invoke 'print' in production code • lib/features/portaria/data/repositories/parcel_repository_impl.dart:54:7 • avoid_print
+   info • Don't invoke 'print' in production code • lib/features/portaria/data/repositories/parcel_repository_impl.dart:57:7 • avoid_print
+   info • Don't invoke 'print' in production code • lib/features/portaria/data/repositories/parcel_repository_impl.dart:86:7 • avoid_print
+   info • Don't invoke 'print' in production code • lib/features/portaria/data/repositories/parcel_repository_impl.dart:101:7 • avoid_print
+   info • Don't invoke 'print' in production code • lib/features/portaria/data/repositories/parcel_repository_impl.dart:104:7 • avoid_print
+   info • Don't invoke 'print' in production code • lib/features/portaria/data/repositories/parcel_repository_impl.dart:129:7 • avoid_print
+   info • Don't invoke 'print' in production code • lib/features/portaria/data/repositories/parcel_repository_impl.dart:132:7 • avoid_print
+   info • Don't invoke 'print' in production code • lib/features/portaria/data/repositories/resident_repository_impl.dart:70:7 • avoid_print
+   info • Don't invoke 'print' in production code • lib/features/portaria/data/repositories/resident_repository_impl.dart:83:9 • avoid_print
+   info • Don't invoke 'print' in production code • lib/features/portaria/data/repositories/resident_repository_impl.dart:110:7 • avoid_print
+   info • Don't invoke 'print' in production code • lib/features/portaria/data/repositories/resident_repository_impl.dart:113:7 • avoid_print
+   info • Don't invoke 'print' in production code • lib/features/portaria/data/repositories/resident_repository_impl.dart:121:7 • avoid_print
+   info • Don't invoke 'print' in production code • lib/features/portaria/data/repositories/resident_repository_impl.dart:131:7 • avoid_print
+   info • Don't invoke 'print' in production code • lib/features/portaria/data/repositories/resident_repository_impl.dart:135:7 • avoid_print
+warning • Unused import: 'package:condomeet/features/auth/presentation/bloc/auth_state.dart' • lib/features/security/presentation/widgets/sos_button.dart:9:8 • unused_import
+   info • Don't invoke 'print' in production code • lib/main.dart:107:9 • avoid_print
+warning • This default clause is covered by the previous cases • lib/main.dart:121:11 • unreachable_switch_default
+   info • Don't invoke 'print' in production code • lib/shared/models/condominium.dart:57:9 • avoid_print
+   info • The variable name 'avatar_url' isn't a lowerCamelCase identifier • lib/shared/models/profile.dart:12:17 • non_constant_identifier_names
+   info • The variable name 'avatar_url' isn't a lowerCamelCase identifier • lib/shared/models/profile.dart:24:10 • non_constant_identifier_names
+   info • Don't invoke 'print' in production code • lib/shared/repositories/condominium_repository.dart:37:9 • avoid_print
+   info • Don't invoke 'print' in production code • lib/shared/repositories/condominium_repository.dart:38:9 • avoid_print
+warning • Unused import: 'package:condomeet/main.dart' • test/widget_test.dart:5:8 • unused_import
+   info • Don't invoke 'print' in production code • test_botconversa.dart:10:5 • avoid_print
+   info • Don't invoke 'print' in production code • test_botconversa.dart:14:3 • avoid_print
+   info • Use interpolation to compose strings and values • test_botconversa.dart:33:31 • prefer_interpolation_to_compose_strings
+   info • Don't invoke 'print' in production code • test_botconversa.dart:37:3 • avoid_print
+   info • Don't invoke 'print' in production code • test_botconversa.dart:38:3 • avoid_print
+   info • Don't invoke 'print' in production code • test_botconversa.dart:47:5 • avoid_print
+   info • Don't invoke 'print' in production code • test_botconversa.dart:71:7 • avoid_print
+   info • Don't invoke 'print' in production code • test_botconversa.dart:72:7 • avoid_print
+   info • Don't invoke 'print' in production code • test_botconversa.dart:74:7 • avoid_print
+
+43 issues found. (ran in 2.5s)

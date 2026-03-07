@@ -18,14 +18,14 @@ So that the inventory is always up-to-date and the queue is cleared.
 
 ## Tasks / Subtasks
 
-- [ ] Repository Layer
-  - [ ] Add `getAllPendingParcels` to `ParcelRepository`.
-  - [ ] Add `markAsDelivered` to `ParcelRepository`.
-- [ ] UI Implementation
-  - [ ] Create `PendingDeliveriesScreen`.
-  - [ ] Implement "Confirmar" action with success feedback.
-- [ ] Navigation
-  - [ ] Add link to "Entregas Pendentes" for porters.
+- [x] Repository Layer
+  - [x] Add `getAllPendingParcels` to `ParcelRepository`.
+  - [x] Add `markAsDelivered` to `ParcelRepository`.
+- [x] UI Implementation
+  - [x] Create `PendingDeliveriesScreen`.
+  - [x] Implement "Confirmar" action with success feedback.
+- [x] Navigation
+  - [x] Add link to "Entregas Pendentes" for porters.
 
 ## Dev Notes
 

@@ -24,15 +24,21 @@ So that I can secure the space for my event while respecting the condominium rul
 
 ## Tasks / Subtasks
 
-- [ ] Data Layer
-  - [ ] Update `BookingRepository` to actually persist bookings in mock memory.
-  - [ ] Implement validation logic in the repository.
-- [ ] UI Implementation
-  - [ ] Add selection state to `AreaAvailabilityScreen`.
-  - [ ] Build a "Confirmation Bottom Sheet" with area rules and final "Confirm" button.
-  - [ ] Update calendar colors to show the newly created booking.
-- [ ] Integration
-  - [ ] Link "Solicitar Reserva" to the confirmation flow.
+- [x] Data Layer
+  - [x] Update `BookingRepository` to actually persist bookings in PowerSync.
+  - [x] Implement validation logic (past dates, multiple bookings, ownership).
+- [x] UI Implementation
+  - [x] Add selection state to `AreaAvailabilityScreen`.
+  - [x] Build a "Confirmation Bottom Sheet" with area rules and final "Confirm" button.
+  - [x] Update calendar colors to show bookings.
+- [x] Integration
+  - [x] Link "Solicitar Reserva" to the confirmation flow.
+
+## Review Follow-ups (AI)
+
+- [ ] [AI-Review][Medium] Add debounce and state preservation to document search.
+- [ ] [AI-Review][Low] Refactor hardcoded Supabase URL in `main.dart` to environment variables or config.
+- [ ] [AI-Review][Low] Improve error handling to avoid leaking technical details in snackbars.
 
 ## Dev Notes
 

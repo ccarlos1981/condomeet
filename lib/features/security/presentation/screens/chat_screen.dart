@@ -1,7 +1,12 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:condomeet/core/design_system/design_system.dart';
-import 'package:condomeet/features/security/domain/models/chat_message.dart';
-import 'package:condomeet/features/security/data/repositories/chat_repository_impl.dart';
+import 'package:condomeet/core/design_system/condo_input.dart';
+import '../../domain/models/chat_message.dart';
+import 'package:condomeet/features/security/presentation/bloc/chat_bloc.dart';
+import 'package:condomeet/features/security/presentation/bloc/chat_event.dart';
+import 'package:condomeet/features/security/presentation/bloc/chat_state.dart';
+import 'package:condomeet/features/auth/presentation/bloc/auth_bloc.dart';
 
 class ChatScreen extends StatefulWidget {
   final String residentId;
@@ -16,13 +21,32 @@ class _ChatScreenState extends State<ChatScreen> {
   final _messageController = TextEditingController();
   final _scrollController = ScrollController();
 
+  @override
+  void initState() {
+    super.initState();
+    context.read<ChatBloc>().add(WatchMessagesRequested(widget.residentId));
+  }
+
   void _sendMessage() {
-    if (_messageController.text.trim().isEmpty) return;
+    final text = _messageController.text.trim();
+    if (text.isEmpty) return;
     
-    chatRepository.sendMessage(
-      residentId: widget.residentId,
-      text: _messageController.text,
+    final authState = context.read<AuthBloc>().state;
+    if (authState.condominiumId == null || authState.userId == null) return;
+
+    context.read<ChatBloc>().add(
+      SendMessageRequested(
+        residentId: widget.residentId,
+        condominiumId: authState.condominiumId!,
+        senderId: authState.userId!,
+        senderRole: MessageSenderRole.values.firstWhere(
+          (e) => e.name == (authState.role ?? 'resident'),
+          orElse: () => MessageSenderRole.resident,
+        ),
+        text: text,
+      ),
     );
+
     _messageController.clear();
     
     // Scroll to bottom
@@ -54,12 +78,14 @@ class _ChatScreenState extends State<ChatScreen> {
       body: Column(
         children: [
           Expanded(
-            child: StreamBuilder<List<ChatMessage>>(
-              stream: chatRepository.watchMessages(widget.residentId),
-              builder: (context, snapshot) {
-                if (!snapshot.hasData) return const Center(child: CircularProgressIndicator());
+            child: BlocBuilder<ChatBloc, ChatState>(
+              builder: (context, state) {
+                if (state is ChatLoading) {
+                  return const Center(child: CircularProgressIndicator());
+                }
                 
-                final messages = snapshot.data!;
+                final messages = state is ChatMessagesLoaded ? state.messages : <ChatMessage>[];
+                
                 return ListView.builder(
                   controller: _scrollController,
                   padding: const EdgeInsets.all(16),
@@ -104,7 +130,7 @@ class _ChatScreenState extends State<ChatScreen> {
               Padding(
                 padding: const EdgeInsets.only(bottom: 4),
                 child: Text(
-                  message.senderName,
+                  message.senderName ?? 'Administração',
                   style: AppTypography.label.copyWith(color: AppColors.primary, fontSize: 10),
                 ),
               ),

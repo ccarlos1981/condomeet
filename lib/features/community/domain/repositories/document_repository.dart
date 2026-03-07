@@ -1,7 +1,6 @@
-import 'package:condomeet/core/errors/result.dart';
-import '../models/document.dart';
+import 'package:condomeet/features/community/domain/models/document.dart';
 
 abstract class DocumentRepository {
-  /// Fetches the list of official documents.
-  Future<Result<List<CondoDocument>>> getDocuments();
+  /// Watches all documents for a condominium.
+  Stream<List<CondoDocument>> watchDocuments(String condominiumId);
 }

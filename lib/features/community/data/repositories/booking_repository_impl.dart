@@ -1,101 +1,138 @@
 import 'package:condomeet/core/errors/result.dart';
+import 'package:condomeet/core/services/powersync_service.dart';
 import 'package:condomeet/features/community/domain/models/common_area.dart';
 import 'package:condomeet/features/community/domain/repositories/booking_repository.dart';
+import 'package:uuid/uuid.dart';
 
 class BookingRepositoryImpl implements BookingRepository {
-  final List<CommonArea> _mockAreas = [
-    CommonArea(
-      id: '1',
-      name: 'Churrasqueira A',
-      description: 'Espaço gourmet externo com churrasqueira e forno de pizza.',
-      iconPath: 'grill',
-      capacity: 15,
-      rules: 'Uso das 09h às 22h. Limpeza inclusa na taxa.',
-    ),
-    CommonArea(
-      id: '2',
-      name: 'Salão de Festas',
-      description: 'Salão climatizado com cozinha completa.',
-      iconPath: 'party_room',
-      capacity: 50,
-      rules: 'Uso das 10h às 00h. Proibido som alto após as 22h.',
-    ),
-    CommonArea(
-      id: '3',
-      name: 'Quadra Poliesportiva',
-      description: 'Quadra para futebol, basquete e vôlei.',
-      iconPath: 'sports',
-      capacity: 20,
-      rules: 'Uso das 08h às 21h. Necessário calçado apropriado.',
-    ),
-  ];
+  final PowerSyncService _powerSyncService;
 
-  // In-memory storage for active bookings (AreaID -> List of booked dates)
-  final Map<String, List<DateTime>> _activeBookings = {};
+  BookingRepositoryImpl(this._powerSyncService);
 
   @override
-  Future<Result<List<CommonArea>>> getCommonAreas() async {
-    await Future.delayed(const Duration(milliseconds: 300));
-    return Success(_mockAreas);
+  Stream<List<CommonArea>> watchCommonAreas(String condominiumId) {
+    return _powerSyncService.db.watch(
+      'SELECT * FROM areas_comuns WHERE condominio_id = ? ORDER BY nome ASC',
+      parameters: [condominiumId],
+    ).map((rows) => rows.map((row) => CommonArea.fromMap(row)).toList());
   }
 
   @override
-  Future<Result<List<AvailabilitySlot>>> getAvailability({
+  Stream<List<AvailabilitySlot>> watchAvailability({
+    required String condominiumId,
     required String areaId,
     required DateTime startDate,
     required DateTime endDate,
-  }) async {
-    await Future.delayed(const Duration(milliseconds: 400));
-    
-    final List<AvailabilitySlot> slots = [];
-    final alreadyBooked = _activeBookings[areaId] ?? [];
+  }) {
+    // Watch bookings for the area in the range
+    return _powerSyncService.db.watch(
+      'SELECT * FROM reservas_areas WHERE condominio_id = ? AND area_id = ? AND booking_date >= ? AND booking_date <= ? AND status = ?',
+      parameters: [
+        condominiumId,
+        areaId,
+        startDate.toIso8601String().split('T')[0],
+        endDate.toIso8601String().split('T')[0],
+        'confirmed'
+      ],
+    ).map((rows) {
+      final List<AvailabilitySlot> slots = [];
+      final bookedDates = rows.map((r) => r['booking_date'] as String).toSet();
 
-    for (int i = 0; i <= endDate.difference(startDate).inDays; i++) {
+      for (int i = 0; i <= endDate.difference(startDate).inDays; i++) {
         final date = startDate.add(Duration(days: i));
+        final dateStr = date.toIso8601String().split('T')[0];
         
-        // Simple mock logic: every 3rd day is taken + our active bookings
-        final isMockBooked = i % 5 == 0 && i != 0;
-        final isActuallyBooked = alreadyBooked.any((d) => 
-          d.year == date.year && d.month == date.month && d.day == date.day
-        );
-
-        final isAvailable = !isMockBooked && !isActuallyBooked;
-
         slots.add(AvailabilitySlot(
-            date: date,
-            isAvailable: isAvailable,
-            bookedByUnit: isAvailable ? null : (isActuallyBooked ? 'Sua Unidade' : 'Unidade 102-A'),
+          date: date,
+          isAvailable: !bookedDates.contains(dateStr),
         ));
-    }
-    
-    return Success(slots);
+      }
+      return slots;
+    });
   }
 
   @override
   Future<Result<void>> createBooking({
     required String residentId,
+    required String condominiumId,
     required String areaId,
     required DateTime date,
   }) async {
-    await Future.delayed(const Duration(milliseconds: 600));
+    try {
+      final now = DateTime.now();
+      final today = DateTime(now.year, now.month, now.day);
+      final bookingDate = DateTime(date.year, date.month, date.day);
 
-    // Validation: Cannot book in the past
-    final today = DateTime.now();
-    if (date.isBefore(DateTime(today.year, today.month, today.day))) {
-      return const Failure('Não é possível reservar datas passadas.');
+      if (bookingDate.isBefore(today)) {
+        return const Failure('Não é possível realizar reservas para datas passadas.');
+      }
+
+      final dateStr = bookingDate.toIso8601String().split('T')[0];
+      
+      // 1. Check if already booked by anyone (Double check before insert)
+      final existing = await _powerSyncService.db.getOptional(
+        'SELECT id FROM reservas_areas WHERE condominio_id = ? AND area_id = ? AND booking_date = ? AND status = ?',
+        [condominiumId, areaId, dateStr, 'confirmed'],
+      );
+
+      if (existing != null) {
+        return const Failure('Esta data já está reservada por outro morador.');
+      }
+
+      // 2. Check if resident already has an active future booking for this area
+      final residentFutureBooking = await _powerSyncService.db.getOptional(
+        'SELECT id FROM reservas_areas WHERE resident_id = ? AND area_id = ? AND booking_date >= ? AND status = ?',
+        [residentId, areaId, today.toIso8601String().split('T')[0], 'confirmed'],
+      );
+
+      if (residentFutureBooking != null) {
+        return const Failure('Você já possui uma reserva ativa para este espaço.');
+      }
+
+      await _powerSyncService.db.execute(
+        '''INSERT INTO reservas_areas 
+           (id, condominio_id, area_id, resident_id, booking_date, status, created_at) 
+           VALUES (?, ?, ?, ?, ?, ?, ?)''',
+        [
+          const Uuid().v4(),
+          condominiumId,
+          areaId,
+          residentId,
+          dateStr,
+          'confirmed',
+          now.toIso8601String(),
+        ],
+      );
+      return const Success(null);
+    } catch (e) {
+      return Failure('Erro ao realizar reserva: $e');
     }
+  }
 
-    // Validation: Check if already booked
-    final areaBookings = _activeBookings[areaId] ?? [];
-    if (areaBookings.any((d) => d.year == date.year && d.month == date.month && d.day == date.day)) {
-      return const Failure('Esta data já está reservada.');
+  @override
+  Future<Result<void>> cancelBooking({required String bookingId, required String residentId}) async {
+    try {
+      // Validate ownership
+      final booking = await _powerSyncService.db.getOptional(
+        'SELECT resident_id FROM reservas_areas WHERE id = ?',
+        [bookingId],
+      );
+
+      if (booking == null) {
+        return const Failure('Reserva não encontrada.');
+      }
+
+      if (booking['resident_id'] != residentId) {
+        return const Failure('Você não tem permissão para cancelar esta reserva.');
+      }
+
+      await _powerSyncService.db.execute(
+        'UPDATE reservas_areas SET status = ? WHERE id = ?',
+        ['cancelled', bookingId],
+      );
+      return const Success(null);
+    } catch (e) {
+      return Failure('Erro ao cancelar reserva: $e');
     }
-
-    // Persistence
-    _activeBookings.putIfAbsent(areaId, () => []).add(date);
-    
-    return const Success(null);
   }
 }
-
-final bookingRepository = BookingRepositoryImpl();

@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:condomeet/core/design_system/design_system.dart';
-import 'package:condomeet/core/errors/result.dart';
 import 'package:condomeet/features/community/domain/models/common_area.dart';
-import 'package:condomeet/features/community/data/repositories/booking_repository_impl.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:condomeet/features/community/presentation/bloc/booking_bloc.dart';
+import 'package:condomeet/features/community/presentation/bloc/booking_bloc_components.dart';
+import 'package:condomeet/features/auth/presentation/bloc/auth_bloc.dart';
 
 class AreaAvailabilityScreen extends StatefulWidget {
   final CommonArea area;
@@ -17,7 +19,6 @@ class AreaAvailabilityScreen extends StatefulWidget {
 class _AreaAvailabilityScreenState extends State<AreaAvailabilityScreen> {
   late DateTime _focusedDay;
   List<AvailabilitySlot> _availability = [];
-  bool _isLoading = true;
   DateTime? _selectedDate;
 
   @override
@@ -27,25 +28,19 @@ class _AreaAvailabilityScreenState extends State<AreaAvailabilityScreen> {
     _loadAvailability();
   }
 
-  Future<void> _loadAvailability() async {
-    setState(() => _isLoading = true);
-    final result = await bookingRepository.getAvailability(
-      areaId: widget.area.id,
-      startDate: DateTime(_focusedDay.year, _focusedDay.month, 1),
-      endDate: DateTime(_focusedDay.year, _focusedDay.month + 1, 0),
-    );
-    
-    if (mounted) {
-      setState(() {
-        if (result is Success<List<AvailabilitySlot>>) {
-          _availability = result.data;
-        }
-        _isLoading = false;
-      });
+  void _loadAvailability() {
+    final authState = context.read<AuthBloc>().state;
+    if (authState.condominiumId != null) {
+      context.read<BookingBloc>().add(WatchAvailabilityRequested(
+        condominiumId: authState.condominiumId!,
+        areaId: widget.area.id,
+        startDate: DateTime(_focusedDay.year, _focusedDay.month, 1),
+        endDate: DateTime(_focusedDay.year, _focusedDay.month + 1, 0),
+      ));
     }
   }
 
-  Future<void> _handleBookingRequest() async {
+  void _handleBookingRequest() {
     if (_selectedDate == null) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Por favor, selecione uma data no calendário.')),
@@ -68,71 +63,80 @@ class _AreaAvailabilityScreenState extends State<AreaAvailabilityScreen> {
     );
   }
 
-  Future<void> _confirmBooking() async {
+  void _confirmBooking() {
     Navigator.of(context).pop(); // Close bottom sheet
-    
-    setState(() => _isLoading = true);
     HapticFeedback.mediumImpact();
 
-    final result = await bookingRepository.createBooking(
-      residentId: 'res123', // Hardcoded for MVP
-      areaId: widget.area.id,
-      date: _selectedDate!,
-    );
-
-    if (mounted) {
-      if (result is Success) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Reserva solicitada com sucesso!'),
-            backgroundColor: Colors.green,
-          ),
-        );
-        _selectedDate = null;
-        _loadAvailability(); // Refresh calendar
-      } else if (result is Failure) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(result.message),
-            backgroundColor: Colors.red,
-          ),
-        );
-        setState(() => _isLoading = false);
-      }
+    final authState = context.read<AuthBloc>().state;
+    if (authState.userId != null && authState.condominiumId != null) {
+      context.read<BookingBloc>().add(CreateBookingRequested(
+        residentId: authState.userId!,
+        condominiumId: authState.condominiumId!,
+        areaId: widget.area.id,
+        date: _selectedDate!,
+      ));
     }
   }
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        title: Text(widget.area.name),
-        backgroundColor: Colors.transparent,
-        elevation: 0,
-      ),
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.all(24),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            _buildAreaInfo(),
-            const SizedBox(height: 32),
-            Text('Disponibilidade', style: AppTypography.h2),
-            const SizedBox(height: 16),
-            _buildCalendarHeader(),
-            const SizedBox(height: 16),
-            _isLoading 
-              ? const SizedBox(height: 200, child: Center(child: CircularProgressIndicator()))
-              : _buildAvailabilityGrid(),
-            const SizedBox(height: 40),
-            CondoButton(
-              label: 'Solicitar Reserva',
-              isLoading: _isLoading && _selectedDate != null,
-              onPressed: _handleBookingRequest,
+    return BlocConsumer<BookingBloc, BookingState>(
+      listener: (context, state) {
+        if (state is BookingSuccess) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(state.message),
+              backgroundColor: Colors.green,
             ),
-          ],
-        ),
-      ),
+          );
+          setState(() => _selectedDate = null);
+        } else if (state is BookingError) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(state.message),
+              backgroundColor: Colors.red,
+            ),
+          );
+        }
+      },
+      builder: (context, state) {
+        final isLoading = state is BookingLoading;
+        
+        if (state is BookingAvailabilityLoaded) {
+          _availability = state.availability;
+        }
+
+        return Scaffold(
+          appBar: AppBar(
+            title: Text(widget.area.name),
+            backgroundColor: Colors.transparent,
+            elevation: 0,
+          ),
+          body: SingleChildScrollView(
+            padding: const EdgeInsets.all(24),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                _buildAreaInfo(),
+                const SizedBox(height: 32),
+                Text('Disponibilidade', style: AppTypography.h2),
+                const SizedBox(height: 16),
+                _buildCalendarHeader(),
+                const SizedBox(height: 16),
+                isLoading && _availability.isEmpty
+                  ? const SizedBox(height: 200, child: Center(child: CircularProgressIndicator()))
+                  : _buildAvailabilityGrid(),
+                const SizedBox(height: 40),
+                CondoButton(
+                  label: 'Solicitar Reserva',
+                  isLoading: isLoading && _selectedDate != null,
+                  onPressed: _handleBookingRequest,
+                ),
+              ],
+            ),
+          ),
+        );
+      },
     );
   }
 

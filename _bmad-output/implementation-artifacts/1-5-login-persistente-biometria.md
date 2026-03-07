@@ -1,6 +1,13 @@
 # Story 1.5: Login Persistente & Biometria
 
-Status: review
+Status: done
+
+## Review Follow-ups (AI)
+
+- [x] [AI-Review][Critical] Fixed PIN verification: now uses `verifyPin` (hashing) instead of direct comparison.
+- [x] [AI-Review][High] Integrated `PinUnlockScreen` with `AuthBloc` to handle lockouts and resets (logout).
+- [x] [AI-Review][High] Implemented lockout policy (force OTP after 5 failed attempts).
+- [x] [AI-Review][Medium] Fixed layout constraints for PIN fields on smaller screens.
 
 ## Story
 

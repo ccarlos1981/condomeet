@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
-import 'package:condomeet/core/design_system/design_system.dart';
+import 'package:condomeet/core/design_system/app_colors.dart';
+import 'package:condomeet/core/design_system/condo_button.dart';
 
 class WaitingApprovalScreen extends StatelessWidget {
   const WaitingApprovalScreen({super.key});
@@ -7,54 +8,65 @@ class WaitingApprovalScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      body: Padding(
-        padding: const EdgeInsets.all(32.0),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            const Hero(
-              tag: 'clock_icon',
-              child: Icon(Icons.access_time_filled, size: 100, color: Colors.orange),
-            ),
-            const SizedBox(height: 32),
-            Text(
-              'Solicitação Enviada!',
-              style: AppTypography.h1,
-              textAlign: TextAlign.center,
-            ),
-            const SizedBox(height: 16),
-            Text(
-              'Seus dados foram enviados para o administrador do condomínio. Você receberá um alerta assim que seu acesso for liberado.',
-              style: AppTypography.bodyLarge.copyWith(color: AppColors.textSecondary),
-              textAlign: TextAlign.center,
-            ),
-            const SizedBox(height: 48),
-            Container(
-              padding: const EdgeInsets.all(16),
-              decoration: BoxDecoration(
-                color: AppColors.surface,
-                borderRadius: BorderRadius.circular(16),
-                border: Border.all(color: AppColors.border),
+      body: SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 32.0, vertical: 48.0),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Container(
+                padding: const EdgeInsets.all(24),
+                decoration: BoxDecoration(
+                  color: Colors.orange.withValues(alpha: 0.1),
+                  shape: BoxShape.circle,
+                ),
+                child: const Icon(
+                  Icons.access_time_filled_rounded,
+                  size: 80,
+                  color: Colors.orange,
+                ),
               ),
-              child: Row(
-                children: [
-                  const Icon(Icons.info_outline, color: AppColors.primary),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: Text(
-                      'Dica: Isso costuma levar menos de 24h úteis.',
-                      style: AppTypography.bodySmall,
+              const SizedBox(height: 32),
+              const Text(
+                'Solicitação Enviada!',
+                textAlign: TextAlign.center,
+                style: TextStyle(fontSize: 28, fontWeight: FontWeight.bold, color: AppColors.textMain),
+              ),
+              const SizedBox(height: 16),
+              const Text(
+                'Seus dados foram enviados para o administrador do condomínio. Você receberá uma notificação assim que seu acesso for liberado.',
+                textAlign: TextAlign.center,
+                style: TextStyle(fontSize: 16, color: AppColors.textSecondary, height: 1.5),
+              ),
+              const SizedBox(height: 48),
+              Container(
+                padding: const EdgeInsets.all(20),
+                decoration: BoxDecoration(
+                  color: AppColors.surface,
+                  borderRadius: BorderRadius.circular(20),
+                  border: Border.all(color: AppColors.border),
+                ),
+                child: const Row(
+                  children: [
+                    Icon(Icons.info_outline, color: AppColors.primary),
+                    SizedBox(width: 16),
+                    Expanded(
+                      child: Text(
+                        'Dica: O síndico costuma analisar solicitações em horários comerciais.',
+                        style: TextStyle(fontSize: 14, color: AppColors.textMain),
+                      ),
                     ),
-                  ),
-                ],
+                  ],
+                ),
               ),
-            ),
-            const SizedBox(height: 64),
-            CondoButton(
-              label: 'Entendi',
-              onPressed: () => Navigator.of(context).pushNamedAndRemoveUntil('/home', (route) => false),
-            ),
-          ],
+              const Spacer(),
+              CondoButton(
+                label: 'Voltar ao Início',
+                onPressed: () => Navigator.of(context).pushNamedAndRemoveUntil('/login', (route) => false),
+              ),
+              const SizedBox(height: 16),
+            ],
+          ),
         ),
       ),
     );

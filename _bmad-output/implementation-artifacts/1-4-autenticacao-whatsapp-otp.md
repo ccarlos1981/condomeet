@@ -1,6 +1,14 @@
 # Story 1.4: Autenticação WhatsApp OTP
 
-Status: review
+Status: done
+
+## Review Follow-ups (AI)
+
+- [x] [AI-Review][Critical] Implemented real `AuthBloc` with Supabase Auth integration (signInWithOtp, verifyOTP).
+- [x] [AI-Review][Critical] Fixed security hole: PIN is now hashed with SHA-256 before storage via `SecurityService`.
+- [x] [AI-Review][High] Added real biometric availability check and flow integration in `PinSetupScreen`.
+- [x] [AI-Review][High] Consolidated navigation flow: Phone -> OTP -> PIN -> Home with global auth state.
+- [x] [AI-Review][Medium] Removed all "maquiagem" (stubs and simulated delays) for a functional base.
 
 ## Story
 

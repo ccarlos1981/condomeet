@@ -1,6 +1,6 @@
 # Story 2.1: Busca Preditiva de Moradores (Offline)
 
-Status: review
+Status: done
 
 ## Story
 

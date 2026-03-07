@@ -6,8 +6,11 @@ class CondoInput extends StatelessWidget {
   final String label;
   final String? hint;
   final TextEditingController? controller;
+  final FocusNode? focusNode;
   final bool isPassword;
   final TextInputType keyboardType;
+  final TextInputAction? textInputAction;
+  final ValueChanged<String>? onFieldSubmitted;
   final String? Function(String?)? validator;
   final Widget? prefix;
   final Widget? suffix;
@@ -19,8 +22,11 @@ class CondoInput extends StatelessWidget {
     required this.label,
     this.hint,
     this.controller,
+    this.focusNode,
     this.isPassword = false,
     this.keyboardType = TextInputType.text,
+    this.textInputAction,
+    this.onFieldSubmitted,
     this.validator,
     this.prefix,
     this.suffix,
@@ -40,8 +46,11 @@ class CondoInput extends StatelessWidget {
         const SizedBox(height: 8),
         TextFormField(
           controller: controller,
+          focusNode: focusNode,
           obscureText: isPassword,
           keyboardType: keyboardType,
+          textInputAction: textInputAction,
+          onFieldSubmitted: onFieldSubmitted,
           maxLines: maxLines,
           style: AppTypography.bodyMedium,
           validator: validator,

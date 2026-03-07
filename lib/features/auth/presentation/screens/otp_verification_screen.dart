@@ -1,5 +1,9 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:condomeet/core/design_system/design_system.dart';
+import 'package:condomeet/features/auth/presentation/bloc/auth_bloc.dart';
+import 'package:condomeet/features/auth/presentation/bloc/auth_event.dart';
+import 'package:condomeet/features/auth/presentation/bloc/auth_state.dart';
 
 class OtpVerificationScreen extends StatefulWidget {
   final String phoneNumber;
@@ -19,7 +23,6 @@ class _OtpVerificationScreenState extends State<OtpVerificationScreen> {
     (_) => TextEditingController(),
   );
   final List<FocusNode> _focusNodes = List.generate(6, (_) => FocusNode());
-  bool _isLoading = false;
 
   @override
   void dispose() {
@@ -32,69 +35,120 @@ class _OtpVerificationScreenState extends State<OtpVerificationScreen> {
     super.dispose();
   }
 
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('Verificação'),
-      ),
-      body: SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.all(24.0),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              const SizedBox(height: 24),
-              Text(
-                'Digite o código',
-                style: AppTypography.h1,
-              ),
-              const SizedBox(height: 16),
-              Text(
-                'Enviamos um código de 6 dígitos para\n+55 ${widget.phoneNumber}',
-                style: AppTypography.bodyMedium.copyWith(
-                  color: AppColors.textSecondary,
-                ),
-              ),
-              const SizedBox(height: 48),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: List.generate(
-                  6,
-                  (index) => _buildOtpField(index),
-                ),
-              ),
-              const SizedBox(height: 24),
-              Center(
-                child: TextButton(
-                  onPressed: _handleResendCode,
-                  child: Text(
-                    'Reenviar código',
-                    style: AppTypography.bodyMedium.copyWith(
-                      color: AppColors.primary,
-                    ),
-                  ),
-                ),
-              ),
-              const Spacer(),
-              CondoButton(
-                label: _isLoading ? 'Verificando...' : 'Verificar',
-                isLoading: _isLoading,
-                onPressed: _handleVerify,
-              ),
-            ],
-          ),
-        ),
+  void _handleVerify() {
+    final code = _controllers.map((c) => c.text).join();
+    
+    if (code.length != 6) {
+      _showError('Por favor, digite o código completo');
+      return;
+    }
+
+    context.read<AuthBloc>().add(AuthOtpVerified(
+      phoneNumber: widget.phoneNumber,
+      otpCode: code,
+    ));
+  }
+
+  void _handleResendCode() {
+    context.read<AuthBloc>().add(AuthPhoneSubmitted(widget.phoneNumber));
+  }
+
+  void _showError(String message) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(message),
+        backgroundColor: AppColors.error,
       ),
     );
   }
 
-  Widget _buildOtpField(int index) {
+  void _showSuccess(String message) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(message),
+        backgroundColor: AppColors.success,
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return BlocListener<AuthBloc, AuthState>(
+      listener: (context, state) {
+        if (state.status == AuthStatus.pendingPinSetup) {
+          Navigator.of(context).pushReplacementNamed('/pin-setup');
+        } else if (state.errorMessage != null) {
+          _showError(state.errorMessage!);
+        }
+      },
+      child: BlocBuilder<AuthBloc, AuthState>(
+        builder: (context, state) {
+          final isLoading = state.status == AuthStatus.authenticating;
+          return Scaffold(
+            appBar: AppBar(
+              title: const Text('Verificação'),
+            ),
+            body: SafeArea(
+              child: Padding(
+                padding: const EdgeInsets.all(24.0),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const SizedBox(height: 24),
+                    Text(
+                      'Digite o código',
+                      style: AppTypography.h1,
+                    ),
+                    const SizedBox(height: 16),
+                    Text(
+                      'Enviamos um código de 6 dígitos para\n+55 ${widget.phoneNumber}',
+                      style: AppTypography.bodyMedium.copyWith(
+                        color: AppColors.textSecondary,
+                      ),
+                    ),
+                    const SizedBox(height: 48),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: List.generate(
+                        6,
+                        (index) => _buildOtpField(index, isLoading),
+                      ),
+                    ),
+                    const SizedBox(height: 24),
+                    Center(
+                      child: TextButton(
+                        onPressed: isLoading ? null : _handleResendCode,
+                        child: Text(
+                          'Reenviar código',
+                          style: AppTypography.bodyMedium.copyWith(
+                            color: AppColors.primary,
+                          ),
+                        ),
+                      ),
+                    ),
+                    const Spacer(),
+                    CondoButton(
+                      label: isLoading ? 'Verificando...' : 'Verificar',
+                      isLoading: isLoading,
+                      onPressed: isLoading ? null : _handleVerify,
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          );
+        },
+      ),
+    );
+  }
+
+  Widget _buildOtpField(int index, bool disabled) {
     return SizedBox(
       width: 50,
       child: TextField(
         controller: _controllers[index],
         focusNode: _focusNodes[index],
+        enabled: !disabled,
         textAlign: TextAlign.center,
         keyboardType: TextInputType.number,
         maxLength: 1,
@@ -119,63 +173,10 @@ class _OtpVerificationScreenState extends State<OtpVerificationScreen> {
             _focusNodes[index - 1].requestFocus();
           }
           
-          // Auto-verify when all fields are filled
           if (index == 5 && value.isNotEmpty) {
             _handleVerify();
           }
         },
-      ),
-    );
-  }
-
-  void _handleVerify() async {
-    final code = _controllers.map((c) => c.text).join();
-    
-    if (code.length != 6) {
-      _showError('Por favor, digite o código completo');
-      return;
-    }
-
-    setState(() => _isLoading = true);
-
-    try {
-      // TODO: Verify OTP with Supabase
-      // await supabase.auth.verifyOTP(phone: widget.phoneNumber, token: code);
-      
-      // Simulate API call
-      await Future.delayed(const Duration(seconds: 2));
-      
-      if (mounted) {
-        Navigator.of(context).pushReplacementNamed('/pin-setup');
-      }
-    } catch (e) {
-      _showError('Código inválido. Tente novamente.');
-    } finally {
-      if (mounted) {
-        setState(() => _isLoading = false);
-      }
-    }
-  }
-
-  void _handleResendCode() async {
-    // TODO: Resend OTP
-    _showSuccess('Código reenviado!');
-  }
-
-  void _showError(String message) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(message),
-        backgroundColor: AppColors.error,
-      ),
-    );
-  }
-
-  void _showSuccess(String message) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(message),
-        backgroundColor: AppColors.success,
       ),
     );
   }
