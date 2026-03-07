@@ -12,12 +12,41 @@ class InvitationBloc extends Bloc<InvitationEvent, InvitationState> {
   InvitationBloc({required InvitationRepository invitationRepository})
       : _invitationRepository = invitationRepository,
         super(InvitationInitial()) {
-    on<WatchResidentInvitationsRequested>(_onWatchResidentInvitationsRequested);
-    on<WatchAllActiveInvitationsRequested>(_onWatchAllActiveInvitationsRequested);
+    on<LoadResidentInvitationsPaginated>(_onLoadResidentInvitationsPaginated);
     on<CreateInvitationRequested>(_onCreateInvitationRequested);
     on<MarkInvitationAsUsedRequested>(_onMarkInvitationAsUsedRequested);
     on<CancelInvitationRequested>(_onCancelInvitationRequested);
     on<_UpdateInvitations>(_onUpdateInvitations);
+  }
+
+  Future<void> _onLoadResidentInvitationsPaginated(
+    LoadResidentInvitationsPaginated event,
+    Emitter<InvitationState> emit,
+  ) async {
+    if (event.isRefresh) {
+      emit(InvitationLoading());
+    }
+
+    final result = await _invitationRepository.getResidentInvitationsPaginated(
+      residentId: event.residentId,
+      limit: event.limit,
+      offset: event.offset,
+    );
+
+    if (result.isSuccess) {
+      final newInvitations = result.successData;
+      final currentInvitations = state is InvitationLoaded && !event.isRefresh
+          ? (state as InvitationLoaded).invitations
+          : <Invitation>[];
+      
+      emit(InvitationLoaded(
+        invitations: [...currentInvitations, ...newInvitations],
+        hasMore: newInvitations.length == event.limit,
+        offset: event.offset + newInvitations.length,
+      ));
+    } else {
+      emit(InvitationError(result.failureMessage));
+    }
   }
 
   Future<void> _onWatchResidentInvitationsRequested(
@@ -53,10 +82,15 @@ class InvitationBloc extends Bloc<InvitationEvent, InvitationState> {
       guestName: event.guestName,
       validityDate: event.validityDate,
       condominiumId: event.condominiumId,
+      visitorType: event.visitorType,
+      visitorPhone: event.visitorPhone,
+      observation: event.observation,
     );
 
     if (result.isSuccess) {
       emit(InvitationCreated(result.successData));
+      // Re-trigger load to update list if needed, or simply let the watch handle it.
+      // Since we have a watch, it might update automatically.
     } else {
       emit(InvitationError(result.failureMessage));
     }
@@ -86,7 +120,11 @@ class InvitationBloc extends Bloc<InvitationEvent, InvitationState> {
     _UpdateInvitations event,
     Emitter<InvitationState> emit,
   ) {
-    emit(InvitationLoaded(event.invitations.cast<Invitation>()));
+    emit(InvitationLoaded(
+      invitations: event.invitations.cast<Invitation>(),
+      hasMore: false, // Watch is usually for active ones, not full history
+      offset: 0,
+    ));
   }
 
   @override

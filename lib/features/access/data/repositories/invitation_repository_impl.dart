@@ -30,6 +30,9 @@ class InvitationRepositoryImpl implements InvitationRepository {
     required String guestName,
     required DateTime validityDate,
     required String condominiumId,
+    String? visitorType,
+    String? visitorPhone,
+    String? observation,
   }) async {
     try {
       final id = const Uuid().v4();
@@ -43,20 +46,63 @@ class InvitationRepositoryImpl implements InvitationRepository {
         guestName: guestName,
         validityDate: validityDate,
         qrData: qrData,
+        visitorType: visitorType,
+        visitorPhone: visitorPhone,
+        observation: observation,
         status: 'active',
         createdAt: now,
         updatedAt: now,
       );
 
       await _powerSync.db.execute(
-        '''INSERT INTO convites (id, resident_id, condominio_id, guest_name, validity_date, qr_data, status, created_at, updated_at) 
-           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)''',
-        [id, residentId, condominiumId, guestName, validityDate.toIso8601String(), qrData, 'active', now.toIso8601String(), now.toIso8601String()],
+        '''INSERT INTO convites (
+            id, resident_id, condominio_id, guest_name, validity_date, 
+            qr_data, visitor_type, visitor_phone, observation, 
+            status, created_at, updated_at
+           ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)''',
+        [
+          id, 
+          residentId, 
+          condominiumId, 
+          guestName, 
+          validityDate.toIso8601String(), 
+          qrData,
+          visitorType,
+          visitorPhone,
+          observation,
+          'active', 
+          now.toIso8601String(), 
+          now.toIso8601String()
+        ],
       );
 
       return Success(invitation);
     } catch (e) {
       return Failure('Erro ao criar convite: ${e.toString()}');
+    }
+  }
+
+  @override
+  Future<Result<List<Invitation>>> getResidentInvitationsPaginated({
+    required String residentId,
+    required int limit,
+    required int offset,
+  }) async {
+    try {
+      final List<Map<String, dynamic>> results = await _powerSync.db.getAll(
+        '''
+        SELECT * FROM convites 
+        WHERE resident_id = ? 
+        ORDER BY created_at DESC 
+        LIMIT ? OFFSET ?
+        ''',
+        [residentId, limit, offset],
+      );
+
+      final invitations = results.map((row) => Invitation.fromMap(row)).toList();
+      return Success(invitations);
+    } catch (e) {
+      return Failure('Erro ao buscar convites: ${e.toString()}');
     }
   }
 
@@ -86,17 +132,7 @@ class InvitationRepositoryImpl implements InvitationRepository {
     }
   }
 
-  Invitation _fromMap(Map<String, dynamic> map) {
-    return Invitation(
-      id: map['id'] as String,
-      residentId: map['resident_id'] as String,
-      condominiumId: (map['condominio_id'] ?? map['condominium_id']) as String,
-      guestName: map['guest_name'] as String,
-      validityDate: DateTime.parse(map['validity_date'] as String),
-      qrData: map['qr_data'] as String,
-      status: map['status'] as String,
-      createdAt: DateTime.parse(map['created_at'] as String? ?? DateTime.now().toIso8601String()),
-      updatedAt: DateTime.parse(map['updated_at'] as String? ?? DateTime.now().toIso8601String()),
-    );
+  Invitation _fromMap(Map<String, dynamic> row) {
+    return Invitation.fromMap(row);
   }
 }

@@ -16,7 +16,7 @@ import 'package:condomeet/features/portaria/presentation/screens/parcel_dashboar
 import 'package:condomeet/features/portaria/presentation/screens/pending_deliveries_screen.dart';
 import 'package:condomeet/features/portaria/presentation/screens/parcel_history_screen.dart';
 import 'package:condomeet/features/portaria/domain/repositories/resident_repository.dart';
-import 'package:condomeet/features/access/presentation/screens/invitation_generator_screen.dart';
+import 'package:condomeet/features/access/presentation/screens/visitor_authorization_screen.dart';
 import 'package:condomeet/features/access/presentation/screens/guest_checkin_screen.dart';
 import 'package:condomeet/features/community/presentation/screens/document_center_screen.dart';
 import 'package:condomeet/features/community/presentation/screens/area_picker_screen.dart';
@@ -61,7 +61,7 @@ class AppRouter {
       '/invitation-generator': (context) {
         return BlockedAccessOverlay(
           isBlocked: state.isUnitBlocked,
-          child: InvitationGeneratorScreen(residentId: state.userId ?? ''),
+          child: const VisitorAuthorizationScreen(),
         );
       },
       '/guest-checkin': (context) => const GuestCheckinScreen(),

@@ -14,10 +14,17 @@ class InvitationLoading extends InvitationState {}
 
 class InvitationLoaded extends InvitationState {
   final List<Invitation> invitations;
-  const InvitationLoaded(this.invitations);
+  final bool hasMore;
+  final int offset;
+
+  const InvitationLoaded({
+    required this.invitations,
+    this.hasMore = true,
+    this.offset = 0,
+  });
 
   @override
-  List<Object?> get props => [invitations];
+  List<Object?> get props => [invitations, hasMore, offset];
 }
 
 class InvitationError extends InvitationState {

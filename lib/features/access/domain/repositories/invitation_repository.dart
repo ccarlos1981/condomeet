@@ -14,6 +14,16 @@ abstract class InvitationRepository {
     required String guestName,
     required DateTime validityDate,
     required String condominiumId,
+    String? visitorType,
+    String? visitorPhone,
+    String? observation,
+  });
+
+  /// Fetches paginated invitations for a resident.
+  Future<Result<List<Invitation>>> getResidentInvitationsPaginated({
+    required String residentId,
+    required int limit,
+    required int offset,
   });
 
   /// Marks an invitation as used.
