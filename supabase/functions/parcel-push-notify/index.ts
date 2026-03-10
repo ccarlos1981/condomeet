@@ -1,0 +1,206 @@
+import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2"
+import { create, getNumericDate } from "https://deno.land/x/djwt@v2.9.1/mod.ts"
+
+// ── FCM HTTP v1 send ───────────────────────────────────────────────────────
+
+async function getAccessToken(serviceAccount: any): Promise<string> {
+  const now = Math.floor(Date.now() / 1000)
+  const header = { alg: "RS256" as const, typ: "JWT" }
+  const payload = {
+    iss: serviceAccount.client_email,
+    scope: "https://www.googleapis.com/auth/firebase.messaging",
+    aud: "https://oauth2.googleapis.com/token",
+    iat: now,
+    exp: getNumericDate(3600),
+  }
+
+  // Import the RSA private key
+  const pemKey = serviceAccount.private_key
+  const binaryDer = pemToBinary(pemKey)
+  const cryptoKey = await crypto.subtle.importKey(
+    "pkcs8",
+    binaryDer,
+    { name: "RSASSA-PKCS1-v1_5", hash: "SHA-256" },
+    false,
+    ["sign"]
+  )
+
+  const jwt = await create(header, payload, cryptoKey)
+
+  // Exchange JWT for access token
+  const tokenRes = await fetch("https://oauth2.googleapis.com/token", {
+    method: "POST",
+    headers: { "Content-Type": "application/x-www-form-urlencoded" },
+    body: new URLSearchParams({
+      grant_type: "urn:ietf:params:oauth:grant-type:jwt-bearer",
+      assertion: jwt,
+    }),
+  })
+
+  const tokenData = await tokenRes.json()
+  if (!tokenData.access_token) {
+    throw new Error(`Failed to get access token: ${JSON.stringify(tokenData)}`)
+  }
+  return tokenData.access_token
+}
+
+function pemToBinary(pem: string): ArrayBuffer {
+  const b64 = pem
+    .replace(/-----BEGIN PRIVATE KEY-----/, "")
+    .replace(/-----END PRIVATE KEY-----/, "")
+    .replace(/\n/g, "")
+  const binary = atob(b64)
+  const bytes = new Uint8Array(binary.length)
+  for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i)
+  return bytes.buffer
+}
+
+async function sendFcmMessage(
+  accessToken: string,
+  projectId: string,
+  fcmToken: string,
+  title: string,
+  body: string,
+  data: Record<string, string>
+): Promise<{ success: boolean; token: string; error?: string }> {
+  const url = `https://fcm.googleapis.com/v1/projects/${projectId}/messages:send`
+  const payload = {
+    message: {
+      token: fcmToken,
+      notification: { title, body },
+      data,
+      android: { priority: "high" },
+      apns: {
+        headers: { "apns-priority": "10" },
+        payload: { aps: { sound: "default", badge: 1 } },
+      },
+    },
+  }
+
+  try {
+    const res = await fetch(url, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${accessToken}`,
+      },
+      body: JSON.stringify(payload),
+    })
+
+    const result = await res.json()
+    if (!res.ok) {
+      const errMsg = result?.error?.message ?? JSON.stringify(result)
+      return { success: false, token: fcmToken, error: errMsg }
+    }
+    return { success: true, token: fcmToken }
+  } catch (e: any) {
+    return { success: false, token: fcmToken, error: e.message }
+  }
+}
+
+// ── Main handler ───────────────────────────────────────────────────────────
+
+serve(async (req) => {
+  try {
+    const {
+      parcel_id,
+      event,         // 'arrived' | 'delivered'
+      bloco,
+      apto,
+      tipo,
+      condominio_id,
+      picked_up_by_name,
+    } = await req.json()
+
+    if (!parcel_id || !event || !condominio_id) {
+      return new Response(JSON.stringify({ error: "Missing required fields" }), { status: 400 })
+    }
+
+    // 1. Load Firebase service account from Supabase secrets
+    const serviceAccountJson = Deno.env.get("FIREBASE_SERVICE_ACCOUNT_JSON")
+    if (!serviceAccountJson) {
+      return new Response(JSON.stringify({ error: "FIREBASE_SERVICE_ACCOUNT_JSON not set" }), { status: 500 })
+    }
+    const serviceAccount = JSON.parse(serviceAccountJson)
+    const projectId = serviceAccount.project_id
+
+    // 2. Load Supabase admin client
+    const supabase = createClient(
+      Deno.env.get("SUPABASE_URL") ?? "",
+      Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? ""
+    )
+
+    // 3. Fetch all FCM tokens for residents of the unit
+    const query = supabase
+      .from("perfil")
+      .select("id, nome_completo, fcm_token")
+      .eq("condominio_id", condominio_id)
+      .not("fcm_token", "is", null)
+
+    if (bloco) query.eq("bloco_txt", bloco)
+    if (apto) query.eq("apto_txt", apto)
+
+    const { data: residents, error: resError } = await query
+    if (resError) {
+      console.error("Error fetching residents:", resError)
+      return new Response(JSON.stringify({ error: resError.message }), { status: 500 })
+    }
+
+    const validResidents = (residents ?? []).filter((r: any) => r.fcm_token && r.fcm_token.length > 10)
+
+    if (validResidents.length === 0) {
+      console.log("No FCM tokens found for unit", bloco, apto)
+      return new Response(JSON.stringify({ sent: 0, message: "No tokens found" }), { status: 200 })
+    }
+
+    // 4. Build notification content
+    const unitLabel = `Bloco ${bloco ?? "?"} / Apto ${apto ?? "?"}`
+    const tipoLabel: Record<string, string> = {
+      caixa: "Caixa", envelope: "Envelope", pacote: "Pacote",
+      notif_judicial: "Notif. Judicial",
+    }
+    const tipoStr = tipoLabel[tipo ?? ""] ?? "Encomenda"
+
+    let title: string
+    let body: string
+
+    if (event === "arrived") {
+      title = "📦 Encomenda chegou!"
+      body = `${unitLabel} — ${tipoStr} aguardando retirada na portaria.`
+    } else {
+      const who = picked_up_by_name ? ` por ${picked_up_by_name}` : ""
+      title = "✅ Encomenda retirada"
+      body = `${unitLabel} — encomenda retirada${who}.`
+    }
+
+    const notifData: Record<string, string> = {
+      type: "parcel",
+      event,
+      parcel_id: String(parcel_id),
+      bloco: bloco ?? "",
+      apto: apto ?? "",
+    }
+
+    // 5. Get FCM access token
+    const accessToken = await getAccessToken(serviceAccount)
+
+    // 6. Send to all tokens
+    const results = await Promise.all(
+      validResidents.map((r: any) =>
+        sendFcmMessage(accessToken, projectId, r.fcm_token, title, body, notifData)
+      )
+    )
+
+    const successCount = results.filter((r: any) => r.success).length
+    console.log(`Sent ${successCount}/${results.length} push notifications for event: ${event}`)
+
+    return new Response(JSON.stringify({ sent: successCount, total: results.length, results }), {
+      status: 200,
+      headers: { "Content-Type": "application/json" },
+    })
+  } catch (err: any) {
+    console.error("Unexpected error:", err)
+    return new Response(JSON.stringify({ error: err.message }), { status: 500 })
+  }
+})

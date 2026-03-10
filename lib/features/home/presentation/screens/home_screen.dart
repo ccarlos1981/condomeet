@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/gestures.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:get_it/get_it.dart';
 import 'package:condomeet/core/design_system/app_colors.dart';
@@ -10,6 +12,8 @@ import 'package:condomeet/shared/repositories/condominium_repository.dart';
 import 'package:condomeet/features/parcels/presentation/bloc/parcel_bloc.dart';
 import 'package:condomeet/features/parcels/presentation/bloc/parcel_event.dart';
 import 'package:condomeet/features/parcels/presentation/bloc/parcel_state.dart';
+import 'package:condomeet/features/security/presentation/bloc/sos_bloc.dart';
+import 'package:condomeet/features/security/presentation/bloc/sos_event.dart';
 import 'package:condomeet/main.dart';
 
 class HomeScreen extends StatefulWidget {
@@ -47,6 +51,141 @@ class _HomeScreenState extends State<HomeScreen> {
       _condominiumStream = GetIt.I<CondominiumRepository>()
           .watchCondominiumById(condoId);
     }
+  }
+
+  // ── SOS dialog — shown directly when SOS tab is tapped ────────────────
+  void _showSosDialog(BuildContext context) {
+    HapticFeedback.heavyImpact();
+    showDialog<void>(
+      context: context,
+      barrierDismissible: false,
+      builder: (dialogContext) {
+        return Dialog(
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+          elevation: 0,
+          child: Padding(
+            padding: const EdgeInsets.all(24),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Container(
+                  width: 72,
+                  height: 72,
+                  decoration: BoxDecoration(
+                    color: Colors.red.shade50,
+                    shape: BoxShape.circle,
+                    border: Border.all(color: Colors.red.shade100, width: 2),
+                  ),
+                  child: Icon(Icons.emergency_share_rounded,
+                      color: Colors.red.shade600, size: 36),
+                ),
+                const SizedBox(height: 20),
+                const Text(
+                  'Tem certeza que\nprecisa de ajuda?',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.bold,
+                    color: Color(0xFF1A1A1A),
+                    height: 1.3,
+                  ),
+                ),
+                const SizedBox(height: 10),
+                Text(
+                  'Avisaremos ao Síndico(a) e Subsíndico(a)',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(fontSize: 13, color: Colors.grey.shade600),
+                ),
+                const SizedBox(height: 28),
+                Row(
+                  children: [
+                    Expanded(
+                      child: ElevatedButton(
+                        onPressed: () {
+                          Navigator.of(dialogContext).pop();
+                          _triggerSOS(context);
+                        },
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: Colors.red,
+                          padding: const EdgeInsets.symmetric(vertical: 14),
+                          shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(12)),
+                          elevation: 0,
+                        ),
+                        child: const Text(
+                          'QUERO AJUDA',
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontWeight: FontWeight.bold,
+                            fontSize: 13,
+                          ),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: OutlinedButton(
+                        onPressed: () => Navigator.of(dialogContext).pop(),
+                        style: OutlinedButton.styleFrom(
+                          padding: const EdgeInsets.symmetric(vertical: 14),
+                          side: BorderSide(color: Colors.grey.shade400),
+                          shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(12)),
+                        ),
+                        child: Text(
+                          'NÃO QUERO',
+                          style: TextStyle(
+                            color: Colors.grey.shade700,
+                            fontWeight: FontWeight.bold,
+                            fontSize: 13,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  void _triggerSOS(BuildContext context) {
+    final authState = context.read<AuthBloc>().state;
+    final condoId = authState.condominiumId;
+    final userId = authState.userId;
+
+    if (condoId == null || userId == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+              'Erro: não foi possível identificar o condomínio.'),
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+      return;
+    }
+
+    HapticFeedback.heavyImpact();
+    context.read<SOSBloc>().add(
+      TriggerSOSRequested(
+        residentId: userId,
+        condominiumId: condoId,
+        latitude: 0.0,
+        longitude: 0.0,
+      ),
+    );
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text('🚨 Alerta SOS enviado! Aguarde o retorno do síndico.'),
+        backgroundColor: Colors.red,
+        behavior: SnackBarBehavior.floating,
+        duration: Duration(seconds: 4),
+      ),
+    );
   }
 
   @override
@@ -90,11 +229,13 @@ class _HomeScreenState extends State<HomeScreen> {
                     authState.role ?? 'resident',
                   );
 
+
                   return Column(
                     children: [
                       _buildHeader(authState),
                       Expanded(
                         child: SingleChildScrollView(
+                          dragStartBehavior: DragStartBehavior.down,
                           padding: const EdgeInsets.only(bottom: 24),
                           child: Column(
                             children: [
@@ -307,12 +448,13 @@ class _HomeScreenState extends State<HomeScreen> {
     double availWidth,
   ) {
     final iconData = _getIconData(item.icon);
-    return GestureDetector(
+    return InkWell(
       onTap: () {
         if (item.route.isNotEmpty) {
           Navigator.of(context).pushNamed(item.route);
         }
       },
+      borderRadius: BorderRadius.circular(16),
       child: Column(
         children: [
           Container(
@@ -551,6 +693,10 @@ class _HomeScreenState extends State<HomeScreen> {
                   _drawerItem(
                     Icons.emergency_outlined,
                     'SOS - Cadastrar celulares SOS',
+                    onTap: () {
+                      Navigator.pop(context);
+                      Navigator.pushNamed(context, '/sos-contatos');
+                    },
                   ),
                   _drawerItem(Icons.chat_outlined, 'Outras notificações...'),
                   _drawerItem(Icons.cancel_outlined, 'Inativar conta'),
@@ -784,7 +930,13 @@ class _HomeScreenState extends State<HomeScreen> {
             return Expanded(
               child: GestureDetector(
                 onTap: () {
-                  if (index == 3) {
+                  if (index == 1) {
+                    // SOS tab — mostrar dialog diretamente
+                    _showSosDialog(context);
+                  } else if (index == 2) {
+                    // Notificação tab — avisos do condomínio
+                    Navigator.of(context).pushNamed('/avisos');
+                  } else if (index == 3) {
                     _scaffoldKey.currentState?.openEndDrawer();
                   } else {
                     setState(() => _selectedTab = index);
@@ -797,14 +949,19 @@ class _HomeScreenState extends State<HomeScreen> {
                     children: [
                       Icon(
                         item['icon'] as IconData,
-                        color: isSelected ? Colors.red : Colors.white,
+                        // SOS tab (index 1) is always red; others use selected state
+                        color: index == 1
+                            ? Colors.red
+                            : (isSelected ? Colors.red : Colors.white),
                         size: 24,
                       ),
                       Text(
                         item['label'] as String,
                         style: TextStyle(
                           fontSize: 10,
-                          color: isSelected ? Colors.red : Colors.white,
+                          color: index == 1
+                              ? Colors.red
+                              : (isSelected ? Colors.red : Colors.white),
                         ),
                       ),
                     ],
@@ -842,6 +999,10 @@ class _HomeScreenState extends State<HomeScreen> {
         return Icons.local_shipping_outlined;
       case 'how_to_reg':
         return Icons.how_to_reg_rounded;
+      case 'forum':
+        return Icons.forum_outlined;
+      case 'message':
+        return Icons.message_outlined;
       default:
         return Icons.widgets_outlined;
     }

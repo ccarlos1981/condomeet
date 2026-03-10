@@ -3,106 +3,287 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:uuid/uuid.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:image_picker/image_picker.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:condomeet/core/design_system/design_system.dart';
 import 'package:condomeet/core/errors/result.dart';
 import '../../domain/entities/parcel.dart';
-import '../../domain/repositories/resident_repository.dart';
 import '../../domain/repositories/parcel_repository.dart';
 import '../../../auth/presentation/bloc/auth_bloc.dart';
-import 'package:condomeet/core/services/messaging_service.dart';
 import 'package:condomeet/core/di/injection_container.dart';
-import 'package:condomeet/core/utils/structure_helper.dart';
 import 'package:condomeet/core/utils/error_sanitizer.dart';
 
-class ParcelRegistrationScreen extends StatefulWidget {
-  final Resident resident;
+const _tipoOptions = [
+  {'value': 'caixa', 'label': '📦 Caixa'},
+  {'value': 'envelope', 'label': '✉️ Envelope'},
+  {'value': 'pacote', 'label': '🛍️ Pacote'},
+  {'value': 'notif_judicial', 'label': '⚖️ Notif. Judicial'},
+];
 
-  const ParcelRegistrationScreen({super.key, required this.resident});
+class ParcelRegistrationScreen extends StatefulWidget {
+  const ParcelRegistrationScreen({super.key});
 
   @override
   State<ParcelRegistrationScreen> createState() => _ParcelRegistrationScreenState();
 }
 
 class _ParcelRegistrationScreenState extends State<ParcelRegistrationScreen> {
-  late final ParcelRepository _repository;
-  final MessagingService _messagingService = WhatsAppMessagingServiceMock();
-  dynamic _capturedPhoto;
+  late final ParcelRepository _repo;
+  final _supabase = Supabase.instance.client;
+
+  // Block/Apt selection
+  List<Map<String, dynamic>> _blocos = [];
+  List<Map<String, dynamic>> _aptos = [];
+  Map<String, dynamic>? _selectedBloco;
+  Map<String, dynamic>? _selectedApto;
+  List<Map<String, dynamic>> _residentesUnidade = [];
+  bool _loadingBlocos = true;
+  bool _loadingAptos = false;
+
+  // Form fields
+  String? _selectedTipo;
+  final _trackingCtrl = TextEditingController();
+  final _obsCtrl = TextEditingController();
+
+  // Photo
+  XFile? _photo;
+  bool _isUploadingPhoto = false;
   bool _isRegistering = false;
 
   @override
   void initState() {
     super.initState();
-    _repository = sl<ParcelRepository>();
+    _repo = sl<ParcelRepository>();
+    _loadBlocos();
   }
 
-  void _takePhoto() async {
-    // For simulator testing, we'll use a dummy photo path if the user taps the capture area
-    setState(() {
-      _capturedPhoto = File('/tmp/dummy_parcel.jpg'); // Dummy path for logic verification
-    });
+  @override
+  void dispose() {
+    _trackingCtrl.dispose();
+    _obsCtrl.dispose();
+    super.dispose();
+  }
 
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text('Foto simulada capturada para teste.'),
-        behavior: SnackBarBehavior.floating,
+  Future<void> _loadBlocos() async {
+    final authState = context.read<AuthBloc>().state;
+    final condoId = authState.condominiumId;
+    if (condoId == null) return;
+    try {
+      final data = await _supabase
+          .from('blocos')
+          .select('id, nome_ou_numero')
+          .eq('condominio_id', condoId)
+          .neq('nome_ou_numero', '0')
+          .order('nome_ou_numero');
+      setState(() {
+        _blocos = List<Map<String, dynamic>>.from(data);
+        _loadingBlocos = false;
+      });
+    } catch (e) {
+      setState(() => _loadingBlocos = false);
+    }
+  }
+
+  Future<void> _onBlocoSelected(Map<String, dynamic>? bloco) async {
+    setState(() {
+      _selectedBloco = bloco;
+      _selectedApto = null;
+      _aptos = [];
+      _residentesUnidade = [];
+      _loadingAptos = bloco != null;
+    });
+    if (bloco == null) return;
+
+    final authState = context.read<AuthBloc>().state;
+    try {
+      final data = await _supabase
+          .from('unidades')
+          .select('apartamento_id, apartamentos(numero)')
+          .eq('condominio_id', authState.condominiumId ?? '')
+          .eq('bloco_id', bloco['id'])
+          .order('apartamentos(numero)');
+
+      final aptos = data.map<Map<String, dynamic>>((e) {
+        final apto = e['apartamentos'];
+        return {
+          'id': e['apartamento_id'],
+          'numero': apto is Map ? apto['numero'] : (apto is List && apto.isNotEmpty ? apto[0]['numero'] : '?'),
+        };
+      }).where((e) => e['numero'] != '0').toList();
+
+      setState(() {
+        _aptos = aptos;
+        _loadingAptos = false;
+      });
+    } catch (e) {
+      setState(() => _loadingAptos = false);
+    }
+  }
+
+  Future<void> _onAptoSelected(Map<String, dynamic>? apto) async {
+    setState(() {
+      _selectedApto = apto;
+      _residentesUnidade = [];
+    });
+    if (apto == null || _selectedBloco == null) return;
+
+    // Load residents for this unit (for resident_id on parcel)
+    final blocoNome = _selectedBloco!['nome_ou_numero'] as String;
+    final aptoNum = apto['numero'].toString();
+    try {
+      final data = await _supabase
+          .from('perfil')
+          .select('id, nome_completo')
+          .eq('bloco_txt', blocoNome)
+          .eq('apto_txt', aptoNum)
+          .neq('papel_sistema', 'portaria');
+      setState(() {
+        _residentesUnidade = List<Map<String, dynamic>>.from(data);
+      });
+    } catch (_) {}
+  }
+
+  Future<void> _takePhoto() async {
+    final source = await showModalBottomSheet<ImageSource>(
+      context: context,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (ctx) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const SizedBox(height: 8),
+            Container(
+              width: 40, height: 4,
+              decoration: BoxDecoration(color: Colors.grey.shade300, borderRadius: BorderRadius.circular(2)),
+            ),
+            const SizedBox(height: 16),
+            ListTile(
+              leading: const CircleAvatar(
+                backgroundColor: Color(0xFFEEF2FF),
+                child: Icon(Icons.camera_alt_outlined, color: AppColors.primary),
+              ),
+              title: const Text('Tirar foto com a câmera'),
+              onTap: () => Navigator.pop(ctx, ImageSource.camera),
+            ),
+            ListTile(
+              leading: const CircleAvatar(
+                backgroundColor: Color(0xFFEEF2FF),
+                child: Icon(Icons.photo_library_outlined, color: AppColors.primary),
+              ),
+              title: const Text('Escolher da galeria'),
+              onTap: () => Navigator.pop(ctx, ImageSource.gallery),
+            ),
+            const SizedBox(height: 8),
+          ],
+        ),
       ),
     );
+
+    if (source == null) return;
+
+    final picker = ImagePicker();
+    try {
+      final photo = await picker.pickImage(
+        source: source,
+        maxWidth: 1280,
+        maxHeight: 1280,
+        imageQuality: 85,
+      );
+      if (photo != null && mounted) setState(() => _photo = photo);
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(source == ImageSource.camera
+                ? 'Câmera não disponível no simulador. Use a galeria.'
+                : 'Não foi possível acessar a galeria.'),
+          ),
+        );
+      }
+    }
   }
 
-  void _handleRegister() async {
+  Future<String?> _uploadPhoto(XFile photo) async {
+    setState(() => _isUploadingPhoto = true);
+    try {
+      final ext = photo.path.split('.').last;
+      final fileName = 'parcel_${const Uuid().v4()}.$ext';
+      final bytes = await photo.readAsBytes();
+      await _supabase.storage.from('parcel-photos').uploadBinary(
+          fileName, bytes, fileOptions: const FileOptions(contentType: 'image/jpeg'));
+      return _supabase.storage.from('parcel-photos').getPublicUrl(fileName);
+    } catch (e) {
+      return null;
+    } finally {
+      setState(() => _isUploadingPhoto = false);
+    }
+  }
+
+  bool get _canRegister =>
+      _selectedBloco != null &&
+      _selectedApto != null &&
+      _selectedTipo != null;
+
+  Future<void> _handleRegister() async {
+    if (!_canRegister) return;
     setState(() => _isRegistering = true);
-    
-    // Haptic feedback (AC4)
     HapticFeedback.mediumImpact();
 
     final authState = context.read<AuthBloc>().state;
+    final blocoNome = _selectedBloco!['nome_ou_numero'] as String;
+    final aptoNum = _selectedApto!['numero'].toString();
+
+    // Use first resident of the unit as "owner", or a placeholder
+    final residentId = _residentesUnidade.isNotEmpty
+        ? _residentesUnidade[0]['id'] as String
+        : authState.userId ?? '';
+
+    String? photoUrl;
+    if (_photo != null) photoUrl = await _uploadPhoto(_photo!);
 
     final parcel = Parcel(
       id: const Uuid().v4(),
-      residentId: widget.resident.id,
-      residentName: widget.resident.fullName,
-      unitNumber: widget.resident.unitNumber ?? 'N/A',
-      block: widget.resident.block ?? 'N/A',
+      residentId: residentId,
+      residentName: _residentesUnidade.isNotEmpty
+          ? (_residentesUnidade[0]['nome_completo'] as String? ?? 'Morador')
+          : 'Morador',
+      unitNumber: aptoNum,
+      block: blocoNome,
       arrivalTime: DateTime.now(),
       status: 'pending',
-      photoUrl: _capturedPhoto?.path,
+      photoUrl: photoUrl,
       condominiumId: authState.condominiumId,
+      tipo: _selectedTipo,
+      trackingCode: _trackingCtrl.text.trim().isEmpty ? null : _trackingCtrl.text.trim(),
+      observacao: _obsCtrl.text.trim().isEmpty ? null : _obsCtrl.text.trim(),
+      registeredBy: authState.userId,
     );
 
-    final result = await _repository.registerParcel(parcel);
+    final result = await _repo.registerParcel(parcel);
 
     if (mounted) {
       if (result is Success) {
-        // Trigger WhatsApp Alert (Story 2.4)
-        // Note: For now, we don't block the UI on the alert delivery
-        _messagingService.sendParcelAlert(
-          residentName: widget.resident.fullName,
-          residentPhone: widget.resident.phoneNumber ?? 'Unknown',
-          unitNumber: widget.resident.unitNumber ?? 'N/A',
-        );
-        
-        _showSuccessAnimation();
+        _showSuccess();
       } else {
-        final errorMessage = ErrorSanitizer.sanitize((result as Failure).message);
+        final msg = ErrorSanitizer.sanitize((result as Failure).message);
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(errorMessage), backgroundColor: AppColors.error),
+          SnackBar(content: Text(msg), backgroundColor: AppColors.error),
         );
         setState(() => _isRegistering = false);
       }
     }
   }
 
-  void _showSuccessAnimation() {
+  void _showSuccess() {
     showDialog(
       context: context,
       barrierDismissible: false,
-      builder: (context) => const SuccessDialog(),
+      builder: (_) => const _SuccessDialog(),
     ).then((_) {
-      if (mounted) {
-        Navigator.of(context).popUntil((route) => route.settings.name == '/home' || route.isFirst);
-      }
+      if (mounted) Navigator.of(context).popUntil((r) => r.settings.name == '/home' || r.isFirst);
     });
-
     Future.delayed(const Duration(seconds: 2), () {
       if (mounted) Navigator.of(context).pop();
     });
@@ -111,30 +292,67 @@ class _ParcelRegistrationScreenState extends State<ParcelRegistrationScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      backgroundColor: const Color(0xFFF8F9FA),
       appBar: AppBar(
         title: const Text('Registrar Encomenda'),
-        backgroundColor: Colors.transparent,
+        backgroundColor: Colors.white,
+        foregroundColor: AppColors.primary,
         elevation: 0,
       ),
       body: SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.all(24.0),
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.all(20),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              _buildResidentCard(),
-              const SizedBox(height: 32),
-              Text('Capturar Foto (Opcional)', style: AppTypography.label),
-              const SizedBox(height: 12),
+              // ── Bloco / Apto
+              Row(children: [
+                Expanded(child: _buildBlocoDropdown()),
+                const SizedBox(width: 12),
+                Expanded(child: _buildAptoDropdown()),
+              ]),
+              const SizedBox(height: 20),
+
+              // ── Tipo (obrigatório)
+              _buildTipoSelector(),
+              const SizedBox(height: 20),
+
+              // ── Foto
               _buildPhotoCapture(),
-              const Spacer(),
-              if (_isRegistering)
-                const Center(child: CircularProgressIndicator(color: AppColors.primary))
-              else
-                CondoButton(
-                  label: 'Registrar Encomenda',
-                  onPressed: _handleRegister,
-                ),
+              const SizedBox(height: 20),
+
+              // ── Rastreio
+              _buildTextField(
+                controller: _trackingCtrl,
+                label: 'Código de Rastreio',
+                hint: 'Ex: BR123456789',
+                icon: Icons.pin_outlined,
+              ),
+              const SizedBox(height: 16),
+
+              // ── Observação
+              _buildTextField(
+                controller: _obsCtrl,
+                label: 'Observação',
+                hint: 'Ex: Embalagem aberta, volumoso...',
+                icon: Icons.notes_outlined,
+                maxLines: 3,
+              ),
+              const SizedBox(height: 28),
+
+              (_isRegistering || _isUploadingPhoto)
+                  ? Column(children: [
+                      const Center(child: CircularProgressIndicator(color: AppColors.primary)),
+                      const SizedBox(height: 8),
+                      Text(_isUploadingPhoto ? 'Enviando foto...' : 'Registrando...',
+                          textAlign: TextAlign.center,
+                          style: TextStyle(color: AppColors.textSecondary)),
+                    ])
+                  : CondoButton(
+                      label: 'Registrar Encomenda',
+                      onPressed: _canRegister ? _handleRegister : null,
+                    ),
+              const SizedBox(height: 20),
             ],
           ),
         ),
@@ -142,75 +360,202 @@ class _ParcelRegistrationScreenState extends State<ParcelRegistrationScreen> {
     );
   }
 
-  Widget _buildResidentCard() {
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: AppColors.surface,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: AppColors.border),
-      ),
-      child: Row(
-        children: [
-          CircleAvatar(
-            radius: 30,
-            backgroundColor: AppColors.primary.withValues(alpha: 0.1),
-            child: Text(
-              widget.resident.fullName[0].toUpperCase(),
-              style: AppTypography.h2.copyWith(color: AppColors.primary),
-            ),
-          ),
-          const SizedBox(width: 16),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(widget.resident.fullName, style: AppTypography.h2),
-                const SizedBox(height: 4),
-                Text(
-                  StructureHelper.getFullUnitName(context.read<AuthBloc>().state.tipoEstrutura, widget.resident.block ?? '?', widget.resident.unitNumber ?? '?'),
-                  style: AppTypography.bodyMedium.copyWith(color: AppColors.textSecondary),
+  Widget _buildBlocoDropdown() {
+    return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+      Row(children: [
+        Text('Bloco', style: AppTypography.label),
+        const Text(' *', style: TextStyle(color: Colors.red, fontWeight: FontWeight.bold)),
+      ]),
+      const SizedBox(height: 8),
+      Container(
+        decoration: BoxDecoration(
+          color: Colors.white,
+          border: Border.all(color: AppColors.border),
+          borderRadius: BorderRadius.circular(12),
+        ),
+        child: _loadingBlocos
+            ? const Padding(
+                padding: EdgeInsets.all(14),
+                child: SizedBox(height: 20, width: 20, child: CircularProgressIndicator(strokeWidth: 2, color: AppColors.primary)))
+            : DropdownButtonHideUnderline(
+                child: DropdownButton<Map<String, dynamic>>(
+                  value: _selectedBloco,
+                  isExpanded: true,
+                  hint: const Padding(padding: EdgeInsets.symmetric(horizontal: 12), child: Text('Bloco')),
+                  items: _blocos.map((b) => DropdownMenuItem(
+                    value: b,
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 12),
+                      child: Text('Bloco ${b['nome_ou_numero']}'),
+                    ),
+                  )).toList(),
+                  onChanged: _onBlocoSelected,
                 ),
-              ],
-            ),
-          ),
-        ],
+              ),
       ),
-    );
+    ]);
+  }
+
+  Widget _buildAptoDropdown() {
+    return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+      Row(children: [
+        Text('Apto', style: AppTypography.label),
+        const Text(' *', style: TextStyle(color: Colors.red, fontWeight: FontWeight.bold)),
+      ]),
+      const SizedBox(height: 8),
+      Container(
+        decoration: BoxDecoration(
+          color: Colors.white,
+          border: Border.all(color: AppColors.border),
+          borderRadius: BorderRadius.circular(12),
+        ),
+        child: _loadingAptos
+            ? const Padding(
+                padding: EdgeInsets.all(14),
+                child: SizedBox(height: 20, width: 20, child: CircularProgressIndicator(strokeWidth: 2, color: AppColors.primary)))
+            : DropdownButtonHideUnderline(
+                child: DropdownButton<Map<String, dynamic>>(
+                  value: _selectedApto,
+                  isExpanded: true,
+                  hint: const Padding(padding: EdgeInsets.symmetric(horizontal: 12), child: Text('Apto')),
+                  items: _aptos.map((a) => DropdownMenuItem(
+                    value: a,
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 12),
+                      child: Text('Apto ${a['numero']}'),
+                    ),
+                  )).toList(),
+                  onChanged: _selectedBloco == null ? null : _onAptoSelected,
+                ),
+              ),
+      ),
+    ]);
+  }
+
+  Widget _buildTipoSelector() {
+    return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+      Row(children: [
+        Text('Tipo de Encomenda', style: AppTypography.label),
+        const Text(' *', style: TextStyle(color: Colors.red, fontWeight: FontWeight.bold)),
+      ]),
+      const SizedBox(height: 10),
+      Wrap(
+        spacing: 10,
+        runSpacing: 10,
+        children: _tipoOptions.map((opt) {
+          final selected = _selectedTipo == opt['value'];
+          return GestureDetector(
+            onTap: () => setState(() => _selectedTipo = opt['value']),
+            child: AnimatedContainer(
+              duration: const Duration(milliseconds: 150),
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+              decoration: BoxDecoration(
+                color: selected ? AppColors.primary : Colors.white,
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(
+                  color: selected ? AppColors.primary : AppColors.border,
+                  width: selected ? 2 : 1,
+                ),
+                boxShadow: selected
+                    ? [BoxShadow(color: AppColors.primary.withValues(alpha: 0.25), blurRadius: 8, offset: const Offset(0, 2))]
+                    : [],
+              ),
+              child: Text(
+                opt['label']!,
+                style: AppTypography.bodyMedium.copyWith(
+                  color: selected ? Colors.white : AppColors.textSecondary,
+                  fontWeight: selected ? FontWeight.bold : FontWeight.normal,
+                ),
+              ),
+            ),
+          );
+        }).toList(),
+      ),
+    ]);
   }
 
   Widget _buildPhotoCapture() {
-    return GestureDetector(
-      onTap: _takePhoto,
-      child: Container(
-        height: 200,
-        width: double.infinity,
-        decoration: BoxDecoration(
-          color: AppColors.surface,
-          borderRadius: BorderRadius.circular(16),
-          border: Border.all(color: AppColors.border, style: BorderStyle.solid),
-        ),
-        child: _capturedPhoto == null
-            ? Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  const Icon(Icons.camera_alt_outlined, size: 48, color: AppColors.border),
+    return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+      Text('Foto da Encomenda', style: AppTypography.label),
+      const SizedBox(height: 4),
+      Text('Opcional — recomendado para notif. judicial',
+          style: TextStyle(color: AppColors.textSecondary, fontSize: 12)),
+      const SizedBox(height: 10),
+      GestureDetector(
+        onTap: _takePhoto,
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 200),
+          height: 160,
+          width: double.infinity,
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(
+              color: _photo != null ? AppColors.primary : AppColors.border,
+              width: _photo != null ? 2 : 1,
+            ),
+          ),
+          child: _photo == null
+              ? Column(mainAxisAlignment: MainAxisAlignment.center, children: [
+                  Icon(Icons.camera_alt_outlined, size: 44, color: AppColors.border),
                   const SizedBox(height: 8),
-                  Text('Tocar para capturar', style: TextStyle(color: AppColors.textSecondary)),
-                ],
-              )
-            : ClipRRect(
-                borderRadius: BorderRadius.circular(16),
-                child: Image.file(File(_capturedPhoto!.path), fit: BoxFit.cover),
-              ),
+                  Text('Tocar para tirar foto', style: TextStyle(color: AppColors.textSecondary)),
+                ])
+              : Stack(children: [
+                  ClipRRect(
+                    borderRadius: BorderRadius.circular(14),
+                    child: Image.file(File(_photo!.path), width: double.infinity, height: 160, fit: BoxFit.cover),
+                  ),
+                  Positioned(
+                    bottom: 8, right: 8,
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                      decoration: BoxDecoration(
+                        color: Colors.black.withValues(alpha: 0.6),
+                        borderRadius: BorderRadius.circular(20),
+                      ),
+                      child: const Row(mainAxisSize: MainAxisSize.min, children: [
+                        Icon(Icons.refresh, color: Colors.white, size: 14),
+                        SizedBox(width: 4),
+                        Text('Trocar', style: TextStyle(color: Colors.white, fontSize: 12)),
+                      ]),
+                    ),
+                  ),
+                ]),
+        ),
       ),
-    );
+    ]);
+  }
+
+  Widget _buildTextField({
+    required TextEditingController controller,
+    required String label,
+    required String hint,
+    required IconData icon,
+    int maxLines = 1,
+  }) {
+    return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+      Text('$label (opcional)', style: AppTypography.label),
+      const SizedBox(height: 8),
+      TextFormField(
+        controller: controller,
+        maxLines: maxLines,
+        decoration: InputDecoration(
+          hintText: hint,
+          prefixIcon: Icon(icon, color: AppColors.textSecondary, size: 20),
+          filled: true,
+          fillColor: Colors.white,
+          border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide(color: AppColors.border)),
+          enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide(color: AppColors.border)),
+          focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide(color: AppColors.primary, width: 2)),
+        ),
+      ),
+    ]);
   }
 }
 
-class SuccessDialog extends StatelessWidget {
-  const SuccessDialog({super.key});
-
+class _SuccessDialog extends StatelessWidget {
+  const _SuccessDialog();
   @override
   Widget build(BuildContext context) {
     return Dialog(
@@ -218,20 +563,20 @@ class SuccessDialog extends StatelessWidget {
       elevation: 0,
       child: Container(
         padding: const EdgeInsets.all(32),
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(24),
-        ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            const Icon(Icons.check_circle, color: Colors.green, size: 80),
-            const SizedBox(height: 24),
-            Text('Sucesso!', style: AppTypography.h1),
-            const SizedBox(height: 8),
-            Text('Encomenda registrada.', style: AppTypography.bodyLarge),
-          ],
-        ),
+        decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(24)),
+        child: Column(mainAxisSize: MainAxisSize.min, children: [
+          Container(
+            width: 80, height: 80,
+            decoration: BoxDecoration(color: Colors.green.shade50, shape: BoxShape.circle),
+            child: const Icon(Icons.check_circle_rounded, color: Colors.green, size: 56),
+          ),
+          const SizedBox(height: 20),
+          Text('Registrada!', style: AppTypography.h1),
+          const SizedBox(height: 8),
+          Text('Encomenda salva com sucesso.', style: AppTypography.bodyLarge, textAlign: TextAlign.center),
+          const SizedBox(height: 4),
+          Text('Os moradores serão notificados.', style: TextStyle(color: AppColors.textSecondary, fontSize: 13), textAlign: TextAlign.center),
+        ]),
       ),
     );
   }

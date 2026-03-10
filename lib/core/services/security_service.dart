@@ -34,8 +34,12 @@ class SecurityService {
 
   Future<String?> _safeRead(String key) async {
     try {
-      if (_usesFallback) throw Exception('Already in fallback mode');
-      return await _storage.read(key: key);
+      final value = await _storage.read(key: key);
+      if (value != null) return value;
+      // SecureStorage returned null — check SharedPreferences too
+      // (handles iOS simulator Keychain -34018 fallback case)
+      final prefs = await SharedPreferences.getInstance();
+      return prefs.getString('_secure_$key');
     } catch (e) {
       _usesFallback = true;
       final prefs = await SharedPreferences.getInstance();

@@ -18,7 +18,11 @@ abstract class ParcelRepository {
   Stream<List<Parcel>> watchAllPendingParcels(String condominiumId);
 
   /// Marks a parcel as delivered.
-  Future<Result<void>> markAsDelivered(String parcelId, {String? pickupProofUrl});
+  Future<Result<void>> markAsDelivered(String parcelId, {
+    String? pickupProofUrl,
+    String? pickedUpById,
+    String? pickedUpByName,
+  });
 
   /// Fetches parcel history. If residentId is null, fetches all for the condo.
   Future<Result<List<Parcel>>> getParcelHistory({String? residentId, required String condominiumId});

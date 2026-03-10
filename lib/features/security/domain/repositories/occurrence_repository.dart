@@ -6,9 +6,10 @@ abstract class OccurrenceRepository {
   Future<Result<void>> reportOccurrence({
     required String residentId,
     required String condominiumId,
+    required String assunto,
     required String description,
     required OccurrenceCategory category,
-    List<String> photoPaths = const [],
+    String? photoUrl,
   });
 
   /// Listens to occurrences reported by a specific resident.
@@ -16,7 +17,13 @@ abstract class OccurrenceRepository {
 
   /// Listens to all occurrences in a condominium (Staff view).
   Stream<List<Occurrence>> watchAllOccurrences(String condominiumId);
-  
+
   /// Updates the status of an occurrence.
   Future<Result<void>> updateOccurrenceStatus(String occurrenceId, OccurrenceStatus status);
+
+  /// Admin/Síndico responds to an occurrence.
+  Future<Result<void>> respondOccurrence({
+    required String occurrenceId,
+    required String response,
+  });
 }

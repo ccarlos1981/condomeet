@@ -13,7 +13,11 @@ class InvitationBloc extends Bloc<InvitationEvent, InvitationState> {
       : _invitationRepository = invitationRepository,
         super(InvitationInitial()) {
     on<LoadResidentInvitationsPaginated>(_onLoadResidentInvitationsPaginated);
+    on<WatchResidentInvitationsRequested>(_onWatchResidentInvitationsRequested);
+    on<WatchAllActiveInvitationsRequested>(_onWatchAllActiveInvitationsRequested);
+    on<WatchCondominiumInvitationsRequested>(_onWatchCondominiumInvitationsRequested);
     on<CreateInvitationRequested>(_onCreateInvitationRequested);
+    on<ApproveVisitorEntryRequested>(_onApproveVisitorEntryRequested);
     on<MarkInvitationAsUsedRequested>(_onMarkInvitationAsUsedRequested);
     on<CancelInvitationRequested>(_onCancelInvitationRequested);
     on<_UpdateInvitations>(_onUpdateInvitations);
@@ -69,6 +73,39 @@ class InvitationBloc extends Bloc<InvitationEvent, InvitationState> {
     _invitationsSubscription = _invitationRepository
         .watchAllActiveInvitations(event.condominiumId)
         .listen((invitations) => add(_UpdateInvitations(invitations)));
+  }
+
+  Future<void> _onWatchCondominiumInvitationsRequested(
+    WatchCondominiumInvitationsRequested event,
+    Emitter<InvitationState> emit,
+  ) async {
+    emit(InvitationLoading());
+    await _invitationsSubscription?.cancel();
+    _invitationsSubscription = _invitationRepository
+        .watchCondominiumInvitations(
+          condominiumId: event.condominiumId,
+          liberado: event.liberado,
+          codeFilter: event.codeFilter,
+          blocoFilter: event.blocoFilter,
+          aptoFilter: event.aptoFilter,
+          dateFilter: event.dateFilter,
+        )
+        .listen((invitations) => add(_UpdateInvitations(invitations)));
+  }
+
+  Future<void> _onApproveVisitorEntryRequested(
+    ApproveVisitorEntryRequested event,
+    Emitter<InvitationState> emit,
+  ) async {
+    final result = await _invitationRepository.approveVisitorEntry(
+      invitationId: event.invitationId,
+      porterId: event.porterId,
+    );
+    if (result.isSuccess) {
+      emit(VisitorEntryApproved(event.invitationId));
+    } else {
+      emit(InvitationError(result.failureMessage));
+    }
   }
 
   Future<void> _onCreateInvitationRequested(

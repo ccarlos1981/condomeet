@@ -1,5 +1,4 @@
 import 'package:equatable/equatable.dart';
-import '../../domain/repositories/sos_repository.dart';
 
 abstract class SOSEvent extends Equatable {
   const SOSEvent();
@@ -47,11 +46,3 @@ class AcknowledgeSOSRequested extends SOSEvent {
   List<Object?> get props => [alertId, porterId];
 }
 
-class _UpdateSOSAlerts extends SOSEvent {
-  final List<SOSAlert> alerts;
-
-  const _UpdateSOSAlerts(this.alerts);
-
-  @override
-  List<Object?> get props => [alerts];
-}

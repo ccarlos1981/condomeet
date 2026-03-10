@@ -16,6 +16,7 @@ class OccurrenceBloc extends Bloc<OccurrenceEvent, OccurrenceState> {
     on<WatchResidentOccurrencesRequested>(_onWatchResidentOccurrencesRequested);
     on<WatchAllOccurrencesRequested>(_onWatchAllOccurrencesRequested);
     on<UpdateOccurrenceStatusRequested>(_onUpdateOccurrenceStatusRequested);
+    on<RespondOccurrenceRequested>(_onRespondOccurrenceRequested);
     on<_UpdateOccurrences>(_onUpdateOccurrences);
   }
 
@@ -24,9 +25,10 @@ class OccurrenceBloc extends Bloc<OccurrenceEvent, OccurrenceState> {
     final result = await _occurrenceRepository.reportOccurrence(
       residentId: event.residentId,
       condominiumId: event.condominiumId,
+      assunto: event.assunto,
       description: event.description,
       category: event.category,
-      photoPaths: event.photoPaths,
+      photoUrl: event.photoUrl,
     );
 
     result.fold(
@@ -36,6 +38,7 @@ class OccurrenceBloc extends Bloc<OccurrenceEvent, OccurrenceState> {
   }
 
   Future<void> _onWatchResidentOccurrencesRequested(WatchResidentOccurrencesRequested event, Emitter<OccurrenceState> emit) async {
+    emit(OccurrenceLoading());
     await _occurrenceSubscription?.cancel();
     _occurrenceSubscription = _occurrenceRepository.watchResidentOccurrences(event.residentId).listen(
       (occurrences) => add(_UpdateOccurrences(occurrences)),
@@ -43,6 +46,7 @@ class OccurrenceBloc extends Bloc<OccurrenceEvent, OccurrenceState> {
   }
 
   Future<void> _onWatchAllOccurrencesRequested(WatchAllOccurrencesRequested event, Emitter<OccurrenceState> emit) async {
+    emit(OccurrenceLoading());
     await _occurrenceSubscription?.cancel();
     _occurrenceSubscription = _occurrenceRepository.watchAllOccurrences(event.condominiumId).listen(
       (occurrences) => add(_UpdateOccurrences(occurrences)),
@@ -58,6 +62,17 @@ class OccurrenceBloc extends Bloc<OccurrenceEvent, OccurrenceState> {
     if (result.isFailure) {
       emit(OccurrenceError(result.failureMessage));
     }
+  }
+
+  Future<void> _onRespondOccurrenceRequested(RespondOccurrenceRequested event, Emitter<OccurrenceState> emit) async {
+    final result = await _occurrenceRepository.respondOccurrence(
+      occurrenceId: event.occurrenceId,
+      response: event.response,
+    );
+    result.fold(
+      (error) => emit(OccurrenceError(error.message)),
+      (_) => emit(OccurrenceSuccess()),
+    );
   }
 
   @override

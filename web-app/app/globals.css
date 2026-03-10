@@ -1,0 +1,135 @@
+@import "tailwindcss";
+
+
+
+/* ============================================
+   EXISTING APP DESIGN SYSTEM (preserved)
+   ============================================ */
+:root {
+  --primary: #E85D26;
+  --primary-dark: #c44d1e;
+  --primary-light: #fff0eb;
+  --sidebar-dark: #1f2d3d;
+  --font-outfit: 'Outfit', sans-serif;
+
+  /* ============================================
+     LANDING PAGE DESIGN TOKENS
+     ============================================ */
+  --lp-bg: #0D1B2A;
+  --lp-surface: #112233;
+  --lp-surface-2: #162840;
+  --lp-accent: #E85D26;
+  --lp-accent-dark: #C44D1E;
+  --lp-primary-text: #F0F4F8;
+  --lp-muted-text: #8FA3B8;
+  --lp-border: rgba(255, 255, 255, 0.08);
+  --lp-glass-bg: rgba(255, 255, 255, 0.04);
+  --lp-glass-blur: 20px;
+  --font-heading: var(--font-sora), 'Sora', sans-serif;
+  --font-body: var(--font-dm-sans), 'DM Sans', sans-serif;
+}
+
+body {
+  font-family: var(--font-outfit);
+  background: #f4f6f9;
+}
+
+/* ============================================
+   LANDING PAGE BASE STYLES
+   ============================================ */
+.lp-root {
+  font-family: var(--font-body);
+  background-color: var(--lp-bg);
+  color: var(--lp-primary-text);
+  min-height: 100vh;
+}
+
+.lp-root * {
+  font-family: var(--font-body);
+}
+
+.lp-root .font-heading {
+  font-family: var(--font-heading) !important;
+}
+
+/* Container */
+.lp-container {
+  max-width: 1200px;
+  margin-left: auto;
+  margin-right: auto;
+  padding-left: 1.5rem;
+  padding-right: 1.5rem;
+}
+
+@media (min-width: 768px) {
+  .lp-container {
+    padding-left: 2rem;
+    padding-right: 2rem;
+  }
+}
+
+/* Glass card */
+.lp-glass {
+  background: var(--lp-glass-bg);
+  -webkit-backdrop-filter: blur(var(--lp-glass-blur));
+  backdrop-filter: blur(var(--lp-glass-blur));
+}
+
+/* Grid background pattern */
+.lp-grid-bg {
+  background-image:
+    linear-gradient(rgba(255,255,255,0.035) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255,255,255,0.035) 1px, transparent 1px);
+  background-size: 64px 64px;
+}
+
+/* Primary button */
+.lp-btn-primary {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background-color: var(--lp-accent);
+  color: #ffffff;
+  font-family: var(--font-body);
+  font-weight: 700;
+  border-radius: 0.75rem;
+  transition: background-color 0.2s, transform 0.2s, box-shadow 0.2s;
+}
+
+.lp-btn-primary:hover {
+  background-color: var(--lp-accent-dark);
+  transform: translateY(-1px);
+  box-shadow: 0 8px 24px rgba(232, 93, 38, 0.35);
+}
+
+/* Color utilities for landing page */
+.text-lp-primary { color: var(--lp-primary-text); }
+.text-lp-muted { color: var(--lp-muted-text); }
+.text-lp-accent { color: var(--lp-accent); }
+.bg-lp-surface { background-color: var(--lp-surface); }
+.bg-lp-surface-2 { background-color: var(--lp-surface-2); }
+.border-lp-accent { border-color: var(--lp-accent); }
+
+.sidebar-item {
+  @apply flex items-center gap-3 px-4 py-2.5 rounded-lg text-sm font-medium cursor-pointer transition-all duration-150;
+}
+
+.sidebar-item:hover {
+  @apply bg-white/10;
+}
+
+.sidebar-item.active {
+  background: rgba(255, 255, 255, 0.15);
+  @apply text-white;
+}
+
+.quick-card {
+  @apply bg-white rounded-2xl p-5 flex flex-col gap-3 shadow-sm border border-gray-100 cursor-pointer
+         hover:shadow-md hover:-translate-y-0.5 transition-all duration-200;
+}
+
+.quick-card-icon {
+  @apply w-10 h-10 rounded-xl flex items-center justify-center;
+  background: var(--primary-light);
+  color: var(--primary);
+}

@@ -15,13 +15,21 @@ import 'package:condomeet/features/portaria/presentation/screens/parcel_registra
 import 'package:condomeet/features/portaria/presentation/screens/parcel_dashboard_screen.dart';
 import 'package:condomeet/features/portaria/presentation/screens/pending_deliveries_screen.dart';
 import 'package:condomeet/features/portaria/presentation/screens/parcel_history_screen.dart';
-import 'package:condomeet/features/portaria/domain/repositories/resident_repository.dart';
+
 import 'package:condomeet/features/access/presentation/screens/visitor_authorization_screen.dart';
 import 'package:condomeet/features/access/presentation/screens/guest_checkin_screen.dart';
+import 'package:condomeet/features/access/presentation/screens/portaria_visitor_approval_screen.dart';
 import 'package:condomeet/features/community/presentation/screens/document_center_screen.dart';
 import 'package:condomeet/features/community/presentation/screens/area_picker_screen.dart';
+import 'package:condomeet/features/community/presentation/screens/areas_comuns_admin_screen.dart';
+import 'package:condomeet/features/community/presentation/screens/admin_horarios_screen.dart';
 import 'package:condomeet/features/security/presentation/screens/chat_screen.dart';
 import 'package:condomeet/features/security/presentation/screens/occurrence_report_screen.dart';
+import 'package:condomeet/features/security/presentation/screens/occurrence_history_screen.dart';
+import 'package:condomeet/features/security/presentation/screens/occurrence_admin_screen.dart';
+import 'package:condomeet/features/security/presentation/screens/sos_screen.dart';
+import 'package:condomeet/features/security/presentation/screens/sos_contatos_screen.dart';
+import 'package:condomeet/features/notifications/presentation/screens/avisos_screen.dart';
 import 'package:condomeet/features/auth/presentation/bloc/auth_state.dart';
 import 'package:condomeet/features/dev/presentation/screens/design_system_showcase.dart';
 import 'package:condomeet/features/home/presentation/screens/home_screen.dart';
@@ -31,6 +39,9 @@ import 'package:condomeet/features/admin/presentation/screens/inventory_detail_s
 import 'package:condomeet/features/admin/presentation/screens/assembly_list_screen.dart';
 import 'package:condomeet/features/admin/presentation/screens/assembly_detail_screen.dart';
 import 'package:condomeet/features/admin/presentation/screens/condominium_structure_screen.dart';
+import 'package:condomeet/features/admin/presentation/screens/configure_menu_screen.dart';
+import 'package:condomeet/features/security/presentation/screens/fale_sindico_screen.dart';
+import 'package:condomeet/features/security/presentation/screens/fale_conosco_admin_screen.dart';
 
 
 class AppRouter {
@@ -46,10 +57,7 @@ class AppRouter {
       '/pin-unlock': (context) => const PinUnlockScreen(),
       '/resident-search': (context) => const ResidentSearchScreen(),
       '/ocr-scanner': (context) => const OcrScannerScreen(),
-      '/parcel-registration': (context) {
-        final resident = ModalRoute.of(context)!.settings.arguments as Resident;
-        return ParcelRegistrationScreen(resident: resident);
-      },
+      '/parcel-registration': (context) => const ParcelRegistrationScreen(),
       '/parcel-dashboard': (context) {
         return ParcelDashboardScreen(residentId: state.userId ?? '');
       },
@@ -71,12 +79,25 @@ class AppRouter {
       '/manager-approval': (context) => const ManagerApprovalScreen(),
       '/report-occurrence': (context) => BlockedAccessOverlay(
             isBlocked: state.isUnitBlocked,
+            child: OccurrenceHistoryScreen(residentId: state.userId ?? ''),
+          ),
+      '/new-occurrence': (context) => BlockedAccessOverlay(
+            isBlocked: state.isUnitBlocked,
             child: OccurrenceReportScreen(residentId: state.userId ?? ''),
           ),
+      '/occurrence-admin': (context) => const OccurrenceAdminScreen(),
       '/official-chat': (context) => BlockedAccessOverlay(
             isBlocked: state.isUnitBlocked,
             child: ChatScreen(residentId: state.userId ?? ''),
           ),
+      '/admin-areas-comuns': (context) => const AreasComunsAdminScreen(),
+      '/admin-horarios': (context) {
+        final args = ModalRoute.of(context)!.settings.arguments as Map<String, dynamic>;
+        return AdminHorariosScreen(
+          areaId: args['areaId'] as String,
+          tipoAgenda: args['tipo'] as String? ?? '',
+        );
+      },
       '/area-booking': (context) => BlockedAccessOverlay(
             isBlocked: state.isUnitBlocked,
             child: const AreaPickerScreen(),
@@ -98,6 +119,16 @@ class AppRouter {
       '/home': (context) => const HomeScreen(),
       '/admin': (context) => const AdminScreen(),
       '/condo-structure': (context) => const CondominiumStructureScreen(),
+      '/portaria-visitor-approval': (context) => const PortariaVisitorApprovalScreen(),
+      '/configure-menu': (context) => const ConfigureMenuScreen(),
+      '/sos': (context) => const SosScreen(),
+      '/sos-contatos': (context) => const SosContatosScreen(),
+      '/avisos': (context) => const AvisosScreen(),
+      '/fale-sindico': (context) => BlockedAccessOverlay(
+            isBlocked: state.isUnitBlocked,
+            child: const FaleSindicoScreen(),
+          ),
+      '/fale-conosco-admin': (context) => const FaleConoscoAdminScreen(),
     };
   }
 

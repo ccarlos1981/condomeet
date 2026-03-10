@@ -20,15 +20,28 @@ class CommonArea {
   });
 
   factory CommonArea.fromMap(Map<String, dynamic> map) {
+    final tipoAgenda = map['tipo_agenda'] as String? ?? map['name'] as String? ?? '';
     return CommonArea(
       id: map['id'],
       condominiumId: map['condominio_id'] ?? map['condominium_id'],
-      name: map['name'],
-      description: map['description'],
-      iconPath: map['icon_path'],
-      capacity: map['capacity'] ?? 0,
-      rules: map['rules'] ?? '',
+      name: tipoAgenda,
+      description: map['instrucao_uso'] as String? ?? map['description'] as String? ?? '',
+      iconPath: _iconForTipo(tipoAgenda),
+      capacity: (map['capacidade'] as int?) ?? (map['capacity'] as int?) ?? 0,
+      rules: map['instrucao_uso'] as String? ?? map['rules'] as String? ?? '',
     );
+  }
+
+  static String _iconForTipo(String tipo) {
+    switch (tipo.toLowerCase()) {
+      case 'salão de festa': return 'party_room';
+      case 'churrasqueira': return 'grill';
+      case 'sauna': return 'sauna';
+      case 'quadra de tênis': case 'campo de futebol': return 'sports';
+      case 'piscina': return 'pool';
+      case 'academia': return 'gym';
+      default: return 'location';
+    }
   }
 }
 

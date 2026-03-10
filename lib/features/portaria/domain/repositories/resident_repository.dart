@@ -9,7 +9,12 @@ class Resident {
   final String? unitId;
   final bool isUnitBlocked;
   final String? phoneNumber;
-  final String status; // 'active', 'pending', 'rejected'
+  final String status; // 'pendente', 'aprovado', 'rejeitado'
+  // Extra fields for the approval panel
+  final String? email;
+  final String? tipoMorador;
+  final String? papelSistema;
+  final DateTime? createdAt;
 
   Resident({
     required this.id,
@@ -21,6 +26,10 @@ class Resident {
     this.isUnitBlocked = false,
     this.phoneNumber,
     this.status = 'active',
+    this.email,
+    this.tipoMorador,
+    this.papelSistema,
+    this.createdAt,
   });
 
   factory Resident.fromMap(Map<String, dynamic> map) {
@@ -34,6 +43,12 @@ class Resident {
       isUnitBlocked: (map['bloqueada'] == true || map['bloqueada'] == 1 || map['is_blocked'] == true || map['is_blocked'] == 1),
       phoneNumber: map['whatsapp'] as String? ?? map['phone'] as String? ?? map['phone_number'] as String?,
       status: map['status_aprovacao'] as String? ?? map['status'] as String? ?? 'active',
+      email: map['email'] as String?,
+      tipoMorador: map['tipo_morador'] as String?,
+      papelSistema: map['papel_sistema'] as String?,
+      createdAt: map['created_at'] != null
+          ? DateTime.tryParse(map['created_at'] as String)
+          : null,
     );
   }
 }
@@ -54,9 +69,18 @@ abstract class ResidentRepository {
   /// Fetches residents awaiting approval for a specific condominium.
   Future<Result<List<Resident>>> getPendingResidents(String condominiumId);
 
+  /// Fetches ALL residents for a condominium (any status).
+  Future<Result<List<Resident>>> getAllResidents(String condominiumId);
+
   /// Approves a pending resident.
   Future<Result<void>> approveResident(String residentId);
 
   /// Rejects/Deletes a pending resident request.
   Future<Result<void>> rejectResident(String residentId);
+
+  /// Blocks an approved resident (sets status to 'bloqueado').
+  Future<Result<void>> blockResident(String residentId);
+
+  /// Unblocks a resident (sets status back to 'aprovado').
+  Future<Result<void>> unblockResident(String residentId);
 }

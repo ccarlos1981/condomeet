@@ -42,3 +42,11 @@ class InvitationCreated extends InvitationState {
   @override
   List<Object?> get props => [invitation];
 }
+
+class VisitorEntryApproved extends InvitationState {
+  final String invitationId;
+  const VisitorEntryApproved(this.invitationId);
+
+  @override
+  List<Object?> get props => [invitationId];
+}

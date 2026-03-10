@@ -201,4 +201,71 @@ class ResidentRepositoryImpl implements ResidentRepository {
       return Failure('Erro ao rejeitar morador: ${e.toString()}');
     }
   }
+
+  @override
+  Future<Result<List<Resident>>> getAllResidents(String condominiumId) async {
+    try {
+      final response = await _supabase
+          .from('perfil')
+          .select('id, nome_completo, email, whatsapp, bloco_txt, apto_txt, papel_sistema, tipo_morador, status_aprovacao, created_at')
+          .eq('condominio_id', condominiumId)
+          .order('created_at', ascending: false);
+
+      final rawList = response as List;
+      final residents = rawList.map((row) => Resident.fromMap(Map<String, dynamic>.from(row))).toList();
+      return Success(residents);
+    } catch (e) {
+      // Fallback to PowerSync
+      try {
+        final results = await _powerSync.db.getAll(
+          '''
+          SELECT id, nome_completo, email, whatsapp, bloco_txt, apto_txt, 
+                 papel_sistema, tipo_morador, status_aprovacao, created_at
+          FROM perfil
+          WHERE condominio_id = ?
+          ORDER BY created_at DESC
+          ''',
+          [condominiumId],
+        );
+        return Success(results.map((row) => Resident.fromMap(row)).toList());
+      } catch (dbError) {
+        return Failure('Erro ao buscar moradores: ${e.toString()}');
+      }
+    }
+  }
+
+  @override
+  Future<Result<void>> blockResident(String residentId) async {
+    try {
+      await _supabase
+          .from('perfil')
+          .update({'status_aprovacao': 'bloqueado'})
+          .eq('id', residentId);
+      await _powerSync.db.execute(
+        "UPDATE perfil SET status_aprovacao = 'bloqueado', updated_at = ? WHERE id = ?",
+        [DateTime.now().toIso8601String(), residentId],
+      );
+      return const Success(null);
+    } catch (e) {
+      return Failure('Erro ao bloquear morador: ${e.toString()}');
+    }
+  }
+
+  @override
+  Future<Result<void>> unblockResident(String residentId) async {
+    try {
+      await _supabase
+          .from('perfil')
+          .update({'status_aprovacao': 'aprovado'})
+          .eq('id', residentId);
+      await _powerSync.db.execute(
+        "UPDATE perfil SET status_aprovacao = 'aprovado', updated_at = ? WHERE id = ?",
+        [DateTime.now().toIso8601String(), residentId],
+      );
+      return const Success(null);
+    } catch (e) {
+      return Failure('Erro ao desbloquear morador: ${e.toString()}');
+    }
+  }
 }
+

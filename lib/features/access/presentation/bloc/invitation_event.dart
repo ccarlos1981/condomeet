@@ -23,6 +23,38 @@ class WatchAllActiveInvitationsRequested extends InvitationEvent {
   List<Object?> get props => [condominiumId];
 }
 
+/// Portaria: watch all invitations with optional filters
+class WatchCondominiumInvitationsRequested extends InvitationEvent {
+  final String condominiumId;
+  final bool? liberado;
+  final String? codeFilter;
+  final String? blocoFilter;
+  final String? aptoFilter;
+  final String? dateFilter;
+
+  const WatchCondominiumInvitationsRequested({
+    required this.condominiumId,
+    this.liberado,
+    this.codeFilter,
+    this.blocoFilter,
+    this.aptoFilter,
+    this.dateFilter,
+  });
+
+  @override
+  List<Object?> get props => [condominiumId, liberado, codeFilter, blocoFilter, aptoFilter, dateFilter];
+}
+
+/// Portaria: approve visitor entry
+class ApproveVisitorEntryRequested extends InvitationEvent {
+  final String invitationId;
+  final String porterId;
+  const ApproveVisitorEntryRequested({required this.invitationId, required this.porterId});
+
+  @override
+  List<Object?> get props => [invitationId, porterId];
+}
+
 class CreateInvitationRequested extends InvitationEvent {
   final String residentId;
   final String guestName;

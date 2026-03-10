@@ -12,6 +12,13 @@ class Parcel extends Equatable {
   final String? pickupProofUrl;
   final String status; // 'pending', 'delivered'
   final String? condominiumId;
+  // New fields
+  final String? tipo;          // 'caixa','envelope','pacote','notif_judicial'
+  final String? trackingCode;
+  final String? observacao;
+  final String? registeredBy;  // UUID of porter who registered
+  final String? pickedUpById;
+  final String? pickedUpByName;
 
   const Parcel({
     required this.id,
@@ -25,21 +32,20 @@ class Parcel extends Equatable {
     this.pickupProofUrl,
     this.status = 'pending',
     this.condominiumId,
+    this.tipo,
+    this.trackingCode,
+    this.observacao,
+    this.registeredBy,
+    this.pickedUpById,
+    this.pickedUpByName,
   });
 
   @override
   List<Object?> get props => [
-    id,
-    residentId,
-    residentName,
-    unitNumber,
-    block,
-    arrivalTime,
-    deliveryTime,
-    photoUrl,
-    pickupProofUrl,
-    status,
-    condominiumId,
+    id, residentId, residentName, unitNumber, block,
+    arrivalTime, deliveryTime, photoUrl, pickupProofUrl,
+    status, condominiumId, tipo, trackingCode, observacao,
+    registeredBy, pickedUpById, pickedUpByName,
   ];
 
   Map<String, dynamic> toMap() {
@@ -52,6 +58,12 @@ class Parcel extends Equatable {
       'delivery_time': deliveryTime?.toIso8601String(),
       'photo_url': photoUrl,
       'pickup_proof_url': pickupProofUrl,
+      'tipo': tipo,
+      'tracking_code': trackingCode,
+      'observacao': observacao,
+      'registered_by': registeredBy,
+      'picked_up_by_id': pickedUpById,
+      'picked_up_by_name': pickedUpByName,
     };
   }
 
@@ -67,6 +79,12 @@ class Parcel extends Equatable {
     String? pickupProofUrl,
     String? status,
     String? condominiumId,
+    String? tipo,
+    String? trackingCode,
+    String? observacao,
+    String? registeredBy,
+    String? pickedUpById,
+    String? pickedUpByName,
   }) {
     return Parcel(
       id: id ?? this.id,
@@ -80,6 +98,12 @@ class Parcel extends Equatable {
       pickupProofUrl: pickupProofUrl ?? this.pickupProofUrl,
       status: status ?? this.status,
       condominiumId: condominiumId ?? this.condominiumId,
+      tipo: tipo ?? this.tipo,
+      trackingCode: trackingCode ?? this.trackingCode,
+      observacao: observacao ?? this.observacao,
+      registeredBy: registeredBy ?? this.registeredBy,
+      pickedUpById: pickedUpById ?? this.pickedUpById,
+      pickedUpByName: pickedUpByName ?? this.pickedUpByName,
     );
   }
 }

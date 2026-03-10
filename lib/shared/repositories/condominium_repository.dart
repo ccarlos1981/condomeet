@@ -1,5 +1,6 @@
 import 'package:condomeet/core/services/powersync_service.dart';
 import 'package:condomeet/shared/models/condominium.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 
 abstract class CondominiumRepository {
   Future<Condominium?> getCondominiumById(String id);
@@ -8,36 +9,48 @@ abstract class CondominiumRepository {
 
 class CondominiumRepositoryImpl implements CondominiumRepository {
   final PowerSyncService _powerSync;
+  final SupabaseClient _supabase;
 
-  CondominiumRepositoryImpl(this._powerSync);
+  CondominiumRepositoryImpl(this._powerSync, this._supabase);
 
+  /// Fetch directly from Supabase so features_config is always current.
+  /// PowerSync cloud does not sync features_config, so we bypass it here.
   @override
   Future<Condominium?> getCondominiumById(String id) async {
+    try {
+      final row = await _supabase
+          .from('condominios')
+          .select('id, nome, apelido, tipo_estrutura, features_config, created_at, updated_at')
+          .eq('id', id)
+          .maybeSingle();
+      if (row != null) {
+        print('✅ CondominiumRepository: loaded features_config from Supabase');
+        return Condominium.fromJson(row);
+      }
+    } catch (e) {
+      print('⚠️ CondominiumRepository: Supabase fetch error: $e');
+    }
+
+    // Fallback: PowerSync local cache (features_config may be null here)
     final result = await _powerSync.db.getOptional(
-      'SELECT * FROM condominiums WHERE id = ? LIMIT 1',
+      'SELECT * FROM condominios WHERE id = ? LIMIT 1',
       [id],
     );
-
     if (result == null) return null;
-
+    print('⚠️ CondominiumRepository: falling back to PowerSync local cache');
     return Condominium.fromJson(result);
   }
 
+  /// Streams the condominium, fetching immediately then refreshing every 30s.
+  /// Uses a simple polling approach to avoid realtime subscription issues.
   @override
-  Stream<Condominium?> watchCondominiumById(String id) {
-    return _powerSync.db.watch(
-      'SELECT * FROM condominiums WHERE id = ? LIMIT 1',
-      parameters: [id],
-    ).map((results) {
-      if (results.isEmpty) return null;
-      try {
-        final rowMap = Map<String, dynamic>.from(results.first);
-        return Condominium.fromJson(rowMap);
-      } catch (e, stack) {
-        print('CRITICAL: Error parsing Condominium Stream: \$e');
-        print(stack);
-        return null; // Return null instead of crashing the stream
-      }
-    });
+  Stream<Condominium?> watchCondominiumById(String id) async* {
+    // Immediately yield current value
+    yield await getCondominiumById(id);
+
+    // Then refresh every 5 seconds so config changes propagate quickly
+    await for (final _ in Stream.periodic(const Duration(seconds: 5))) {
+      yield await getCondominiumById(id);
+    }
   }
 }

@@ -11,20 +11,22 @@ abstract class OccurrenceEvent extends Equatable {
 class ReportOccurrenceRequested extends OccurrenceEvent {
   final String residentId;
   final String condominiumId;
+  final String assunto;
   final String description;
   final OccurrenceCategory category;
-  final List<String> photoPaths;
+  final String? photoUrl;
 
   const ReportOccurrenceRequested({
     required this.residentId,
     required this.condominiumId,
+    required this.assunto,
     required this.description,
     required this.category,
-    this.photoPaths = const [],
+    this.photoUrl,
   });
 
   @override
-  List<Object?> get props => [residentId, condominiumId, description, category, photoPaths];
+  List<Object?> get props => [residentId, condominiumId, assunto, description, category, photoUrl];
 }
 
 class WatchResidentOccurrencesRequested extends OccurrenceEvent {
@@ -58,11 +60,17 @@ class UpdateOccurrenceStatusRequested extends OccurrenceEvent {
   List<Object?> get props => [occurrenceId, status];
 }
 
-class _UpdateOccurrences extends OccurrenceEvent {
-  final List<Occurrence> occurrences;
+class RespondOccurrenceRequested extends OccurrenceEvent {
+  final String occurrenceId;
+  final String response;
 
-  const _UpdateOccurrences(this.occurrences);
+  const RespondOccurrenceRequested({
+    required this.occurrenceId,
+    required this.response,
+  });
 
   @override
-  List<Object?> get props => [occurrences];
+  List<Object?> get props => [occurrenceId, response];
 }
+
+

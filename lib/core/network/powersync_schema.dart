@@ -12,6 +12,8 @@ const psSchema = Schema([
     Column.text('complemento'),
     Column.text('cidade'),
     Column.text('estado'),
+    Column.text('tipo_estrutura'),
+    Column.text('features_config'),  // JSON do menu de funções por perfil
     Column.text('created_at'),
   ]),
   Table('blocos', [
@@ -62,6 +64,12 @@ const psSchema = Schema([
     Column.text('delivery_time'),
     Column.text('photo_url'),
     Column.text('pickup_proof_url'),
+    Column.text('tipo'),
+    Column.text('tracking_code'),
+    Column.text('observacao'),
+    Column.text('registered_by'),
+    Column.text('picked_up_by_id'),
+    Column.text('picked_up_by_name'),
     Column.text('created_at'),
   ]),
   Table('convites', [
@@ -79,7 +87,7 @@ const psSchema = Schema([
   ]),
   Table('sos_alertas', [
     Column.text('resident_id'),
-    Column.text('condominium_id'), // A migração usa condominium_id (English) nesta tabela específica
+    Column.text('condominio_id'),
     Column.real('latitude'),
     Column.real('longitude'),
     Column.text('status'),
@@ -89,11 +97,15 @@ const psSchema = Schema([
   ]),
   Table('ocorrencias', [
     Column.text('resident_id'),
-    Column.text('condominium_id'), // A migração usa condominium_id (English) nesta tabela específica
+    Column.text('condominio_id'),
+    Column.text('assunto'),
     Column.text('description'),
     Column.text('category'),
     Column.text('status'),
     Column.text('photo_paths'),
+    Column.text('photo_url'),
+    Column.text('admin_response'),
+    Column.text('admin_response_at'),
     Column.text('created_at'),
     Column.text('updated_at'),
   ]),
@@ -108,10 +120,26 @@ const psSchema = Schema([
   ]),
   Table('areas_comuns', [
     Column.text('condominio_id'),
-    Column.text('nome'),
-    Column.text('descricao'),
-    Column.text('regras'),
-    Column.text('foto_url'),
+    Column.text('tipo_agenda'),
+    Column.text('local'),
+    Column.text('outro_local'),
+    Column.text('tipo_reserva'),      // 'por_dia' | 'por_hora'
+    Column.integer('capacidade'),
+    Column.integer('limite_acesso'),
+    Column.integer('hrs_cancelar'),
+    Column.text('precos'),            // JSON array
+    Column.text('instrucao_uso'),
+    Column.integer('ativo'),          // 1 = active, 0 = inactive
+    Column.integer('aprovacao_automatica'),
+    Column.text('created_at'),
+    Column.text('updated_at'),
+  ]),
+  Table('areas_comuns_horarios', [
+    Column.text('area_id'),
+    Column.text('dia_semana'),
+    Column.text('hora_inicio'),
+    Column.integer('duracao_minutos'),
+    Column.integer('ativo'),
     Column.text('created_at'),
   ]),
   Table('mensagens_chat', [

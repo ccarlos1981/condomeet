@@ -37,9 +37,7 @@ class SupabaseConnector extends PowerSyncBackendConnector {
         final data = Map<String, dynamic>.from(row.opData ?? {});
         data['id'] = row.id;
 
-        if (data.containsKey('condominium_id')) {
-          data['condominio_id'] = data.remove('condominium_id');
-        }
+
 
         try {
           if (op == UpdateType.put) {

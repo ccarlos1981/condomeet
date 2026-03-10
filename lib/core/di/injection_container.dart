@@ -67,10 +67,10 @@ Future<void> initDependencies() async {
 
   // Repositories
   sl.registerLazySingleton<CondominiumRepository>(
-    () => CondominiumRepositoryImpl(sl()),
+    () => CondominiumRepositoryImpl(sl(), sl()),
   );
   sl.registerLazySingleton<InvitationRepository>(
-    () => InvitationRepositoryImpl(sl()),
+    () => InvitationRepositoryImpl(sl(), sl()),
   );
   sl.registerLazySingleton<ConsentRepository>(
     () => ConsentRepositoryImpl(sl(), sl()),
@@ -85,10 +85,10 @@ Future<void> initDependencies() async {
     () => ResidentRepositoryImpl(sl(), sl(), sl()),
   );
   sl.registerLazySingleton<SOSRepository>(
-    () => SOSRepositoryImpl(sl()),
+    () => SOSRepositoryImpl(sl(), sl()),
   );
   sl.registerLazySingleton<OccurrenceRepository>(
-    () => OccurrenceRepositoryImpl(sl()),
+    () => OccurrenceRepositoryImpl(),
   );
   sl.registerLazySingleton<ChatRepository>(
     () => ChatRepositoryImpl(sl()),

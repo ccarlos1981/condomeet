@@ -1,6 +1,9 @@
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:image_picker/image_picker.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:condomeet/core/design_system/design_system.dart';
 import 'package:condomeet/features/security/domain/models/occurrence.dart';
 import 'package:condomeet/features/security/presentation/bloc/occurrence_bloc.dart';
@@ -19,11 +22,98 @@ class OccurrenceReportScreen extends StatefulWidget {
 
 class _OccurrenceReportScreenState extends State<OccurrenceReportScreen> {
   final _formKey = GlobalKey<FormState>();
+  final _assuntoController = TextEditingController();
   final _descriptionController = TextEditingController();
   OccurrenceCategory _selectedCategory = OccurrenceCategory.maintenance;
-  final List<String> _simulatedPhotos = [];
+  XFile? _selectedPhoto;
+  bool _isUploadingPhoto = false;
 
-  void _handleSubmit() {
+  @override
+  void dispose() {
+    _assuntoController.dispose();
+    _descriptionController.dispose();
+    super.dispose();
+  }
+
+  Future<void> _handlePhotoCapture() async {
+    final picker = ImagePicker();
+    final source = await _showPhotoSourceDialog();
+    if (source == null) return;
+
+    final photo = await picker.pickImage(
+      source: source,
+      maxWidth: 1200,
+      maxHeight: 1200,
+      imageQuality: 80,
+    );
+
+    if (photo != null) {
+      setState(() => _selectedPhoto = photo);
+      HapticFeedback.lightImpact();
+    }
+  }
+
+  Future<ImageSource?> _showPhotoSourceDialog() async {
+    return showModalBottomSheet<ImageSource>(
+      context: context,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (context) => SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.symmetric(vertical: 16),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                width: 40,
+                height: 4,
+                decoration: BoxDecoration(
+                  color: AppColors.border,
+                  borderRadius: BorderRadius.circular(2),
+                ),
+              ),
+              const SizedBox(height: 16),
+              ListTile(
+                leading: const Icon(Icons.camera_alt, color: AppColors.primary),
+                title: const Text('Tirar foto'),
+                onTap: () => Navigator.pop(context, ImageSource.camera),
+              ),
+              ListTile(
+                leading: const Icon(Icons.photo_library, color: AppColors.primary),
+                title: const Text('Escolher da galeria'),
+                onTap: () => Navigator.pop(context, ImageSource.gallery),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Future<String?> _uploadPhoto() async {
+    if (_selectedPhoto == null) return null;
+
+    try {
+      setState(() => _isUploadingPhoto = true);
+      final supabase = Supabase.instance.client;
+      final bytes = await File(_selectedPhoto!.path).readAsBytes();
+      final fileName = 'ocorrencia_${DateTime.now().millisecondsSinceEpoch}.jpg';
+      final path = '${widget.residentId}/$fileName';
+
+      await supabase.storage
+          .from('ocorrencias-fotos')
+          .uploadBinary(path, bytes, fileOptions: const FileOptions(contentType: 'image/jpeg'));
+
+      return supabase.storage.from('ocorrencias-fotos').getPublicUrl(path);
+    } catch (e) {
+      return null;
+    } finally {
+      setState(() => _isUploadingPhoto = false);
+    }
+  }
+
+  Future<void> _handleSubmit() async {
     if (!_formKey.currentState!.validate()) return;
 
     final authState = context.read<AuthBloc>().state;
@@ -35,29 +125,25 @@ class _OccurrenceReportScreenState extends State<OccurrenceReportScreen> {
     }
 
     HapticFeedback.mediumImpact();
-    
+
+    // Upload photo if selected
+    String? photoUrl;
+    if (_selectedPhoto != null) {
+      photoUrl = await _uploadPhoto();
+    }
+
+    if (!mounted) return;
+
     context.read<OccurrenceBloc>().add(
       ReportOccurrenceRequested(
         residentId: widget.residentId,
         condominiumId: authState.condominiumId!,
-        description: _descriptionController.text,
+        assunto: _assuntoController.text.trim(),
+        description: _descriptionController.text.trim(),
         category: _selectedCategory,
-        photoPaths: _simulatedPhotos,
+        photoUrl: photoUrl,
       ),
     );
-  }
-
-  void _simulatePhotoCapture() {
-    if (_simulatedPhotos.length >= 3) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Máximo de 3 fotos atingido.')),
-      );
-      return;
-    }
-    setState(() {
-      _simulatedPhotos.add('mock_photo_${_simulatedPhotos.length + 1}.jpg');
-    });
-    HapticFeedback.lightImpact();
   }
 
   @override
@@ -79,9 +165,10 @@ class _OccurrenceReportScreenState extends State<OccurrenceReportScreen> {
         }
       },
       builder: (context, state) {
+        final isLoading = state is OccurrenceLoading || _isUploadingPhoto;
         return Scaffold(
           appBar: AppBar(
-            title: const Text('Registrar Ocorrência'),
+            title: const Text('Nova Ocorrência'),
             backgroundColor: Colors.transparent,
             elevation: 0,
           ),
@@ -95,37 +182,56 @@ class _OccurrenceReportScreenState extends State<OccurrenceReportScreen> {
                   Text('O que aconteceu?', style: AppTypography.h1),
                   const SizedBox(height: 8),
                   Text(
-                    'Relate problemas de forma clara para que a administração possa resolvê-los.',
+                    'Relate o problema para que a administração possa resolver.',
                     style: AppTypography.bodyLarge.copyWith(color: AppColors.textSecondary),
                   ),
                   const SizedBox(height: 32),
-                  
+
+                  // Assunto
+                  CondoInput(
+                    label: 'Assunto',
+                    hint: 'Ex: Lâmpada queimada, vazamento, barulho...',
+                    controller: _assuntoController,
+                    validator: (value) => value == null || value.trim().isEmpty
+                        ? 'Informe o assunto'
+                        : null,
+                  ),
+
+                  const SizedBox(height: 20),
+
+                  // Categoria
                   Text('Categoria', style: AppTypography.label),
                   const SizedBox(height: 12),
                   _buildCategorySelector(),
-                  
-                  const SizedBox(height: 24),
-                  
+
+                  const SizedBox(height: 20),
+
+                  // Descrição
                   CondoInput(
-                    label: 'Descrição do Problema',
-                    hint: 'Ex: Lâmpada do 5º andar queimada ou barulho excessivo vindo da unidade 302...',
+                    label: 'Descrição da Ocorrência',
+                    hint: 'Descreva o problema com detalhes...',
                     controller: _descriptionController,
                     maxLines: 4,
-                    validator: (value) => value == null || value.isEmpty ? 'Descreva o problema' : null,
+                    validator: (value) => value == null || value.trim().isEmpty
+                        ? 'Descreva o problema'
+                        : null,
                   ),
-                  
-                  const SizedBox(height: 32),
-                  
-                  Text('Evidências Visuais (Opcional)', style: AppTypography.label),
+
+                  const SizedBox(height: 24),
+
+                  // Foto
+                  Text('Foto (Opcional)', style: AppTypography.label),
                   const SizedBox(height: 12),
-                  _buildPhotoEvidenceSection(),
-                  
+                  _buildPhotoSection(),
+
                   const SizedBox(height: 48),
-                  
+
                   CondoButton(
-                    label: 'Enviar Relato',
-                    isLoading: state is OccurrenceLoading,
-                    onPressed: _handleSubmit,
+                    label: isLoading
+                        ? (_isUploadingPhoto ? 'Enviando foto...' : 'Registrando...')
+                        : 'Enviar Ocorrência',
+                    isLoading: isLoading,
+                    onPressed: isLoading ? null : _handleSubmit,
                   ),
                 ],
               ),
@@ -142,17 +248,15 @@ class _OccurrenceReportScreenState extends State<OccurrenceReportScreen> {
       runSpacing: 8,
       children: OccurrenceCategory.values.map((category) {
         final isSelected = _selectedCategory == category;
-        final occurrence = Occurrence(
-          id: '', 
-          resident_id: '', 
-          condominium_id: '',
-          description: '', 
-          category: category, 
-          timestamp: DateTime.now(),
-        );
+        final names = {
+          OccurrenceCategory.maintenance: 'Manutenção',
+          OccurrenceCategory.security: 'Segurança',
+          OccurrenceCategory.noise: 'Barulho',
+          OccurrenceCategory.others: 'Outros',
+        };
 
         return ChoiceChip(
-          label: Text(occurrence.categoryName),
+          label: Text(names[category]!),
           selected: isSelected,
           onSelected: (selected) {
             if (selected) setState(() => _selectedCategory = category);
@@ -167,67 +271,68 @@ class _OccurrenceReportScreenState extends State<OccurrenceReportScreen> {
     );
   }
 
-  Widget _buildPhotoEvidenceSection() {
-    return Row(
-      children: [
-        InkWell(
-          onTap: _simulatePhotoCapture,
+  Widget _buildPhotoSection() {
+    if (_selectedPhoto != null) {
+      return Stack(
+        children: [
+          ClipRRect(
+            borderRadius: BorderRadius.circular(12),
+            child: Image.file(
+              File(_selectedPhoto!.path),
+              width: double.infinity,
+              height: 180,
+              fit: BoxFit.cover,
+            ),
+          ),
+          Positioned(
+            top: 8,
+            right: 8,
+            child: GestureDetector(
+              onTap: () => setState(() => _selectedPhoto = null),
+              child: Container(
+                padding: const EdgeInsets.all(6),
+                decoration: const BoxDecoration(
+                  color: Colors.red,
+                  shape: BoxShape.circle,
+                ),
+                child: const Icon(Icons.close, size: 16, color: Colors.white),
+              ),
+            ),
+          ),
+        ],
+      );
+    }
+
+    return InkWell(
+      onTap: _handlePhotoCapture,
+      borderRadius: BorderRadius.circular(12),
+      child: Container(
+        width: double.infinity,
+        height: 120,
+        decoration: BoxDecoration(
+          color: AppColors.surface,
           borderRadius: BorderRadius.circular(12),
-          child: Container(
-            width: 80,
-            height: 80,
-            decoration: BoxDecoration(
-              color: AppColors.surface,
-              borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: AppColors.border, style: BorderStyle.solid),
-            ),
-            child: const Icon(Icons.add_a_photo_outlined, color: AppColors.primary),
+          border: Border.all(
+            color: AppColors.border,
+            style: BorderStyle.solid,
           ),
         ),
-        const SizedBox(width: 16),
-        Expanded(
-          child: SizedBox(
-            height: 80,
-            child: ListView.separated(
-              scrollDirection: Axis.horizontal,
-              itemCount: _simulatedPhotos.length,
-              separatorBuilder: (_, __) => const SizedBox(width: 8),
-              itemBuilder: (context, index) {
-                return Stack(
-                  children: [
-                    Container(
-                      width: 80,
-                      height: 80,
-                      decoration: BoxDecoration(
-                        color: AppColors.border,
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                      child: const Center(
-                        child: Icon(Icons.image, color: AppColors.textSecondary),
-                      ),
-                    ),
-                    Positioned(
-                      top: 4,
-                      right: 4,
-                      child: GestureDetector(
-                        onTap: () => setState(() => _simulatedPhotos.removeAt(index)),
-                        child: Container(
-                          padding: const EdgeInsets.all(2),
-                          decoration: const BoxDecoration(
-                            color: Colors.red,
-                            shape: BoxShape.circle,
-                          ),
-                          child: const Icon(Icons.close, size: 14, color: Colors.white),
-                        ),
-                      ),
-                    ),
-                  ],
-                );
-              },
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            const Icon(Icons.add_a_photo_outlined, color: AppColors.primary, size: 32),
+            const SizedBox(height: 8),
+            Text(
+              'Adicionar foto',
+              style: AppTypography.bodyMedium.copyWith(color: AppColors.primary),
             ),
-          ),
+            Text(
+              'Câmera ou galeria',
+              style: AppTypography.bodySmall.copyWith(color: AppColors.textSecondary),
+            ),
+          ],
         ),
-      ],
+      ),
     );
   }
 }

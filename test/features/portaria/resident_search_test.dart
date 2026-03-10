@@ -48,13 +48,22 @@ class _FakeResidentRepository implements ResidentRepository {
   }) async => const Success(null);
 
   @override
-  Future<Result<List<Resident>>> getPendingResidents() async => const Success([]);
+  Future<Result<List<Resident>>> getPendingResidents(String condominiumId) async => const Success([]);
+
+  @override
+  Future<Result<List<Resident>>> getAllResidents(String condominiumId) async => const Success([]);
 
   @override
   Future<Result<void>> approveResident(String residentId) async => const Success(null);
 
   @override
   Future<Result<void>> rejectResident(String residentId) async => const Success(null);
+
+  @override
+  Future<Result<void>> blockResident(String residentId) async => const Success(null);
+
+  @override
+  Future<Result<void>> unblockResident(String residentId) async => const Success(null);
 }
 
 void main() {

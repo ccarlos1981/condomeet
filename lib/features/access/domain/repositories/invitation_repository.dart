@@ -8,6 +8,16 @@ abstract class InvitationRepository {
   /// Watches all active invitations for the condominium (Porter view).
   Stream<List<Invitation>> watchAllActiveInvitations(String condominiumId);
 
+  /// Watches ALL invitations for the condominium with optional filters (Portaria panel).
+  Stream<List<Invitation>> watchCondominiumInvitations({
+    required String condominiumId,
+    bool? liberado,
+    String? codeFilter,
+    String? blocoFilter,
+    String? aptoFilter,
+    String? dateFilter,
+  });
+
   /// Creates a new guest invitation.
   Future<Result<Invitation>> createInvitation({
     required String residentId,
@@ -26,9 +36,16 @@ abstract class InvitationRepository {
     required int offset,
   });
 
+  /// Portaria: approves visitor entry (sets visitante_compareceu = true).
+  Future<Result<void>> approveVisitorEntry({
+    required String invitationId,
+    required String porterId,
+  });
+
   /// Marks an invitation as used.
   Future<Result<void>> markAsUsed(String invitationId);
 
   /// Cancels an invitation.
   Future<Result<void>> cancelInvitation(String invitationId);
 }
+

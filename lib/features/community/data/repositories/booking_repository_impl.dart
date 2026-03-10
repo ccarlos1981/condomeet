@@ -12,7 +12,7 @@ class BookingRepositoryImpl implements BookingRepository {
   @override
   Stream<List<CommonArea>> watchCommonAreas(String condominiumId) {
     return _powerSyncService.db.watch(
-      'SELECT * FROM areas_comuns WHERE condominio_id = ? ORDER BY nome ASC',
+      'SELECT * FROM areas_comuns WHERE condominio_id = ? AND ativo = 1 ORDER BY tipo_agenda ASC',
       parameters: [condominiumId],
     ).map((rows) => rows.map((row) => CommonArea.fromMap(row)).toList());
   }

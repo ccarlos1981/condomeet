@@ -11,6 +11,13 @@ class Invitation extends Equatable {
   final String? visitorPhone;
   final String? observation;
   final String status; // 'active', 'used', 'expired'
+  final bool visitanteCompareceu;
+  final String? liberadoPor;
+  final DateTime? liberadoEm;
+  // Denormalized fields for portaria display (joined from perfil)
+  final String? residentName;
+  final String? blocoTxt;
+  final String? aptoTxt;
   final DateTime createdAt;
   final DateTime updatedAt;
 
@@ -25,6 +32,12 @@ class Invitation extends Equatable {
     this.visitorPhone,
     this.observation,
     this.status = 'active',
+    this.visitanteCompareceu = false,
+    this.liberadoPor,
+    this.liberadoEm,
+    this.residentName,
+    this.blocoTxt,
+    this.aptoTxt,
     required this.createdAt,
     required this.updatedAt,
   });
@@ -34,15 +47,51 @@ class Invitation extends Equatable {
       id: map['id'] as String,
       residentId: map['resident_id'] as String,
       condominiumId: map['condominio_id'] as String,
-      guestName: map['guest_name'] as String,
+      guestName: map['guest_name'] as String? ?? '',
       validityDate: DateTime.parse(map['validity_date'] as String),
-      qrData: map['qr_data'] as String,
+      qrData: map['qr_data'] as String? ?? '',
       visitorType: map['visitor_type'] as String?,
       visitorPhone: map['visitor_phone'] as String?,
       observation: map['observation'] as String?,
       status: map['status'] as String? ?? 'active',
+      visitanteCompareceu: map['visitante_compareceu'] == 1 ||
+          map['visitante_compareceu'] == true,
+      liberadoPor: map['liberado_por'] as String?,
+      liberadoEm: map['liberado_em'] != null
+          ? DateTime.parse(map['liberado_em'] as String)
+          : null,
+      residentName: map['resident_name'] as String?,
+      blocoTxt: map['bloco_txt'] as String?,
+      aptoTxt: map['apto_txt'] as String?,
       createdAt: DateTime.parse(map['created_at'] as String),
       updatedAt: DateTime.parse(map['updated_at'] as String),
+    );
+  }
+
+  Invitation copyWith({
+    bool? visitanteCompareceu,
+    String? liberadoPor,
+    DateTime? liberadoEm,
+  }) {
+    return Invitation(
+      id: id,
+      residentId: residentId,
+      condominiumId: condominiumId,
+      guestName: guestName,
+      validityDate: validityDate,
+      qrData: qrData,
+      visitorType: visitorType,
+      visitorPhone: visitorPhone,
+      observation: observation,
+      status: status,
+      visitanteCompareceu: visitanteCompareceu ?? this.visitanteCompareceu,
+      liberadoPor: liberadoPor ?? this.liberadoPor,
+      liberadoEm: liberadoEm ?? this.liberadoEm,
+      residentName: residentName,
+      blocoTxt: blocoTxt,
+      aptoTxt: aptoTxt,
+      createdAt: createdAt,
+      updatedAt: updatedAt,
     );
   }
 
@@ -58,6 +107,12 @@ class Invitation extends Equatable {
         visitorPhone,
         observation,
         status,
+        visitanteCompareceu,
+        liberadoPor,
+        liberadoEm,
+        residentName,
+        blocoTxt,
+        aptoTxt,
         createdAt,
         updatedAt,
       ];

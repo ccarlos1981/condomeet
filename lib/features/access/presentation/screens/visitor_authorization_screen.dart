@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:condomeet/core/design_system/design_system.dart';
 import 'package:condomeet/features/auth/presentation/bloc/auth_bloc.dart';
+import 'package:condomeet/features/auth/presentation/bloc/auth_state.dart';
 import 'package:condomeet/features/access/presentation/bloc/invitation_bloc.dart';
 import 'package:condomeet/features/access/presentation/bloc/invitation_event.dart';
 import 'package:condomeet/features/access/presentation/bloc/invitation_state.dart';

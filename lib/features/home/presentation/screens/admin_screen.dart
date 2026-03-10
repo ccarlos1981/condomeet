@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/gestures.dart';
 import 'package:condomeet/core/design_system/design_system.dart';
 
 class AdminScreen extends StatelessWidget {
@@ -20,6 +21,7 @@ class AdminScreen extends StatelessWidget {
       body: SafeArea(
         child: ListView(
           physics: const BouncingScrollPhysics(parent: AlwaysScrollableScrollPhysics()),
+          dragStartBehavior: DragStartBehavior.down,
           padding: const EdgeInsets.all(16.0),
           children: [
             _buildSectionTitle('Liberações'),
@@ -33,7 +35,7 @@ class AdminScreen extends StatelessWidget {
               context: context,
               icon: Icons.book_outlined,
               label: 'Livro de ocorrência',
-              onTap: () {},
+              onTap: () => Navigator.of(context).pushNamed('/occurrence-admin'),
             ),
             const SizedBox(height: 24),
             _buildSectionTitle('Aprovações'),
@@ -68,7 +70,7 @@ class AdminScreen extends StatelessWidget {
               context: context,
               icon: Icons.phone_callback_outlined,
               label: 'Fale Conosco',
-              onTap: () {},
+              onTap: () => Navigator.of(context).pushNamed('/fale-conosco-admin'),
             ),
             _buildAdminItem(
               context: context,
@@ -114,6 +116,15 @@ class AdminScreen extends StatelessWidget {
               label: 'Estrutura (Blocos e Unidades)',
               onTap: () => Navigator.of(context).pushNamed('/condo-structure'),
             ),
+            const SizedBox(height: 24),
+            _buildSectionTitle('Parametrização'),
+            _buildAdminItem(
+              context: context,
+              icon: Icons.tune,
+              label: 'Configurar Menu',
+              subtitle: 'Acesso e ordem dos botões por perfil',
+              onTap: () => Navigator.of(context).pushNamed('/configure-menu'),
+            ),
             const SizedBox(height: 40),
           ],
         ),
@@ -139,6 +150,7 @@ class AdminScreen extends StatelessWidget {
     required BuildContext context,
     required IconData icon,
     required String label,
+    String? subtitle,
     int? badgeCount,
     required VoidCallback onTap,
   }) {
