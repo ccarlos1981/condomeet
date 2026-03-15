@@ -161,7 +161,7 @@ class _ParcelRegistrationScreenState extends State<ParcelRegistrationScreen> {
             const SizedBox(height: 16),
             ListTile(
               leading: const CircleAvatar(
-                backgroundColor: Color(0xFFEEF2FF),
+                backgroundColor: AppColors.primaryLight,
                 child: Icon(Icons.camera_alt_outlined, color: AppColors.primary),
               ),
               title: const Text('Tirar foto com a câmera'),
@@ -169,7 +169,7 @@ class _ParcelRegistrationScreenState extends State<ParcelRegistrationScreen> {
             ),
             ListTile(
               leading: const CircleAvatar(
-                backgroundColor: Color(0xFFEEF2FF),
+                backgroundColor: AppColors.primaryLight,
                 child: Icon(Icons.photo_library_outlined, color: AppColors.primary),
               ),
               title: const Text('Escolher da galeria'),
@@ -292,7 +292,7 @@ class _ParcelRegistrationScreenState extends State<ParcelRegistrationScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFFF8F9FA),
+      backgroundColor: AppColors.surface,
       appBar: AppBar(
         title: const Text('Registrar Encomenda'),
         backgroundColor: Colors.white,

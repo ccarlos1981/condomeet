@@ -1,49 +1,52 @@
-enum DocumentCategory { minutes, regulations, forms, others }
-
 class CondoDocument {
   final String id;
-  final String condominiumId;
-  final String title;
-  final DocumentCategory category;
-  final DateTime uploadDate;
-  final String fileUrl;
-  final String fileExtension;
+  final String condominioId;
+  final String titulo;
+  final String? pastaId;
+  final String? pastaNome;
+  final String? arquivoUrl;
+  final String? arquivoNome;
+  final String? categoria;
+  final String? dataValidade;
+  final String? dataExpedicao;
+  final bool mostrarMoradores;
+  final String? descricao;
 
-  CondoDocument({
+  const CondoDocument({
     required this.id,
-    required this.condominiumId,
-    required this.title,
-    required this.category,
-    required this.uploadDate,
-    required this.fileUrl,
-    required this.fileExtension,
+    required this.condominioId,
+    required this.titulo,
+    this.pastaId,
+    this.pastaNome,
+    this.arquivoUrl,
+    this.arquivoNome,
+    this.categoria,
+    this.dataValidade,
+    this.dataExpedicao,
+    this.mostrarMoradores = false,
+    this.descricao,
   });
-
-  String get categoryName {
-    switch (category) {
-      case DocumentCategory.minutes:
-        return 'Atas de Reunião';
-      case DocumentCategory.regulations:
-        return 'Regimentos e Normas';
-      case DocumentCategory.forms:
-        return 'Formulários';
-      case DocumentCategory.others:
-        return 'Outros';
-    }
-  }
 
   factory CondoDocument.fromMap(Map<String, dynamic> map) {
     return CondoDocument(
-      id: map['id'],
-      condominiumId: map['condominio_id'] ?? map['condominium_id'],
-      title: map['title'],
-      category: DocumentCategory.values.firstWhere(
-        (e) => e.name == map['category'],
-        orElse: () => DocumentCategory.others,
-      ),
-      uploadDate: DateTime.parse(map['upload_date']),
-      fileUrl: map['file_url'],
-      fileExtension: map['file_extension'],
+      id: map['id'] as String,
+      condominioId: map['condominio_id'] as String? ?? '',
+      titulo: map['titulo'] as String? ?? '',
+      pastaId: map['pasta_id'] as String?,
+      pastaNome: map['pasta_nome'] as String?,
+      arquivoUrl: map['arquivo_url'] as String?,
+      arquivoNome: map['arquivo_nome'] as String?,
+      categoria: map['categoria'] as String?,
+      dataValidade: map['data_validade'] as String?,
+      dataExpedicao: map['data_expedicao'] as String?,
+      mostrarMoradores: (map['mostrar_moradores'] == true || map['mostrar_moradores'] == 1),
+      descricao: map['descricao'] as String?,
     );
+  }
+
+  String get extensao {
+    if (arquivoNome == null) return '';
+    final parts = arquivoNome!.split('.');
+    return parts.length > 1 ? parts.last.toLowerCase() : '';
   }
 }

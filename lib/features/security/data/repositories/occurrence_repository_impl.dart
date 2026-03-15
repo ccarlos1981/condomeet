@@ -63,45 +63,68 @@ class OccurrenceRepositoryImpl implements OccurrenceRepository {
   }
 
   @override
-  Stream<List<Occurrence>> watchResidentOccurrences(String residentId) async* {
+  Stream<List<Occurrence>> watchResidentOccurrences(String residentId) {
     final userId = residentId.isNotEmpty
         ? residentId
         : (_supabase.auth.currentUser?.id ?? '');
-    if (userId.isEmpty) { yield []; return; }
+    if (userId.isEmpty) return Stream.value([]);
 
+    return Stream.fromIterable([0])
+        .asyncExpand((_) async* {
+          yield await _fetchResidentOccurrences(userId);
+          await for (final _ in Stream.periodic(const Duration(seconds: 10))) {
+            yield await _fetchResidentOccurrences(userId);
+          }
+        })
+        .handleError((e) => print('❌ watchResidentOccurrences error: $e'))
+        .cast<List<Occurrence>>();
+  }
+
+  Future<List<Occurrence>> _fetchResidentOccurrences(String userId) async {
     final response = await _supabase
         .from('ocorrencias')
         .select()
         .eq('resident_id', userId)
         .order('created_at', ascending: false);
-
-    yield (response as List)
+    return (response as List)
         .map((row) => Occurrence.fromMap(row as Map<String, dynamic>))
         .toList();
   }
 
   @override
-  Stream<List<Occurrence>> watchAllOccurrences(String condominiumId) async* {
-    String resolvedCondoId = condominiumId;
-    if (resolvedCondoId.isEmpty) {
-      final uid = _supabase.auth.currentUser?.id;
-      if (uid != null) {
-        final profile = await _supabase.from('perfil').select('condominio_id').eq('id', uid).single();
-        resolvedCondoId = (profile['condominio_id'] as String?) ?? '';
-      }
-    }
-    if (resolvedCondoId.isEmpty) { yield []; return; }
+  Stream<List<Occurrence>> watchAllOccurrences(String condominiumId) {
+    return Stream.fromIterable([0])
+        .asyncExpand((_) async* {
+          String resolvedCondoId = condominiumId;
+          if (resolvedCondoId.isEmpty) {
+            final uid = _supabase.auth.currentUser?.id;
+            if (uid != null) {
+              final profile = await _supabase.from('perfil').select('condominio_id').eq('id', uid).single();
+              resolvedCondoId = (profile['condominio_id'] as String?) ?? '';
+            }
+          }
+          if (resolvedCondoId.isEmpty) { yield []; return; }
 
+          yield await _fetchAllOccurrences(resolvedCondoId);
+          await for (final _ in Stream.periodic(const Duration(seconds: 10))) {
+            yield await _fetchAllOccurrences(resolvedCondoId);
+          }
+        })
+        .handleError((e) => print('❌ watchAllOccurrences error: $e'))
+        .cast<List<Occurrence>>();
+  }
+
+  Future<List<Occurrence>> _fetchAllOccurrences(String condoId) async {
     final response = await _supabase
         .from('ocorrencias')
         .select()
-        .eq('condominio_id', resolvedCondoId)
+        .eq('condominio_id', condoId)
         .order('created_at', ascending: false);
-
-    yield (response as List)
+    return (response as List)
         .map((row) => Occurrence.fromMap(row as Map<String, dynamic>))
         .toList();
   }
+
 
   @override
   Future<Result<void>> updateOccurrenceStatus(

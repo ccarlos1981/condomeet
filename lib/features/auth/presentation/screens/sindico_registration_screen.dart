@@ -182,7 +182,7 @@ class _SindicoRegistrationScreenState extends State<SindicoRegistrationScreen> {
                       const Text('Bem-vindo, Síndico! Vamos registrar seu condomínio na plataforma.', style: TextStyle(fontSize: 14)),
                       const SizedBox(height: 16),
                       DropdownButtonFormField<String>(
-                        value: _tipoEstrutura,
+                        initialValue: _tipoEstrutura,
                         decoration: InputDecoration(
                           labelText: 'Tipo de Estrutura *',
                           border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),

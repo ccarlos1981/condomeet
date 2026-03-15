@@ -1,30 +1,61 @@
+import 'dart:math';
 import 'package:condomeet/core/errors/result.dart';
-import 'package:condomeet/core/services/powersync_service.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:uuid/uuid.dart';
 import 'package:condomeet/features/access/domain/models/invitation.dart';
 import 'package:condomeet/features/access/domain/repositories/invitation_repository.dart';
 
 class InvitationRepositoryImpl implements InvitationRepository {
-  final PowerSyncService _powerSync;
   final SupabaseClient _supabase;
 
-  InvitationRepositoryImpl(this._powerSync, this._supabase);
+  InvitationRepositoryImpl(this._supabase);
 
   @override
   Stream<List<Invitation>> watchInvitationsForResident(String residentId) {
-    return _powerSync.db.watch(
-      "SELECT * FROM convites WHERE resident_id = ? AND status = 'active' AND validity_date >= CURRENT_TIMESTAMP ORDER BY created_at DESC",
-      parameters: [residentId],
-    ).map((rows) => rows.map((row) => _fromMap(row)).toList());
+    // Use Supabase polling so new invitations from the resident's device
+    // appear immediately without waiting for PowerSync.
+    return Stream.fromIterable([0])
+        .asyncExpand((_) async* {
+          yield await _fetchResidentInvitations(residentId);
+          await for (final _ in Stream.periodic(const Duration(seconds: 10))) {
+            yield await _fetchResidentInvitations(residentId);
+          }
+        })
+        .handleError((e) => print('❌ watchInvitationsForResident error: $e'));
+  }
+
+  Future<List<Invitation>> _fetchResidentInvitations(String residentId) async {
+    final rows = await _supabase
+        .from('convites')
+        .select()
+        .eq('resident_id', residentId)
+        .eq('status', 'active')
+        .gte('validity_date', DateTime.now().toIso8601String())
+        .order('created_at', ascending: false);
+    return (rows as List).map((r) => _fromMap(r as Map<String, dynamic>)).toList();
   }
 
   @override
   Stream<List<Invitation>> watchAllActiveInvitations(String condominiumId) {
-    return _powerSync.db.watch(
-      "SELECT * FROM convites WHERE condominio_id = ? AND status = 'active' AND validity_date >= CURRENT_TIMESTAMP ORDER BY validity_date ASC",
-      parameters: [condominiumId],
-    ).map((rows) => rows.map((row) => _fromMap(row)).toList());
+    return Stream.fromIterable([0])
+        .asyncExpand((_) async* {
+          yield await _fetchAllActiveInvitations(condominiumId);
+          await for (final _ in Stream.periodic(const Duration(seconds: 10))) {
+            yield await _fetchAllActiveInvitations(condominiumId);
+          }
+        })
+        .handleError((e) => print('❌ watchAllActiveInvitations error: $e'));
+  }
+
+  Future<List<Invitation>> _fetchAllActiveInvitations(String condominiumId) async {
+    final rows = await _supabase
+        .from('convites')
+        .select()
+        .eq('condominio_id', condominiumId)
+        .eq('status', 'active')
+        .gte('validity_date', DateTime.now().toIso8601String())
+        .order('validity_date');
+    return (rows as List).map((r) => _fromMap(r as Map<String, dynamic>)).toList();
   }
 
   @override
@@ -35,6 +66,7 @@ class InvitationRepositoryImpl implements InvitationRepository {
     String? blocoFilter,
     String? aptoFilter,
     String? dateFilter,
+    int? limit,
   }) {
     // Use Supabase directly — PowerSync only holds data for the local user,
     // but the portaria needs to see invitations created by all residents.
@@ -50,6 +82,7 @@ class InvitationRepositoryImpl implements InvitationRepository {
             blocoFilter: blocoFilter,
             aptoFilter: aptoFilter,
             dateFilter: dateFilter,
+            limit: limit,
           );
           // Then poll every 5 seconds
           await for (final _ in Stream.periodic(const Duration(seconds: 5))) {
@@ -60,6 +93,7 @@ class InvitationRepositoryImpl implements InvitationRepository {
               blocoFilter: blocoFilter,
               aptoFilter: aptoFilter,
               dateFilter: dateFilter,
+              limit: limit,
             );
           }
         })
@@ -73,6 +107,7 @@ class InvitationRepositoryImpl implements InvitationRepository {
     String? blocoFilter,
     String? aptoFilter,
     String? dateFilter,
+    int? limit,
   }) async {
           var query = _supabase
               .from('convites')
@@ -94,7 +129,11 @@ class InvitationRepositoryImpl implements InvitationRepository {
             query = query.gte('validity_date', dateFilter).lte('validity_date', '${dateFilter}T23:59:59');
           }
 
-          final response = await query.order('created_at', ascending: false);
+          var orderedQuery = query.order('created_at', ascending: false);
+          if (limit != null) {
+            orderedQuery = orderedQuery.limit(limit);
+          }
+          final response = await orderedQuery;
           final rows = response as List;
           return rows.map((row) {
             final Map<String, dynamic> flat = Map<String, dynamic>.from(row);
@@ -133,7 +172,13 @@ class InvitationRepositoryImpl implements InvitationRepository {
   }) async {
     try {
       final id = const Uuid().v4();
-      final qrData = 'condomeet_inv_${id.substring(0, 8)}';
+      // Generate random 3-char alphanumeric code
+      const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
+      final rng = Random();
+      final shortCode = String.fromCharCodes(
+        Iterable.generate(3, (_) => chars.codeUnitAt(rng.nextInt(chars.length))),
+      );
+      final qrData = 'condomeet_inv_${id.substring(0, 8)}_$shortCode';
       final now = DateTime.now();
 
       final invitation = Invitation(
@@ -151,28 +196,23 @@ class InvitationRepositoryImpl implements InvitationRepository {
         updatedAt: now,
       );
 
-      await _powerSync.db.execute(
-        '''INSERT INTO convites (
-            id, resident_id, condominio_id, guest_name, validity_date, 
-            qr_data, visitor_type, visitor_phone, observation, 
-            status, visitante_compareceu, created_at, updated_at
-           ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)''',
-        [
-          id,
-          residentId,
-          condominiumId,
-          guestName,
-          validityDate.toIso8601String(),
-          qrData,
-          visitorType,
-          visitorPhone,
-          observation,
-          'active',
-          0,
-          now.toIso8601String(),
-          now.toIso8601String()
-        ],
-      );
+      // Use Supabase directly — PowerSync only holds local user data,
+      // and invitations may not be synced to other devices immediately.
+      await _supabase.from('convites').insert({
+        'id': id,
+        'resident_id': residentId,
+        'condominio_id': condominiumId,
+        'guest_name': guestName,
+        'validity_date': validityDate.toIso8601String(),
+        'qr_data': qrData,
+        'visitor_type': visitorType,
+        'visitor_phone': visitorPhone,
+        'observation': observation,
+        'status': 'active',
+        'visitante_compareceu': 0,
+        'created_at': now.toIso8601String(),
+        'updated_at': now.toIso8601String(),
+      });
 
       return Success(invitation);
     } catch (e) {
@@ -187,18 +227,14 @@ class InvitationRepositoryImpl implements InvitationRepository {
     required int offset,
   }) async {
     try {
-      final List<Map<String, dynamic>> results = await _powerSync.db.getAll(
-        '''
-        SELECT * FROM convites 
-        WHERE resident_id = ? 
-        ORDER BY created_at DESC 
-        LIMIT ? OFFSET ?
-        ''',
-        [residentId, limit, offset],
-      );
+      final rows = await _supabase
+          .from('convites')
+          .select()
+          .eq('resident_id', residentId)
+          .order('created_at', ascending: false)
+          .range(offset, offset + limit - 1);
 
-      final invitations = results.map((row) => Invitation.fromMap(row)).toList();
-      return Success(invitations);
+      return Success((rows as List).map((r) => Invitation.fromMap(r as Map<String, dynamic>)).toList());
     } catch (e) {
       return Failure('Erro ao buscar convites: ${e.toString()}');
     }
@@ -227,10 +263,13 @@ class InvitationRepositoryImpl implements InvitationRepository {
   @override
   Future<Result<void>> markAsUsed(String invitationId) async {
     try {
-      await _powerSync.db.execute(
-        "UPDATE convites SET status = 'used', updated_at = ? WHERE id = ?",
-        [DateTime.now().toIso8601String(), invitationId],
-      );
+      // Use Supabase directly — the porter device does not have cross-user
+      // PowerSync records for invitations created by other residents.
+      final now = DateTime.now().toIso8601String();
+      await _supabase.from('convites').update({
+        'status': 'used',
+        'updated_at': now,
+      }).eq('id', invitationId);
       return const Success(null);
     } catch (e) {
       return Failure('Erro ao marcar convite como usado: ${e.toString()}');
@@ -240,10 +279,10 @@ class InvitationRepositoryImpl implements InvitationRepository {
   @override
   Future<Result<void>> cancelInvitation(String invitationId) async {
     try {
-      await _powerSync.db.execute(
-        "UPDATE convites SET status = 'expired', updated_at = ? WHERE id = ?",
-        [DateTime.now().toIso8601String(), invitationId],
-      );
+      await _supabase.from('convites').update({
+        'status': 'expired',
+        'updated_at': DateTime.now().toIso8601String(),
+      }).eq('id', invitationId);
       return const Success(null);
     } catch (e) {
       return Failure('Erro ao cancelar convite: ${e.toString()}');

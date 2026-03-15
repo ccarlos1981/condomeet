@@ -33,6 +33,8 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
     on<AuthPinSetupCompleted>(_onAuthPinSetupCompleted, transformer: concurrent());
     on<AuthLogoutRequested>(_onAuthLogoutRequested, transformer: concurrent());
     on<AuthPinUnlocked>(_onAuthPinUnlocked, transformer: concurrent());
+    on<AuthPasswordSetupSubmitted>(_onAuthPasswordSetupSubmitted, transformer: droppable());
+    on<AuthDevBypassRequested>(_onAuthDevBypassRequested, transformer: droppable());
   }
 
   bool _isSessionUnlocked = false;
@@ -71,7 +73,7 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
       final String? condominiumId = profile['condominio_id'];
       final String? role = profile['papel_sistema'];
       
-      if (profileStatus == 'pendente') {
+      if (profileStatus == 'pendente' || profileStatus == 'bloqueado') {
         emit(AuthState.pendingApproval(
           userId: userId,
           userName: userName,
@@ -99,7 +101,7 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
         consentType: 'terms_of_service',
       );
       
-      final hasConsent = consentResult is Success<bool> && (consentResult as Success<bool>).data;
+      final hasConsent = consentResult is Success<bool> && consentResult.data;
       if (!hasConsent) {
         emit(AuthState.pendingConsent(
           userId: userId,
@@ -125,7 +127,12 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
                final bloco = (units['blocos'] as Map?)?['nome_ou_numero'] ?? '0';
                final apto = (units['apartamentos'] as Map?)?['numero'] ?? '0';
                final String? tipoEstruturaLocal = (profile['condominios'] as Map<String, dynamic>?)?['tipo_estrutura'] as String? ?? 'predio';
-               unitDisplay = StructureHelper.getFullUnitName(tipoEstruturaLocal, bloco, apto);
+               // Bloco 0 / Apto 0 é a unidade placeholder do Síndico — não exibir
+               if (bloco == '0' && apto == '0') {
+                 unitDisplay = null;
+               } else {
+                 unitDisplay = StructureHelper.getFullUnitName(tipoEstruturaLocal, bloco, apto);
+               }
              }
         }
       } catch (e) {
@@ -183,7 +190,6 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
     try {
       await _authRepository.signInWithEmail(event.email, event.password);
       print('✅ signInWithEmail successful');
-      
       final session = _authRepository.currentSession;
       if (session != null) {
         print('👤 Session found for user ${session.user.id}. Fetching profile...');
@@ -202,7 +208,8 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
         final String? condominiumId = profile['condominio_id'];
         final String? role = profile['papel_sistema'];
         
-        if (profileStatus == 'pendente') {
+        if (profileStatus == 'pendente' || profileStatus == 'bloqueado') {
+          print('🚫 Login bloqueado: $profileStatus → emitindo pendingApproval');
           emit(AuthState.pendingApproval(
             userId: userId,
             userName: userName,
@@ -245,8 +252,12 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
                      : (aptoData is Map ? aptoData['numero'] : '0');
                      
                  final String? tipoEstruturaLocal = (profile['condominios'] as Map<String, dynamic>?)?['tipo_estrutura'] as String? ?? 'predio';
-                 
-                 unitDisplay = StructureHelper.getFullUnitName(tipoEstruturaLocal, bloco, apto);
+                 // Bloco 0 / Apto 0 é a unidade placeholder do Síndico — não exibir
+                 if (bloco == '0' && apto == '0') {
+                   unitDisplay = null;
+                 } else {
+                   unitDisplay = StructureHelper.getFullUnitName(tipoEstruturaLocal, bloco, apto);
+                 }
                }
           }
         } catch (e) {
@@ -262,7 +273,7 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
           consentType: 'terms_of_service',
         );
         
-        final hasConsent = consentResult is Success<bool> && (consentResult as Success<bool>).data;
+        final hasConsent = consentResult is Success<bool> && consentResult.data;
         if (!hasConsent) {
           print('⚖️ Consent required for user $userId');
           emit(AuthState.pendingConsent(
@@ -307,10 +318,37 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
       if (errorMsg.contains('email_not_confirmed') || errorMsg.contains('Email not confirmed')) {
         emit(const AuthState.unauthenticated(error: 'Seu e-mail ainda não foi confirmado. Verifique sua caixa de entrada.'));
       } else if (errorMsg.contains('Invalid login credentials') || errorMsg.contains('invalid_credentials')) {
+        // Verifica se é morador migrado que precisa configurar senha
+        try {
+          final needsSetup = await Supabase.instance.client
+              .rpc('check_needs_password_setup', params: {'user_email': event.email});
+          if (needsSetup == true) {
+            print('🔑 Email ${event.email} precisa configurar senha');
+            emit(AuthState.needsPasswordSetup(email: event.email));
+            return;
+          }
+        } catch (_) {}
         emit(const AuthState.unauthenticated(error: 'E-mail ou senha incorretos.'));
       } else {
         emit(AuthState.unauthenticated(error: 'Erro ao entrar: $errorMsg'));
       }
+    }
+  }
+
+  Future<void> _onAuthPasswordSetupSubmitted(AuthPasswordSetupSubmitted event, Emitter<AuthState> emit) async {
+    print('🔑 Configurando senha para ${event.email}');
+    emit(state.copyWith(status: AuthStatus.authenticating));
+    try {
+      await Supabase.instance.client.rpc(
+        'setup_user_password',
+        params: {'user_email': event.email, 'new_password': event.newPassword},
+      );
+      // Login automático com a nova senha
+      await _authRepository.signInWithEmail(event.email, event.newPassword);
+      add(const AuthCheckRequested());
+    } catch (e) {
+      print('❌ Erro ao configurar senha: $e');
+      emit(AuthState.unauthenticated(error: 'Erro ao definir senha. Tente novamente.'));
     }
   }
 
@@ -409,6 +447,30 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
   Future<void> _onAuthLogoutRequested(AuthLogoutRequested event, Emitter<AuthState> emit) async {
     await _authRepository.signOut();
     emit(const AuthState.unauthenticated());
+  }
+
+  /// Dev-only: bypasses OTP by logging in with a test account.
+  /// Guarded by kDebugMode — no-op in release builds.
+  Future<void> _onAuthDevBypassRequested(AuthDevBypassRequested event, Emitter<AuthState> emit) async {
+    const isDebug = bool.fromEnvironment('dart.vm.product') == false;
+    if (!isDebug) return;
+
+    print('🛠️ DEV BYPASS: Attempting login with test account...');
+    emit(state.copyWith(status: AuthStatus.authenticating));
+
+    try {
+      // Try to sign in with the test account
+      add(const AuthLoginSubmitted(
+        email: 'dev@condomeet.app',
+        password: 'dev123456',
+      ));
+    } catch (e) {
+      print('❌ DEV BYPASS failed: $e');
+      emit(state.copyWith(
+        status: AuthStatus.unauthenticated,
+        errorMessage: 'Dev bypass failed: $e',
+      ));
+    }
   }
 
 

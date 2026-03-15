@@ -17,13 +17,14 @@ export default async function VisitantesPage() {
 
   const condoId = profile?.condominio_id ?? ''
 
-  // Morador só vê os próprios convites
+  // Morador só vê os próprios convites — carregar os 5 últimos
   const { data: convites, error } = await supabase
     .from('convites')
     .select('id, qr_data, guest_name, visitor_type, visitante_compareceu, validity_date, created_at, liberado_em, status')
     .eq('resident_id', user.id)
     .eq('condominio_id', condoId)
     .order('created_at', { ascending: false })
+    .limit(5)
 
   if (error) console.error('❌ visitantes error:', JSON.stringify(error))
 

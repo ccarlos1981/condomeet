@@ -27,16 +27,19 @@ interface Props {
   initialInvitations: Invitation[]
   condoId: string
   userId: string
+  initialLimit?: number
 }
 
-const PAGE_SIZE = 10
+const PAGE_SIZE = 5
 
-export default function VisitorList({ initialInvitations, condoId, userId }: Props) {
+export default function VisitorList({ initialInvitations, condoId, userId, initialLimit }: Props) {
   const [invitations, setInvitations] = useState<Invitation[]>(initialInvitations)
   const [filtered, setFiltered] = useState<Invitation[]>(initialInvitations)
   const [approving, setApproving] = useState<string | null>(null)
   const [isPending, startTransition] = useTransition()
   const [loading, setLoading] = useState(false)
+  const [loadedAll, setLoadedAll] = useState(!initialLimit)
+  const [loadingMore, setLoadingMore] = useState(false)
   const router = useRouter()
   const supabase = createClient()
 
@@ -103,6 +106,32 @@ export default function VisitorList({ initialInvitations, condoId, userId }: Pro
   const hasFilters = fCode || fBloco || fApto || fDate || fStatus !== null
   const clearFilters = () => { setFCode(''); setFBloco(''); setFApto(''); setFDate(''); setFStatus(null) }
 
+  async function handleLoadAll() {
+    setLoadingMore(true)
+    const { data: allConvites } = await supabase
+      .from('convites')
+      .select('id, qr_data, guest_name, visitor_type, visitante_compareceu, validity_date, created_at, liberado_em, resident_id, status')
+      .eq('condominio_id', condoId)
+      .order('created_at', { ascending: false })
+
+    if (allConvites) {
+      // Fetch perfil for all residents
+      const residentIds = [...new Set(allConvites.map((c: any) => c.resident_id).filter(Boolean))]
+      let perfilMap: Record<string, PerfilJoin> = {}
+      if (residentIds.length > 0) {
+        const { data: perfis } = await supabase
+          .from('perfil')
+          .select('id, nome_completo, bloco_txt, apto_txt')
+          .in('id', residentIds)
+        ;(perfis ?? []).forEach((p: any) => { perfilMap[p.id] = p })
+      }
+      const merged = allConvites.map((c: any) => ({ ...c, perfil: perfilMap[c.resident_id] ?? null }))
+      setInvitations(merged)
+    }
+    setLoadedAll(true)
+    setLoadingMore(false)
+  }
+
   return (
     <>
       <p className="text-gray-500 text-sm mb-4">
@@ -123,15 +152,18 @@ export default function VisitorList({ initialInvitations, condoId, userId }: Pro
               placeholder={f.placeholder}
               value={f.value}
               onChange={e => f.set(e.target.value)}
-              className={`${f.width} px-3 py-2 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-[#E85D26] bg-gray-50`}
+              className={`${f.width} px-3 py-2 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-[#FC3951] bg-gray-50`}
             />
           ))}
           <input
             type="date"
             value={fDate}
             onChange={e => setFDate(e.target.value)}
-            className="px-3 py-2 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-[#E85D26] bg-gray-50"
+            aria-label="Filtrar por data de validade"
+            title="Filtrar por data de validade"
+            className="px-3 py-2 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-[#FC3951] bg-gray-50"
           />
+
         </div>
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
@@ -148,7 +180,7 @@ export default function VisitorList({ initialInvitations, condoId, userId }: Pro
           <button
             onClick={handleRefresh}
             disabled={isPending || loading}
-            className="p-2 text-[#E85D26] hover:bg-[#E85D26]/10 rounded-lg transition-colors"
+            className="p-2 text-[#FC3951] hover:bg-[#FC3951]/10 rounded-lg transition-colors"
             title="Atualizar"
           >
             <RefreshCw size={16} className={isPending || loading ? 'animate-spin' : ''} />
@@ -162,7 +194,7 @@ export default function VisitorList({ initialInvitations, condoId, userId }: Pro
           <Filter size={32} className="mx-auto text-gray-300 mb-3" />
           <p className="text-gray-500 font-medium">Nenhuma autorização encontrada</p>
           {hasFilters && (
-            <button onClick={clearFilters} className="text-sm text-[#E85D26] hover:underline mt-2">
+            <button onClick={clearFilters} className="text-sm text-[#FC3951] hover:underline mt-2">
               Limpar filtros
             </button>
           )}
@@ -182,7 +214,7 @@ export default function VisitorList({ initialInvitations, condoId, userId }: Pro
                 }`}
               >
                 {/* Header */}
-                <div className={`px-5 py-3 flex items-center justify-between ${liberado ? 'bg-green-500' : 'bg-[#E85D26]'}`}>
+                <div className={`px-5 py-3 flex items-center justify-between ${liberado ? 'bg-green-500' : 'bg-[#FC3951]'}`}>
                   <div className="flex items-center gap-3">
                     <div className="w-10 h-10 bg-white/20 rounded-xl flex items-center justify-center flex-shrink-0">
                       <span className="text-white font-bold text-xs leading-tight text-center">
@@ -233,7 +265,7 @@ export default function VisitorList({ initialInvitations, condoId, userId }: Pro
                         <button
                           onClick={() => handleApprove(inv)}
                           disabled={approving === inv.id}
-                          className="flex items-center gap-2 px-4 py-1.5 bg-[#E85D26] text-white text-sm font-semibold rounded-xl hover:bg-[#c44d1e] transition-colors disabled:opacity-60"
+                          className="flex items-center gap-2 px-4 py-1.5 bg-[#FC3951] text-white text-sm font-semibold rounded-xl hover:bg-[#D4253D] transition-colors disabled:opacity-60"
                         >
                           {approving === inv.id && <RefreshCw size={13} className="animate-spin" />}
                           Confirmar Entrada
@@ -254,12 +286,31 @@ export default function VisitorList({ initialInvitations, condoId, userId }: Pro
         </div>
       )}
 
-      {/* Pagination */}
+      {/* Load more / Pagination */}
+      {!loadedAll && !hasFilters && (
+        <div className="flex justify-center mt-6">
+          <button
+            onClick={handleLoadAll}
+            disabled={loadingMore}
+            className="flex items-center gap-2 px-5 py-2.5 text-sm font-semibold text-[#FC3951] bg-[#FC3951]/10 rounded-xl hover:bg-[#FC3951]/20 transition-colors disabled:opacity-50"
+          >
+            {loadingMore ? (
+              <RefreshCw size={14} className="animate-spin" />
+            ) : (
+              <ChevronRight size={14} />
+            )}
+            {loadingMore ? 'Carregando...' : 'Ver mais autorizações'}
+          </button>
+        </div>
+      )}
+
       {totalPages > 1 && (
         <div className="flex items-center justify-center gap-4 mt-6">
           <button
             onClick={() => setPage(p => Math.max(1, p - 1))}
             disabled={page === 1}
+            aria-label="Página anterior"
+            title="Página anterior"
             className="p-2 rounded-xl border border-gray-200 text-gray-500 hover:bg-gray-50 disabled:opacity-40 transition-colors"
           >
             <ChevronLeft size={16} />
@@ -268,6 +319,8 @@ export default function VisitorList({ initialInvitations, condoId, userId }: Pro
           <button
             onClick={() => setPage(p => Math.min(totalPages, p + 1))}
             disabled={page === totalPages}
+            aria-label="Próxima página"
+            title="Próxima página"
             className="p-2 rounded-xl border border-gray-200 text-gray-500 hover:bg-gray-50 disabled:opacity-40 transition-colors"
           >
             <ChevronRight size={16} />

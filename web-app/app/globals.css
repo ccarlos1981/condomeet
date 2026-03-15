@@ -6,9 +6,9 @@
    EXISTING APP DESIGN SYSTEM (preserved)
    ============================================ */
 :root {
-  --primary: #E85D26;
-  --primary-dark: #c44d1e;
-  --primary-light: #fff0eb;
+  --primary: #FC3951;
+  --primary-dark: #D4253D;
+  --primary-light: #fff0f2;
   --sidebar-dark: #1f2d3d;
   --font-outfit: 'Outfit', sans-serif;
 
@@ -18,8 +18,8 @@
   --lp-bg: #0D1B2A;
   --lp-surface: #112233;
   --lp-surface-2: #162840;
-  --lp-accent: #E85D26;
-  --lp-accent-dark: #C44D1E;
+  --lp-accent: #FC3951;
+  --lp-accent-dark: #D4253D;
   --lp-primary-text: #F0F4F8;
   --lp-muted-text: #8FA3B8;
   --lp-border: rgba(255, 255, 255, 0.08);
@@ -99,7 +99,7 @@ body {
 .lp-btn-primary:hover {
   background-color: var(--lp-accent-dark);
   transform: translateY(-1px);
-  box-shadow: 0 8px 24px rgba(232, 93, 38, 0.35);
+  box-shadow: 0 8px 24px rgba(252, 57, 81, 0.35);
 }
 
 /* Color utilities for landing page */

@@ -26,7 +26,7 @@ class StructureRepositoryImpl implements StructureRepository {
     final value = '$prefix|$condoId|$name';
     final bytes = utf8.encode(value);
     final hash = sha1.convert(bytes).toString();
-    return _uuid.v5(Uuid.NAMESPACE_URL, hash);
+    return _uuid.v5(Namespace.url.value, hash);
   }
 
   // ── BLOCOS ──
@@ -241,6 +241,45 @@ class StructureRepositoryImpl implements StructureRepository {
         .select('*, apartamentos(numero), blocos(nome_ou_numero)')
         .eq('condominio_id', condominiumId);
     
+    final list = (remote as List).map((row) {
+      final aptoData = row['apartamentos'];
+      final blocoData = row['blocos'];
+      return Unidade.fromJson(row).copyWith(
+        aptoNumero: aptoData is Map ? aptoData['numero']?.toString() : null,
+        blocoNome: blocoData is Map ? blocoData['nome_ou_numero']?.toString() : null,
+      );
+    }).toList();
+    _unidadesSubject.add(list);
+  }
+
+  @override
+  Future<void> addUnidade(String condominiumId, String blocoId, String aptoNumero) async {
+    // First ensure the apartamento exists
+    final aptoId = _generateId('apto', condominiumId, aptoNumero);
+    await _supabase.from('apartamentos').upsert({
+      'id': aptoId,
+      'condominio_id': condominiumId,
+      'numero': aptoNumero,
+      'created_at': DateTime.now().toIso8601String(),
+    }, onConflict: 'id');
+
+    // Then create the unidade linking bloco + apartamento
+    final unitId = _generateId('unidade', blocoId, aptoId);
+    await _supabase.from('unidades').upsert({
+      'id': unitId,
+      'condominio_id': condominiumId,
+      'bloco_id': blocoId,
+      'apartamento_id': aptoId,
+      'bloqueada': false,
+      'created_at': DateTime.now().toIso8601String(),
+    }, onConflict: 'id');
+
+    // Refresh the stream
+    final remote = await _supabase
+        .from('unidades')
+        .select('*, apartamentos(numero), blocos(nome_ou_numero)')
+        .eq('condominio_id', condominiumId);
+
     final list = (remote as List).map((row) {
       final aptoData = row['apartamentos'];
       final blocoData = row['blocos'];

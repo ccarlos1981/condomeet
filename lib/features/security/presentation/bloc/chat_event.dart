@@ -45,6 +45,7 @@ class WatchAllThreadsRequested extends ChatEvent {
   List<Object?> get props => [condominiumId];
 }
 
+// ignore: unused_element
 class _UpdateChatMessages extends ChatEvent {
   final List<ChatMessage> messages;
 
@@ -54,6 +55,7 @@ class _UpdateChatMessages extends ChatEvent {
   List<Object?> get props => [messages];
 }
 
+// ignore: unused_element
 class _UpdateChatThreads extends ChatEvent {
   final List<ChatMessage> threads;
 

@@ -80,7 +80,7 @@ class _ParcelDashboardScreenState extends State<ParcelDashboardScreen>
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFFF8F9FA),
+      backgroundColor: AppColors.surface,
       appBar: AppBar(
         title: const Text('Minhas Encomendas'),
         backgroundColor: Colors.white,
@@ -140,7 +140,7 @@ class _ParcelDashboardScreenState extends State<ParcelDashboardScreen>
       child: Padding(
         padding: const EdgeInsets.all(32.0),
         child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
-          Icon(icon, size: 80, color: const Color(0xFFCED4DA)),
+          Icon(icon, size: 80, color: AppColors.disabledIcon),
           const SizedBox(height: 24),
           Text(title, style: AppTypography.h2),
           const SizedBox(height: 8),
@@ -327,7 +327,7 @@ class _ParcelDashboardScreenState extends State<ParcelDashboardScreen>
     return GestureDetector(
       onTap: () => setState(() => _fullscreenPhotoUrl = null),
       child: Container(
-        color: Colors.black.withOpacity(0.9),
+        color: Colors.black.withValues(alpha: 0.9),
         child: Stack(children: [
           Center(
             child: InteractiveViewer(
@@ -621,7 +621,7 @@ class _DarBaixaSheetState extends State<_DarBaixaSheet> {
             Container(
               height: 160,
               decoration: BoxDecoration(
-                color: _hasSigned ? Colors.white : const Color(0xFFF8F9FA),
+                color: _hasSigned ? Colors.white : AppColors.surface,
                 border: Border.all(
                   color: _hasSigned ? AppColors.primary : Colors.grey.shade300,
                   width: _hasSigned ? 2 : 1,

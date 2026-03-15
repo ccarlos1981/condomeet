@@ -122,7 +122,7 @@ class _AssemblyDetailScreenState extends State<AssemblyDetailScreen> {
     return Container(
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
-        color: hasVoted ? Colors.green.withOpacity(0.1) : AppColors.primary.withOpacity(0.05),
+        color: hasVoted ? Colors.green.withValues(alpha: 0.1) : AppColors.primary.withValues(alpha: 0.05),
         borderRadius: BorderRadius.circular(16),
         border: Border.all(color: hasVoted ? Colors.green : AppColors.primary, width: 1),
       ),
@@ -178,7 +178,7 @@ class _AssemblyDetailScreenState extends State<AssemblyDetailScreen> {
           ),
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withOpacity(0.05),
+              color: Colors.black.withValues(alpha: 0.05),
               blurRadius: 10,
               offset: const Offset(0, 4),
             ),
@@ -217,7 +217,7 @@ class _AssemblyDetailScreenState extends State<AssemblyDetailScreen> {
                 borderRadius: BorderRadius.circular(4),
                 child: LinearProgressIndicator(
                   value: percentage,
-                  backgroundColor: Colors.grey.withOpacity(0.1),
+                  backgroundColor: Colors.grey.withValues(alpha: 0.1),
                   color: isSelected ? AppColors.primary : Colors.grey,
                   minHeight: 8,
                 ),

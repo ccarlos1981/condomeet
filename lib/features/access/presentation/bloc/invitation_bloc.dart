@@ -89,6 +89,7 @@ class InvitationBloc extends Bloc<InvitationEvent, InvitationState> {
           blocoFilter: event.blocoFilter,
           aptoFilter: event.aptoFilter,
           dateFilter: event.dateFilter,
+          limit: event.limit,
         )
         .listen((invitations) => add(_UpdateInvitations(invitations)));
   }

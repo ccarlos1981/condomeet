@@ -86,7 +86,7 @@ class _AvisosScreenState extends State<AvisosScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFFF5F5F5),
+      backgroundColor: AppColors.surface,
       appBar: AppBar(
         backgroundColor: Colors.white,
         elevation: 0,
@@ -97,7 +97,7 @@ class _AvisosScreenState extends State<AvisosScreen> {
         title: const Text(
           'Avisos do Condomínio',
           style: TextStyle(
-            color: Color(0xFF1A1A1A),
+            color: AppColors.textMain,
             fontSize: 16,
             fontWeight: FontWeight.bold,
           ),
@@ -124,11 +124,11 @@ class _AvisosScreenState extends State<AvisosScreen> {
   Widget _buildEmpty() {
     return ListView(children: [
       const SizedBox(height: 80),
-      const Icon(Icons.notifications_none_rounded, size: 56, color: Color(0xFFCCCCCC)),
+      const Icon(Icons.notifications_none_rounded, size: 56, color: AppColors.disabledIcon),
       const SizedBox(height: 16),
       const Text('Nenhum aviso do condomínio ainda',
           textAlign: TextAlign.center,
-          style: TextStyle(color: Color(0xFFAAAAAA), fontSize: 14)),
+          style: TextStyle(color: AppColors.textHint, fontSize: 14)),
     ]);
   }
 
@@ -167,7 +167,7 @@ class _AvisosScreenState extends State<AvisosScreen> {
           style: TextStyle(
             fontSize: 14,
             fontWeight: FontWeight.bold,
-            color: isUnread ? const Color(0xFF333333) : Colors.grey.shade500,
+            color: isUnread ? AppColors.textMain : AppColors.textSecondary,
           ),
         ),
         if (count != null) ...[
@@ -196,10 +196,10 @@ class _AvisosScreenState extends State<AvisosScreen> {
       child: Container(
         margin: const EdgeInsets.only(bottom: 8),
         decoration: BoxDecoration(
-          color: unread ? Colors.white : const Color(0xFFF9F9F9),
+          color: unread ? Colors.white : AppColors.surface,
           borderRadius: BorderRadius.circular(14),
           border: Border.all(
-            color: unread ? const Color(0xFFEEEEEE) : const Color(0xFFF0F0F0),
+            color: unread ? AppColors.border : AppColors.surfaceAlt,
           ),
           boxShadow: unread
               ? [
@@ -245,7 +245,7 @@ class _AvisosScreenState extends State<AvisosScreen> {
                             style: TextStyle(
                               fontWeight: unread ? FontWeight.bold : FontWeight.w500,
                               fontSize: 14,
-                              color: unread ? const Color(0xFF1A1A1A) : Colors.grey.shade600,
+                              color: unread ? AppColors.textMain : AppColors.textSecondary,
                             ),
                           ),
                         ),
@@ -271,7 +271,7 @@ class _AvisosScreenState extends State<AvisosScreen> {
                         _stripHtml(aviso.corpo),
                         style: TextStyle(
                           fontSize: 13,
-                          color: unread ? const Color(0xFF444444) : Colors.grey.shade500,
+                          color: unread ? AppColors.textMain : AppColors.textSecondary,
                           height: 1.5,
                         ),
                       ),

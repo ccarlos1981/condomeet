@@ -1,14 +1,28 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/gestures.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:condomeet/core/design_system/design_system.dart';
 
-class AdminScreen extends StatelessWidget {
+class AdminScreen extends StatefulWidget {
   const AdminScreen({super.key});
+
+  @override
+  State<AdminScreen> createState() => _AdminScreenState();
+}
+
+class _AdminScreenState extends State<AdminScreen> {
+  static const _superAdminEmails = {
+    'ccarlos1981+60@gmail.com',
+    'cristiano.santos@gmx.com',
+  };
+
+  String? get _currentEmail =>
+      Supabase.instance.client.auth.currentUser?.email;
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFFF5F5F5),
+      backgroundColor: AppColors.surface,
       appBar: AppBar(
         title: const Text('Área Administrativa',
             style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
@@ -76,7 +90,13 @@ class AdminScreen extends StatelessWidget {
               context: context,
               icon: Icons.description_outlined,
               label: 'Documento',
-              onTap: () => Navigator.of(context).pushNamed('/document-center'),
+              onTap: () => Navigator.of(context).pushNamed('/admin-documentos'),
+            ),
+            _buildAdminItem(
+              context: context,
+              icon: Icons.assignment_outlined,
+              label: 'Contrato',
+              onTap: () => Navigator.of(context).pushNamed('/admin-contratos'),
             ),
             _buildAdminItem(
               context: context,
@@ -125,6 +145,17 @@ class AdminScreen extends StatelessWidget {
               subtitle: 'Acesso e ordem dos botões por perfil',
               onTap: () => Navigator.of(context).pushNamed('/configure-menu'),
             ),
+            if (_superAdminEmails.contains(_currentEmail)) ...[
+              const SizedBox(height: 24),
+              _buildSectionTitle('Super Admin'),
+              _buildAdminItem(
+                context: context,
+                icon: Icons.send_to_mobile_outlined,
+                label: 'Push Notification Universal',
+                subtitle: 'Enviar push para todos os usuários',
+                onTap: () => Navigator.of(context).pushNamed('/universal-push'),
+              ),
+            ],
             const SizedBox(height: 40),
           ],
         ),
@@ -140,7 +171,7 @@ class AdminScreen extends StatelessWidget {
         style: const TextStyle(
           fontSize: 16,
           fontWeight: FontWeight.w500,
-          color: Color(0xFF666666),
+          color: AppColors.textSecondary,
         ),
       ),
     );

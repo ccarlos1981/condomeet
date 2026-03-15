@@ -11,7 +11,8 @@ enum AuthStatus {
   needsRegistration,
   pendingApproval,
   rejected,
-  locked
+  locked,
+  needsPasswordSetup,  // moradores migrados precisam definir senha
 }
 
 class AuthState extends Equatable {
@@ -79,6 +80,10 @@ class AuthState extends Equatable {
   
   const AuthState.pendingApproval({String? userId, String? userName, String? condominiumId, String? role}) 
     : this(status: AuthStatus.pendingApproval, userId: userId, userName: userName, condominiumId: condominiumId, role: role);
+
+  /// Morador migrado — precisa definir senha. [phoneNumber] carrega o email temporariamente.
+  const AuthState.needsPasswordSetup({required String email})
+    : this(status: AuthStatus.needsPasswordSetup, phoneNumber: email);
 
   @override
   List<Object?> get props => [status, phoneNumber, errorMessage, userId, condominiumId, role, userName, tipoEstrutura, unitId, isUnitBlocked, profileStatus, isUnlocked];

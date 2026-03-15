@@ -104,3 +104,18 @@ class AuthSindicoRegistrationSubmitted extends AuthEvent {
   @override
   List<Object> get props => [email, password, condominioData, nomeCompleto, whatsapp];
 }
+
+/// Disparado quando morador migrado define sua nova senha
+class AuthPasswordSetupSubmitted extends AuthEvent {
+  final String email;
+  final String newPassword;
+  const AuthPasswordSetupSubmitted({required this.email, required this.newPassword});
+
+  @override
+  List<Object> get props => [email, newPassword];
+}
+
+/// Dev-only: Long-press bypass on the welcome screen (skips OTP for testing)
+class AuthDevBypassRequested extends AuthEvent {
+  const AuthDevBypassRequested();
+}

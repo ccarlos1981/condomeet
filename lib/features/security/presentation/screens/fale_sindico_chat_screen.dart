@@ -121,10 +121,10 @@ class _FaleSindicoChatScreenState extends State<FaleSindicoChatScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final emoji = _tipoEmoji[widget.thread.tipo] ?? '📋';
+    final emoji = tipoEmoji[widget.thread.tipo] ?? '📋';
 
     return Scaffold(
-      backgroundColor: const Color(0xFFF0F0F0),
+      backgroundColor: AppColors.surfaceAlt,
       appBar: AppBar(
         title: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -136,7 +136,7 @@ class _FaleSindicoChatScreenState extends State<FaleSindicoChatScreen> {
               overflow: TextOverflow.ellipsis,
             ),
             Text(
-              _tipoLabel[widget.thread.tipo] ?? '',
+              tipoLabel[widget.thread.tipo] ?? '',
               style: TextStyle(fontSize: 11, color: Colors.grey.shade500),
             ),
           ],
@@ -248,7 +248,7 @@ class _Bubble extends StatelessWidget {
           ),
           border: isMe ? null : Border.all(color: Colors.grey.shade200),
           boxShadow: [
-            BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 4, offset: const Offset(0, 2)),
+            BoxShadow(color: Colors.black.withValues(alpha: 0.05), blurRadius: 4, offset: const Offset(0, 2)),
           ],
         ),
         child: Column(

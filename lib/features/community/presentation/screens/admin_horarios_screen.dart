@@ -112,7 +112,7 @@ class _AdminHorariosScreenState extends State<AdminHorariosScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFFF5F5F5),
+      backgroundColor: AppColors.surface,
       appBar: AppBar(
         backgroundColor: Colors.white,
         elevation: 0,
@@ -125,10 +125,10 @@ class _AdminHorariosScreenState extends State<AdminHorariosScreen> {
           children: [
             Text(
               'Horários — ${widget.tipoAgenda}',
-              style: const TextStyle(color: Color(0xFF1A1A1A), fontSize: 15, fontWeight: FontWeight.bold),
+              style: const TextStyle(color: AppColors.textMain, fontSize: 15, fontWeight: FontWeight.bold),
             ),
             const Text('Slots disponíveis para agendamento',
-              style: TextStyle(color: Color(0xFF999999), fontSize: 11, fontWeight: FontWeight.normal)),
+              style: TextStyle(color: AppColors.textHint, fontSize: 11, fontWeight: FontWeight.normal)),
           ],
         ),
         actions: [
@@ -164,13 +164,13 @@ class _AdminHorariosScreenState extends State<AdminHorariosScreen> {
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: const Color(0xFFEEEEEE)),
+        border: Border.all(color: AppColors.border),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           const Text('Novo horário',
-            style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: Color(0xFF333333))),
+            style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: AppColors.textMain)),
           const SizedBox(height: 12),
           Row(children: [
             // Dia da semana
@@ -178,12 +178,12 @@ class _AdminHorariosScreenState extends State<AdminHorariosScreen> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const Text('Dia', style: TextStyle(fontSize: 11, color: Color(0xFF999999))),
+                  const Text('Dia', style: TextStyle(fontSize: 11, color: AppColors.textHint)),
                   const SizedBox(height: 4),
                   Container(
                     padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 2),
                     decoration: BoxDecoration(
-                      border: Border.all(color: const Color(0xFFDDDDDD)),
+                      border: Border.all(color: AppColors.border),
                       borderRadius: BorderRadius.circular(10),
                     ),
                     child: DropdownButtonHideUnderline(
@@ -204,14 +204,14 @@ class _AdminHorariosScreenState extends State<AdminHorariosScreen> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const Text('Hora Inicial', style: TextStyle(fontSize: 11, color: Color(0xFF999999))),
+                  const Text('Hora Inicial', style: TextStyle(fontSize: 11, color: AppColors.textHint)),
                   const SizedBox(height: 4),
                   GestureDetector(
                     onTap: _pickTime,
                     child: Container(
                       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
                       decoration: BoxDecoration(
-                        border: Border.all(color: const Color(0xFFDDDDDD)),
+                        border: Border.all(color: AppColors.border),
                         borderRadius: BorderRadius.circular(10),
                       ),
                       child: Row(children: [
@@ -221,7 +221,7 @@ class _AdminHorariosScreenState extends State<AdminHorariosScreen> {
                           _horaInicio != null ? _formatTime(_horaInicio!) : '--:--',
                           style: TextStyle(
                             fontSize: 13,
-                            color: _horaInicio != null ? const Color(0xFF333333) : const Color(0xFF999999),
+                            color: _horaInicio != null ? AppColors.textMain : AppColors.textHint,
                           ),
                         ),
                       ]),
@@ -237,12 +237,12 @@ class _AdminHorariosScreenState extends State<AdminHorariosScreen> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const Text('Min', style: TextStyle(fontSize: 11, color: Color(0xFF999999))),
+                  const Text('Min', style: TextStyle(fontSize: 11, color: AppColors.textHint)),
                   const SizedBox(height: 4),
                   Container(
                     padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 2),
                     decoration: BoxDecoration(
-                      border: Border.all(color: const Color(0xFFDDDDDD)),
+                      border: Border.all(color: AppColors.border),
                       borderRadius: BorderRadius.circular(10),
                     ),
                     child: DropdownButtonHideUnderline(
@@ -294,12 +294,12 @@ class _AdminHorariosScreenState extends State<AdminHorariosScreen> {
               decoration: BoxDecoration(
                 color: selected ? AppColors.primary : Colors.white,
                 borderRadius: BorderRadius.circular(20),
-                border: Border.all(color: selected ? AppColors.primary : const Color(0xFFDDDDDD)),
+                border: Border.all(color: selected ? AppColors.primary : AppColors.border),
               ),
               child: Row(children: [
                 Text(d, style: TextStyle(
                   fontSize: 12, fontWeight: FontWeight.bold,
-                  color: selected ? Colors.white : const Color(0xFF666666),
+                  color: selected ? Colors.white : AppColors.textSecondary,
                 )),
                 if (count > 0) ...[
                   const SizedBox(width: 5),
@@ -331,10 +331,10 @@ class _AdminHorariosScreenState extends State<AdminHorariosScreen> {
           padding: const EdgeInsets.symmetric(vertical: 32),
           alignment: Alignment.center,
           child: Column(children: [
-            const Icon(Icons.schedule, size: 36, color: Color(0xFFCCCCCC)),
+            const Icon(Icons.schedule, size: 36, color: AppColors.disabledIcon),
             const SizedBox(height: 8),
             Text('Nenhum horário para $_selectedDay',
-              style: const TextStyle(fontSize: 13, color: Color(0xFFAAAAAA))),
+              style: const TextStyle(fontSize: 13, color: AppColors.textHint)),
           ]),
         ),
       ];
@@ -347,9 +347,9 @@ class _AdminHorariosScreenState extends State<AdminHorariosScreen> {
         margin: const EdgeInsets.only(bottom: 8),
         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
         decoration: BoxDecoration(
-          color: isAtivo ? Colors.white : const Color(0xFFF5F5F5),
+          color: isAtivo ? Colors.white : AppColors.surface,
           borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: const Color(0xFFEEEEEE)),
+          border: Border.all(color: AppColors.border),
         ),
         child: Row(children: [
           Container(
@@ -365,9 +365,9 @@ class _AdminHorariosScreenState extends State<AdminHorariosScreen> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text('$_selectedDay — $hora',
-                style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: Color(0xFF333333))),
+                style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: AppColors.textMain)),
               Text('Duração: $dur min',
-                style: const TextStyle(fontSize: 11, color: Color(0xFF999999))),
+                style: const TextStyle(fontSize: 11, color: AppColors.textHint)),
             ],
           )),
           GestureDetector(

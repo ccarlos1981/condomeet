@@ -102,7 +102,7 @@ class _AreasComunsAdminScreenState extends State<AreasComunsAdminScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFFF5F5F5),
+      backgroundColor: AppColors.surface,
       appBar: AppBar(
         backgroundColor: Colors.white,
         elevation: 0,
@@ -112,7 +112,7 @@ class _AreasComunsAdminScreenState extends State<AreasComunsAdminScreen> {
         ),
         title: const Text(
           'Áreas Comuns',
-          style: TextStyle(color: Color(0xFF1A1A1A), fontSize: 16, fontWeight: FontWeight.bold),
+          style: TextStyle(color: AppColors.textMain, fontSize: 16, fontWeight: FontWeight.bold),
         ),
         actions: [
           IconButton(
@@ -129,12 +129,12 @@ class _AreasComunsAdminScreenState extends State<AreasComunsAdminScreen> {
               child: _areas.isEmpty
                   ? ListView(children: [
                       const SizedBox(height: 80),
-                      const Icon(Icons.location_city, size: 56, color: Color(0xFFCCCCCC)),
+                      const Icon(Icons.location_city, size: 56, color: AppColors.disabledIcon),
                       const SizedBox(height: 16),
                       const Text(
                         'Nenhuma área comum cadastrada.\nCadastre pelo painel web.',
                         textAlign: TextAlign.center,
-                        style: TextStyle(color: Color(0xFFAAAAAA), fontSize: 14),
+                        style: TextStyle(color: AppColors.textHint, fontSize: 14),
                       ),
                     ])
                   : ListView.builder(
@@ -158,9 +158,9 @@ class _AreasComunsAdminScreenState extends State<AreasComunsAdminScreen> {
     return Container(
       margin: const EdgeInsets.only(bottom: 10),
       decoration: BoxDecoration(
-        color: isAtivo ? Colors.white : const Color(0xFFF5F5F5),
+        color: isAtivo ? Colors.white : AppColors.surface,
         borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: isAtivo ? const Color(0xFFEEEEEE) : const Color(0xFFDDDDDD)),
+        border: Border.all(color: isAtivo ? AppColors.border : AppColors.surfaceAlt),
         boxShadow: isAtivo ? [BoxShadow(color: Colors.black.withValues(alpha: 0.04), blurRadius: 6)] : [],
       ),
       child: Padding(
@@ -186,7 +186,7 @@ class _AreasComunsAdminScreenState extends State<AreasComunsAdminScreen> {
                     children: [
                       Text(tipo, style: TextStyle(
                         fontWeight: FontWeight.bold, fontSize: 14,
-                        color: isAtivo ? const Color(0xFF1A1A1A) : Colors.grey.shade500,
+                        color: isAtivo ? AppColors.textMain : AppColors.textSecondary,
                       )),
                       const SizedBox(height: 2),
                       Row(children: [

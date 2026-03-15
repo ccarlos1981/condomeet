@@ -1,9 +1,9 @@
 import 'dart:ui';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:supabase_flutter/supabase_flutter.dart' hide AuthState;
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:condomeet/core/design_system/theme.dart';
-import 'package:condomeet/features/security/presentation/widgets/panic_overlay.dart';
 import 'package:condomeet/features/auth/presentation/bloc/auth_bloc.dart';
 import 'package:condomeet/features/auth/presentation/bloc/auth_event.dart';
 import 'package:condomeet/features/auth/presentation/bloc/auth_state.dart';
@@ -28,8 +28,6 @@ import 'package:condomeet/features/access/presentation/bloc/invitation_bloc.dart
 import 'package:condomeet/firebase_options.dart';
 
 import 'package:condomeet/features/security/presentation/bloc/sos_bloc.dart';
-import 'package:condomeet/features/security/presentation/bloc/sos_state.dart';
-import 'package:condomeet/features/security/presentation/bloc/sos_event.dart';
 import 'package:condomeet/features/security/presentation/bloc/occurrence_bloc.dart';
 import 'package:condomeet/features/security/presentation/bloc/chat_bloc.dart';
 
@@ -58,6 +56,12 @@ class AppScrollBehavior extends MaterialScrollBehavior {
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  
+  // Travar em modo retrato (vertical) apenas
+  await SystemChrome.setPreferredOrientations([
+    DeviceOrientation.portraitUp,
+    DeviceOrientation.portraitDown,
+  ]);
   
   // Initialize Firebase (Required for Push)
   try {
@@ -198,12 +202,12 @@ class AuthRootGate extends StatelessWidget {
           case AuthStatus.rejected:
           case AuthStatus.authenticating:
           case AuthStatus.unauthenticated:
+          case AuthStatus.needsPasswordSetup:
             return const LoginScreen();
           case AuthStatus.otpSent:
             // Obsolete for Schema 2.0 unless we keep phone fallback
             return const LoginScreen();
           case AuthStatus.unknown:
-          default:
             return const Scaffold(body: Center(child: CircularProgressIndicator()));
         }
       },

@@ -100,12 +100,12 @@ function MiniCalendar({
       <div className="flex items-center justify-between mb-3">
         <button
           onClick={() => { const t = new Date(); setView({ year: t.getFullYear(), month: t.getMonth() }) }}
-          className="text-xs font-semibold text-white bg-[#E85D26] px-2 py-1 rounded-lg"
+          className="text-xs font-semibold text-white bg-[#FC3951] px-2 py-1 rounded-lg"
         >Hoje</button>
         <div className="flex items-center gap-2">
-          <button onClick={prevMonth} className="text-gray-500 hover:text-gray-800 p-1"><ChevronLeft size={16} /></button>
+          <button onClick={prevMonth} aria-label="Mês anterior" title="Mês anterior" className="text-gray-500 hover:text-gray-800 p-1"><ChevronLeft size={16} /></button>
           <span className="text-sm font-semibold text-gray-700">{MESES[view.month]} de {view.year}</span>
-          <button onClick={nextMonth} className="text-gray-500 hover:text-gray-800 p-1"><ChevronRight size={16} /></button>
+          <button onClick={nextMonth} aria-label="Próximo mês" title="Próximo mês" className="text-gray-500 hover:text-gray-800 p-1"><ChevronRight size={16} /></button>
         </div>
       </div>
 
@@ -128,9 +128,9 @@ function MiniCalendar({
 
           let cls = 'text-xs flex items-center justify-center rounded-lg h-8 w-full cursor-pointer transition-all font-medium '
           if (isPast) cls += 'text-gray-300 cursor-default'
-          else if (isBooked) cls += 'bg-[#E85D26]/20 text-[#E85D26] cursor-default font-bold'
+          else if (isBooked) cls += 'bg-[#FC3951]/20 text-[#FC3951] cursor-default font-bold'
           else if (isSel) cls += 'bg-[#222] text-white'
-          else if (isToday) cls += 'border-2 border-[#E85D26] text-[#E85D26]'
+          else if (isToday) cls += 'border-2 border-[#FC3951] text-[#FC3951]'
           else cls += 'text-gray-700 hover:bg-gray-100'
 
           return (
@@ -140,7 +140,7 @@ function MiniCalendar({
               onClick={() => { if (!isPast && !isBooked) onSelect(iso) }}
             >
               {day}
-              {isToday && !isSel && <span className="absolute w-1 h-1 bg-[#E85D26] rounded-full bottom-1" />}
+              {isToday && !isSel && <span className="absolute w-1 h-1 bg-[#FC3951] rounded-full bottom-1" />}
             </div>
           )
         })}
@@ -236,7 +236,7 @@ function BookingModal({
             <div><span className="text-gray-400">Apto:</span><br /><span className="font-semibold text-gray-800">{profile.apto || '—'}</span></div>
             <div className="col-span-3"><span className="text-gray-400">Área comum:</span><br /><span className="font-semibold text-gray-800">{area.tipo_agenda}</span></div>
           </div>
-          <button onClick={onClose} className="ml-2 text-gray-400 hover:text-gray-700 transition-colors">
+          <button onClick={onClose} aria-label="Fechar" title="Fechar" className="ml-2 text-gray-400 hover:text-gray-700 transition-colors">
             <X size={20} />
           </button>
         </div>
@@ -272,8 +272,8 @@ function BookingModal({
                           !h.disponivel
                             ? 'bg-gray-100 text-gray-400 line-through cursor-not-allowed'
                             : isSel
-                              ? 'bg-[#E85D26] text-white shadow-sm'
-                              : 'bg-[#E85D26]/10 text-[#E85D26] hover:bg-[#E85D26]/20'
+                              ? 'bg-[#FC3951] text-white shadow-sm'
+                              : 'bg-[#FC3951]/10 text-[#FC3951] hover:bg-[#FC3951]/20'
                         }`}
                       >{hora}</button>
                     )
@@ -291,7 +291,7 @@ function BookingModal({
               value={nomeEvento}
               onChange={e => setNomeEvento(e.target.value)}
               placeholder={area.tipo_agenda}
-              className="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#E85D26]/30"
+              className="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#FC3951]/30"
             />
           </div>
 
@@ -300,14 +300,14 @@ function BookingModal({
             <button
               type="button"
               onClick={() => setCiente(c => !c)}
-              className={`w-5 h-5 rounded-full border-2 flex items-center justify-center transition-all ${ciente ? 'bg-[#E85D26] border-[#E85D26]' : 'border-gray-300'}`}
+              className={`w-5 h-5 rounded-full border-2 flex items-center justify-center transition-all ${ciente ? 'bg-[#FC3951] border-[#FC3951]' : 'border-gray-300'}`}
             >
               {ciente && <CheckCircle2 size={12} className="text-white" />}
             </button>
             <span className="text-xs text-gray-600">
               Ciente do{' '}
               {area.instrucao_uso
-                ? <span className="underline cursor-pointer text-[#E85D26]" title={area.instrucao_uso}>Regimento do condomínio</span>
+                ? <span className="underline cursor-pointer text-[#FC3951]" title={area.instrucao_uso}>Regimento do condomínio</span>
                 : 'Regimento do condomínio'
               }
             </span>
@@ -332,7 +332,7 @@ function BookingModal({
                 disabled={!canBook}
                 className={`w-full rounded-full py-3 font-semibold text-sm transition-colors ${
                   canBook
-                    ? 'bg-[#E85D26] text-white hover:bg-[#d44e1e]'
+                    ? 'bg-[#FC3951] text-white hover:bg-[#D4253D]'
                     : 'bg-gray-200 text-gray-400 cursor-not-allowed'
                 }`}
               >
@@ -356,7 +356,7 @@ function AreaCard({ area, onOpen }: { area: AreaComum; onOpen: () => void }) {
   return (
     <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5 flex flex-col gap-4">
       <div className="flex items-start gap-4">
-        <div className="w-10 h-10 rounded-full border-2 border-[#E85D26] flex-shrink-0 mt-0.5" />
+        <div className="w-10 h-10 rounded-full border-2 border-[#FC3951] flex-shrink-0 mt-0.5" />
         <div className="flex-1">
           <h3 className="font-bold text-gray-900 text-sm leading-tight">
             {area.tipo_agenda}
@@ -385,7 +385,7 @@ function AreaCard({ area, onOpen }: { area: AreaComum; onOpen: () => void }) {
         {area.instrucao_uso ? (
           <button
             onClick={() => setShowRegimento(s => !s)}
-            className="text-xs font-semibold text-gray-700 underline hover:text-[#E85D26] transition-colors"
+            className="text-xs font-semibold text-gray-700 underline hover:text-[#FC3951] transition-colors"
           >
             Regime de uso do Condomínio
           </button>
@@ -394,10 +394,10 @@ function AreaCard({ area, onOpen }: { area: AreaComum; onOpen: () => void }) {
         )}
         <button
           onClick={onOpen}
-          className="flex items-center gap-2 text-[#E85D26] hover:text-[#d44e1e] transition-colors"
+          className="flex items-center gap-2 text-[#FC3951] hover:text-[#D4253D] transition-colors"
         >
           <Calendar size={18} />
-          <span className="text-[#E85D26]">→</span>
+          <span className="text-[#FC3951]">→</span>
         </button>
       </div>
 
@@ -451,13 +451,13 @@ export default function ReservasClient({ areas, minhasReservas, profile }: Props
       {/* Tabs */}
       <div className="flex border-b border-gray-200 mb-6">
         <button
-          className={`pb-3 px-4 text-sm font-semibold transition-colors border-b-2 ${tab === 'disponiveis' ? 'border-[#E85D26] text-[#E85D26]' : 'border-transparent text-gray-500 hover:text-gray-700'}`}
+          className={`pb-3 px-4 text-sm font-semibold transition-colors border-b-2 ${tab === 'disponiveis' ? 'border-[#FC3951] text-[#FC3951]' : 'border-transparent text-gray-500 hover:text-gray-700'}`}
           onClick={() => setTab('disponiveis')}
         >
           Disponíveis para agendas
         </button>
         <button
-          className={`pb-3 px-4 text-sm font-semibold transition-colors border-b-2 ${tab === 'minhas' ? 'border-[#E85D26] text-[#E85D26]' : 'border-transparent text-gray-500 hover:text-gray-700'}`}
+          className={`pb-3 px-4 text-sm font-semibold transition-colors border-b-2 ${tab === 'minhas' ? 'border-[#FC3951] text-[#FC3951]' : 'border-transparent text-gray-500 hover:text-gray-700'}`}
           onClick={() => setTab('minhas')}
         >
           Meus Agendamentos
@@ -492,7 +492,7 @@ export default function ReservasClient({ areas, minhasReservas, profile }: Props
             <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
               <table className="w-full text-sm">
                 <thead>
-                  <tr className="bg-[#E85D26] text-white">
+                  <tr className="bg-[#FC3951] text-white">
                     <th className="text-left px-4 py-3 font-semibold">Área</th>
                     <th className="text-left px-4 py-3 font-semibold">Data</th>
                     <th className="px-4 py-3 font-semibold">Horário</th>

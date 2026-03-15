@@ -31,12 +31,12 @@ export default async function CondoDashboard() {
   const pendingCount = recentInvitations?.filter(i => !i.visitante_compareceu).length ?? 0
 
   const quickActions = isPorter ? [
-    { label: 'Liberar Visitante', sub: `${pendingCount} aguardando`, icon: UserCheck, href: '/condo/liberar-visitante', color: '#E85D26' },
-    { label: 'Registrar Encomenda', sub: 'Novo pacote recebido', icon: Package, href: '/condo/registrar-encomenda', color: '#3B82F6' },
+    { label: 'Liberar Visitante', sub: `${pendingCount} aguardando`, icon: UserCheck, href: '/condo/liberar-visitante', iconColor: 'text-orange-500', iconBg: 'bg-orange-500/10' },
+    { label: 'Registrar Encomenda', sub: 'Novo pacote recebido', icon: Package, href: '/condo/registrar-encomenda', iconColor: 'text-blue-500', iconBg: 'bg-blue-500/10' },
   ] : [
-    { label: 'Autorizar Visitante', sub: 'Gerar autorização', icon: UserCheck, href: '/condo/visitantes', color: '#E85D26' },
-    { label: 'Minhas Encomendas', sub: 'Ver entregas', icon: Package, href: '/condo/encomendas', color: '#3B82F6' },
-    { label: 'Visitante c/ Autorização', sub: 'Check-in QR', icon: QrCode, href: '/condo/checkin', color: '#10B981' },
+    { label: 'Autorizar Visitante', sub: 'Gerar autorização', icon: UserCheck, href: '/condo/visitantes', iconColor: 'text-orange-500', iconBg: 'bg-orange-500/10' },
+    { label: 'Minhas Encomendas', sub: 'Ver entregas', icon: Package, href: '/condo/encomendas', iconColor: 'text-blue-500', iconBg: 'bg-blue-500/10' },
+    { label: 'Visitante c/ Autorização', sub: 'Check-in QR', icon: QrCode, href: '/condo/checkin', iconColor: 'text-emerald-500', iconBg: 'bg-emerald-500/10' },
   ]
 
   return (
@@ -60,8 +60,8 @@ export default async function CondoDashboard() {
             <Link key={action.href} href={action.href}>
               <div className="bg-white rounded-2xl p-5 border border-gray-100 shadow-sm hover:shadow-md hover:-translate-y-0.5 transition-all duration-200 cursor-pointer group">
                 <div className="flex items-start justify-between mb-4">
-                  <div className="w-12 h-12 rounded-xl flex items-center justify-center" style={{ background: `${action.color}15` }}>
-                    <action.icon size={22} style={{ color: action.color }} />
+                  <div className={`w-12 h-12 rounded-xl flex items-center justify-center ${action.iconBg}`}>
+                    <action.icon size={22} className={action.iconColor} />
                   </div>
                   <ArrowRight size={16} className="text-gray-300 group-hover:text-gray-500 group-hover:translate-x-1 transition-all" />
                 </div>
@@ -80,7 +80,7 @@ export default async function CondoDashboard() {
             {isPorter || isAdmin ? 'Autorizações Recentes' : 'Minhas Autorizações'}
           </h2>
           {pendingCount > 0 && (
-            <span className="flex items-center gap-1.5 text-xs font-semibold text-[#E85D26] bg-[#E85D26]/10 px-3 py-1.5 rounded-full">
+            <span className="flex items-center gap-1.5 text-xs font-semibold text-[#FC3951] bg-[#FC3951]/10 px-3 py-1.5 rounded-full">
               <Bell size={12} />
               {pendingCount} pendente{pendingCount !== 1 ? 's' : ''}
             </span>

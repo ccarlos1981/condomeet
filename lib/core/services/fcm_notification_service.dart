@@ -43,18 +43,24 @@ class FcmNotificationService implements NotificationService {
 
   @override
   Future<String?> getToken() async {
-    // Simulator doesn't support APNS tokens easily, providing a dummy for dev testing
-    if (kDebugMode && defaultTargetPlatform == TargetPlatform.iOS) {
-      _logger.i('Running on iOS Simulator/Debug - providing dummy FCM token');
-      return 'dummy_fcm_token_for_simulator_${DateTime.now().millisecondsSinceEpoch}';
+    // Em dispositivo físico real, sempre tenta o token Firebase diretamente
+    // O dummy token só é fornecido no Simulator (onde APNS não funciona)
+    try {
+      final token = await _fcm.getToken();
+      if (token != null) {
+        _logger.i('FCM token obtido: ${token.substring(0, 20)}...');
+        return token;
+      }
+    } catch (e) {
+      _logger.w('Não foi possível obter FCM token real: $e');
     }
 
-    try {
-      return await _fcm.getToken();
-    } catch (e) {
-      _logger.e('Error getting FCM token: $e');
-      return null;
+    // Fallback: dummy token (Simulator ou erro irrecuperável)
+    if (kDebugMode) {
+      _logger.i('Usando dummy FCM token (provavelmente no Simulator)');
+      return 'dummy_fcm_token_for_simulator_${DateTime.now().millisecondsSinceEpoch}';
     }
+    return null;
   }
 
   @override

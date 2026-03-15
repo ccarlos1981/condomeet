@@ -50,7 +50,7 @@ class _CondominiumStructureScreenState extends State<CondominiumStructureScreen>
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFFF5F5F5),
+      backgroundColor: AppColors.surface,
       appBar: AppBar(
         title: const Text('Estrutura do Condomínio',
             style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
@@ -140,7 +140,7 @@ class _CondominiumStructureScreenState extends State<CondominiumStructureScreen>
                   ),
                 )
               else
-                ...state.blocos.map((b) => _buildItemCard(
+                ...state.blocos.where((b) => b.nomeOuNumero != '0').map((b) => _buildItemCard(
                   icon: Icons.business,
                   title: b.nomeOuNumero,
                   onDelete: () => context.read<StructureBloc>().add(BlocoDeleted(b.id)),
@@ -177,12 +177,13 @@ class _CondominiumStructureScreenState extends State<CondominiumStructureScreen>
   // ── TAB 2: APARTAMENTOS ──
 
   Widget _buildApartamentosTab(StructureState state) {
+    final aptos = state.apartamentos.where((a) => a.numero != '0').toList();
     return Stack(
       children: [
         Scrollbar(
           controller: _aptosScrollController,
           thumbVisibility: true,
-          child: state.apartamentos.isEmpty 
+          child: aptos.isEmpty
             ? ListView(
                 controller: _aptosScrollController,
                 physics: const BouncingScrollPhysics(parent: AlwaysScrollableScrollPhysics()),
@@ -216,9 +217,9 @@ class _CondominiumStructureScreenState extends State<CondominiumStructureScreen>
                   mainAxisSpacing: 8,
                   childAspectRatio: 1.2,
                 ),
-                itemCount: state.apartamentos.length,
+                itemCount: aptos.length,
                 itemBuilder: (context, index) {
-                  final a = state.apartamentos[index];
+                  final a = aptos[index];
                   return Container(
                     decoration: BoxDecoration(
                       color: Colors.white,
@@ -252,7 +253,7 @@ class _CondominiumStructureScreenState extends State<CondominiumStructureScreen>
                           right: 0,
                           child: GestureDetector(
                             onTap: () => _showDeleteConfirmation(
-                              'Excluir Apto ${a.numero}?',
+                              'Excluir Apto \${a.numero}?',
                               () => context.read<StructureBloc>().add(ApartamentoDeleted(a.id)),
                             ),
                             child: Container(
@@ -299,7 +300,7 @@ class _CondominiumStructureScreenState extends State<CondominiumStructureScreen>
     );
   }
 
-  // ── TAB 3: UNIDADES ──
+    // ── TAB 3: UNIDADES ──
 
   Widget _buildUnidadesTab(StructureState state) {
     return Scrollbar(
@@ -378,8 +379,11 @@ class _CondominiumStructureScreenState extends State<CondominiumStructureScreen>
   }
 
   void _showGenerateUnidadesDialog(StructureState state) {
-    final selectedBlocos = <String>{};
-    final selectedAptos = <String>{};
+    // Pre-filter placeholders and auto-select all on open
+    final validBlocos = state.blocos.where((b) => b.nomeOuNumero != '0').toList();
+    final validAptos = state.apartamentos.where((a) => a.numero != '0').toList();
+    final selectedBlocos = <String>{...validBlocos.map((b) => b.id)};
+    final selectedAptos = <String>{...validAptos.map((a) => a.id)};
 
     showDialog(
       context: context,
@@ -396,19 +400,19 @@ class _CondominiumStructureScreenState extends State<CondominiumStructureScreen>
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      Text('Selecione os(as) ${StructureHelper.getNivel1Label(_tipoEstrutura)}s:', style: const TextStyle(fontWeight: FontWeight.bold)),
+                      Expanded(child: Text('Selecione os(as) ${StructureHelper.getNivel1Label(_tipoEstrutura)}s:', style: const TextStyle(fontWeight: FontWeight.bold))),
                       TextButton(
                         onPressed: () {
                           setDialogState(() {
-                            if (selectedBlocos.length == state.blocos.length) {
+                            if (selectedBlocos.length == validBlocos.length) {
                               selectedBlocos.clear();
                             } else {
-                              selectedBlocos.addAll(state.blocos.map((b) => b.id));
+                              selectedBlocos.addAll(validBlocos.map((b) => b.id));
                             }
                           });
                         },
                         child: Text(
-                          selectedBlocos.length == state.blocos.length
+                          selectedBlocos.length == validBlocos.length
                               ? 'Desmarcar todos'
                               : 'Selecionar todos',
                           style: const TextStyle(fontSize: 12),
@@ -419,7 +423,7 @@ class _CondominiumStructureScreenState extends State<CondominiumStructureScreen>
                   const SizedBox(height: 4),
                   Wrap(
                     spacing: 8,
-                    children: state.blocos.map((b) {
+                    children: state.blocos.where((b) => b.nomeOuNumero != '0').map((b) {
                       final selected = selectedBlocos.contains(b.id);
                       return FilterChip(
                         label: Text(b.nomeOuNumero),
@@ -442,19 +446,19 @@ class _CondominiumStructureScreenState extends State<CondominiumStructureScreen>
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      Text('Selecione os(as) ${StructureHelper.getNivel2Label(_tipoEstrutura)}s:', style: const TextStyle(fontWeight: FontWeight.bold)),
+                      Expanded(child: Text('Selecione os(as) ${StructureHelper.getNivel2Label(_tipoEstrutura)}s:', style: const TextStyle(fontWeight: FontWeight.bold))),
                       TextButton(
                         onPressed: () {
                           setDialogState(() {
-                            if (selectedAptos.length == state.apartamentos.length) {
+                            if (selectedAptos.length == validAptos.length) {
                               selectedAptos.clear();
                             } else {
-                              selectedAptos.addAll(state.apartamentos.map((a) => a.id));
+                              selectedAptos.addAll(validAptos.map((a) => a.id));
                             }
                           });
                         },
                         child: Text(
-                          selectedAptos.length == state.apartamentos.length
+                          selectedAptos.length == validAptos.length
                               ? 'Desmarcar todos'
                               : 'Selecionar todos',
                           style: const TextStyle(fontSize: 12),
@@ -466,7 +470,7 @@ class _CondominiumStructureScreenState extends State<CondominiumStructureScreen>
                   Wrap(
                     spacing: 6,
                     runSpacing: 4,
-                    children: state.apartamentos.map((a) {
+                    children: state.apartamentos.where((a) => a.numero != '0').map((a) {
                       final selected = selectedAptos.contains(a.id);
                       return FilterChip(
                         label: Text(a.numero),
@@ -670,7 +674,9 @@ class ListViewUnidades extends StatelessWidget {
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 16),
             child: Column(
-              children: state.unidades.map((u) => Card(
+              children: state.unidades
+              .where((u) => u.blocoNome != '0' && u.aptoNumero != '0')
+              .map((u) => Card(
                     margin: const EdgeInsets.only(bottom: 6),
                     child: ListTile(
                       dense: true,

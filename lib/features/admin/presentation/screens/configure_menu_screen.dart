@@ -36,10 +36,16 @@ const _kAllFunctions = [
   _FunctionDef(id: 'visitor_approval',   icon: 'how_to_reg',    label: 'Liberar Visitante',       route: '/portaria-visitor-approval',  defaultRoles: {'portaria'}),
   _FunctionDef(id: 'parcel_reg',         icon: 'add_box',       label: 'Registrar Encomenda',     route: '/parcel-registration',        defaultRoles: {'portaria'}),
   _FunctionDef(id: 'pending_del',        icon: 'local_shipping',label: 'Entregas Pendentes',      route: '/pending-deliveries',         defaultRoles: {'portaria'}),
+  _FunctionDef(id: 'visitor_reg',        icon: 'person_add',    label: 'Registrar Visitante',     route: '/visitor-registration',       defaultRoles: {'portaria'}),
   _FunctionDef(id: 'approvals',          icon: 'check_circle',  label: 'Aprovações',              route: '/manager-approval',           defaultRoles: {'sindico'}),
   _FunctionDef(id: 'resident_search',    icon: 'person_search', label: 'Busca Moradores',         route: '/resident-search',            defaultRoles: {'sindico'}),
   _FunctionDef(id: 'condo_structure',    icon: 'apartment',     label: 'Estrutura do Condomínio', route: '/condo-structure',            defaultRoles: {'sindico'}),
   _FunctionDef(id: 'assemblies',         icon: 'groups',        label: 'Assembleias',             route: '/assemblies',                 defaultRoles: {'sindico'}),
+  _FunctionDef(id: 'avisos',             icon: 'campaign',      label: 'Avisos',                  route: '/avisos',                     defaultRoles: {'morador', 'sindico'}),
+  _FunctionDef(id: 'fale_sindico',       icon: 'forum',         label: 'Fale com o Síndico',      route: '/fale-sindico',               defaultRoles: {'morador'}),
+  _FunctionDef(id: 'enquetes',           icon: 'bar_chart',     label: 'Enquetes',                route: '/enquetes',                   defaultRoles: {'morador'}),
+  _FunctionDef(id: 'enquete_admin',      icon: 'bar_chart',     label: 'Enquetes',                route: '/enquete-admin',              defaultRoles: {'sindico'}),
+  _FunctionDef(id: 'botconversa_send',   icon: 'send',          label: 'Enviar WhatsApp',         route: '/botconversa-send',           defaultRoles: {'sindico', 'sub_sindico', 'portaria'}),
 ];
 
 /// Normalize papal_sistema → internal key: "Porteiro (a)" → "portaria"
@@ -60,6 +66,13 @@ String _normalizeRole(String raw) {
     'zelador': 'zelador',
     'funcionario': 'funcionario',
     'funcionário': 'funcionario',
+    'morador': 'morador',
+    'proprietario': 'proprietario',
+    'proprietário': 'proprietario',
+    'proprietário_não_morador': 'proprietario_nao_morador',
+    'proprietario_não_morador': 'proprietario_nao_morador',
+    'proprietario_nao_morador': 'proprietario_nao_morador',
+    'inquilino': 'inquilino',
     'locatario': 'locatario',
     'locatário': 'locatario',
     'locador': 'locador',
@@ -68,7 +81,6 @@ String _normalizeRole(String raw) {
     'financeiro': 'financeiro',
     'servicos': 'servicos',
     'serviços': 'servicos',
-    'proprietario_nao_morador': 'proprietario_nao_morador',
   };
   return aliases[key] ?? key;
 }
@@ -115,11 +127,18 @@ class _ConfigureMenuScreenState extends State<ConfigureMenuScreen>
   late TabController _tabs;
 
   List<_FuncConfig> _functions = [];
-  // Always start with base 3 roles — enriched later from Supabase
+  // Complete list of all possible profiles — always shown
   List<_RoleDef> _roles = [
-    _RoleDef('morador',  'Morador'),
-    _RoleDef('portaria', 'Portaria'),
-    _RoleDef('sindico',  'Síndico'),
+    _RoleDef('morador',                'Morador (a)'),
+    _RoleDef('proprietario',           'Proprietário (a)'),
+    _RoleDef('proprietario_nao_morador','Proprietário não morador'),
+    _RoleDef('inquilino',              'Inquilino (a)'),
+    _RoleDef('locatario',              'Locatário (a)'),
+    _RoleDef('funcionario',            'Funcionário (a)'),
+    _RoleDef('portaria',               'Porteiro (a)'),
+    _RoleDef('zelador',                'Zelador (a)'),
+    _RoleDef('sindico',                'Síndico (a)'),
+    _RoleDef('sub_sindico',            'Sub Síndico (a)'),
   ];
   int _selectedFnIndex = 0;
 
@@ -165,12 +184,8 @@ class _ConfigureMenuScreenState extends State<ConfigureMenuScreen>
         existing = Map<String, dynamic>.from(decoded);
       }
 
-      // 2. Load distinct roles from perfil (separate try-catch — non-fatal)
-      final roleMap = <String, _RoleDef>{
-        'morador':  _RoleDef('morador',  'Morador'),
-        'portaria': _RoleDef('portaria', 'Portaria'),
-        'sindico':  _RoleDef('sindico',  'Síndico'),
-      };
+      // 2. Load distinct roles from perfil — add any extra found in DB
+      final baseRoleKeys = _roles.map((r) => r.key).toSet();
       try {
         final perfilData = await Supabase.instance.client
             .from('perfil')
@@ -181,17 +196,21 @@ class _ConfigureMenuScreenState extends State<ConfigureMenuScreen>
           final raw = row['papel_sistema'] as String? ?? '';
           if (raw.isEmpty) continue;
           final key = _normalizeRole(raw);
-          roleMap[key] = _RoleDef(key, raw);
+          if (!baseRoleKeys.contains(key)) {
+            baseRoleKeys.add(key);
+            _roles.add(_RoleDef(key, raw));
+          }
         }
       } catch (_) {
         // Keep base roles on error
       }
 
+
       // 3. Build function list merging saved config
       final saved = existing['functions'] as List? ?? [];
       final savedMap = { for (final f in saved) (f as Map)['id'] as String: f };
 
-      final newRoles = roleMap.values.toList();
+      final newRoles = _roles;
 
       final newFunctions = _kAllFunctions.map((def) {
         final savedFn = savedMap[def.id];
@@ -233,13 +252,20 @@ class _ConfigureMenuScreenState extends State<ConfigureMenuScreen>
 
   Map<String, dynamic> _resolveFromLegacy(
       Map<String, dynamic> cfg, String fnId, String roleKey, Set<String> defaultRoles) {
-    String menuKey;
-    if (['portaria', 'porteiro'].contains(roleKey)) {
+    // Only the original 3 role keys should map to legacy menus.
+    // New profiles (proprietario, inquilino, locatario, funcionario, zelador, sub_sindico)
+    // default to false — admin must explicitly enable them.
+    String? menuKey;
+    if (roleKey == 'portaria') {
       menuKey = 'porter';
-    } else if (['sindico', 'admin'].contains(roleKey)) {
+    } else if (roleKey == 'sindico') {
       menuKey = 'admin';
-    } else {
+    } else if (roleKey == 'morador') {
       menuKey = 'resident';
+    } else {
+      // New profile types — no legacy mapping, use defaultRoles fallback only
+      final visible = defaultRoles.contains(roleKey);
+      return {'visible': visible};
     }
     final legacyList = cfg['${menuKey}_menu'] as List?;
     if (legacyList != null) {
@@ -274,12 +300,12 @@ class _ConfigureMenuScreenState extends State<ConfigureMenuScreen>
         };
       }).toList();
 
-      // Legacy menus use global order
+      // Legacy menus — include all resident-type profiles for backwards compatibility
       final newConfig = {
         'functions': functionsJson,
-        'resident_menu': _buildLegacyMenu(['morador']),
-        'porter_menu': _buildLegacyMenu(['portaria', 'porteiro']),
-        'admin_menu': _buildLegacyMenu(['sindico', 'admin']),
+        'resident_menu': _buildLegacyMenu(['morador', 'proprietario', 'proprietario_nao_morador', 'inquilino', 'locatario']),
+        'porter_menu': _buildLegacyMenu(['portaria', 'funcionario', 'zelador']),
+        'admin_menu': _buildLegacyMenu(['sindico', 'sub_sindico']),
       };
 
       await Supabase.instance.client
@@ -293,10 +319,12 @@ class _ConfigureMenuScreenState extends State<ConfigureMenuScreen>
           backgroundColor: Colors.green,
           behavior: SnackBarBehavior.floating,
         ));
-        // Sort by global order ascending after save
+        // Sort by global order ascending after save — keep current function selected
+        final currentFnId = _functions[_selectedFnIndex].id;
         setState(() {
           _functions.sort((a, b) => a.order.compareTo(b.order));
-          _selectedFnIndex = 0;
+          // Keep showing the same function after sort
+          _selectedFnIndex = _functions.indexWhere((f) => f.id == currentFnId).clamp(0, _functions.length - 1);
         });
       }
     } catch (e) {
@@ -337,20 +365,13 @@ class _ConfigureMenuScreenState extends State<ConfigureMenuScreen>
     });
   }
 
-  void _setOrder(int fnIndex, String roleKey, int order) {
-    setState(() {
-      final newRoles = Map<String, Map<String, dynamic>>.from(_functions[fnIndex].roles);
-      newRoles[roleKey] = {...?newRoles[roleKey], 'order': order};
-      _functions[fnIndex] = _functions[fnIndex].copyWith(roles: newRoles);
-    });
-  }
 
   // ── Build ────────────────────────────────────────────────────────
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFFF8F9FA),
+      backgroundColor: AppColors.surface,
       appBar: AppBar(
         title: const Text('Configurar Menu'),
         backgroundColor: Colors.white,
@@ -394,7 +415,7 @@ class _ConfigureMenuScreenState extends State<ConfigureMenuScreen>
   // ── Function selector widget (dropdown + arrows) ─────────────────
 
   Widget _buildFunctionSelector() {
-    final fn = _functions[_selectedFnIndex];
+    final _ = _functions[_selectedFnIndex];
     return Container(
       margin: const EdgeInsets.all(16),
       decoration: BoxDecoration(
@@ -564,6 +585,11 @@ class _ConfigureMenuScreenState extends State<ConfigureMenuScreen>
       'apartment': Icons.apartment,
       'groups': Icons.groups,
       'chat': Icons.chat,
+      'forum': Icons.forum_outlined,
+      'campaign': Icons.campaign_outlined,
+      'person_add': Icons.person_add,
+      'bar_chart': Icons.bar_chart,
+      'send': Icons.send,
     };
     return map[name] ?? Icons.widgets;
   }
@@ -586,7 +612,7 @@ class _RoleCard extends StatelessWidget {
       onTap: () => onChanged(!checked),
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 150),
-        width: (MediaQuery.of(context).size.width - 52) / 3,
+        width: (MediaQuery.of(context).size.width - 52) / 2,
         padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 4),
         decoration: BoxDecoration(
           color: checked ? AppColors.primaryLight : Colors.white,

@@ -9,7 +9,7 @@ export type Thread = {
   tipo: string
   assunto: string
   status: string
-  ultima_mensagem_at: string
+  ultima_mensagem_em: string
   created_at: string
   _mensagem_count?: number
 }
@@ -29,10 +29,10 @@ export default async function FaleSindicoPage() {
 
   const { data: threads, error } = await supabase
     .from('fale_sindico_threads')
-    .select('id, tipo, assunto, status, ultima_mensagem_at, created_at')
+    .select('id, tipo, assunto, status, ultima_mensagem_em, created_at')
     .eq('resident_id', user.id)
     .eq('condominio_id', condoId)
-    .order('ultima_mensagem_at', { ascending: false })
+    .order('ultima_mensagem_em', { ascending: false })
 
   if (error) console.error('❌ fale_sindico_threads error:', JSON.stringify(error))
 

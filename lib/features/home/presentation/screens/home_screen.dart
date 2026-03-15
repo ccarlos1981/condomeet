@@ -12,8 +12,11 @@ import 'package:condomeet/shared/repositories/condominium_repository.dart';
 import 'package:condomeet/features/parcels/presentation/bloc/parcel_bloc.dart';
 import 'package:condomeet/features/parcels/presentation/bloc/parcel_event.dart';
 import 'package:condomeet/features/parcels/presentation/bloc/parcel_state.dart';
+import 'package:condomeet/features/portaria/domain/entities/parcel.dart';
 import 'package:condomeet/features/security/presentation/bloc/sos_bloc.dart';
 import 'package:condomeet/features/security/presentation/bloc/sos_event.dart';
+import 'package:condomeet/features/auth/presentation/screens/edit_profile_screen.dart';
+import 'package:supabase_flutter/supabase_flutter.dart' hide AuthState;
 import 'package:condomeet/main.dart';
 
 class HomeScreen extends StatefulWidget {
@@ -35,7 +38,6 @@ class _HomeScreenState extends State<HomeScreen> {
     final authState = context.read<AuthBloc>().state;
     _initStream(authState.condominiumId);
 
-    // Trigger parcel matching if we have a user
     if (authState.userId != null) {
       context.read<ParcelBloc>().add(
         WatchPendingParcelsRequested(authState.userId!),
@@ -86,7 +88,7 @@ class _HomeScreenState extends State<HomeScreen> {
                   style: TextStyle(
                     fontSize: 18,
                     fontWeight: FontWeight.bold,
-                    color: Color(0xFF1A1A1A),
+                    color: AppColors.textMain,
                     height: 1.3,
                   ),
                 ),
@@ -284,12 +286,12 @@ class _HomeScreenState extends State<HomeScreen> {
           const SizedBox(width: 12),
           const Text(
             'Vamos tirar uma Selfie? ',
-            style: TextStyle(color: Color(0xFF333333), fontSize: 13),
+            style: TextStyle(color: AppColors.textMain, fontSize: 13),
           ),
           const Text(
             'Clique aqui.',
             style: TextStyle(
-              color: Color(0xFF333333),
+              color: AppColors.textMain,
               fontSize: 13,
               fontWeight: FontWeight.bold,
               decoration: TextDecoration.underline,
@@ -307,18 +309,10 @@ class _HomeScreenState extends State<HomeScreen> {
       child: Row(
         children: [
           // Logo
-          Container(
-            width: 36,
-            height: 36,
-            decoration: BoxDecoration(
-              color: AppColors.primary,
-              borderRadius: BorderRadius.circular(8),
-            ),
-            child: const Icon(
-              Icons.apartment_rounded,
-              color: Colors.white,
-              size: 20,
-            ),
+          Image.asset(
+            'assets/images/logo.png',
+            width: 40,
+            height: 40,
           ),
           const SizedBox(width: 8),
           const Expanded(
@@ -336,7 +330,7 @@ class _HomeScreenState extends State<HomeScreen> {
                 ),
                 Text(
                   'seu condomínio digital',
-                  style: TextStyle(fontSize: 10, color: Color(0xFF666666)),
+                  style: TextStyle(fontSize: 10, color: AppColors.textSecondary),
                 ),
               ],
             ),
@@ -383,58 +377,53 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   Widget _buildMenuSection(BuildContext context, List<FeatureMenuItem> items) {
-    final displayItems = items.length > 8 ? items.sublist(0, 8) : items;
-    // Special logic for the indicator in screenshot: if more than 8, or just show it
+    // 2 linhas fixas, colunas automáticas, scroll horizontal
+    // mainAxisExtent = largura de cada coluna (= tamanho do ícone quadrado)
+    // crossAxisExtent = altura de cada linha (ícone + espaço + label)
+    const double itemMainAxisExtent = 80.0;  // largura (e altura do ícone, por AspectRatio 1:1)
+    const double itemCrossAxisExtent = 120.0; // altura total: 80 ícone + 8 espaço + ~28 label
+    const double spacing = 10.0;
+    // Altura total = 2 linhas + espaço entre elas + padding vertical
+    const double sectionHeight = itemCrossAxisExtent * 2 + spacing + 8;
 
     return Container(
       color: Colors.white,
       margin: const EdgeInsets.only(top: 8),
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.fromLTRB(16, 16, 0, 16),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text(
-            'Menu completo',
-            style: TextStyle(
-              fontSize: 14,
-              fontWeight: FontWeight.normal,
-              color: Color(0xFF666666),
+          const Padding(
+            padding: EdgeInsets.only(right: 16),
+            child: Text(
+              'Menu completo',
+              style: TextStyle(
+                fontSize: 14,
+                fontWeight: FontWeight.normal,
+                color: AppColors.textSecondary,
+              ),
             ),
           ),
           const SizedBox(height: 12),
-          LayoutBuilder(
-            builder: (context, constraints) {
-              const cols = 4;
-              const spacing = 8.0;
-              final totalSpacing = spacing * (cols - 1);
-              final itemWidth = (constraints.maxWidth - totalSpacing) / cols;
-
-              return GridView.builder(
-                shrinkWrap: true,
-                physics: const NeverScrollableScrollPhysics(),
-                gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                  crossAxisCount: cols,
-                  crossAxisSpacing: spacing,
-                  mainAxisSpacing: 20,
-                  childAspectRatio: 0.7,
-                ),
-                itemCount: displayItems.length,
-                itemBuilder: (context, index) {
-                  return _buildMenuIcon(
-                    context,
-                    displayItems[index],
-                    itemWidth,
-                  );
-                },
-              );
-            },
-          ),
-          const SizedBox(height: 16),
-          const Center(
-            child: Icon(
-              Icons.keyboard_double_arrow_down,
-              color: AppColors.primary,
-              size: 28,
+          SizedBox(
+            height: sectionHeight,
+            child: GridView.builder(
+              scrollDirection: Axis.horizontal,
+              padding: const EdgeInsets.only(right: 16),
+              gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                crossAxisCount: 2,          // sempre 2 linhas
+                crossAxisSpacing: spacing,
+                mainAxisSpacing: spacing,
+                mainAxisExtent: itemMainAxisExtent,
+              ),
+              itemCount: items.length,
+              itemBuilder: (context, index) {
+                return _buildMenuIcon(
+                  context,
+                  items[index],
+                  itemMainAxisExtent,
+                );
+              },
             ),
           ),
         ],
@@ -484,7 +473,7 @@ class _HomeScreenState extends State<HomeScreen> {
             textAlign: TextAlign.center,
             style: const TextStyle(
               fontSize: 11,
-              color: Color(0xFF666666),
+              color: AppColors.textSecondary,
               height: 1.2,
               fontWeight: FontWeight.w500,
             ),
@@ -497,9 +486,42 @@ class _HomeScreenState extends State<HomeScreen> {
   Widget _buildParcelCard() {
     return BlocBuilder<ParcelBloc, ParcelState>(
       builder: (context, state) {
-        int pendingCount = 0;
+        List<Parcel> pendingParcels = [];
         if (state is ParcelLoaded) {
-          pendingCount = state.pendingParcels.length;
+          pendingParcels = state.pendingParcels;
+        }
+        final pendingCount = pendingParcels.length;
+        final firstParcel = pendingParcels.isNotEmpty ? pendingParcels.first : null;
+
+        // Format arrival date
+        String arrivalLabel = '';
+        if (firstParcel != null) {
+          final arrival = firstParcel.arrivalTime;
+          final now = DateTime.now();
+          final diff = now.difference(arrival).inDays;
+          final day = arrival.day.toString().padLeft(2, '0');
+          final month = arrival.month.toString().padLeft(2, '0');
+          final year = arrival.year;
+          final dateStr = '$day/$month/$year';
+          if (diff == 0) {
+            arrivalLabel = 'Chegou hoje ($dateStr)';
+          } else if (diff == 1) {
+            arrivalLabel = 'Chegou ontem ($dateStr)';
+          } else {
+            arrivalLabel = 'Chegou há $diff dias ($dateStr)';
+          }
+        }
+
+        // Tipo label
+        String tipoLabel = '';
+        if (firstParcel?.tipo != null) {
+          switch (firstParcel!.tipo) {
+            case 'caixa':       tipoLabel = 'Caixa'; break;
+            case 'envelope':    tipoLabel = 'Envelope'; break;
+            case 'pacote':      tipoLabel = 'Pacote'; break;
+            case 'notif_judicial': tipoLabel = 'Notificação Judicial'; break;
+            default:            tipoLabel = firstParcel.tipo!;
+          }
         }
 
         return Container(
@@ -523,7 +545,7 @@ class _HomeScreenState extends State<HomeScreen> {
                 child: Row(
                   children: [
                     Text(
-                      pendingCount > 0 ? '📦' : '😊',
+                      pendingCount > 0 ? '😯' : '😊',
                       style: const TextStyle(fontSize: 18),
                     ),
                     const SizedBox(width: 8),
@@ -563,13 +585,13 @@ class _HomeScreenState extends State<HomeScreen> {
                       padding: const EdgeInsets.all(8),
                       decoration: BoxDecoration(
                         color: pendingCount > 0
-                            ? Colors.green
+                            ? Colors.orange.shade600
                             : AppColors.primary,
                         borderRadius: BorderRadius.circular(8),
                       ),
                       child: Icon(
                         pendingCount > 0
-                            ? Icons.local_shipping
+                            ? Icons.local_shipping_rounded
                             : Icons.inventory_2,
                         color: Colors.white,
                         size: 24,
@@ -582,22 +604,53 @@ class _HomeScreenState extends State<HomeScreen> {
                         children: [
                           Text(
                             pendingCount > 0
-                                ? 'Encomenda pronta para retirada'
+                                ? 'Encomenda aguardando retirada'
                                 : 'Nos últimos 7 Dias',
                             style: const TextStyle(
                               fontWeight: FontWeight.bold,
                               fontSize: 13,
                             ),
                           ),
-                          Text(
-                            pendingCount > 0
-                                ? 'Passe na portaria para retirar.'
-                                : 'Nenhuma foi registrada nos últimos dias.\nAvisaremos no seu WhatsApp quando chegar.',
-                            style: const TextStyle(
-                              fontSize: 11,
-                              color: Color(0xFF666666),
+                          if (pendingCount > 0) ...[
+                            if (arrivalLabel.isNotEmpty)
+                              Text(
+                                arrivalLabel,
+                                style: TextStyle(
+                                  fontSize: 12,
+                                  color: Colors.orange.shade700,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                            Text(
+                              [
+                                if (tipoLabel.isNotEmpty) tipoLabel,
+                                if (pendingCount > 1) '+${pendingCount - 1} mais',
+                              ].join(' · ').isNotEmpty
+                                ? [
+                                    if (tipoLabel.isNotEmpty) tipoLabel,
+                                    if (pendingCount > 1) '+${pendingCount - 1} mais',
+                                  ].join(' · ')
+                                : 'Passe na portaria para retirar.',
+                              style: const TextStyle(
+                                fontSize: 11,
+                                color: AppColors.textSecondary,
+                              ),
                             ),
-                          ),
+                            const Text(
+                              'Passe na portaria para retirar.',
+                              style: TextStyle(
+                                fontSize: 11,
+                                color: AppColors.textSecondary,
+                              ),
+                            ),
+                          ] else
+                            const Text(
+                              'Nenhuma foi registrada nos últimos dias.\nAvisaremos no seu WhatsApp quando chegar.',
+                              style: TextStyle(
+                                fontSize: 11,
+                                color: AppColors.textSecondary,
+                              ),
+                            ),
                         ],
                       ),
                     ),
@@ -688,7 +741,43 @@ class _HomeScreenState extends State<HomeScreen> {
               child: ListView(
                 padding: EdgeInsets.zero,
                 children: [
-                  _drawerItem(Icons.edit_note, 'Editar meu perfil'),
+                  _drawerItem(Icons.edit_note, 'Editar meu perfil', onTap: () async {
+                    Navigator.pop(context); // fecha drawer
+                    final userId = authState.userId;
+                    final condoId = authState.condominiumId;
+                    if (userId == null || condoId == null) return;
+                    
+                    // Busca dados atuais do perfil
+                    try {
+                      final perfil = await Supabase.instance.client
+                          .from('perfil')
+                          .select('nome_completo, whatsapp, tipo_morador, bloco_txt, apto_txt')
+                          .eq('id', userId)
+                          .single();
+                      
+                      if (!context.mounted) return;
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (_) => EditProfileScreen(
+                            userId: userId,
+                            condominioId: condoId,
+                            currentName: perfil['nome_completo'],
+                            currentWhatsapp: perfil['whatsapp'],
+                            currentTipoMorador: perfil['tipo_morador'],
+                            currentBlocoTxt: perfil['bloco_txt'],
+                            currentAptoTxt: perfil['apto_txt'],
+                          ),
+                        ),
+                      );
+                    } catch (e) {
+                      if (context.mounted) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(content: Text('Erro ao carregar perfil: $e'), backgroundColor: Colors.red),
+                        );
+                      }
+                    }
+                  }),
                   _drawerItem(Icons.home_outlined, 'Minha unidade'),
                   _drawerItem(
                     Icons.emergency_outlined,
@@ -783,7 +872,7 @@ class _HomeScreenState extends State<HomeScreen> {
               style: TextStyle(
                 fontSize: 14,
                 fontWeight: FontWeight.bold,
-                color: Color(0xFF1A1A1A),
+                color: AppColors.textMain,
               ),
             ),
           ),
@@ -846,7 +935,7 @@ class _HomeScreenState extends State<HomeScreen> {
             style: TextStyle(
               fontSize: 14,
               fontWeight: FontWeight.bold,
-              color: Color(0xFF1A1A1A),
+              color: AppColors.textMain,
             ),
           ),
           const SizedBox(height: 12),
@@ -977,34 +1066,105 @@ class _HomeScreenState extends State<HomeScreen> {
 
   IconData _getIconData(String iconName) {
     switch (iconName) {
-      case 'warning':
-        return Icons.warning_amber_rounded;
-      case 'chat':
-        return Icons.chat_bubble_outline_rounded;
-      case 'file_copy':
-        return Icons.description_outlined;
-      case 'calendar_month':
-        return Icons.calendar_month_outlined;
-      case 'inventory_2':
-        return Icons.inventory_2_outlined;
-      case 'qr_code':
-        return Icons.qr_code_2_rounded;
-      case 'check_circle':
-        return Icons.how_to_reg_outlined;
-      case 'history':
-        return Icons.history_rounded;
-      case 'add_box':
-        return Icons.add_box_outlined;
-      case 'local_shipping':
-        return Icons.local_shipping_outlined;
-      case 'how_to_reg':
-        return Icons.how_to_reg_rounded;
-      case 'forum':
-        return Icons.forum_outlined;
-      case 'message':
-        return Icons.message_outlined;
+      // Already mapped
+      case 'warning':           return Icons.warning_amber_rounded;
+      case 'chat':              return Icons.chat_bubble_outline_rounded;
+      case 'file_copy':         return Icons.description_outlined;
+      case 'calendar_month':    return Icons.calendar_month_outlined;
+      case 'inventory_2':       return Icons.inventory_2_outlined;
+      case 'qr_code':           return Icons.qr_code_2_rounded;
+      case 'check_circle':      return Icons.how_to_reg_outlined;
+      case 'history':           return Icons.history_rounded;
+      case 'add_box':           return Icons.add_box_outlined;
+      case 'local_shipping':    return Icons.local_shipping_outlined;
+      case 'how_to_reg':        return Icons.how_to_reg_rounded;
+      case 'forum':             return Icons.forum_outlined;
+      case 'message':           return Icons.message_outlined;
+
+      // People & access
+      case 'person':            return Icons.person_outline_rounded;
+      case 'person_add':        return Icons.person_add_outlined;
+      case 'person_search':     return Icons.person_search_outlined;
+      case 'group':             return Icons.group_outlined;
+      case 'groups':            return Icons.groups_outlined;
+      case 'manage_accounts':   return Icons.manage_accounts_outlined;
+      case 'badge':             return Icons.badge_outlined;
+      case 'fingerprint':       return Icons.fingerprint;
+      case 'key':               return Icons.key_outlined;
+
+      // Notifications & communication
+      case 'notifications':     return Icons.notifications_outlined;
+      case 'campaign':          return Icons.campaign_outlined;
+      case 'announcement':      return Icons.announcement_outlined;
+      case 'email':             return Icons.email_outlined;
+      case 'sms':               return Icons.sms_outlined;
+      case 'send':              return Icons.send_outlined;
+      case 'phone':             return Icons.phone_outlined;
+
+      // Building & condo
+      case 'apartment':         return Icons.apartment_outlined;
+      case 'domain':            return Icons.domain_outlined;
+      case 'business':          return Icons.business_outlined;
+      case 'home':              return Icons.home_outlined;
+      case 'house':             return Icons.house_outlined;
+      case 'meeting_room':      return Icons.meeting_room_outlined;
+      case 'door_front':        return Icons.door_front_door_outlined;
+      case 'security':          return Icons.security_outlined;
+      case 'shield':            return Icons.shield_outlined;
+
+      // Events & schedule
+      case 'event':             return Icons.event_outlined;
+      case 'event_note':        return Icons.event_note_outlined;
+      case 'schedule':          return Icons.schedule_outlined;
+      case 'date_range':        return Icons.date_range_outlined;
+      case 'how_to_vote':       return Icons.how_to_vote_outlined;
+      case 'poll':              return Icons.poll_outlined;
+      case 'gavel':             return Icons.gavel_outlined;
+      case 'handshake':         return Icons.handshake_outlined;
+
+      // Documents & finance
+      case 'article':           return Icons.article_outlined;
+      case 'receipt':           return Icons.receipt_outlined;
+      case 'receipt_long':      return Icons.receipt_long_outlined;
+      case 'attach_money':      return Icons.attach_money;
+      case 'paid':              return Icons.paid_outlined;
+      case 'request_quote':     return Icons.request_quote_outlined;
+      case 'assignment':        return Icons.assignment_outlined;
+      case 'description':       return Icons.description_outlined;
+      case 'folder':            return Icons.folder_outlined;
+      case 'picture_as_pdf':    return Icons.picture_as_pdf_outlined;
+
+      // Tools & settings
+      case 'settings':          return Icons.settings_outlined;
+      case 'tune':              return Icons.tune;
+      case 'build':             return Icons.build_outlined;
+      case 'construction':      return Icons.construction_outlined;
+      case 'inventory':         return Icons.inventory_outlined;
+      case 'warehouse':         return Icons.warehouse_outlined;
+      case 'category':          return Icons.category_outlined;
+
+      // Emergency & safety
+      case 'emergency':         return Icons.emergency_outlined;
+      case 'sos':               return Icons.sos_outlined;
+      case 'local_police':      return Icons.local_police_outlined;
+      case 'health_and_safety': return Icons.health_and_safety_outlined;
+
+      // Misc
+      case 'star':              return Icons.star_outline_rounded;
+      case 'favorite':          return Icons.favorite_outline_rounded;
+      case 'photo':             return Icons.photo_outlined;
+      case 'image':             return Icons.image_outlined;
+      case 'map':               return Icons.map_outlined;
+      case 'place':             return Icons.place_outlined;
+      case 'support':           return Icons.support_outlined;
+      case 'help':              return Icons.help_outline_rounded;
+      case 'info':              return Icons.info_outline_rounded;
+      case 'book':              return Icons.book_outlined;
+      case 'newspaper':         return Icons.newspaper_outlined;
+      case 'class':             return Icons.class_outlined;
+
       default:
-        return Icons.widgets_outlined;
+        return Icons.apps_rounded;
     }
   }
 }

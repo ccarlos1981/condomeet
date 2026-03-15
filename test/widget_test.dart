@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:condomeet/core/design_system/design_system.dart';
 import 'package:condomeet/core/errors/result.dart';
-import 'package:condomeet/main.dart';
 
 void main() {
   group('Design System Components', () {

@@ -46,7 +46,6 @@ import 'package:condomeet/features/community/presentation/bloc/document_bloc.dar
 import 'package:condomeet/features/admin/presentation/bloc/inventory_bloc.dart';
 import 'package:condomeet/features/admin/presentation/bloc/assembly_bloc.dart';
 import 'package:condomeet/features/admin/presentation/bloc/structure_bloc.dart';
-import 'package:condomeet/features/admin/presentation/bloc/structure_event.dart';
 
 final sl = GetIt.instance;
 
@@ -70,7 +69,8 @@ Future<void> initDependencies() async {
     () => CondominiumRepositoryImpl(sl(), sl()),
   );
   sl.registerLazySingleton<InvitationRepository>(
-    () => InvitationRepositoryImpl(sl(), sl()),
+    () => InvitationRepositoryImpl(sl()),
+
   );
   sl.registerLazySingleton<ConsentRepository>(
     () => ConsentRepositoryImpl(sl(), sl()),
@@ -80,13 +80,16 @@ Future<void> initDependencies() async {
   );
   sl.registerLazySingleton<ParcelRepository>(
     () => ParcelRepositoryImpl(sl()),
+
   );
+
   sl.registerLazySingleton<ResidentRepository>(
     () => ResidentRepositoryImpl(sl(), sl(), sl()),
   );
   sl.registerLazySingleton<SOSRepository>(
-    () => SOSRepositoryImpl(sl(), sl()),
+    () => SOSRepositoryImpl(sl()),
   );
+
   sl.registerLazySingleton<OccurrenceRepository>(
     () => OccurrenceRepositoryImpl(),
   );
@@ -96,6 +99,7 @@ Future<void> initDependencies() async {
   sl.registerLazySingleton<BookingRepository>(
     () => BookingRepositoryImpl(sl()),
   );
+
   sl.registerLazySingleton<DocumentRepository>(
     () => DocumentRepositoryImpl(sl()),
   );

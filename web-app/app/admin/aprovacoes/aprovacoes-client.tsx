@@ -96,11 +96,11 @@ export default function AprovacoesClient({ profiles }: { profiles: Profile[] }) 
                 <div className="flex flex-col sm:flex-row sm:items-center gap-4">
                   {/* Avatar */}
                   <div className={`w-12 h-12 rounded-xl flex items-center justify-center flex-shrink-0 ${
-                    blocked ? 'bg-red-100' : 'bg-[#E85D26]/10'
+                    blocked ? 'bg-red-100' : 'bg-[#FC3951]/10'
                   }`}>
                     {blocked
                       ? <Lock size={20} className="text-red-500" />
-                      : <User size={22} className="text-[#E85D26]" />}
+                      : <User size={22} className="text-[#FC3951]" />}
                   </div>
 
                   {/* Info */}

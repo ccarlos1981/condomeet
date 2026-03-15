@@ -128,7 +128,7 @@ class _AreaPickerScreenState extends State<AreaPickerScreen>
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFFF5F5F5),
+      backgroundColor: AppColors.surface,
       appBar: AppBar(
         backgroundColor: Colors.white,
         elevation: 0,
@@ -138,7 +138,7 @@ class _AreaPickerScreenState extends State<AreaPickerScreen>
         ),
         title: const Text(
           'Reservar Espaço',
-          style: TextStyle(color: Color(0xFF1A1A1A), fontSize: 16, fontWeight: FontWeight.bold),
+          style: TextStyle(color: AppColors.textMain, fontSize: 16, fontWeight: FontWeight.bold),
         ),
         actions: [
           IconButton(
@@ -153,7 +153,7 @@ class _AreaPickerScreenState extends State<AreaPickerScreen>
         bottom: TabBar(
           controller: _tabController,
           labelColor: AppColors.primary,
-          unselectedLabelColor: const Color(0xFF999999),
+          unselectedLabelColor: AppColors.textHint,
           indicatorColor: AppColors.primary,
           labelStyle: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
           tabs: const [
@@ -180,12 +180,12 @@ class _AreaPickerScreenState extends State<AreaPickerScreen>
       child: _areas.isEmpty
           ? ListView(children: const [
               SizedBox(height: 80),
-              Icon(Icons.event_available, size: 56, color: Color(0xFFCCCCCC)),
+              Icon(Icons.event_available, size: 56, color: AppColors.disabledIcon),
               SizedBox(height: 16),
               Text(
                 'Nenhuma área disponível para reserva.',
                 textAlign: TextAlign.center,
-                style: TextStyle(color: Color(0xFFAAAAAA), fontSize: 14),
+                style: TextStyle(color: AppColors.textHint, fontSize: 14),
               ),
             ])
           : ListView.builder(
@@ -247,7 +247,7 @@ class _AreaPickerScreenState extends State<AreaPickerScreen>
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: const Color(0xFFEEEEEE)),
+        border: Border.all(color: AppColors.border),
         boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.03), blurRadius: 6)],
       ),
       child: Padding(
@@ -265,9 +265,9 @@ class _AreaPickerScreenState extends State<AreaPickerScreen>
           Expanded(child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(nome, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: Color(0xFF1A1A1A))),
+              Text(nome, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: AppColors.textMain)),
               const SizedBox(height: 2),
-              Text('$data  •  $hora', style: const TextStyle(fontSize: 12, color: Color(0xFF999999))),
+              Text('$data  •  $hora', style: const TextStyle(fontSize: 12, color: AppColors.textHint)),
             ],
           )),
           Container(
@@ -308,7 +308,7 @@ class _AreaPickerScreenState extends State<AreaPickerScreen>
         decoration: BoxDecoration(
           color: Colors.white,
           borderRadius: BorderRadius.circular(16),
-          border: Border.all(color: const Color(0xFFEEEEEE)),
+          border: Border.all(color: AppColors.border),
           boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.04), blurRadius: 8)],
         ),
         child: Padding(
@@ -329,10 +329,10 @@ class _AreaPickerScreenState extends State<AreaPickerScreen>
                 Expanded(child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(tipo, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15, color: Color(0xFF1A1A1A))),
+                    Text(tipo, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15, color: AppColors.textMain)),
                     const SizedBox(height: 2),
                     Row(children: [
-                      Text(local, style: const TextStyle(fontSize: 11, color: Color(0xFF999999))),
+                      Text(local, style: const TextStyle(fontSize: 11, color: AppColors.textHint)),
                       const SizedBox(width: 8),
                       Container(
                         padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1),
@@ -412,12 +412,12 @@ class _AreaPickerScreenState extends State<AreaPickerScreen>
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Row(children: [
-          Icon(icon, size: 12, color: const Color(0xFFAAAAAA)),
+          Icon(icon, size: 12, color: AppColors.textHint),
           const SizedBox(width: 3),
-          Text(label, style: const TextStyle(fontSize: 10, color: Color(0xFFAAAAAA))),
+          Text(label, style: const TextStyle(fontSize: 10, color: AppColors.textHint)),
         ]),
         const SizedBox(height: 2),
-        Text(value, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Color(0xFF333333))),
+        Text(value, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: AppColors.textMain)),
       ],
     );
   }

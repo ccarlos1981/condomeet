@@ -261,7 +261,7 @@ class _OccurrenceReportScreenState extends State<OccurrenceReportScreen> {
           onSelected: (selected) {
             if (selected) setState(() => _selectedCategory = category);
           },
-          selectedColor: AppColors.primary.withOpacity(0.2),
+          selectedColor: AppColors.primary.withValues(alpha: 0.2),
           labelStyle: TextStyle(
             color: isSelected ? AppColors.primary : AppColors.textMain,
             fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,

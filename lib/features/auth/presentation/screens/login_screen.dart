@@ -5,6 +5,8 @@ import 'package:condomeet/core/design_system/app_colors.dart';
 import '../bloc/auth_bloc.dart';
 import '../bloc/auth_event.dart';
 import '../bloc/auth_state.dart';
+import 'password_setup_sheet.dart';
+import 'waiting_approval_screen.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -31,7 +33,7 @@ class _LoginScreenState extends State<LoginScreen> {
     if (_formKey.currentState?.validate() ?? false) {
       context.read<AuthBloc>().add(
         AuthLoginSubmitted(
-          email: _emailController.text.trim(),
+          email: _emailController.text.trim().toLowerCase(),
           password: _passwordController.text.trim(),
         ),
       );
@@ -48,13 +50,20 @@ class _LoginScreenState extends State<LoginScreen> {
       backgroundColor: Colors.white,
       body: BlocListener<AuthBloc, AuthState>(
         listener: (context, state) {
-          if (state.status == AuthStatus.unauthenticated && state.errorMessage != null) {
+          if (state.status == AuthStatus.needsPasswordSetup && state.phoneNumber != null) {
+            PasswordSetupSheet.show(context, state.phoneNumber!);
+          } else if (state.status == AuthStatus.unauthenticated && state.errorMessage != null) {
             ScaffoldMessenger.of(context).showSnackBar(
               SnackBar(content: Text(state.errorMessage!), backgroundColor: AppColors.error),
             );
           } else if (state.status == AuthStatus.needsRegistration) {
              ScaffoldMessenger.of(context).showSnackBar(
               const SnackBar(content: Text('Usuário não encontrado. Crie seu cadastro.'), backgroundColor: AppColors.error),
+            );
+          } else if (state.status == AuthStatus.pendingApproval) {
+            Navigator.of(context).pushAndRemoveUntil(
+              MaterialPageRoute(builder: (_) => const WaitingApprovalScreen()),
+              (route) => false,
             );
           }
         },
@@ -68,14 +77,10 @@ class _LoginScreenState extends State<LoginScreen> {
                   const SizedBox(height: 48),
                   // Logo Placeholder (Usually an image here)
                   Center(
-                    child: Container(
-                      width: 64,
-                      height: 64,
-                      decoration: BoxDecoration(
-                        color: AppColors.primary,
-                        borderRadius: BorderRadius.circular(16),
-                      ),
-                      child: const Icon(Icons.apartment, color: Colors.white, size: 32),
+                    child: Image.asset(
+                      'assets/images/logo.png',
+                      width: 90,
+                      height: 90,
                     ),
                   ),
                   const SizedBox(height: 16),

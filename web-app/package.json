@@ -6,6 +6,7 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
+    "rebuild": "pkill -f 'next start' 2>/dev/null; next build && next start",
     "lint": "eslint"
   },
   "dependencies": {

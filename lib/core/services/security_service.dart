@@ -11,7 +11,6 @@ class SecurityService {
   final FlutterSecureStorage _storage;
   final _auth = LocalAuthentication();
   final _logger = Logger();
-  bool _usesFallback = false;
 
   SecurityService({FlutterSecureStorage? storage})
       : _storage = storage ?? const FlutterSecureStorage();
@@ -26,7 +25,6 @@ class SecurityService {
       await _storage.write(key: key, value: value);
     } catch (e) {
       _logger.w('SecureStorage write failed, using SharedPreferences fallback: $e');
-      _usesFallback = true;
       final prefs = await SharedPreferences.getInstance();
       await prefs.setString('_secure_$key', value);
     }
@@ -41,7 +39,6 @@ class SecurityService {
       final prefs = await SharedPreferences.getInstance();
       return prefs.getString('_secure_$key');
     } catch (e) {
-      _usesFallback = true;
       final prefs = await SharedPreferences.getInstance();
       return prefs.getString('_secure_$key');
     }

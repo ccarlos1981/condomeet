@@ -2,7 +2,6 @@ import 'package:powersync/powersync.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:path/path.dart';
 import 'package:path_provider/path_provider.dart';
-import 'package:sqlite3_flutter_libs/sqlite3_flutter_libs.dart';
 import '../network/powersync_schema.dart' as psSchema;
 
 class SupabaseConnector extends PowerSyncBackendConnector {

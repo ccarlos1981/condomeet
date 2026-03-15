@@ -13,7 +13,7 @@ class SosScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFFF5F5F5),
+      backgroundColor: AppColors.surface,
       appBar: AppBar(
         backgroundColor: Colors.white,
         elevation: 0,
@@ -24,7 +24,7 @@ class SosScreen extends StatelessWidget {
         title: const Text(
           'SOS',
           style: TextStyle(
-            color: Color(0xFF1A1A1A),
+            color: AppColors.textMain,
             fontSize: 18,
             fontWeight: FontWeight.bold,
           ),
@@ -88,7 +88,7 @@ class SosScreen extends StatelessWidget {
                       style: TextStyle(
                         fontSize: 18,
                         fontWeight: FontWeight.bold,
-                        color: Color(0xFF1A1A1A),
+                        color: AppColors.textMain,
                       ),
                     ),
                     const SizedBox(height: 8),
@@ -286,7 +286,7 @@ class _SosConfirmationDialog extends StatelessWidget {
               style: TextStyle(
                 fontSize: 18,
                 fontWeight: FontWeight.bold,
-                color: Color(0xFF1A1A1A),
+                color: AppColors.textMain,
                 height: 1.3,
               ),
             ),

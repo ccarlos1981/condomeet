@@ -36,11 +36,6 @@ class AssemblyRepositoryImpl implements AssemblyRepository {
   @override
   Future<Result<void>> createAssembly({
     required Assembly assembly,
-    required String condominiumId,
-    required String title,
-    required String description,
-    required DateTime startDate,
-    required DateTime endDate,
     required List<String> optionTitles,
   }) async {
     try {
@@ -52,11 +47,11 @@ class AssemblyRepositoryImpl implements AssemblyRepository {
              VALUES (?, ?, ?, ?, ?, ?, ?, ?)''',
           [
             assemblyId,
-            condominiumId,
-            title,
-            description,
-            startDate.toIso8601String(),
-            endDate.toIso8601String(),
+            assembly.condominiumId,
+            assembly.title,
+            assembly.description ?? '',
+            assembly.startDate.toIso8601String(),
+            assembly.endDate.toIso8601String(),
             'scheduled',
             DateTime.now().toIso8601String(),
           ],

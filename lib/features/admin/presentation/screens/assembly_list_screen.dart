@@ -74,7 +74,7 @@ class _AssemblyListScreenState extends State<AssemblyListScreen> {
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Icon(Icons.how_to_vote_outlined, size: 64, color: AppColors.textSecondary.withOpacity(0.5)),
+          Icon(Icons.how_to_vote_outlined, size: 64, color: AppColors.textSecondary.withValues(alpha: 0.5)),
           const SizedBox(height: 16),
           Text(
             'Nenhuma assembleia encontrada',
@@ -105,7 +105,7 @@ class _AssemblyListScreenState extends State<AssemblyListScreen> {
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
               decoration: BoxDecoration(
-                color: statusColor.withOpacity(0.1),
+                color: statusColor.withValues(alpha: 0.1),
                 borderRadius: BorderRadius.circular(4),
               ),
               child: Text(

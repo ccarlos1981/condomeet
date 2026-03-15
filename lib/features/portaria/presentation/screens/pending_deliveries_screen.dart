@@ -111,7 +111,7 @@ class _PendingDeliveriesScreenState extends State<PendingDeliveriesScreen> {
       final matchSearch = _searchQuery.isEmpty ||
           p.residentName.toLowerCase().contains(_searchQuery) ||
           p.unitNumber.contains(_searchQuery) ||
-          (p.block?.toLowerCase().contains(_searchQuery) ?? false);
+          p.block.toLowerCase().contains(_searchQuery);
       final matchBloco = _filterBloco == null || p.block == _filterBloco;
       final matchApto = _filterApto == null || p.unitNumber == _filterApto;
       return matchStatus && matchSearch && matchBloco && matchApto;
@@ -121,7 +121,7 @@ class _PendingDeliveriesScreenState extends State<PendingDeliveriesScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFFF8F9FA),
+      backgroundColor: AppColors.surface,
       appBar: AppBar(
         title: const Text('Encomendas do Condomínio'),
         backgroundColor: Colors.white,
@@ -263,7 +263,7 @@ class _PendingDeliveriesScreenState extends State<PendingDeliveriesScreen> {
 
   Widget _buildFilters(List<Parcel> all) {
     // Unique blocos from actual data
-    final blocosFromData = all.map((p) => p.block ?? '').where((b) => b.isNotEmpty).toSet().toList()..sort();
+    final blocosFromData = all.map((p) => p.block).where((b) => b.isNotEmpty).toSet().toList()..sort();
 
     return Container(
       color: Colors.white,
@@ -323,7 +323,7 @@ class _PendingDeliveriesScreenState extends State<PendingDeliveriesScreen> {
   Widget _buildDropdown({required String? value, required String hint, required List<String> items, required ValueChanged<String?> onChanged}) {
     return Container(
       decoration: BoxDecoration(
-        color: const Color(0xFFF8F9FA),
+        color: AppColors.surface,
         border: Border.all(color: AppColors.border),
         borderRadius: BorderRadius.circular(10),
       ),
@@ -354,7 +354,7 @@ class _PendingDeliveriesScreenState extends State<PendingDeliveriesScreen> {
         color: Colors.white,
         borderRadius: BorderRadius.circular(16),
         border: Border.all(
-          color: isPending ? const Color(0xFFE8F5E9) : const Color(0xFFE3F2FD),
+          color: isPending ? AppColors.success.withValues(alpha: 0.08) : AppColors.info.withValues(alpha: 0.08),
           width: 1,
         ),
         boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.04), blurRadius: 8, offset: const Offset(0, 2))],
@@ -364,18 +364,18 @@ class _PendingDeliveriesScreenState extends State<PendingDeliveriesScreen> {
         child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
           // Header row
           Row(children: [
-            Text('${parcel.block ?? ''} / Apto ${parcel.unitNumber}',
+            Text('${parcel.block} / Apto ${parcel.unitNumber}',
                 style: AppTypography.h3.copyWith(fontSize: 15)),
             const Spacer(),
             // Tipo badge
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
               decoration: BoxDecoration(
-                color: const Color(0xFFFFF3E0),
+                color: AppColors.warning.withValues(alpha: 0.12),
                 borderRadius: BorderRadius.circular(8),
               ),
               child: Text('$tipoIcon $tipoLabel',
-                  style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: Color(0xFFE65100))),
+                  style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: AppColors.warning)),
             ),
           ]),
           const SizedBox(height: 4),
@@ -477,13 +477,13 @@ class _PendingDeliveriesScreenState extends State<PendingDeliveriesScreen> {
   }
 
   Widget _photoIcon([double size = 56]) => Container(
-      width: size, height: size, color: const Color(0xFFF0F0F0),
-      child: const Icon(Icons.inventory_2, color: Color(0xFFBBBBBB), size: 24));
+      width: size, height: size, color: AppColors.surfaceAlt,
+      child: const Icon(Icons.inventory_2, color: AppColors.disabledIcon, size: 24));
 
   Widget _buildEmpty() {
     return Center(
       child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
-        const Icon(Icons.inventory_2_outlined, size: 64, color: Color(0xFFCED4DA)),
+        const Icon(Icons.inventory_2_outlined, size: 64, color: AppColors.disabledIcon),
         const SizedBox(height: 16),
         Text('Nenhuma encomenda', style: AppTypography.h2),
         const SizedBox(height: 8),
@@ -562,7 +562,7 @@ class _DarBaixaSheetState extends State<_DarBaixaSheet> {
       final data = await Supabase.instance.client
           .from('perfil')
           .select('id, nome_completo')
-          .eq('bloco_txt', widget.parcel.block ?? '')
+          .eq('bloco_txt', widget.parcel.block)
           .eq('apto_txt', widget.parcel.unitNumber)
           .neq('papel_sistema', 'portaria');
       setState(() {
@@ -740,7 +740,7 @@ class _DarBaixaSheetState extends State<_DarBaixaSheet> {
             Container(
               height: 160,
               decoration: BoxDecoration(
-                color: _hasSigned ? Colors.white : const Color(0xFFF8F9FA),
+                color: _hasSigned ? Colors.white : AppColors.surface,
                 border: Border.all(
                   color: _hasSigned ? AppColors.primary : Colors.grey.shade300,
                   width: _hasSigned ? 2 : 1,

@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:condomeet/core/design_system/design_system.dart';
-import 'package:condomeet/core/design_system/condo_input.dart';
 import '../../domain/models/chat_message.dart';
 import 'package:condomeet/features/security/presentation/bloc/chat_bloc.dart';
 import 'package:condomeet/features/security/presentation/bloc/chat_event.dart';

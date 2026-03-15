@@ -7,7 +7,6 @@ import 'package:condomeet/features/security/domain/repositories/sos_repository.d
 
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:condomeet/features/auth/presentation/bloc/auth_bloc.dart';
-import 'package:condomeet/features/auth/presentation/bloc/auth_state.dart';
 
 class SOSButton extends StatefulWidget {
   final String? residentId;

@@ -2,7 +2,6 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:condomeet/core/errors/result.dart';
 import 'package:condomeet/core/services/powersync_service.dart';
 import 'package:condomeet/features/auth/domain/repositories/consent_repository.dart';
-import 'package:uuid/uuid.dart';
 
 class ConsentRepositoryImpl implements ConsentRepository {
   final PowerSyncService _powerSync;

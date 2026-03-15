@@ -1,5 +1,5 @@
 'use client'
-import { useState } from 'react'
+import { useState, useMemo } from 'react'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
@@ -7,11 +7,49 @@ import { useRouter } from 'next/navigation'
 import {
   Home, UserCheck, Package, QrCode, Bell, LogOut,
   Building2, ChevronLeft, ChevronRight, Menu, X,
-  Shield, ClipboardList, Users, CalendarDays, AlertCircle, MessageSquare
+  Shield, ClipboardList, Users, CalendarDays, AlertCircle, MessageSquare, FileText, UserCog, BadgeCheck, BarChart3
 } from 'lucide-react'
 
-type NavItem = { label: string; href: string; icon: React.ReactNode; roles?: string[] }
+type NavItem = { label: string; href: string; icon: React.ReactNode; fnId?: string }
 
+// Maps function IDs from features_config to web routes
+const FN_TO_NAV: Record<string, { label: string; href: string; icon: React.ReactNode }> = {
+  authorize_visitor:  { label: 'Autorizar Visitante',     href: '/condo/visitantes',           icon: <UserCheck size={18} /> },
+  parcels:            { label: 'Minhas Encomendas',        href: '/condo/encomendas',            icon: <Package size={18} /> },
+  guest_checkin:      { label: 'Visitante c/ Autorização', href: '/condo/checkin',               icon: <QrCode size={18} /> },
+  occurrences:        { label: 'Ocorrências',              href: '/condo/ocorrencias',           icon: <AlertCircle size={18} /> },
+  bookings:           { label: 'Reservas',                 href: '/condo/reservas',              icon: <CalendarDays size={18} /> },
+  documents:          { label: 'Documentos',               href: '/condo/documentos',            icon: <FileText size={18} /> },
+  contracts:          { label: 'Contratos',                href: '/condo/contratos',             icon: <FileText size={18} /> },
+  parcel_history:     { label: 'Histórico Encomendas',     href: '/condo/encomendas',            icon: <ClipboardList size={18} /> },
+  visitor_approval:   { label: 'Liberar Visitante',        href: '/condo/liberar-visitante',     icon: <UserCheck size={18} /> },
+  parcel_reg:         { label: 'Registrar Encomenda',      href: '/condo/registrar-encomenda',   icon: <Package size={18} /> },
+  pending_del:        { label: 'Entregas Pendentes',       href: '/condo/encomendas',            icon: <Package size={18} /> },
+  approvals:          { label: 'Aprovações',               href: '/admin/moradores',             icon: <Users size={18} /> },
+  resident_search:    { label: 'Busca Moradores',          href: '/admin/moradores',             icon: <Users size={18} /> },
+  condo_structure:    { label: 'Estrutura do Condomínio',  href: '/admin/estrutura',             icon: <Building2 size={18} /> },
+  assemblies:         { label: 'Assembleias',              href: '/admin/assembleias',           icon: <Users size={18} /> },
+  // Extras
+  avisos:             { label: 'Avisos',                   href: '/condo/avisos',                icon: <Bell size={18} /> },
+  fale_sindico:       { label: 'Fale com o Síndico',       href: '/condo/fale-sindico',          icon: <MessageSquare size={18} /> },
+  registro_turno:     { label: 'Registro de Turno',        href: '/condo/registro-turno',        icon: <ClipboardList size={18} /> },
+  visitor_register:   { label: 'Registrar Visitante',      href: '/condo/registrar-visitante',   icon: <BadgeCheck size={18} /> },
+  enquetes:           { label: 'Enquetes',                 href: '/condo/enquetes',              icon: <BarChart3 size={18} /> },
+  enquete_admin:      { label: 'Enquetes',                 href: '/condo/enquetes',              icon: <BarChart3 size={18} /> },
+}
+
+function normalizeRoleKey(role: string): string {
+  return role
+    .toLowerCase()
+    .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+    .replace(/\s+/g, '_')
+    .replace(/_+/g, '_')
+    .replace(/[^a-z0-9_]/g, '')
+    .replace(/^proprietario_nao_morador$/, 'prop_nao_morador')
+    .replace(/^sub_sindico$/, 'sub_sindico')
+}
+
+// ── Legacy hardcoded menus (fallback when no features_config) ──
 const RESIDENT_NAV: NavItem[] = [
   { label: 'Início', href: '/condo', icon: <Home size={18} /> },
   { label: 'Autorizar Visitante', href: '/condo/visitantes', icon: <UserCheck size={18} /> },
@@ -19,7 +57,10 @@ const RESIDENT_NAV: NavItem[] = [
   { label: 'Reservas', href: '/condo/reservas', icon: <CalendarDays size={18} /> },
   { label: 'Ocorrências', href: '/condo/ocorrencias', icon: <AlertCircle size={18} /> },
   { label: 'Fale com o Síndico', href: '/condo/fale-sindico', icon: <MessageSquare size={18} /> },
+  { label: 'Documentos', href: '/condo/documentos', icon: <FileText size={18} /> },
+  { label: 'Contratos', href: '/condo/contratos', icon: <FileText size={18} /> },
   { label: 'Avisos', href: '/condo/avisos', icon: <Bell size={18} /> },
+  { label: 'Enquetes', href: '/condo/enquetes', icon: <BarChart3 size={18} /> },
   { label: 'Visitante c/ Autorização', href: '/condo/checkin', icon: <QrCode size={18} /> },
 ]
 
@@ -29,6 +70,7 @@ const PORTER_NAV: NavItem[] = [
   { label: 'Registrar Encomenda', href: '/condo/registrar-encomenda', icon: <Package size={18} /> },
   { label: 'Ver Encomendas', href: '/condo/encomendas', icon: <ClipboardList size={18} /> },
   { label: 'Reservas', href: '/condo/reservas', icon: <CalendarDays size={18} /> },
+  { label: 'Registro de Turno', href: '/condo/registro-turno', icon: <ClipboardList size={18} /> },
 ]
 
 const ADMIN_NAV: NavItem[] = [
@@ -38,16 +80,56 @@ const ADMIN_NAV: NavItem[] = [
   { label: 'Reservas', href: '/condo/reservas', icon: <CalendarDays size={18} /> },
   { label: 'Ocorrências', href: '/condo/ocorrencias', icon: <AlertCircle size={18} /> },
   { label: 'Fale com o Síndico', href: '/condo/fale-sindico', icon: <MessageSquare size={18} /> },
+  { label: 'Documentos', href: '/condo/documentos', icon: <FileText size={18} /> },
+  { label: 'Contratos', href: '/condo/contratos', icon: <FileText size={18} /> },
   { label: 'Avisos', href: '/condo/avisos', icon: <Bell size={18} /> },
+  { label: 'Enquetes', href: '/condo/enquetes', icon: <BarChart3 size={18} /> },
   { label: 'Visitante c/ Autorização', href: '/condo/checkin', icon: <QrCode size={18} /> },
+  { label: 'Registro de Turno', href: '/condo/registro-turno', icon: <ClipboardList size={18} /> },
   { label: 'Painel Admin', href: '/admin', icon: <Shield size={18} /> },
 ]
 
-function getNavForRole(role: string): NavItem[] {
+function getLegacyNavForRole(role: string): NavItem[] {
   const r = role.toLowerCase()
   if (r.includes('portaria') || r.includes('porteiro')) return PORTER_NAV
   if (r.includes('síndico') || r.includes('sindico') || r === 'admin') return ADMIN_NAV
   return RESIDENT_NAV
+}
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function buildNavFromConfig(role: string, config: any): NavItem[] | null {
+  if (!config || !Array.isArray(config.functions) || config.functions.length === 0) return null
+
+  const roleKey = normalizeRoleKey(role)
+  const items: NavItem[] = [{ label: 'Início', href: '/condo', icon: <Home size={18} /> }]
+
+  // Sort functions by order
+  const sortedFns = [...config.functions].sort(
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    (a: any, b: any) => (a.order ?? 99) - (b.order ?? 99)
+  )
+
+  for (const fn of sortedFns) {
+    const roles = fn.roles ?? {}
+    const roleData = roles[roleKey]
+    if (!roleData || !roleData.visible) continue
+
+    const navEntry = FN_TO_NAV[fn.id]
+    if (navEntry) {
+      // Avoid duplicates by href
+      if (!items.some(i => i.href === navEntry.href)) {
+        items.push({ ...navEntry, fnId: fn.id })
+      }
+    }
+  }
+
+  // Always add Painel Admin for admin roles
+  const r = role.toLowerCase()
+  if (r.includes('síndico') || r.includes('sindico') || r === 'admin') {
+    items.push({ label: 'Painel Admin', href: '/admin', icon: <Shield size={18} /> })
+  }
+
+  return items.length > 1 ? items : null
 }
 
 interface SidebarProps {
@@ -55,15 +137,19 @@ interface SidebarProps {
   userName: string
   condoName: string
   unidade: string
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  featuresConfig?: any
 }
 
-export default function Sidebar({ role, userName, condoName, unidade }: SidebarProps) {
+export default function Sidebar({ role, userName, condoName, unidade, featuresConfig }: SidebarProps) {
   const pathname = usePathname()
   const router = useRouter()
   const supabase = createClient()
   const [collapsed, setCollapsed] = useState(false)
   const [mobileOpen, setMobileOpen] = useState(false)
-  const navItems = getNavForRole(role)
+  const navItems = useMemo(() => {
+    return buildNavFromConfig(role, featuresConfig) ?? getLegacyNavForRole(role)
+  }, [role, featuresConfig])
 
   async function handleLogout() {
     await supabase.auth.signOut()
@@ -75,9 +161,7 @@ export default function Sidebar({ role, userName, condoName, unidade }: SidebarP
       {/* Logo + toggle */}
       <div className="flex items-center justify-between px-4 py-5 border-b border-white/10">
         <div className={`flex items-center gap-3 overflow-hidden transition-all ${collapsed ? 'w-0' : 'w-full'}`}>
-          <div className="w-9 h-9 bg-[#E85D26] rounded-xl flex items-center justify-center flex-shrink-0">
-            <Building2 size={18} className="text-white" />
-          </div>
+          <img src="/logo.png" alt="Condomeet" className="w-9 h-9 rounded-xl object-cover flex-shrink-0" />
           <div className="min-w-0">
             <p className="font-bold text-sm truncate">{condoName}</p>
             <p className="text-xs text-white/50 truncate">{userName} · {unidade}</p>
@@ -94,11 +178,11 @@ export default function Sidebar({ role, userName, condoName, unidade }: SidebarP
       {/* Role badge + Painel Admin shortcut */}
       {!collapsed && (
         <div className="px-4 py-2 flex flex-col gap-1.5">
-          <span className="text-xs bg-[#E85D26]/20 text-[#E85D26] px-2 py-1 rounded-full font-medium self-start">{role}</span>
+          <span className="text-xs bg-[#FC3951]/20 text-[#FC3951] px-2 py-1 rounded-full font-medium self-start">{role}</span>
           {(role.toLowerCase().includes('síndico') || role.toLowerCase().includes('sindico') || role === 'admin' || role === 'ADMIN') && (
             <a
               href="/admin"
-              className="flex items-center gap-2 bg-[#E85D26] hover:bg-[#c44d1e] transition-colors text-white text-xs font-bold px-3 py-1.5 rounded-xl shadow-sm shadow-[#E85D26]/40"
+              className="flex items-center gap-2 bg-[#FC3951] hover:bg-[#D4253D] transition-colors text-white text-xs font-bold px-3 py-1.5 rounded-xl shadow-sm shadow-[#FC3951]/40"
             >
               <Shield size={12} />
               Painel Admin
@@ -118,7 +202,7 @@ export default function Sidebar({ role, userName, condoName, unidade }: SidebarP
               onClick={() => setMobileOpen(false)}
               className={`flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all duration-150 ${
                 isActive
-                  ? 'bg-[#E85D26] text-white shadow-lg shadow-[#E85D26]/30'
+                  ? 'bg-[#FC3951] text-white shadow-lg shadow-[#FC3951]/30'
                   : 'text-white/70 hover:bg-white/10 hover:text-white'
               }`}
             >
@@ -128,6 +212,22 @@ export default function Sidebar({ role, userName, condoName, unidade }: SidebarP
           )
         })}
       </nav>
+
+      {/* Editar Perfil */}
+        <div className="px-2 pb-1">
+          <Link
+            href="/condo/perfil"
+            onClick={() => setMobileOpen(false)}
+            className={`flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all duration-150 ${
+              pathname === '/condo/perfil'
+                ? 'bg-[#FC3951] text-white shadow-lg shadow-[#FC3951]/30'
+                : 'text-white/70 hover:bg-white/10 hover:text-white'
+            }`}
+          >
+            <UserCog size={18} className="flex-shrink-0" />
+            {!collapsed && <span>Editar Perfil</span>}
+          </Link>
+        </div>
 
       {/* Logout */}
       <div className="px-2 py-3 border-t border-white/10">
@@ -146,7 +246,7 @@ export default function Sidebar({ role, userName, condoName, unidade }: SidebarP
     <>
       {/* Mobile menu button */}
       <button
-        className="lg:hidden fixed top-4 left-4 z-50 p-2 bg-[#E85D26] text-white rounded-xl shadow-lg"
+        className="lg:hidden fixed top-4 left-4 z-50 p-2 bg-[#FC3951] text-white rounded-xl shadow-lg"
         onClick={() => setMobileOpen(!mobileOpen)}
       >
         {mobileOpen ? <X size={20} /> : <Menu size={20} />}

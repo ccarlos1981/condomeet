@@ -24,10 +24,10 @@ export default async function AdminDashboard() {
   ])
 
   const metrics = [
-    { label: 'Moradores', value: totalResidents ?? 0, icon: Users, color: '#3B82F6' },
-    { label: 'Aprovações Pendentes', value: pendingApprovals ?? 0, icon: ClipboardCheck, color: '#F59E0B', alert: (pendingApprovals ?? 0) > 0 },
-    { label: 'Autorizações (total)', value: invitations?.length ?? 0, icon: UserCheck, color: '#E85D26' },
-    { label: 'Liberados', value: invitations?.filter(i => i.visitante_compareceu).length ?? 0, icon: Package, color: '#10B981' },
+    { label: 'Moradores', value: totalResidents ?? 0, icon: Users, iconColor: 'text-blue-500', iconBg: 'bg-blue-500/10' },
+    { label: 'Aprovações Pendentes', value: pendingApprovals ?? 0, icon: ClipboardCheck, iconColor: 'text-amber-500', iconBg: 'bg-amber-500/10', alert: (pendingApprovals ?? 0) > 0 },
+    { label: 'Autorizações (total)', value: invitations?.length ?? 0, icon: UserCheck, iconColor: 'text-orange-500', iconBg: 'bg-orange-500/10' },
+    { label: 'Liberados', value: invitations?.filter(i => i.visitante_compareceu).length ?? 0, icon: Package, iconColor: 'text-emerald-500', iconBg: 'bg-emerald-500/10' },
   ]
 
   return (
@@ -42,8 +42,8 @@ export default async function AdminDashboard() {
         {metrics.map(m => (
           <div key={m.label} className={`bg-white rounded-2xl p-5 border shadow-sm ${m.alert ? 'border-amber-200 bg-amber-50' : 'border-gray-100'}`}>
             <div className="flex items-center justify-between mb-3">
-              <div className="w-10 h-10 rounded-xl flex items-center justify-center" style={{ background: `${m.color}15` }}>
-                <m.icon size={20} style={{ color: m.color }} />
+              <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${m.iconBg}`}>
+                <m.icon size={20} className={m.iconColor} />
               </div>
               {m.alert && <span className="w-2 h-2 bg-amber-400 rounded-full animate-pulse" />}
             </div>

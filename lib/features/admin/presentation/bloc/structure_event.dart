@@ -66,3 +66,21 @@ class UnidadeDeleted extends StructureEvent {
   @override
   List<Object?> get props => [unidadeId];
 }
+
+// ── Block detail events ──
+class WatchUnidadesStarted extends StructureEvent {
+  final String condominiumId;
+  final String blocoId;
+  const WatchUnidadesStarted({required this.condominiumId, required this.blocoId});
+  @override
+  List<Object?> get props => [condominiumId, blocoId];
+}
+
+class UnidadeAdded extends StructureEvent {
+  final String condominiumId;
+  final String blocoId;
+  final String aptoNumero;
+  const UnidadeAdded({required this.condominiumId, required this.blocoId, required this.aptoNumero});
+  @override
+  List<Object?> get props => [condominiumId, blocoId, aptoNumero];
+}

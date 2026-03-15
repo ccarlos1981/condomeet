@@ -72,8 +72,7 @@ void main() {
 
         when(() => mockConsent.hasConsent(
           userId: 'uuid-123',
-          documentType: any(named: 'documentType'),
-          documentVersion: any(named: 'documentVersion'),
+          consentType: any(named: 'consentType'),
         )).thenAnswer((_) async => const Success(true));
 
         when(() => mockSecurity.getPin()).thenAnswer((_) async => 'hashed-pin');

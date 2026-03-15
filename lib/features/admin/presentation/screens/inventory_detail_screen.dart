@@ -116,7 +116,7 @@ class _InventoryDetailScreenState extends State<InventoryDetailScreen> {
       margin: const EdgeInsets.only(bottom: 8),
       child: ListTile(
         leading: CircleAvatar(
-          backgroundColor: (isPositive ? Colors.green : AppColors.error).withOpacity(0.1),
+          backgroundColor: (isPositive ? Colors.green : AppColors.error).withValues(alpha: 0.1),
           child: Icon(
             isPositive ? Icons.arrow_downward : Icons.arrow_upward,
             color: isPositive ? Colors.green : AppColors.error,

@@ -190,7 +190,7 @@ class _FaleSindicoScreenState extends State<FaleSindicoScreen> {
               Wrap(
                 spacing: 8,
                 runSpacing: 6,
-                children: _tipoLabel.entries.map((e) {
+                children: tipoLabel.entries.map((e) {
                   final sel = _novoTipo == e.key;
                   return GestureDetector(
                     onTap: () => setModal(() => _novoTipo = e.key),
@@ -286,7 +286,7 @@ class _FaleSindicoScreenState extends State<FaleSindicoScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFFF5F5F5),
+      backgroundColor: AppColors.surface,
       appBar: AppBar(
         title: const Text('Fale com a administração.',
             style: TextStyle(fontSize: 15, fontWeight: FontWeight.w600)),
@@ -400,13 +400,13 @@ class _ThreadCard extends StatelessWidget {
         borderRadius: BorderRadius.circular(12),
         border: Border.all(color: Colors.grey.shade200),
         boxShadow: [
-          BoxShadow(color: Colors.black.withOpacity(0.04), blurRadius: 4, offset: const Offset(0, 2)),
+          BoxShadow(color: Colors.black.withValues(alpha: 0.04), blurRadius: 4, offset: const Offset(0, 2)),
         ],
       ),
       child: ListTile(
         contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
         leading: Text(
-          _tipoEmoji[thread.tipo] ?? '📋',
+          tipoEmoji[thread.tipo] ?? '📋',
           style: const TextStyle(fontSize: 24),
         ),
         title: Column(

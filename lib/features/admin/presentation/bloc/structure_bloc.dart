@@ -23,6 +23,8 @@ class StructureBloc extends Bloc<StructureEvent, StructureState> {
     on<ApartamentoDeleted>(_onApartamentoDeleted);
     on<UnidadesGenerated>(_onUnidadesGenerated);
     on<UnidadeDeleted>(_onUnidadeDeleted);
+    on<WatchUnidadesStarted>(_onWatchUnidadesStarted);
+    on<UnidadeAdded>(_onUnidadeAdded);
     on<_BlocosUpdated>(_onBlocosUpdated);
     on<_ApartamentosUpdated>(_onApartamentosUpdated);
     on<_UnidadesUpdated>(_onUnidadesUpdated);
@@ -143,6 +145,29 @@ class StructureBloc extends Bloc<StructureEvent, StructureState> {
   Future<void> _onUnidadeDeleted(UnidadeDeleted event, Emitter<StructureState> emit) async {
     try {
       await _structureRepository.deleteUnidade(event.unidadeId);
+      emit(state.copyWith(errorMessage: null));
+    } catch (e) {
+      emit(state.copyWith(status: StructureStatus.failure, errorMessage: _mapError(e)));
+    }
+  }
+
+  Future<void> _onWatchUnidadesStarted(WatchUnidadesStarted event, Emitter<StructureState> emit) async {
+    emit(state.copyWith(status: StructureStatus.loading));
+
+    await _unidadesSubscription?.cancel();
+    _unidadesSubscription = _structureRepository.watchUnidades(event.condominiumId).listen(
+      (unidades) {
+        // Filter by blocoId for the block detail screen
+        final filtered = unidades.where((u) => u.blocoId == event.blocoId).toList();
+        add(_UnidadesUpdated(filtered));
+      },
+      onError: (e) => add(_StreamError(e.toString())),
+    );
+  }
+
+  Future<void> _onUnidadeAdded(UnidadeAdded event, Emitter<StructureState> emit) async {
+    try {
+      await _structureRepository.addUnidade(event.condominiumId, event.blocoId, event.aptoNumero);
       emit(state.copyWith(errorMessage: null));
     } catch (e) {
       emit(state.copyWith(status: StructureStatus.failure, errorMessage: _mapError(e)));

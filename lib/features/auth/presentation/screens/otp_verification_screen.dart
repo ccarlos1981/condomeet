@@ -62,6 +62,7 @@ class _OtpVerificationScreenState extends State<OtpVerificationScreen> {
     );
   }
 
+  // ignore: unused_element
   void _showSuccess(String message) {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(

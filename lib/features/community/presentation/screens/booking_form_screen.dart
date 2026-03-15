@@ -207,7 +207,7 @@ class _BookingFormScreenState extends State<BookingFormScreen> {
           onPressed: () => Navigator.of(context).pop(),
         ),
         title: Text(tipo,
-          style: const TextStyle(color: Color(0xFF1A1A1A), fontSize: 16, fontWeight: FontWeight.bold)),
+          style: const TextStyle(color: AppColors.textMain, fontSize: 16, fontWeight: FontWeight.bold)),
         actions: [
           TextButton(
             onPressed: _saving ? null : _agendar,
@@ -243,7 +243,7 @@ class _BookingFormScreenState extends State<BookingFormScreen> {
 
             // Day headers
             Row(children: _diasSemana.map((d) =>
-              Expanded(child: Center(child: Text(d, style: const TextStyle(fontSize: 10, color: Color(0xFF999999), fontWeight: FontWeight.w600))))
+              Expanded(child: Center(child: Text(d, style: const TextStyle(fontSize: 10, color: AppColors.textHint, fontWeight: FontWeight.w600))))
             ).toList()),
 
             const SizedBox(height: 4),
@@ -264,10 +264,10 @@ class _BookingFormScreenState extends State<BookingFormScreen> {
                 final isToday = iso == todayIso;
 
                 Color bg = Colors.transparent;
-                Color textColor = const Color(0xFF333333);
-                if (isPast) { textColor = const Color(0xFFCCCCCC); }
+                Color textColor = AppColors.textMain;
+                if (isPast) { textColor = AppColors.disabledIcon; }
                 else if (isBooked) { bg = AppColors.primary.withValues(alpha: 0.15); textColor = AppColors.primary; }
-                else if (isSel) { bg = const Color(0xFF222222); textColor = Colors.white; }
+                else if (isSel) { bg = AppColors.textMain; textColor = Colors.white; }
                 else if (isToday) { bg = AppColors.primary.withValues(alpha: 0.1); textColor = AppColors.primary; }
 
                 return GestureDetector(
@@ -334,8 +334,8 @@ class _BookingFormScreenState extends State<BookingFormScreen> {
               decoration: InputDecoration(
                 hintText: widget.area['tipo_agenda'] ?? '',
                 contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-                border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: Color(0xFFDDDDDD))),
-                enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: Color(0xFFDDDDDD))),
+                border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: AppColors.border)),
+                enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: AppColors.border)),
                 focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide(color: AppColors.primary)),
               ),
             ),
@@ -350,7 +350,7 @@ class _BookingFormScreenState extends State<BookingFormScreen> {
                   width: 22, height: 22,
                   decoration: BoxDecoration(
                     color: _ciente ? AppColors.primary : Colors.white,
-                    border: Border.all(color: _ciente ? AppColors.primary : const Color(0xFFCCCCCC), width: 2),
+                    border: Border.all(color: _ciente ? AppColors.primary : AppColors.disabledIcon, width: 2),
                     borderRadius: BorderRadius.circular(6),
                   ),
                   child: _ciente ? const Icon(Icons.check, color: Colors.white, size: 14) : null,

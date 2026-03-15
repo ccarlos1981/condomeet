@@ -15,11 +15,17 @@ import 'package:condomeet/features/portaria/presentation/screens/parcel_registra
 import 'package:condomeet/features/portaria/presentation/screens/parcel_dashboard_screen.dart';
 import 'package:condomeet/features/portaria/presentation/screens/pending_deliveries_screen.dart';
 import 'package:condomeet/features/portaria/presentation/screens/parcel_history_screen.dart';
+import 'package:condomeet/features/portaria/presentation/screens/visitor_registration_screen.dart';
+import 'package:condomeet/features/admin/presentation/screens/enquete_admin_screen.dart';
+import 'package:condomeet/features/enquete/presentation/screens/enquete_voting_screen.dart';
 
 import 'package:condomeet/features/access/presentation/screens/visitor_authorization_screen.dart';
 import 'package:condomeet/features/access/presentation/screens/guest_checkin_screen.dart';
 import 'package:condomeet/features/access/presentation/screens/portaria_visitor_approval_screen.dart';
-import 'package:condomeet/features/community/presentation/screens/document_center_screen.dart';
+import 'package:condomeet/features/community/presentation/screens/documents_screen.dart';
+import 'package:condomeet/features/community/presentation/screens/contracts_screen.dart';
+import 'package:condomeet/features/community/presentation/screens/admin_documentos_screen.dart';
+import 'package:condomeet/features/community/presentation/screens/admin_contratos_screen.dart';
 import 'package:condomeet/features/community/presentation/screens/area_picker_screen.dart';
 import 'package:condomeet/features/community/presentation/screens/areas_comuns_admin_screen.dart';
 import 'package:condomeet/features/community/presentation/screens/admin_horarios_screen.dart';
@@ -42,12 +48,15 @@ import 'package:condomeet/features/admin/presentation/screens/condominium_struct
 import 'package:condomeet/features/admin/presentation/screens/configure_menu_screen.dart';
 import 'package:condomeet/features/security/presentation/screens/fale_sindico_screen.dart';
 import 'package:condomeet/features/security/presentation/screens/fale_conosco_admin_screen.dart';
+import 'package:condomeet/features/auth/presentation/screens/splash_screen.dart';
+import 'package:condomeet/features/admin/presentation/screens/universal_push_screen.dart';
 
 
 class AppRouter {
   static Map<String, WidgetBuilder> getRoutes(AuthState state) {
     return {
       '/design-system': (context) => const DesignSystemShowcase(),
+      '/splash': (context) => const SplashScreen(),
       '/login': (context) => const LoginScreen(),
       '/otp-verification': (context) => OtpVerificationScreen(
             phoneNumber: ModalRoute.of(context)!.settings.arguments as String,
@@ -62,6 +71,10 @@ class AppRouter {
         return ParcelDashboardScreen(residentId: state.userId ?? '');
       },
       '/pending-deliveries': (context) => const PendingDeliveriesScreen(),
+      '/visitor-registration': (context) => const VisitorRegistrationScreen(),
+      '/registrar-visitante': (context) => const VisitorRegistrationScreen(), // alias for stale DB configs
+      '/enquete-admin': (context) => const EnqueteAdminScreen(),
+      '/enquetes': (context) => const EnqueteVotingScreen(),
       '/parcel-history': (context) {
         final residentId = (ModalRoute.of(context)!.settings.arguments as String?) ?? state.userId;
         return ParcelHistoryScreen(residentId: residentId);
@@ -104,8 +117,18 @@ class AppRouter {
           ),
       '/document-center': (context) => BlockedAccessOverlay(
             isBlocked: state.isUnitBlocked,
-            child: const DocumentCenterScreen(),
+            child: const DocumentsScreen(),
           ),
+      '/documentos': (context) => BlockedAccessOverlay(
+            isBlocked: state.isUnitBlocked,
+            child: const DocumentsScreen(),
+          ),
+      '/contratos': (context) => BlockedAccessOverlay(
+            isBlocked: state.isUnitBlocked,
+            child: const ContractsScreen(),
+          ),
+      '/admin-documentos': (context) => const AdminDocumentosScreen(),
+      '/admin-contratos': (context) => const AdminContratosScreen(),
       '/inventory': (context) => const InventoryListScreen(),
       '/inventory-detail': (context) {
         final itemId = ModalRoute.of(context)!.settings.arguments as String;
@@ -129,6 +152,7 @@ class AppRouter {
             child: const FaleSindicoScreen(),
           ),
       '/fale-conosco-admin': (context) => const FaleConoscoAdminScreen(),
+      '/universal-push': (context) => const UniversalPushScreen(),
     };
   }
 

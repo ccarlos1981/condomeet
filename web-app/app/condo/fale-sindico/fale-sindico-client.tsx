@@ -11,7 +11,7 @@ type Thread = {
   tipo: string
   assunto: string
   status: string
-  ultima_mensagem_at: string
+  ultima_mensagem_em: string
   created_at: string
 }
 
@@ -66,7 +66,7 @@ function ThreadCard({ thread, onClick }: { thread: Thread; onClick: () => void }
   return (
     <button
       onClick={onClick}
-      className="w-full text-left bg-white rounded-2xl border border-gray-100 shadow-sm hover:shadow-md hover:border-[#E85D26]/20 transition-all duration-200 p-4 group"
+      className="w-full text-left bg-white rounded-2xl border border-gray-100 shadow-sm hover:shadow-md hover:border-[#FC3951]/20 transition-all duration-200 p-4 group"
     >
       <div className="flex items-start gap-3">
         {/* Emoji tipo */}
@@ -80,7 +80,7 @@ function ThreadCard({ thread, onClick }: { thread: Thread; onClick: () => void }
             <span className={`text-xs font-semibold px-2 py-0.5 rounded-full border ${tipo.bg} ${tipo.color}`}>
               {tipo.label}
             </span>
-            <span className="ml-auto text-xs text-gray-400 shrink-0">{formatTime(thread.ultima_mensagem_at)}</span>
+            <span className="ml-auto text-xs text-gray-400 shrink-0">{formatTime(thread.ultima_mensagem_em)}</span>
           </div>
           <p className="font-semibold text-gray-800 text-sm truncate">{thread.assunto}</p>
           <div className="flex items-center gap-1.5 mt-1">
@@ -89,7 +89,7 @@ function ThreadCard({ thread, onClick }: { thread: Thread; onClick: () => void }
           </div>
         </div>
 
-        <ChevronRight size={16} className="text-gray-300 group-hover:text-[#E85D26] transition-colors mt-1 flex-shrink-0" />
+        <ChevronRight size={16} className="text-gray-300 group-hover:text-[#FC3951] transition-colors mt-1 flex-shrink-0" />
       </div>
     </button>
   )
@@ -118,6 +118,29 @@ function ChatView({
 
   useEffect(() => {
     loadMessages()
+    const supabase = createClient()
+    // Realtime: escuta novas mensagens nesta thread
+    const channel = supabase
+      .channel(`chat-${thread.id}`)
+      .on(
+        'postgres_changes',
+        {
+          event: 'INSERT',
+          schema: 'public',
+          table: 'fale_sindico_mensagens',
+          filter: `thread_id=eq.${thread.id}`,
+        },
+        (payload) => {
+          const nova = payload.new as Mensagem
+          setMensagens(prev => {
+            // evita duplicatas (se a msg já foi inserida otimisticamente)
+            if (prev.find(m => m.id === nova.id)) return prev
+            return [...prev, nova]
+          })
+        }
+      )
+      .subscribe()
+    return () => { supabase.removeChannel(channel) }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [thread.id])
 
@@ -159,7 +182,7 @@ function ChatView({
       // Update thread ultima_mensagem_at
       await supabase
         .from('fale_sindico_threads')
-        .update({ ultima_mensagem_at: now, status: 'aberto' })
+        .update({ ultima_mensagem_em: now, status: 'aberto' })
         .eq('id', thread.id)
 
       setMensagens(prev => [...prev, inserted])
@@ -196,7 +219,7 @@ function ChatView({
       >
         {loading ? (
           <div className="flex items-center justify-center h-full">
-            <div className="w-6 h-6 border-2 border-[#E85D26]/30 border-t-[#E85D26] rounded-full animate-spin" />
+            <div className="w-6 h-6 border-2 border-[#FC3951]/30 border-t-[#FC3951] rounded-full animate-spin" />
           </div>
         ) : mensagens.length === 0 ? (
           <div className="text-center py-8">
@@ -211,12 +234,12 @@ function ChatView({
                 <div
                   className={`max-w-[75%] rounded-2xl px-4 py-2.5 shadow-sm ${
                     isOwn
-                      ? 'bg-[#E85D26] text-white rounded-br-sm'
+                      ? 'bg-[#FC3951] text-white rounded-br-sm'
                       : 'bg-white text-gray-800 rounded-bl-sm border border-gray-100'
                   }`}
                 >
                   {msg.is_admin && (
-                    <p className="text-xs font-semibold text-[#E85D26] mb-1">Síndico/Adm</p>
+                    <p className="text-xs font-semibold text-[#FC3951] mb-1">Síndico/Adm</p>
                   )}
                   <p className="text-sm leading-relaxed">{msg.texto}</p>
                   <p className={`text-[10px] mt-1 ${isOwn ? 'text-white/60' : 'text-gray-400'}`}>
@@ -240,13 +263,13 @@ function ChatView({
           }}
           placeholder="Digite sua mensagem..."
           rows={1}
-          className="flex-1 resize-none border border-gray-200 rounded-2xl px-4 py-2.5 text-sm text-gray-700 focus:outline-none focus:ring-2 focus:ring-[#E85D26]/30 focus:border-[#E85D26] transition-all max-h-32 overflow-y-auto"
+          className="flex-1 resize-none border border-gray-200 rounded-2xl px-4 py-2.5 text-sm text-gray-700 focus:outline-none focus:ring-2 focus:ring-[#FC3951]/30 focus:border-[#FC3951] transition-all max-h-32 overflow-y-auto"
           style={{ lineHeight: '1.5' }}
         />
         <button
           onClick={handleSend}
           disabled={sending || !text.trim()}
-          className="w-10 h-10 bg-[#E85D26] text-white rounded-2xl flex items-center justify-center hover:bg-[#c44d1e] transition-colors disabled:opacity-40 disabled:cursor-not-allowed flex-shrink-0 shadow-sm shadow-[#E85D26]/30"
+          className="w-10 h-10 bg-[#FC3951] text-white rounded-2xl flex items-center justify-center hover:bg-[#D4253D] transition-colors disabled:opacity-40 disabled:cursor-not-allowed flex-shrink-0 shadow-sm shadow-[#FC3951]/30"
         >
           {sending
             ? <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
@@ -297,7 +320,7 @@ function NewThreadModal({
         tipo,
         assunto: assunto.trim(),
         status: 'aberto',
-        ultima_mensagem_at: now,
+        ultima_mensagem_em: now,
       })
       .select()
       .single()
@@ -375,7 +398,7 @@ function NewThreadModal({
               onChange={e => setAssunto(e.target.value)}
               placeholder="Ex: Barulho excessivo no corredor"
               maxLength={120}
-              className="w-full border border-gray-200 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#E85D26]/30 focus:border-[#E85D26] transition-all"
+              className="w-full border border-gray-200 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#FC3951]/30 focus:border-[#FC3951] transition-all"
             />
           </div>
 
@@ -389,7 +412,7 @@ function NewThreadModal({
               onChange={e => setMensagem(e.target.value)}
               rows={4}
               placeholder="Descreva o que aconteceu ou o que você precisa..."
-              className="w-full border border-gray-200 rounded-xl px-4 py-2.5 text-sm resize-none focus:outline-none focus:ring-2 focus:ring-[#E85D26]/30 focus:border-[#E85D26] transition-all"
+              className="w-full border border-gray-200 rounded-xl px-4 py-2.5 text-sm resize-none focus:outline-none focus:ring-2 focus:ring-[#FC3951]/30 focus:border-[#FC3951] transition-all"
             />
           </div>
 
@@ -406,7 +429,7 @@ function NewThreadModal({
           <button
             onClick={handleSubmit}
             disabled={saving}
-            className="flex items-center gap-2 bg-[#E85D26] text-white text-sm font-semibold px-6 py-2.5 rounded-xl hover:bg-[#c44d1e] transition-colors disabled:opacity-40 shadow-sm shadow-[#E85D26]/30"
+            className="flex items-center gap-2 bg-[#FC3951] text-white text-sm font-semibold px-6 py-2.5 rounded-xl hover:bg-[#D4253D] transition-colors disabled:opacity-40 shadow-sm shadow-[#FC3951]/30"
           >
             {saving ? (
               <><div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" /> Enviando...</>
@@ -480,8 +503,8 @@ export default function FaleSindicoClient({
               onClick={() => setFilter(key as typeof filter)}
               className={`text-sm font-medium px-4 py-2 rounded-xl border transition-all ${
                 filter === key
-                  ? 'bg-[#E85D26] text-white border-[#E85D26] shadow-sm shadow-[#E85D26]/20'
-                  : 'bg-white text-gray-600 border-gray-200 hover:border-[#E85D26]/50 hover:text-[#E85D26]'
+                  ? 'bg-[#FC3951] text-white border-[#FC3951] shadow-sm shadow-[#FC3951]/20'
+                  : 'bg-white text-gray-600 border-gray-200 hover:border-[#FC3951]/50 hover:text-[#FC3951]'
               }`}
             >
               {label}
@@ -491,7 +514,7 @@ export default function FaleSindicoClient({
 
         <button
           onClick={() => setShowModal(true)}
-          className="flex items-center gap-2 bg-[#E85D26] text-white text-sm font-semibold px-5 py-2.5 rounded-xl hover:bg-[#c44d1e] transition-colors shadow-sm shadow-[#E85D26]/30"
+          className="flex items-center gap-2 bg-[#FC3951] text-white text-sm font-semibold px-5 py-2.5 rounded-xl hover:bg-[#D4253D] transition-colors shadow-sm shadow-[#FC3951]/30"
         >
           <Plus size={16} />
           Novo Assunto

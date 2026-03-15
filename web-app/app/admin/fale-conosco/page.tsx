@@ -9,7 +9,7 @@ export type AdminThread = {
   tipo: string
   assunto: string
   status: string
-  ultima_mensagem_at: string
+  ultima_mensagem_em: string
   created_at: string
   resident_id: string
   perfil: {
@@ -43,9 +43,9 @@ export default async function FaleConoscoAdminPage() {
   // Fetch all threads for this condo
   const { data: threads, error } = await supabase
     .from('fale_sindico_threads')
-    .select('id, tipo, assunto, status, ultima_mensagem_at, created_at, resident_id')
+    .select('id, tipo, assunto, status, ultima_mensagem_em, created_at, resident_id')
     .eq('condominio_id', condoId)
-    .order('ultima_mensagem_at', { ascending: false })
+    .order('ultima_mensagem_em', { ascending: false })
 
   if (error) console.error('❌ fale_sindico admin error:', JSON.stringify(error))
 

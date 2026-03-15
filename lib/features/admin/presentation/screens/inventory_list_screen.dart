@@ -4,7 +4,6 @@ import 'package:condomeet/core/design_system/app_colors.dart';
 import 'package:condomeet/features/admin/presentation/bloc/inventory_bloc.dart';
 import 'package:condomeet/features/admin/domain/models/inventory_item.dart';
 import 'package:condomeet/features/auth/presentation/bloc/auth_bloc.dart';
-import 'package:condomeet/features/auth/presentation/bloc/auth_state.dart';
 
 class InventoryListScreen extends StatefulWidget {
   const InventoryListScreen({super.key});
@@ -74,7 +73,7 @@ class _InventoryListScreenState extends State<InventoryListScreen> {
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Icon(Icons.inventory_2_outlined, size: 64, color: AppColors.textSecondary.withOpacity(0.5)),
+          Icon(Icons.inventory_2_outlined, size: 64, color: AppColors.textSecondary.withValues(alpha: 0.5)),
           const SizedBox(height: 16),
           Text(
             'Nenhum item cadastrado',
@@ -108,7 +107,7 @@ class _InventoryListScreenState extends State<InventoryListScreen> {
                 Container(
                   padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                   decoration: BoxDecoration(
-                    color: isLowStock ? AppColors.error.withOpacity(0.1) : Colors.green.withOpacity(0.1),
+                    color: isLowStock ? AppColors.error.withValues(alpha: 0.1) : Colors.green.withValues(alpha: 0.1),
                     borderRadius: BorderRadius.circular(4),
                   ),
                   child: Text(

@@ -16,6 +16,7 @@ abstract class InvitationRepository {
     String? blocoFilter,
     String? aptoFilter,
     String? dateFilter,
+    int? limit,
   });
 
   /// Creates a new guest invitation.

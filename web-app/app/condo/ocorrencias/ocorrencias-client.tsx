@@ -160,7 +160,7 @@ function OccurrenceCard({
                   onChange={(e) => setResponseText(e.target.value)}
                   rows={3}
                   placeholder="Digite sua resposta para o morador..."
-                  className="w-full border border-gray-200 rounded-xl px-4 py-3 text-sm text-gray-700 resize-none focus:outline-none focus:ring-2 focus:ring-[#E85D26]/30 focus:border-[#E85D26] transition-all bg-white"
+                  className="w-full border border-gray-200 rounded-xl px-4 py-3 text-sm text-gray-700 resize-none focus:outline-none focus:ring-2 focus:ring-[#FC3951]/30 focus:border-[#FC3951] transition-all bg-white"
                 />
                 <div className="flex items-center justify-between mt-3">
                   {saved ? (
@@ -171,7 +171,7 @@ function OccurrenceCard({
                   <button
                     onClick={handleSave}
                     disabled={saving || !responseText.trim()}
-                    className="bg-[#E85D26] text-white text-sm font-semibold px-5 py-2 rounded-xl hover:bg-[#c44d1e] transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+                    className="bg-[#FC3951] text-white text-sm font-semibold px-5 py-2 rounded-xl hover:bg-[#D4253D] transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
                   >
                     {saving ? 'Enviando...' : hasResponse ? 'Atualizar Resposta' : 'Enviar Resposta'}
                   </button>
@@ -315,8 +315,8 @@ export default function OcorrenciasClient({
               onClick={() => setFilter(key as typeof filter)}
               className={`text-sm font-medium px-4 py-2 rounded-xl border transition-all ${
                 filter === key
-                  ? 'bg-[#E85D26] text-white border-[#E85D26]'
-                  : 'bg-white text-gray-600 border-gray-200 hover:border-[#E85D26] hover:text-[#E85D26]'
+                  ? 'bg-[#FC3951] text-white border-[#FC3951]'
+                  : 'bg-white text-gray-600 border-gray-200 hover:border-[#FC3951] hover:text-[#FC3951]'
               }`}
             >
               {label}
@@ -325,7 +325,7 @@ export default function OcorrenciasClient({
         </div>
         <button
           onClick={() => setShowModal(true)}
-          className="flex items-center gap-2 bg-[#E85D26] text-white text-sm font-semibold px-5 py-2.5 rounded-xl hover:bg-[#c44d1e] transition-colors shadow-sm"
+          className="flex items-center gap-2 bg-[#FC3951] text-white text-sm font-semibold px-5 py-2.5 rounded-xl hover:bg-[#D4253D] transition-colors shadow-sm"
         >
           + Nova Ocorrência
         </button>
@@ -366,7 +366,7 @@ export default function OcorrenciasClient({
                   value={form.assunto}
                   onChange={e => setForm(f => ({ ...f, assunto: e.target.value }))}
                   placeholder="Ex: Lâmpada queimada no corredor"
-                  className="w-full border border-gray-200 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#E85D26]/30 focus:border-[#E85D26]"
+                  className="w-full border border-gray-200 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#FC3951]/30 focus:border-[#FC3951]"
                 />
               </div>
               <div>
@@ -383,8 +383,8 @@ export default function OcorrenciasClient({
                       onClick={() => setForm(f => ({ ...f, category: key }))}
                       className={`text-sm px-3 py-1.5 rounded-xl border font-medium transition-all ${
                         form.category === key
-                          ? 'bg-[#E85D26] text-white border-[#E85D26]'
-                          : 'bg-white text-gray-600 border-gray-200 hover:border-[#E85D26]'
+                          ? 'bg-[#FC3951] text-white border-[#FC3951]'
+                          : 'bg-white text-gray-600 border-gray-200 hover:border-[#FC3951]'
                       }`}
                     >
                       {label}
@@ -399,12 +399,12 @@ export default function OcorrenciasClient({
                   onChange={e => setForm(f => ({ ...f, description: e.target.value }))}
                   rows={4}
                   placeholder="Descreva a ocorrência em detalhes..."
-                  className="w-full border border-gray-200 rounded-xl px-4 py-2.5 text-sm resize-none focus:outline-none focus:ring-2 focus:ring-[#E85D26]/30 focus:border-[#E85D26]"
+                  className="w-full border border-gray-200 rounded-xl px-4 py-2.5 text-sm resize-none focus:outline-none focus:ring-2 focus:ring-[#FC3951]/30 focus:border-[#FC3951]"
                 />
               </div>
               <div>
                 <label className="text-xs font-medium text-gray-500 uppercase tracking-wider block mb-1.5">Foto (Opcional)</label>
-                <label className="flex items-center gap-3 border border-dashed border-gray-300 rounded-xl px-4 py-3 cursor-pointer hover:border-[#E85D26] transition-colors">
+                <label className="flex items-center gap-3 border border-dashed border-gray-300 rounded-xl px-4 py-3 cursor-pointer hover:border-[#FC3951] transition-colors">
                   <span className="text-2xl">📎</span>
                   <span className="text-sm text-gray-500">{photoFile ? photoFile.name : 'Clique para selecionar uma foto'}</span>
                   <input type="file" accept="image/*" onChange={handlePhotoChange} className="hidden" />
@@ -430,7 +430,7 @@ export default function OcorrenciasClient({
               <button
                 onClick={handleCreate}
                 disabled={creating || !form.assunto.trim() || !form.description.trim()}
-                className="bg-[#E85D26] text-white text-sm font-semibold px-5 py-2 rounded-xl hover:bg-[#c44d1e] transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+                className="bg-[#FC3951] text-white text-sm font-semibold px-5 py-2 rounded-xl hover:bg-[#D4253D] transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
               >
                 {creating ? 'Salvando...' : 'Registrar Ocorrência'}
               </button>

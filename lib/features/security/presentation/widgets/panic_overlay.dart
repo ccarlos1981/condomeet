@@ -32,7 +32,7 @@ class PanicOverlay extends StatelessWidget {
                         borderRadius: BorderRadius.circular(24),
                         boxShadow: [
                           BoxShadow(
-                            color: Colors.red.withOpacity(0.5),
+                            color: Colors.red.withValues(alpha: 0.5),
                             blurRadius: 40,
                             spreadRadius: 10,
                           ),

@@ -71,7 +71,7 @@ export default async function EncomendasPage() {
         {isPorter && (
           <a
             href="/condo/registrar-encomenda"
-            className="flex items-center gap-2 bg-[#E85D26] text-white text-sm font-semibold px-5 py-2.5 rounded-xl hover:bg-[#c44d1e] transition-colors shadow-sm"
+            className="flex items-center gap-2 bg-[#FC3951] text-white text-sm font-semibold px-5 py-2.5 rounded-xl hover:bg-[#D4253D] transition-colors shadow-sm"
           >
             + Nova Encomenda
           </a>

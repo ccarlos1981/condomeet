@@ -2,9 +2,9 @@ import 'package:flutter/material.dart';
 
 class AppColors {
   // Brand Colors
-  static const Color primary = Color(0xFFFA542F); // Orange-Red
-  static const Color primaryLight = Color(0xFFFFEBE6);
-  static const Color primaryDark = Color(0xFFD93D1A);
+  static const Color primary = Color(0xFFFC3951); // Rose-Red (brand)
+  static const Color primaryLight = Color(0xFFFFF0F2);
+  static const Color primaryDark = Color(0xFFD4253D);
 
   // Neutrals (Tailwind-inspired)
   static const Color background = Color(0xFFFFFFFF);
@@ -20,6 +20,10 @@ class AppColors {
   static const Color error = Color(0xFFEF4444);
   static const Color warning = Color(0xFFF59E0B);
   static const Color info = Color(0xFF3B82F6);
+
+  // Subtle backgrounds (for cards & badges)
+  static const Color surfaceAlt = Color(0xFFF3F4F6);
+  static const Color disabledIcon = Color(0xFFCED4DA);
 
   // Dark Mode Neutrals
   static const Color darkBackground = Color(0xFF121212);

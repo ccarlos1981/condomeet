@@ -1,20 +1,39 @@
+import 'dart:async';
 import 'package:condomeet/core/errors/result.dart';
-import 'package:condomeet/core/services/powersync_service.dart';
 import 'package:condomeet/features/community/domain/models/common_area.dart';
 import 'package:condomeet/features/community/domain/repositories/booking_repository.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:uuid/uuid.dart';
 
+/// Uses Supabase directly (tables: areas_comuns, reservas).
+/// The legacy PowerSync-backed BookingRepositoryImpl used the old 'reservas_areas'
+/// table (schema 2.0) which is obsolete. The current DB schema uses 'reservas'
+/// (migration 20260308g).
 class BookingRepositoryImpl implements BookingRepository {
-  final PowerSyncService _powerSyncService;
+  final SupabaseClient _supabase;
 
-  BookingRepositoryImpl(this._powerSyncService);
+  BookingRepositoryImpl(this._supabase);
 
   @override
   Stream<List<CommonArea>> watchCommonAreas(String condominiumId) {
-    return _powerSyncService.db.watch(
-      'SELECT * FROM areas_comuns WHERE condominio_id = ? AND ativo = 1 ORDER BY tipo_agenda ASC',
-      parameters: [condominiumId],
-    ).map((rows) => rows.map((row) => CommonArea.fromMap(row)).toList());
+    return Stream.fromIterable([0])
+        .asyncExpand((_) async* {
+          yield await _fetchCommonAreas(condominiumId);
+          await for (final _ in Stream.periodic(const Duration(seconds: 15))) {
+            yield await _fetchCommonAreas(condominiumId);
+          }
+        })
+        .handleError((e) => print('❌ watchCommonAreas error: $e'));
+  }
+
+  Future<List<CommonArea>> _fetchCommonAreas(String condominiumId) async {
+    final response = await _supabase
+        .from('areas_comuns')
+        .select('*')
+        .eq('condominio_id', condominiumId)
+        .eq('ativo', true)
+        .order('tipo_agenda');
+    return (response as List).map((r) => CommonArea.fromMap(r as Map<String, dynamic>)).toList();
   }
 
   @override
@@ -24,31 +43,53 @@ class BookingRepositoryImpl implements BookingRepository {
     required DateTime startDate,
     required DateTime endDate,
   }) {
-    // Watch bookings for the area in the range
-    return _powerSyncService.db.watch(
-      'SELECT * FROM reservas_areas WHERE condominio_id = ? AND area_id = ? AND booking_date >= ? AND booking_date <= ? AND status = ?',
-      parameters: [
-        condominiumId,
-        areaId,
-        startDate.toIso8601String().split('T')[0],
-        endDate.toIso8601String().split('T')[0],
-        'confirmed'
-      ],
-    ).map((rows) {
-      final List<AvailabilitySlot> slots = [];
-      final bookedDates = rows.map((r) => r['booking_date'] as String).toSet();
+    return Stream.fromIterable([0])
+        .asyncExpand((_) async* {
+          yield await _fetchAvailability(
+            areaId: areaId,
+            startDate: startDate,
+            endDate: endDate,
+          );
+          await for (final _ in Stream.periodic(const Duration(seconds: 15))) {
+            yield await _fetchAvailability(
+              areaId: areaId,
+              startDate: startDate,
+              endDate: endDate,
+            );
+          }
+        })
+        .handleError((e) => print('❌ watchAvailability error: $e'));
+  }
 
-      for (int i = 0; i <= endDate.difference(startDate).inDays; i++) {
-        final date = startDate.add(Duration(days: i));
-        final dateStr = date.toIso8601String().split('T')[0];
-        
-        slots.add(AvailabilitySlot(
-          date: date,
-          isAvailable: !bookedDates.contains(dateStr),
-        ));
-      }
-      return slots;
-    });
+  Future<List<AvailabilitySlot>> _fetchAvailability({
+    required String areaId,
+    required DateTime startDate,
+    required DateTime endDate,
+  }) async {
+    final startStr = startDate.toIso8601String().split('T')[0];
+    final endStr = endDate.toIso8601String().split('T')[0];
+
+    final rows = await _supabase
+        .from('reservas')
+        .select('data_reserva')
+        .eq('area_id', areaId)
+        .inFilter('status', ['pendente', 'aprovado'])
+        .gte('data_reserva', startStr)
+        .lte('data_reserva', endStr);
+
+    final bookedDates =
+        (rows as List).map((r) => r['data_reserva'] as String).toSet();
+
+    final slots = <AvailabilitySlot>[];
+    for (int i = 0; i <= endDate.difference(startDate).inDays; i++) {
+      final date = startDate.add(Duration(days: i));
+      final dateStr = date.toIso8601String().split('T')[0];
+      slots.add(AvailabilitySlot(
+        date: date,
+        isAvailable: !bookedDates.contains(dateStr),
+      ));
+    }
+    return slots;
   }
 
   @override
@@ -68,41 +109,54 @@ class BookingRepositoryImpl implements BookingRepository {
       }
 
       final dateStr = bookingDate.toIso8601String().split('T')[0];
-      
-      // 1. Check if already booked by anyone (Double check before insert)
-      final existing = await _powerSyncService.db.getOptional(
-        'SELECT id FROM reservas_areas WHERE condominio_id = ? AND area_id = ? AND booking_date = ? AND status = ?',
-        [condominiumId, areaId, dateStr, 'confirmed'],
-      );
+
+      // Check if date is already taken
+      final existing = await _supabase
+          .from('reservas')
+          .select('id')
+          .eq('area_id', areaId)
+          .eq('data_reserva', dateStr)
+          .inFilter('status', ['pendente', 'aprovado'])
+          .maybeSingle();
 
       if (existing != null) {
         return const Failure('Esta data já está reservada por outro morador.');
       }
 
-      // 2. Check if resident already has an active future booking for this area
-      final residentFutureBooking = await _powerSyncService.db.getOptional(
-        'SELECT id FROM reservas_areas WHERE resident_id = ? AND area_id = ? AND booking_date >= ? AND status = ?',
-        [residentId, areaId, today.toIso8601String().split('T')[0], 'confirmed'],
-      );
+      // Check if resident already has an active booking for this area
+      final residentFuture = await _supabase
+          .from('reservas')
+          .select('id')
+          .eq('area_id', areaId)
+          .eq('user_id', residentId)
+          .gte('data_reserva', today.toIso8601String().split('T')[0])
+          .inFilter('status', ['pendente', 'aprovado'])
+          .maybeSingle();
 
-      if (residentFutureBooking != null) {
+      if (residentFuture != null) {
         return const Failure('Você já possui uma reserva ativa para este espaço.');
       }
 
-      await _powerSyncService.db.execute(
-        '''INSERT INTO reservas_areas 
-           (id, condominio_id, area_id, resident_id, booking_date, status, created_at) 
-           VALUES (?, ?, ?, ?, ?, ?, ?)''',
-        [
-          const Uuid().v4(),
-          condominiumId,
-          areaId,
-          residentId,
-          dateStr,
-          'confirmed',
-          now.toIso8601String(),
-        ],
-      );
+      // Fetch area to check aprovacao_automatica
+      final areaData = await _supabase
+          .from('areas_comuns')
+          .select('aprovacao_automatica')
+          .eq('id', areaId)
+          .maybeSingle();
+
+      final autoApprove = areaData?['aprovacao_automatica'] == true;
+
+      await _supabase.from('reservas').insert({
+        'id': const Uuid().v4(),
+        'area_id': areaId,
+        'user_id': residentId,
+        'condominio_id': condominiumId,
+        'data_reserva': dateStr,
+        'status': autoApprove ? 'aprovado' : 'pendente',
+        'created_at': now.toIso8601String(),
+        'updated_at': now.toIso8601String(),
+      });
+
       return const Success(null);
     } catch (e) {
       return Failure('Erro ao realizar reserva: $e');
@@ -110,26 +164,30 @@ class BookingRepositoryImpl implements BookingRepository {
   }
 
   @override
-  Future<Result<void>> cancelBooking({required String bookingId, required String residentId}) async {
+  Future<Result<void>> cancelBooking({
+    required String bookingId,
+    required String residentId,
+  }) async {
     try {
-      // Validate ownership
-      final booking = await _powerSyncService.db.getOptional(
-        'SELECT resident_id FROM reservas_areas WHERE id = ?',
-        [bookingId],
-      );
+      final booking = await _supabase
+          .from('reservas')
+          .select('user_id')
+          .eq('id', bookingId)
+          .maybeSingle();
 
       if (booking == null) {
         return const Failure('Reserva não encontrada.');
       }
 
-      if (booking['resident_id'] != residentId) {
+      if (booking['user_id'] != residentId) {
         return const Failure('Você não tem permissão para cancelar esta reserva.');
       }
 
-      await _powerSyncService.db.execute(
-        'UPDATE reservas_areas SET status = ? WHERE id = ?',
-        ['cancelled', bookingId],
-      );
+      await _supabase
+          .from('reservas')
+          .update({'status': 'cancelado', 'updated_at': DateTime.now().toIso8601String()})
+          .eq('id', bookingId);
+
       return const Success(null);
     } catch (e) {
       return Failure('Erro ao cancelar reserva: $e');

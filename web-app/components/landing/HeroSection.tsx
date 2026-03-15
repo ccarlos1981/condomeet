@@ -101,7 +101,7 @@ export default function HeroSection() {
                 <div className="lp-glass rounded-2xl p-3 border border-lp-accent/20 mb-3">
                   <div className="flex items-start gap-2.5">
                     <div className="w-8 h-8 rounded-xl bg-lp-accent/20 flex items-center justify-center flex-shrink-0">
-                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#E85D26" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#FC3951" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                         <path d="M20 12V22H4V12"/><path d="M22 7H2v5h20V7z"/><path d="M12 22V7"/><path d="M12 7H7.5a2.5 2.5 0 0 1 0-5C11 2 12 7 12 7z"/><path d="M12 7h4.5a2.5 2.5 0 0 0 0-5C13 2 12 7 12 7z"/>
                       </svg>
                     </div>
@@ -142,7 +142,7 @@ export default function HeroSection() {
             <div className="absolute -right-6 bottom-24 lp-glass border border-white/12 rounded-2xl px-3 py-2.5 shadow-xl">
               <div className="flex items-center gap-2">
                 <div className="w-5 h-5 rounded-lg bg-lp-accent/20 flex items-center justify-center">
-                  <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="#E85D26" strokeWidth="2.5" strokeLinecap="round">
+                  <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="#FC3951" strokeWidth="2.5" strokeLinecap="round">
                     <path d="M20 6 9 17l-5-5"/>
                   </svg>
                 </div>

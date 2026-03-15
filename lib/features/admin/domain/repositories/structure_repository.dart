@@ -20,5 +20,6 @@ abstract class StructureRepository {
     required List<String> blocoIds,
     required List<String> apartamentoIds,
   });
+  Future<void> addUnidade(String condominiumId, String blocoId, String aptoNumero);
   Future<void> deleteUnidade(String unidadeId);
 }

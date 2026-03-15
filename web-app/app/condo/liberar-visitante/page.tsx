@@ -15,12 +15,13 @@ export default async function LiberarVisitantePage() {
 
   const condoId = profile?.condominio_id ?? ''
 
-  // 1) Fetch convites without join — only real columns from migrations
+  // 1) Fetch convites without join — only real columns from migrations (últimos 5)
   const { data: convites, error: convitesError } = await supabase
     .from('convites')
     .select('id, qr_data, guest_name, visitor_type, visitante_compareceu, validity_date, created_at, liberado_em, resident_id, status')
     .eq('condominio_id', condoId)
     .order('created_at', { ascending: false })
+    .limit(5)
 
   if (convitesError) console.error('❌ convites:', JSON.stringify(convitesError))
 
@@ -51,6 +52,7 @@ export default async function LiberarVisitantePage() {
         initialInvitations={invitations}
         condoId={condoId}
         userId={user.id}
+        initialLimit={5}
       />
     </div>
   )

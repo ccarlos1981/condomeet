@@ -43,6 +43,7 @@ class WatchDocumentsRequested extends DocumentEvent {
   List<Object?> get props => [condominiumId];
 }
 
+// ignore: unused_element
 class _UpdateDocuments extends DocumentEvent {
   final List<CondoDocument> documents;
   const _UpdateDocuments(this.documents);

@@ -55,7 +55,7 @@ export default function ReservasAdminClient({ reservas: initial, tiposAgenda }: 
   return (
     <div className="max-w-5xl">
       <div className="flex items-center gap-3 mb-6">
-        <ClipboardList size={22} className="text-[#E85D26]" />
+        <ClipboardList size={22} className="text-[#FC3951]" />
         <div>
           <h1 className="text-2xl font-bold text-gray-900">Aprovar Reservas</h1>
           <p className="text-sm text-gray-500">Gerencie as solicitações de reserva dos moradores.</p>
@@ -67,7 +67,7 @@ export default function ReservasAdminClient({ reservas: initial, tiposAgenda }: 
         <select
           value={filterTipo}
           onChange={e => setFilterTipo(e.target.value)}
-          className="border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#E85D26]/30"
+          className="border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#FC3951]/30"
         >
           <option value="">Todos os tipos</option>
           {tiposAgenda.map(t => <option key={t}>{t}</option>)}
@@ -84,7 +84,7 @@ export default function ReservasAdminClient({ reservas: initial, tiposAgenda }: 
               onClick={() => setFilterStatus(b.val as typeof filterStatus)}
               className={`px-4 py-2 text-sm font-medium transition-colors ${
                 filterStatus === b.val
-                  ? 'bg-[#E85D26] text-white'
+                  ? 'bg-[#FC3951] text-white'
                   : 'text-gray-600 hover:bg-gray-50'
               }`}
             >
@@ -105,7 +105,7 @@ export default function ReservasAdminClient({ reservas: initial, tiposAgenda }: 
         <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-x-auto">
           <table className="w-full text-sm">
             <thead>
-              <tr className="bg-[#E85D26] text-white">
+              <tr className="bg-[#FC3951] text-white">
                 <th className="text-left px-4 py-3 font-semibold">Tipo Agenda</th>
                 <th className="text-left px-4 py-3 font-semibold">Nome do Evento</th>
                 <th className="px-4 py-3 font-semibold">Data</th>

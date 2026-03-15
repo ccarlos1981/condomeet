@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:condomeet/core/design_system/design_system.dart';
 import 'package:condomeet/features/auth/presentation/bloc/auth_bloc.dart';
-import 'package:condomeet/shared/models/unidade.dart';
 import '../bloc/structure_bloc.dart';
 import '../bloc/structure_event.dart';
 import '../bloc/structure_state.dart';
@@ -37,7 +36,7 @@ class _BlockDetailScreenState extends State<BlockDetailScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFFF5F5F5),
+      backgroundColor: AppColors.surface,
       appBar: AppBar(
         title: Text(widget.blocoNome, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
         backgroundColor: AppColors.primary,

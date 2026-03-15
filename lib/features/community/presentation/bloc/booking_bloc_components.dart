@@ -102,6 +102,7 @@ class CancelBookingRequested extends BookingEvent {
   List<Object?> get props => [bookingId, residentId];
 }
 
+// ignore: unused_element
 class _UpdateCommonAreas extends BookingEvent {
   final List<CommonArea> areas;
   const _UpdateCommonAreas(this.areas);
@@ -110,6 +111,7 @@ class _UpdateCommonAreas extends BookingEvent {
   List<Object?> get props => [areas];
 }
 
+// ignore: unused_element
 class _UpdateAvailability extends BookingEvent {
   final List<AvailabilitySlot> availability;
   const _UpdateAvailability(this.availability);

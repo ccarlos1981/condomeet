@@ -36,7 +36,7 @@ class _OccurrenceAdminScreenState extends State<OccurrenceAdminScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFFF5F5F5),
+      backgroundColor: AppColors.surface,
       appBar: AppBar(
         title: const Text(
           'Livro de Ocorrências',
@@ -183,7 +183,7 @@ class _OccurrenceAdminCardState extends State<_OccurrenceAdminCard> {
           // Header
           Container(
             decoration: const BoxDecoration(
-              color: Color(0xFFF8F8F8),
+              color: AppColors.surface,
               borderRadius: BorderRadius.only(
                 topLeft: Radius.circular(12),
                 topRight: Radius.circular(12),
@@ -295,7 +295,7 @@ class _OccurrenceAdminCardState extends State<_OccurrenceAdminCard> {
                       hintText: 'Digite aqui a resposta para o Morador',
                       hintStyle: TextStyle(color: AppColors.textSecondary.withValues(alpha: 0.6), fontSize: 14),
                       filled: true,
-                      fillColor: const Color(0xFFF9F9F9),
+                      fillColor: AppColors.surface,
                       border: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(8),
                         borderSide: BorderSide(color: AppColors.border),
@@ -356,7 +356,7 @@ class _OccurrenceAdminCardState extends State<_OccurrenceAdminCard> {
   Widget _row(String label, String value, {bool bold = false}) {
     return RichText(
       text: TextSpan(
-        style: const TextStyle(fontSize: 14, color: Color(0xFF333333)),
+        style: const TextStyle(fontSize: 14, color: AppColors.textMain),
         children: [
           TextSpan(text: '$label ', style: const TextStyle(fontWeight: FontWeight.w600)),
           TextSpan(

@@ -5,9 +5,6 @@ import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:qr_flutter/qr_flutter.dart';
 import 'package:share_plus/share_plus.dart';
-import 'package:condomeet/core/design_system/theme.dart';
-import 'package:condomeet/core/design_system/condo_button.dart';
-import 'package:condomeet/core/design_system/condo_input.dart';
 import 'package:condomeet/features/auth/presentation/bloc/auth_bloc.dart';
 import '../bloc/invitation_bloc.dart';
 import '../bloc/invitation_event.dart';
@@ -202,16 +199,19 @@ class _InvitationGeneratorScreenState extends State<InvitationGeneratorScreen> {
               data: qrData,
               version: QrVersions.auto,
               size: 200.0,
-              foregroundColor: AppColors.primary,
+              eyeStyle: const QrEyeStyle(eyeShape: QrEyeShape.square, color: AppColors.primary),
+              dataModuleStyle: const QrDataModuleStyle(dataModuleShape: QrDataModuleShape.square, color: AppColors.primary),
             ),
             const SizedBox(height: 32),
             CondoButton(
               label: 'Compartilhar',
               onPressed: () {
                 HapticFeedback.mediumImpact();
-                Share.share(
-                  'Olá $guestName! Aqui está seu convite para entrar no condomínio: $qrData',
-                  subject: 'Convite para visita - Condomeet',
+                SharePlus.instance.share(
+                  ShareParams(
+                    text: 'Olá $guestName! Aqui está seu convite para entrar no condomínio: $qrData',
+                    title: 'Convite para visita - Condomeet',
+                  ),
                 );
               },
             ),

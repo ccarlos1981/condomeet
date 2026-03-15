@@ -12,7 +12,7 @@ CREATE TABLE IF NOT EXISTS public.fale_sindico_threads (
   tipo            TEXT        NOT NULL CHECK (tipo IN ('reclamacao', 'elogio', 'pendencia', 'sugestao', 'duvida')),
   assunto         TEXT        NOT NULL,
   status          TEXT        NOT NULL DEFAULT 'aberto' CHECK (status IN ('aberto', 'respondido', 'fechado')),
-  ultima_mensagem_at TIMESTAMPTZ DEFAULT now() NOT NULL,
+  ultima_mensagem_em TIMESTAMPTZ DEFAULT now() NOT NULL,
   created_at      TIMESTAMPTZ DEFAULT now() NOT NULL
 );
 

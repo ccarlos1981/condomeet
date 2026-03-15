@@ -165,7 +165,7 @@ function DeliveryModal({ parcel, condoId, onClose, onConfirm }: DeliveryModalPro
                     setIsThirdParty(false)
                   }}
                   disabled={isThirdParty}
-                  className="w-full px-4 py-3 pr-10 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-[#E85D26] appearance-none bg-white disabled:opacity-50"
+                  className="w-full px-4 py-3 pr-10 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-[#FC3951] appearance-none bg-white disabled:opacity-50"
                 >
                   <option value="">Selecione o morador</option>
                   {residents.map(r => (
@@ -187,7 +187,7 @@ function DeliveryModal({ parcel, condoId, onClose, onConfirm }: DeliveryModalPro
                   setIsThirdParty(e.target.checked)
                   if (e.target.checked) setPickedById(null)
                 }}
-                className="rounded border-gray-300 text-[#E85D26] focus:ring-[#E85D26]"
+                className="rounded border-gray-300 text-[#FC3951] focus:ring-[#FC3951]"
               />
               <span className="text-sm font-semibold text-gray-700">Entregando a terceiro(a):</span>
             </label>
@@ -199,7 +199,7 @@ function DeliveryModal({ parcel, condoId, onClose, onConfirm }: DeliveryModalPro
                 onChange={e => setThirdPartyName(e.target.value)}
                 placeholder="Nome completo do terceiro"
                 autoFocus
-                className="w-full px-4 py-3 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-[#E85D26] bg-gray-50"
+                className="w-full px-4 py-3 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-[#FC3951] bg-gray-50"
               />
             )}
           </div>
@@ -330,7 +330,7 @@ export default function ParcelList({ initialParcels, isPorter, condoId }: Props)
       <div className="grid grid-cols-3 gap-4 mb-6">
         {[
           { label: 'Total', value: parcels.length, color: 'text-gray-900' },
-          { label: 'Aguardando', value: pending, color: 'text-[#E85D26]' },
+          { label: 'Aguardando', value: pending, color: 'text-[#FC3951]' },
           { label: 'Entregues', value: delivered, color: 'text-green-600' },
         ].map(s => (
           <div key={s.label} className="bg-white rounded-2xl border border-gray-100 shadow-sm p-4 text-center">
@@ -348,7 +348,7 @@ export default function ParcelList({ initialParcels, isPorter, condoId }: Props)
               key={f}
               onClick={() => { setStatusFilter(f); setPage(1) }}
               className={`px-4 py-2 text-sm font-medium transition-colors ${
-                statusFilter === f ? 'bg-[#E85D26] text-white' : 'text-gray-500 hover:bg-gray-50'
+                statusFilter === f ? 'bg-[#FC3951] text-white' : 'text-gray-500 hover:bg-gray-50'
               }`}
             >
               {f === 'all' ? '• Todos' : f === 'pending' ? 'Aguardando' : 'Entregues'}
@@ -361,7 +361,7 @@ export default function ParcelList({ initialParcels, isPorter, condoId }: Props)
             <select
               value={blocoFilter}
               onChange={e => { setBlocoFilter(e.target.value); setAptoFilter(''); setPage(1) }}
-              className="px-3 py-2 border border-gray-200 rounded-xl text-sm bg-white shadow-sm focus:outline-none focus:ring-2 focus:ring-[#E85D26]"
+              className="px-3 py-2 border border-gray-200 rounded-xl text-sm bg-white shadow-sm focus:outline-none focus:ring-2 focus:ring-[#FC3951]"
             >
               <option value="">Bloco</option>
               {uniqueBlocos.map(b => <option key={b} value={b}>{b}</option>)}
@@ -369,7 +369,7 @@ export default function ParcelList({ initialParcels, isPorter, condoId }: Props)
             <select
               value={aptoFilter}
               onChange={e => { setAptoFilter(e.target.value); setPage(1) }}
-              className="px-3 py-2 border border-gray-200 rounded-xl text-sm bg-white shadow-sm focus:outline-none focus:ring-2 focus:ring-[#E85D26]"
+              className="px-3 py-2 border border-gray-200 rounded-xl text-sm bg-white shadow-sm focus:outline-none focus:ring-2 focus:ring-[#FC3951]"
             >
               <option value="">Apto</option>
               {uniqueAptos.map(a => <option key={a} value={a}>{a}</option>)}
@@ -405,7 +405,7 @@ export default function ParcelList({ initialParcels, isPorter, condoId }: Props)
               >
                 {/* Card header */}
                 <div className={`flex items-center justify-between px-5 py-3 ${
-                  delivered ? 'bg-green-50' : 'bg-[#E85D26]'
+                  delivered ? 'bg-green-50' : 'bg-[#FC3951]'
                 }`}>
                   <div className="flex items-center gap-3">
                     <div className={`w-9 h-9 rounded-xl flex items-center justify-center ${
@@ -467,7 +467,7 @@ export default function ParcelList({ initialParcels, isPorter, condoId }: Props)
                           )}
                         </div>
                       ) : (
-                        <div className="flex items-center gap-1.5 text-[#E85D26] text-sm font-medium">
+                        <div className="flex items-center gap-1.5 text-[#FC3951] text-sm font-medium">
                           <Clock size={15} />
                           <span>Aguardando retirada</span>
                         </div>
@@ -479,7 +479,7 @@ export default function ParcelList({ initialParcels, isPorter, condoId }: Props)
                       {p.photo_url && (
                         <button
                           onClick={() => setPhotoModal(p.photo_url!)}
-                          className="w-14 h-14 rounded-xl overflow-hidden border-2 border-gray-200 hover:border-[#E85D26] transition-colors shadow-sm flex-shrink-0"
+                          className="w-14 h-14 rounded-xl overflow-hidden border-2 border-gray-200 hover:border-[#FC3951] transition-colors shadow-sm flex-shrink-0"
                           title="Ver foto da encomenda"
                         >
                           {/* eslint-disable-next-line @next/next/no-img-element */}

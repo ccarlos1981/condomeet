@@ -5,9 +5,7 @@ import 'package:condomeet/core/design_system/design_system.dart';
 import 'package:condomeet/core/di/injection_container.dart';
 import 'package:condomeet/core/errors/result.dart';
 import 'package:condomeet/features/auth/presentation/bloc/auth_bloc.dart';
-import 'package:condomeet/features/auth/presentation/bloc/auth_state.dart';
 import 'package:condomeet/features/portaria/domain/repositories/resident_repository.dart';
-import 'package:condomeet/features/portaria/data/repositories/resident_repository_impl.dart';
 import 'package:condomeet/core/utils/structure_helper.dart';
 
 class ResidentSearchScreen extends StatefulWidget {

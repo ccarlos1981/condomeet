@@ -11,8 +11,10 @@ const ALL_FUNCTIONS = [
   { id: 'occurrences',       label: 'Ocorrências',             icon: 'warning',       emoji: '⚠️', route: '/report-occurrence',           defaultRoles: ['morador'] },
   { id: 'bookings',          label: 'Reservas',                icon: 'calendar_month',emoji: '📅', route: '/area-booking',                defaultRoles: ['morador'] },
   { id: 'documents',         label: 'Documentos',              icon: 'file_copy',     emoji: '📄', route: '/document-center',             defaultRoles: ['morador'] },
+  { id: 'contracts',         label: 'Contratos',               icon: 'description',   emoji: '📋', route: '/contratos',                    defaultRoles: ['morador'] },
   { id: 'parcel_history',    label: 'Histórico Encomendas',    icon: 'history',       emoji: '🕓', route: '/parcel-history',              defaultRoles: ['morador'] },
   { id: 'avisos',            label: 'Avisos',                  icon: 'campaign',      emoji: '📢', route: '/avisos',                      defaultRoles: ['morador'] },
+  { id: 'enquetes',          label: 'Enquetes',                icon: 'bar_chart',     emoji: '📊', route: '/enquetes',                    defaultRoles: ['morador'] },
   { id: 'visitor_approval',  label: 'Liberar Visitante',       icon: 'check_circle',  emoji: '✅', route: '/portaria-visitor-approval',   defaultRoles: ['portaria'] },
   { id: 'parcel_reg',        label: 'Registrar Encomenda',     icon: 'add_box',       emoji: '➕', route: '/parcel-registration',         defaultRoles: ['portaria'] },
   { id: 'pending_del',       label: 'Entregas Pendentes',      icon: 'local_shipping',emoji: '🚚', route: '/pending-deliveries',          defaultRoles: ['portaria'] },
@@ -20,16 +22,27 @@ const ALL_FUNCTIONS = [
   { id: 'resident_search',   label: 'Busca Moradores',         icon: 'person_search', emoji: '🔍', route: '/resident-search',             defaultRoles: ['sindico'] },
   { id: 'condo_structure',   label: 'Estrutura do Condomínio', icon: 'apartment',     emoji: '🏢', route: '/condo-structure',             defaultRoles: ['sindico'] },
   { id: 'assemblies',        label: 'Assembleias',             icon: 'groups',        emoji: '👥', route: '/assemblies',                  defaultRoles: ['sindico'] },
+  { id: 'fale_sindico',      label: 'Fale com o Síndico',      icon: 'forum',         emoji: '💬', route: '/fale-sindico',                defaultRoles: ['morador'] },
+  { id: 'registro_turno',   label: 'Registro de Turno',       icon: 'assignment',    emoji: '📝', route: '/registro-turno',             defaultRoles: ['portaria'] },
+  { id: 'visitor_register', label: 'Registrar Visitante',     icon: 'badge',         emoji: '🪪', route: '/registrar-visitante',       defaultRoles: ['portaria'] },
 ]
 
 // Normalize role name → key: "Porteiro (a)" → "portaria"
 function normalizeRole(raw: string): string {
-  const key = raw.toLowerCase().replace(/\s*\(.*?\)/g, '').replace(/[^a-záàéíóúãõâêôç]/g, '_').trim()
+  const key = raw.toLowerCase().replace(/\s*\(.*?\)/g, '').replace(/[^a-záàéíóúãõâêôç]/g, '_').replace(/_+/g, '_').replace(/^_|_$/g, '').trim()
   const aliases: Record<string, string> = {
-    porteiro: 'portaria', sindico: 'sindico', 'síndico': 'sindico',
+    porteiro: 'portaria',
+    sindico: 'sindico', 'síndico': 'sindico',
     sub_sindico: 'sub_sindico', 'sub_síndico': 'sub_sindico',
-    admin: 'admin', zelador: 'zelador', funcionario: 'funcionario',
-    'funcionário': 'funcionario', locatario: 'locatario', 'locatário': 'locatario',
+    admin: 'admin', zelador: 'zelador',
+    funcionario: 'funcionario', 'funcionário': 'funcionario',
+    morador: 'morador',
+    proprietario: 'proprietario', 'proprietário': 'proprietario',
+    'proprietário_não_morador': 'proprietario_nao_morador',
+    'proprietario_não_morador': 'proprietario_nao_morador',
+    proprietario_nao_morador: 'proprietario_nao_morador',
+    inquilino: 'inquilino',
+    locatario: 'locatario', 'locatário': 'locatario',
     locador: 'locador', afiliado: 'afiliado', terceirizado: 'terceirizado',
     financeiro: 'financeiro', servicos: 'servicos', 'serviços': 'servicos',
   }
@@ -50,15 +63,22 @@ interface Props {
 }
 
 export default function ConfigurarAcessoClient({ initialConfig, condominioId, dbRoles }: Props) {
-  // Build role list
+  // Build role list — complete list of all possible profiles
   const roleMap: Record<string, RoleDef> = {
-    morador:  { key: 'morador',  label: 'Morador' },
-    portaria: { key: 'portaria', label: 'Portaria' },
-    sindico:  { key: 'sindico',  label: 'Síndico' },
+    morador:                 { key: 'morador',                 label: 'Morador (a)' },
+    proprietario:            { key: 'proprietario',            label: 'Proprietário (a)' },
+    proprietario_nao_morador:{ key: 'proprietario_nao_morador', label: 'Proprietário não morador' },
+    inquilino:               { key: 'inquilino',               label: 'Inquilino (a)' },
+    locatario:               { key: 'locatario',               label: 'Locatário (a)' },
+    funcionario:             { key: 'funcionario',             label: 'Funcionário (a)' },
+    portaria:                { key: 'portaria',                label: 'Porteiro (a)' },
+    zelador:                 { key: 'zelador',                 label: 'Zelador (a)' },
+    sindico:                 { key: 'sindico',                 label: 'Síndico (a)' },
+    sub_sindico:             { key: 'sub_sindico',             label: 'Sub Síndico (a)' },
   }
   for (const raw of dbRoles) {
     const key = normalizeRole(raw)
-    roleMap[key] = { key, label: raw }
+    if (!roleMap[key]) roleMap[key] = { key, label: raw }
   }
   const roles = Object.values(roleMap)
 
@@ -108,9 +128,9 @@ export default function ConfigurarAcessoClient({ initialConfig, condominioId, db
       const merged = {
         ...initialConfig,
         functions: functionsJson,
-        resident_menu: buildLegacy(functions, ['morador']),
-        porter_menu:   buildLegacy(functions, ['portaria', 'porteiro']),
-        admin_menu:    buildLegacy(functions, ['sindico', 'admin']),
+        resident_menu: buildLegacy(functions, ['morador', 'proprietario', 'proprietario_nao_morador', 'inquilino', 'locatario']),
+        porter_menu:   buildLegacy(functions, ['portaria', 'funcionario', 'zelador']),
+        admin_menu:    buildLegacy(functions, ['sindico', 'sub_sindico']),
       }
       await fetch('/api/admin/save-menu-config', {
         method: 'POST',
@@ -145,7 +165,7 @@ export default function ConfigurarAcessoClient({ initialConfig, condominioId, db
         <button
           onClick={handleSave}
           disabled={isPending}
-          className="flex items-center gap-2 bg-[#E85D26] text-white px-5 py-2.5 rounded-xl font-semibold text-sm hover:bg-[#c94e1f] transition-colors disabled:opacity-60"
+          className="flex items-center gap-2 bg-[#FC3951] text-white px-5 py-2.5 rounded-xl font-semibold text-sm hover:bg-[#D4253D] transition-colors disabled:opacity-60"
         >
           <Save size={16} />
           {isPending ? 'Salvando…' : saved ? '✅ Salvo!' : 'Salvar alterações'}
@@ -168,6 +188,7 @@ export default function ConfigurarAcessoClient({ initialConfig, condominioId, db
           <tbody>
             {ALL_FUNCTIONS.map((def, fnIndex) => {
               const fn = functions[fnIndex]
+              if (!fn) return null
               const anyChecked = roles.some(r => fn.roles[r.key]?.visible)
               return (
                 <tr key={def.id} className={`border-b border-gray-50 hover:bg-gray-50 transition-colors ${!anyChecked ? 'opacity-50' : ''}`}>
@@ -183,7 +204,7 @@ export default function ConfigurarAcessoClient({ initialConfig, condominioId, db
                           className="inline-flex items-center justify-center w-7 h-7 rounded-lg hover:bg-gray-100 transition-colors"
                         >
                           {checked
-                            ? <CheckSquare size={20} className="text-[#E85D26]" />
+                            ? <CheckSquare size={20} className="text-[#FC3951]" />
                             : <Square size={20} className="text-gray-300" />}
                         </button>
                       </td>

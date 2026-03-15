@@ -8,7 +8,6 @@ import '../../../parcels/presentation/bloc/parcel_state.dart';
 import '../../../portaria/domain/entities/parcel.dart';
 
 import 'package:condomeet/features/auth/presentation/bloc/auth_bloc.dart';
-import 'package:condomeet/features/auth/presentation/bloc/auth_state.dart';
 
 class ParcelHistoryScreen extends StatefulWidget {
   final String? residentId; // Null means Porter view (all history)
@@ -35,7 +34,7 @@ class _ParcelHistoryScreenState extends State<ParcelHistoryScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFFF8F9FA),
+      backgroundColor: AppColors.surface,
       appBar: AppBar(
         title: const Text('Histórico de Encomendas'),
         backgroundColor: Colors.white,
@@ -71,7 +70,7 @@ class _ParcelHistoryScreenState extends State<ParcelHistoryScreen> {
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          const Icon(Icons.history, size: 80, color: Color(0xFFCED4DA)),
+          const Icon(Icons.history, size: 80, color: AppColors.disabledIcon),
           const SizedBox(height: 16),
           Text('Nenhum registro', style: AppTypography.h2),
           const SizedBox(height: 8),
@@ -111,7 +110,7 @@ class _ParcelHistoryScreenState extends State<ParcelHistoryScreen> {
         borderRadius: BorderRadius.circular(16),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.05),
+            color: Colors.black.withValues(alpha: 0.05),
             blurRadius: 10,
             offset: const Offset(0, 4),
           ),
@@ -121,7 +120,7 @@ class _ParcelHistoryScreenState extends State<ParcelHistoryScreen> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           CircleAvatar(
-            backgroundColor: Colors.green.withOpacity(0.1),
+            backgroundColor: Colors.green.withValues(alpha: 0.1),
             child: const Icon(Icons.check, color: Colors.green),
           ),
           const SizedBox(width: 16),

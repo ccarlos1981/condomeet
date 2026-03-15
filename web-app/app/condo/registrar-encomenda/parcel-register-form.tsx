@@ -289,7 +289,7 @@ export default function ParcelRegisterForm({ condoId, registeredById, units }: P
                   onClick={() => setTipo(t.value)}
                   className={`flex flex-col items-center gap-2 p-4 rounded-xl border-2 transition-all duration-150 ${
                     active
-                      ? 'border-[#E85D26] bg-[#E85D26]/5 text-[#E85D26]'
+                      ? 'border-[#FC3951] bg-[#FC3951]/5 text-[#FC3951]'
                       : 'border-gray-100 bg-gray-50 text-gray-500 hover:border-gray-200'
                   }`}
                 >
@@ -313,7 +313,7 @@ export default function ParcelRegisterForm({ condoId, registeredById, units }: P
                 value={blocoSel}
                 onChange={e => setBlocoSel(e.target.value)}
                 required
-                className="w-full px-3 py-2.5 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-[#E85D26] bg-gray-50"
+                className="w-full px-3 py-2.5 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-[#FC3951] bg-gray-50"
               >
                 <option value="">Selecione o Bloco</option>
                 {blocos.map(b => (
@@ -328,7 +328,7 @@ export default function ParcelRegisterForm({ condoId, registeredById, units }: P
                 onChange={e => setAptoSel(e.target.value)}
                 required
                 disabled={!blocoSel}
-                className="w-full px-3 py-2.5 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-[#E85D26] bg-gray-50 disabled:opacity-50"
+                className="w-full px-3 py-2.5 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-[#FC3951] bg-gray-50 disabled:opacity-50"
               >
                 <option value="">Selecione o Apto</option>
                 {uniqueAptos.map(a => (
@@ -340,9 +340,9 @@ export default function ParcelRegisterForm({ condoId, registeredById, units }: P
 
           {/* Resident preview */}
           {selectedUnit?.residentName ? (
-            <div className="flex items-center gap-3 bg-[#E85D26]/5 border border-[#E85D26]/20 rounded-xl px-4 py-3">
-              <div className="w-9 h-9 rounded-xl bg-[#E85D26]/10 flex items-center justify-center flex-shrink-0">
-                <span className="text-[#E85D26] font-bold text-sm">
+            <div className="flex items-center gap-3 bg-[#FC3951]/5 border border-[#FC3951]/20 rounded-xl px-4 py-3">
+              <div className="w-9 h-9 rounded-xl bg-[#FC3951]/10 flex items-center justify-center flex-shrink-0">
+                <span className="text-[#FC3951] font-bold text-sm">
                   {selectedUnit.residentName[0].toUpperCase()}
                 </span>
               </div>
@@ -384,13 +384,13 @@ export default function ParcelRegisterForm({ condoId, registeredById, units }: P
             <button
               type="button"
               onClick={() => setCameraOpen(true)}
-              className="flex flex-col items-center justify-center gap-3 w-full h-40 border-2 border-dashed border-gray-200 rounded-xl cursor-pointer hover:border-[#E85D26] hover:bg-[#E85D26]/5 transition-all group"
+              className="flex flex-col items-center justify-center gap-3 w-full h-40 border-2 border-dashed border-gray-200 rounded-xl cursor-pointer hover:border-[#FC3951] hover:bg-[#FC3951]/5 transition-all group"
             >
-              <div className="w-14 h-14 bg-gray-100 group-hover:bg-[#E85D26]/10 rounded-2xl flex items-center justify-center transition-colors">
-                <Camera size={26} className="text-gray-400 group-hover:text-[#E85D26] transition-colors" />
+              <div className="w-14 h-14 bg-gray-100 group-hover:bg-[#FC3951]/10 rounded-2xl flex items-center justify-center transition-colors">
+                <Camera size={26} className="text-gray-400 group-hover:text-[#FC3951] transition-colors" />
               </div>
               <div className="text-center">
-                <p className="text-sm font-medium text-gray-600 group-hover:text-[#E85D26] transition-colors">
+                <p className="text-sm font-medium text-gray-600 group-hover:text-[#FC3951] transition-colors">
                   Abrir câmera
                 </p>
                 <p className="text-xs text-gray-400 mt-0.5">Tire uma foto da encomenda</p>
@@ -409,7 +409,7 @@ export default function ParcelRegisterForm({ condoId, registeredById, units }: P
             value={trackingCode}
             onChange={e => setTrackingCode(e.target.value)}
             placeholder="Ex: BR123456789BR"
-            className="w-full px-3 py-2.5 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-[#E85D26] bg-gray-50 font-mono tracking-wide"
+            className="w-full px-3 py-2.5 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-[#FC3951] bg-gray-50 font-mono tracking-wide"
           />
         </div>
 
@@ -423,7 +423,7 @@ export default function ParcelRegisterForm({ condoId, registeredById, units }: P
             onChange={e => setObservacao(e.target.value)}
             placeholder="Ex: Pacote danificado, remetente Riachuelo..."
             rows={3}
-            className="w-full px-3 py-2.5 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-[#E85D26] bg-gray-50 resize-none"
+            className="w-full px-3 py-2.5 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-[#FC3951] bg-gray-50 resize-none"
           />
         </div>
 
@@ -448,7 +448,7 @@ export default function ParcelRegisterForm({ condoId, registeredById, units }: P
           <button
             type="submit"
             disabled={submitting}
-            className="flex-1 flex items-center justify-center gap-2 bg-[#E85D26] text-white text-sm font-semibold py-3 rounded-xl hover:bg-[#c44d1e] transition-colors disabled:opacity-60 shadow-sm"
+            className="flex-1 flex items-center justify-center gap-2 bg-[#FC3951] text-white text-sm font-semibold py-3 rounded-xl hover:bg-[#D4253D] transition-colors disabled:opacity-60 shadow-sm"
           >
             {submitting ? (
               <>

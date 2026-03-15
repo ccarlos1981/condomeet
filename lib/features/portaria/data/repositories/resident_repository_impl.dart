@@ -31,34 +31,32 @@ class ResidentRepositoryImpl implements ResidentRepository {
         return const Success([]);
       }
 
+      // Use Supabase directly so the porter can search ALL residents of the
+      // condo — not just those synced locally via PowerSync.
       final sanitizedQuery = '%${query.toLowerCase()}%';
 
-      final results = await _powerSync.db.getAll(
-        '''
-        SELECT 
-          p.*, 
-          p.bloco_txt as block, 
-          p.apto_txt as unit_number, 
-          u.bloqueada as is_blocked,
-          u.id as unit_id
-        FROM perfil p
-        LEFT JOIN unidade_perfil up ON p.id = up.perfil_id
-        LEFT JOIN unidades u ON up.unidade_id = u.id
-        WHERE (LOWER(p.nome_completo) LIKE ? OR p.apto_txt LIKE ?) 
-          AND p.condominio_id = ?
-          AND (p.papel_sistema = 'Morador' OR p.papel_sistema = 'resident' OR p.papel_sistema = 'Síndico')
-          AND p.status_aprovacao = 'aprovado'
-        ''',
-        [sanitizedQuery, sanitizedQuery, condominiumId],
-      );
+      final response = await _supabase
+          .from('perfil')
+          .select('*, bloco_txt, apto_txt')
+          .eq('condominio_id', condominiumId)
+          .or('status_aprovacao.eq.aprovado')
+          .inFilter('papel_sistema', ['Morador', 'resident', 'Síndico'])
+          .or('nome_completo.ilike.$sanitizedQuery,apto_txt.ilike.$sanitizedQuery,bloco_txt.ilike.$sanitizedQuery')
+          .limit(30);
 
-      final allResidents = results.map((row) => Resident.fromMap(row)).toList();
+      final allResidents = (response as List)
+          .map((row) => Resident.fromMap(Map<String, dynamic>.from(row)))
+          .toList();
+
+      // Client-side accent-normalization filter for better matching
       final normalizedQuery = _normalize(query);
       final residents = allResidents.where((r) {
         final normalizedName = _normalize(r.fullName);
         final unit = (r.unitNumber ?? '').toLowerCase();
+        final block = (r.block ?? '').toLowerCase();
         return normalizedName.contains(normalizedQuery) ||
-            unit.contains(query.toLowerCase());
+            unit.contains(query.toLowerCase()) ||
+            block.contains(query.toLowerCase());
       }).toList();
 
       return Success(residents);
@@ -66,6 +64,7 @@ class ResidentRepositoryImpl implements ResidentRepository {
       return Failure('Erro ao buscar moradores: ${e.toString()}');
     }
   }
+
 
   @override
   Future<Result<void>> requestSelfRegistration({

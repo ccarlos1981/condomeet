@@ -1,0 +1,12 @@
+{
+  "deno.enablePaths": [
+    "supabase/functions"
+  ],
+  "deno.importMap": "./supabase/functions/import_map.json",
+  "java.project.sourcePaths": [],
+  "java.import.exclusions": ["**/android/**", "**/build/**"],
+  "java.import.gradle.enabled": false
+}
+
+
+

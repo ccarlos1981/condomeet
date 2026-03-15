@@ -1,0 +1,2 @@
+id,created_at,condominio_id,user_id_sindico,db.perfil_id_sindico,nome_sindico_txt,titulo_cond,obs_cond
+15,2026-02-22 15:11:16.961628-03,41,82c283c5-d2f3-403c-a94e-39d44ead434b,99,Santos,Registo de saída,Aqui você escreverá como foi seu dia no seu turno.

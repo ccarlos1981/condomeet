@@ -78,7 +78,7 @@ class _PortariaVisitorApprovalScreenState
         }
       },
       child: Scaffold(
-        backgroundColor: const Color(0xFFF5F5F5),
+        backgroundColor: AppColors.surface,
         appBar: AppBar(
           backgroundColor: Colors.white,
           elevation: 0,
@@ -348,10 +348,10 @@ class _PortariaVisitorApprovalScreenState
         borderRadius: BorderRadius.circular(12),
         border: isLiberado
             ? Border.all(color: Colors.green.shade200)
-            : Border.all(color: AppColors.primary.withOpacity(0.3)),
+            : Border.all(color: AppColors.primary.withValues(alpha: 0.3)),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.04),
+            color: Colors.black.withValues(alpha: 0.04),
             blurRadius: 6,
             offset: const Offset(0, 2),
           ),
@@ -365,7 +365,7 @@ class _PortariaVisitorApprovalScreenState
             decoration: BoxDecoration(
               color: isLiberado
                   ? Colors.green.shade50
-                  : AppColors.primary.withOpacity(0.08),
+                  : AppColors.primary.withValues(alpha: 0.08),
               borderRadius: const BorderRadius.only(
                 topLeft: Radius.circular(12),
                 topRight: Radius.circular(12),
@@ -405,7 +405,7 @@ class _PortariaVisitorApprovalScreenState
                       ),
                       Text(
                         'Morador: ${inv.residentName ?? '-'}',
-                        style: const TextStyle(fontSize: 11, color: Color(0xFF555555)),
+                        style: const TextStyle(fontSize: 11, color: AppColors.textSecondary),
                         overflow: TextOverflow.ellipsis,
                       ),
                     ],
@@ -416,7 +416,7 @@ class _PortariaVisitorApprovalScreenState
                 Container(
                   padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
                   decoration: BoxDecoration(
-                    color: isLiberado ? Colors.green.shade100 : AppColors.primary.withOpacity(0.1),
+                    color: isLiberado ? Colors.green.shade100 : AppColors.primary.withValues(alpha: 0.1),
                     borderRadius: BorderRadius.circular(6),
                   ),
                   child: Text(
@@ -462,7 +462,7 @@ class _PortariaVisitorApprovalScreenState
                   children: [
                     const Text(
                       'Visitante compareceu',
-                      style: TextStyle(fontSize: 12, color: Color(0xFF555555)),
+                      style: TextStyle(fontSize: 12, color: AppColors.textSecondary),
                     ),
                     const SizedBox(width: 8),
                     Transform.scale(
@@ -474,7 +474,7 @@ class _PortariaVisitorApprovalScreenState
                             : (val) {
                                 if (val) _showConfirmDialog(inv);
                               },
-                        activeColor: AppColors.primary,
+                        activeThumbColor: AppColors.primary,
                       ),
                     ),
                     if (isLiberado)
@@ -500,7 +500,7 @@ class _PortariaVisitorApprovalScreenState
                         ),
                         child: Text(
                           'Solicitação criada em: $createdFormatted',
-                          style: const TextStyle(fontSize: 10, color: Color(0xFF777777)),
+                          style: const TextStyle(fontSize: 10, color: AppColors.textSecondary),
                         ),
                       ),
                     ),
@@ -513,7 +513,7 @@ class _PortariaVisitorApprovalScreenState
                       ),
                       child: Text(
                         'Solicitado por: ${inv.residentName ?? '-'}',
-                        style: const TextStyle(fontSize: 10, color: Color(0xFF777777)),
+                        style: const TextStyle(fontSize: 10, color: AppColors.textSecondary),
                       ),
                     ),
                   ],

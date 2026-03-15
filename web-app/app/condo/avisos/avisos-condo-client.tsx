@@ -45,7 +45,7 @@ export default function AvisosCondoClient({ naoLidos: initialNaoLidos, lidos: in
     <div className="max-w-3xl">
       <div className="mb-8">
         <div className="flex items-center gap-3 mb-1">
-          <Bell size={22} className="text-[#E85D26]" />
+          <Bell size={22} className="text-[#FC3951]" />
           <h1 className="text-2xl font-bold text-gray-900">Avisos do Condomínio</h1>
         </div>
         <p className="text-sm text-gray-500">Comunicados enviados pelo condomínio.</p>
@@ -54,10 +54,10 @@ export default function AvisosCondoClient({ naoLidos: initialNaoLidos, lidos: in
       {/* Não lidos */}
       <section className="mb-8">
         <div className="flex items-center gap-2 mb-3">
-          <Bell size={16} className="text-[#E85D26]" />
+          <Bell size={16} className="text-[#FC3951]" />
           <h2 className="text-base font-semibold text-gray-800">Não lidos</h2>
           {naoLidos.length > 0 && (
-            <span className="bg-[#E85D26] text-white text-xs font-bold px-2 py-0.5 rounded-full">
+            <span className="bg-[#FC3951] text-white text-xs font-bold px-2 py-0.5 rounded-full">
               {naoLidos.length}
             </span>
           )}
@@ -73,7 +73,7 @@ export default function AvisosCondoClient({ naoLidos: initialNaoLidos, lidos: in
             {naoLidos.map(aviso => (
               <div
                 key={aviso.id}
-                className="bg-white rounded-2xl border-l-4 border-l-[#E85D26] border-y border-r border-gray-100 shadow-sm overflow-hidden"
+                className="bg-white rounded-2xl border-l-4 border-l-[#FC3951] border-y border-r border-gray-100 shadow-sm overflow-hidden"
               >
                 <button
                   className="w-full text-left px-5 py-4 flex items-start justify-between gap-3 hover:bg-gray-50 transition-colors"

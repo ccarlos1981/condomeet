@@ -2,14 +2,12 @@ import 'dart:async';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:uuid/uuid.dart';
 import 'package:condomeet/core/errors/result.dart';
-import 'package:condomeet/core/services/powersync_service.dart';
 import '../../domain/repositories/sos_repository.dart';
 
 class SOSRepositoryImpl implements SOSRepository {
-  final PowerSyncService _powerSync;
   final SupabaseClient _supabase;
 
-  SOSRepositoryImpl(this._powerSync, this._supabase);
+  SOSRepositoryImpl(this._supabase);
 
   // ── Trigger SOS ──────────────────────────────────────────────────────────
 
@@ -22,22 +20,19 @@ class SOSRepositoryImpl implements SOSRepository {
   }) async {
     try {
       final id = const Uuid().v4();
-      await _powerSync.db.execute(
-        '''
-        INSERT INTO sos_alertas (id, resident_id, condominio_id, latitude, longitude, status, created_at, updated_at)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-        ''',
-        [
-          id,
-          residentId,
-          condominiumId,
-          latitude,
-          longitude,
-          'active',
-          DateTime.now().toIso8601String(),
-          DateTime.now().toIso8601String(),
-        ],
-      );
+      final now = DateTime.now().toIso8601String();
+      // Use Supabase directly so the alert is immediately visible to
+      // porters/admins without waiting for PowerSync propagation.
+      await _supabase.from('sos_alertas').insert({
+        'id': id,
+        'resident_id': residentId,
+        'condominio_id': condominiumId,
+        'latitude': latitude,
+        'longitude': longitude,
+        'status': 'active',
+        'created_at': now,
+        'updated_at': now,
+      });
       return const Success(null);
     } catch (e) {
       return Failure('Erro ao ativar SOS: ${e.toString()}');
@@ -48,15 +43,25 @@ class SOSRepositoryImpl implements SOSRepository {
 
   @override
   Stream<List<SOSAlert>> watchActiveAlerts(String condominiumId) {
-    return _powerSync.db.watch(
-      '''
-      SELECT s.* FROM sos_alertas s
-      JOIN perfil p ON s.resident_id = p.id
-      WHERE s.condominio_id = ? AND s.status = 'active'
-      ORDER BY s.created_at DESC
-      ''',
-      parameters: [condominiumId],
-    ).map((rows) => rows.map((row) => SOSAlert.fromMap(row)).toList());
+    // Poll every 5s — SOS is time-critical, needs fast updates across devices.
+    return Stream.fromIterable([0])
+        .asyncExpand((_) async* {
+          yield await _fetchActiveAlerts(condominiumId);
+          await for (final _ in Stream.periodic(const Duration(seconds: 5))) {
+            yield await _fetchActiveAlerts(condominiumId);
+          }
+        })
+        .handleError((e) => print('❌ watchActiveAlerts error: $e'));
+  }
+
+  Future<List<SOSAlert>> _fetchActiveAlerts(String condominiumId) async {
+    final rows = await _supabase
+        .from('sos_alertas')
+        .select()
+        .eq('condominio_id', condominiumId)
+        .eq('status', 'active')
+        .order('created_at', ascending: false);
+    return (rows as List).map((r) => SOSAlert.fromMap(r as Map<String, dynamic>)).toList();
   }
 
   // ── Acknowledge alert ────────────────────────────────────────────────────
@@ -64,10 +69,12 @@ class SOSRepositoryImpl implements SOSRepository {
   @override
   Future<Result<void>> acknowledgeAlert(String alertId, String porterId) async {
     try {
-      await _powerSync.db.execute(
-        'UPDATE sos_alertas SET status = ?, acknowledged_by = ?, updated_at = ? WHERE id = ?',
-        ['resolved', porterId, DateTime.now().toIso8601String(), alertId],
-      );
+      // Use Supabase directly — porta must be able to acknowledge any condo alert.
+      await _supabase.from('sos_alertas').update({
+        'status': 'resolved',
+        'acknowledged_by': porterId,
+        'updated_at': DateTime.now().toIso8601String(),
+      }).eq('id', alertId);
       return const Success(null);
     } catch (e) {
       return Failure('Erro ao reconhecer SOS: ${e.toString()}');

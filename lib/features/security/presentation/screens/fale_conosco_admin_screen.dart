@@ -186,7 +186,7 @@ class _FaleConoscoAdminScreenState extends State<FaleConoscoAdminScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFFF5F5F5),
+      backgroundColor: AppColors.surface,
       appBar: AppBar(
         title: const Text('Fale conosco',
             style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700)),
@@ -255,7 +255,7 @@ class _FaleConoscoAdminScreenState extends State<FaleConoscoAdminScreen> {
   Widget _buildChat() {
     final t = _selected!;
     final isClosed = t.status == 'fechado';
-    final emoji = _tipoEmoji[t.tipo] ?? '📋';
+    final emoji = tipoEmoji[t.tipo] ?? '📋';
 
     return Column(
       children: [
@@ -385,7 +385,7 @@ class _AdminThreadCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final date = thread.ultimaMensagemEm ?? thread.createdAt;
     final dateStr = '${date.day.toString().padLeft(2, '0')}/${date.month.toString().padLeft(2, '0')}/${date.year}, ${date.hour.toString().padLeft(2, '0')}:${date.minute.toString().padLeft(2, '0')} ${date.hour < 12 ? 'am' : 'pm'}';
-    final tipoLabel = _tipoLabel[thread.tipo] ?? 'Assunto';
+    final tipoLabelText = tipoLabel[thread.tipo] ?? 'Assunto';
 
     return Container(
       margin: const EdgeInsets.only(bottom: 10),
@@ -394,7 +394,7 @@ class _AdminThreadCard extends StatelessWidget {
         borderRadius: BorderRadius.circular(12),
         border: Border.all(color: Colors.grey.shade200),
         boxShadow: [
-          BoxShadow(color: Colors.black.withOpacity(0.04), blurRadius: 4, offset: const Offset(0, 2)),
+          BoxShadow(color: Colors.black.withValues(alpha: 0.04), blurRadius: 4, offset: const Offset(0, 2)),
         ],
       ),
       child: ListTile(
@@ -412,7 +412,7 @@ class _AdminThreadCard extends StatelessWidget {
             Text('Bloco: ${thread.residentBloco ?? '-'} Apto: ${thread.residentApto ?? '-'}',
                 style: const TextStyle(fontSize: 11, color: Colors.grey)),
             const SizedBox(height: 4),
-            Text(tipoLabel, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w500)),
+            Text(tipoLabelText, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w500)),
             Text(dateStr, style: TextStyle(fontSize: 11, color: Colors.grey.shade500)),
           ],
         ),
@@ -453,7 +453,7 @@ class _AdminBubble extends StatelessWidget {
           ),
           border: isAdmin ? Border.all(color: Colors.grey.shade200) : null,
           boxShadow: [
-            BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 4, offset: const Offset(0, 2)),
+            BoxShadow(color: Colors.black.withValues(alpha: 0.05), blurRadius: 4, offset: const Offset(0, 2)),
           ],
         ),
         child: Column(
@@ -493,9 +493,9 @@ class _StatusBadge extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 3),
       decoration: BoxDecoration(
-        color: color.withOpacity(0.12),
+        color: color.withValues(alpha: 0.12),
         borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: color.withOpacity(0.4)),
+        border: Border.all(color: color.withValues(alpha: 0.4)),
       ),
       child: Text(label, style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: color)),
     );

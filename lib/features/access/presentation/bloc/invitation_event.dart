@@ -31,6 +31,7 @@ class WatchCondominiumInvitationsRequested extends InvitationEvent {
   final String? blocoFilter;
   final String? aptoFilter;
   final String? dateFilter;
+  final int? limit;
 
   const WatchCondominiumInvitationsRequested({
     required this.condominiumId,
@@ -39,10 +40,11 @@ class WatchCondominiumInvitationsRequested extends InvitationEvent {
     this.blocoFilter,
     this.aptoFilter,
     this.dateFilter,
+    this.limit,
   });
 
   @override
-  List<Object?> get props => [condominiumId, liberado, codeFilter, blocoFilter, aptoFilter, dateFilter];
+  List<Object?> get props => [condominiumId, liberado, codeFilter, blocoFilter, aptoFilter, dateFilter, limit];
 }
 
 /// Portaria: approve visitor entry
@@ -94,7 +96,7 @@ class LoadResidentInvitationsPaginated extends InvitationEvent {
 
   const LoadResidentInvitationsPaginated({
     required this.residentId,
-    this.limit = 10,
+    this.limit = 5,
     this.offset = 0,
     this.isRefresh = false,
   });
@@ -119,6 +121,7 @@ class CancelInvitationRequested extends InvitationEvent {
   List<Object?> get props => [invitationId];
 }
 
+// ignore: unused_element
 class _UpdateInvitations extends InvitationEvent {
   final List<dynamic> invitations;
   const _UpdateInvitations(this.invitations);

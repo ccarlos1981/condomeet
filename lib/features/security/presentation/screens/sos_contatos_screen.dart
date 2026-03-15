@@ -115,7 +115,7 @@ class _SosContatosScreenState extends State<SosContatosScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFFF5F5F5),
+      backgroundColor: AppColors.surface,
       appBar: AppBar(
         backgroundColor: Colors.white,
         elevation: 0,
@@ -126,7 +126,7 @@ class _SosContatosScreenState extends State<SosContatosScreen> {
         title: const Text(
           'Informações de contato - SOS',
           style: TextStyle(
-            color: Color(0xFF1A1A1A),
+            color: AppColors.textMain,
             fontSize: 16,
             fontWeight: FontWeight.bold,
           ),
@@ -225,7 +225,7 @@ class _SosContatosScreenState extends State<SosContatosScreen> {
                               padding: EdgeInsets.only(top: 11),
                               child: Text(
                                 'Me responsabilizo pelos dados inseridos como contatos.',
-                                style: TextStyle(fontSize: 13, color: Color(0xFF444444)),
+                                style: TextStyle(fontSize: 13, color: AppColors.textMain),
                               ),
                             ),
                           ),
@@ -295,7 +295,7 @@ class _SosContatosScreenState extends State<SosContatosScreen> {
       style: const TextStyle(
         fontSize: 14,
         fontWeight: FontWeight.bold,
-        color: Color(0xFF333333),
+        color: AppColors.textMain,
       ),
     );
   }

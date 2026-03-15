@@ -1,11 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:supabase_flutter/supabase_flutter.dart' hide AuthState;
 import 'package:get_it/get_it.dart';
 import 'package:condomeet/core/design_system/app_colors.dart';
 import 'package:condomeet/core/utils/structure_helper.dart';
-import 'package:mask_text_input_formatter/mask_text_input_formatter.dart';
 import '../bloc/auth_bloc.dart';
 import '../bloc/auth_event.dart';
 import '../bloc/auth_state.dart';
@@ -320,7 +318,7 @@ class _SelfRegistrationScreenState extends State<SelfRegistrationScreen> {
                       Container(
                         padding: const EdgeInsets.all(16),
                         decoration: BoxDecoration(
-                          color: AppColors.primary.withOpacity(0.1),
+                          color: AppColors.primary.withValues(alpha: 0.1),
                           borderRadius: BorderRadius.circular(8),
                           border: Border.all(color: AppColors.primary),
                         ),
@@ -483,13 +481,10 @@ class _SelfRegistrationScreenState extends State<SelfRegistrationScreen> {
                         validator: (v) => v!.isEmpty || v.length < 10 ? 'Telefone inválido' : null,
                       ),
                       const SizedBox(height: 16),
-                      DropdownButtonFormField<String>(
+                      _buildSafeSelector(
+                        label: 'Tipo de Usuário',
                         value: _tipoUsuario,
-                        decoration: InputDecoration(
-                          labelText: 'Tipo de Usuário',
-                          border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
-                        ),
-                        items: [
+                        options: const [
                           'Proprietário (a)',
                           'Inquilino (a)',
                           'Cônjuge',
@@ -497,17 +492,14 @@ class _SelfRegistrationScreenState extends State<SelfRegistrationScreen> {
                           'Família',
                           'Funcionário (a)',
                           'Terceirizado (a)',
-                        ].map((e) => DropdownMenuItem(value: e, child: Text(e))).toList(),
-                        onChanged: (val) => setState(() => _tipoUsuario = val!),
+                        ],
+                        onChanged: (val) => setState(() => _tipoUsuario = val),
                       ),
                       const SizedBox(height: 16),
-                      DropdownButtonFormField<String>(
+                      _buildSafeSelector(
+                        label: 'Perfil de Usuário',
                         value: _perfilUsuario,
-                        decoration: InputDecoration(
-                          labelText: 'Perfil de Usuário',
-                          border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
-                        ),
-                        items: [
+                        options: const [
                           'Morador(a)',
                           'Proprietário não morador',
                           'Locatário (a)',
@@ -521,8 +513,8 @@ class _SelfRegistrationScreenState extends State<SelfRegistrationScreen> {
                           'Terceirizado (a)',
                           'Financeiro',
                           'Serviços',
-                        ].map((e) => DropdownMenuItem(value: e, child: Text(e))).toList(),
-                        onChanged: (val) => setState(() => _perfilUsuario = val!),
+                        ],
+                        onChanged: (val) => setState(() => _perfilUsuario = val),
                       ),
                       const SizedBox(height: 16),
                       CheckboxListTile(
@@ -546,26 +538,24 @@ class _SelfRegistrationScreenState extends State<SelfRegistrationScreen> {
                   children: [
                     const Text('Selecione onde você mora:', style: TextStyle(fontSize: 16)),
                     const SizedBox(height: 16),
-                    DropdownButtonFormField<String>(
+                    _buildSafeSelectorMap(
+                      label: 'Qual seu(sua) ${StructureHelper.getNivel1Label(_selectedTipoEstrutura)}?',
                       value: _selectedBlocoId,
-                      decoration: InputDecoration(
-                        labelText: 'Qual seu(sua) ${StructureHelper.getNivel1Label(_selectedTipoEstrutura)}?',
-                        border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
-                      ),
-                      items: _blocosDisponiveis.map((b) => DropdownMenuItem<String>(value: b['id'], child: Text('${StructureHelper.getNivel1Label(_selectedTipoEstrutura)} ${b['nome_ou_numero']}'))).toList(),
+                      options: _blocosDisponiveis,
+                      idKey: 'id',
+                      labelBuilder: (b) => '${StructureHelper.getNivel1Label(_selectedTipoEstrutura)} ${b['nome_ou_numero']}',
                       onChanged: (val) {
                         setState(() => _selectedBlocoId = val);
                         if (val != null) _fetchApartamentos(val);
                       },
                     ),
                     const SizedBox(height: 16),
-                    DropdownButtonFormField<String>(
+                    _buildSafeSelectorMap(
+                      label: 'Qual seu(sua) ${StructureHelper.getNivel2Label(_selectedTipoEstrutura)}?',
                       value: _selectedApartamentoId,
-                      decoration: InputDecoration(
-                        labelText: 'Qual seu(sua) ${StructureHelper.getNivel2Label(_selectedTipoEstrutura)}?',
-                        border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
-                      ),
-                      items: _apartamentosDisponiveis.map((a) => DropdownMenuItem<String>(value: a['id'], child: Text('${StructureHelper.getNivel2Label(_selectedTipoEstrutura)} ${a['numero']}'))).toList(),
+                      options: _apartamentosDisponiveis,
+                      idKey: 'id',
+                      labelBuilder: (a) => '${StructureHelper.getNivel2Label(_selectedTipoEstrutura)} ${a['numero']}',
                       onChanged: (val) => setState(() => _selectedApartamentoId = val),
                     ),
                     const SizedBox(height: 24),
@@ -580,6 +570,112 @@ class _SelfRegistrationScreenState extends State<SelfRegistrationScreen> {
             ],
           );
         },
+      ),
+    );
+  }
+
+  Widget _buildSafeSelector({
+    required String label,
+    required String value,
+    required List<String> options,
+    required ValueChanged<String> onChanged,
+  }) {
+    return GestureDetector(
+      onTap: () {
+        showModalBottomSheet(
+          context: context,
+          shape: const RoundedRectangleBorder(
+            borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+          ),
+          builder: (ctx) => SafeArea(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Padding(
+                  padding: const EdgeInsets.all(16),
+                  child: Text(label, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+                ),
+                const Divider(height: 1),
+                ...options.map((opt) => ListTile(
+                  title: Text(opt),
+                  trailing: opt == value ? const Icon(Icons.check, color: AppColors.primary) : null,
+                  onTap: () {
+                    Navigator.pop(ctx);
+                    onChanged(opt);
+                  },
+                )),
+                const SizedBox(height: 16),
+              ],
+            ),
+          ),
+        );
+      },
+      child: InputDecorator(
+        decoration: InputDecoration(
+          labelText: label,
+          border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+          suffixIcon: const Icon(Icons.arrow_drop_down),
+        ),
+        child: Text(value, style: const TextStyle(fontSize: 16)),
+      ),
+    );
+  }
+
+  Widget _buildSafeSelectorMap({
+    required String label,
+    required String? value,
+    required List<Map<String, dynamic>> options,
+    required String idKey,
+    required String Function(Map<String, dynamic>) labelBuilder,
+    required ValueChanged<String?> onChanged,
+  }) {
+    final selectedLabel = value != null
+        ? options.where((o) => o[idKey] == value).map(labelBuilder).firstOrNull ?? 'Selecionar...'
+        : 'Selecionar...';
+
+    return GestureDetector(
+      onTap: options.isEmpty ? null : () {
+        showModalBottomSheet(
+          context: context,
+          shape: const RoundedRectangleBorder(
+            borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+          ),
+          builder: (ctx) => SafeArea(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Padding(
+                  padding: const EdgeInsets.all(16),
+                  child: Text(label, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+                ),
+                const Divider(height: 1),
+                ...options.map((opt) => ListTile(
+                  title: Text(labelBuilder(opt)),
+                  trailing: opt[idKey] == value ? const Icon(Icons.check, color: AppColors.primary) : null,
+                  onTap: () {
+                    Navigator.pop(ctx);
+                    onChanged(opt[idKey] as String);
+                  },
+                )),
+                const SizedBox(height: 16),
+              ],
+            ),
+          ),
+        );
+      },
+      child: InputDecorator(
+        decoration: InputDecoration(
+          labelText: label,
+          border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+          suffixIcon: const Icon(Icons.arrow_drop_down),
+        ),
+        child: Text(
+          selectedLabel,
+          style: TextStyle(
+            fontSize: 16,
+            color: value != null ? Colors.black : Colors.grey.shade500,
+          ),
+        ),
       ),
     );
   }

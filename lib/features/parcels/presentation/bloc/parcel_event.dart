@@ -1,5 +1,4 @@
 import 'package:equatable/equatable.dart';
-import '../../../portaria/domain/entities/parcel.dart';
 
 abstract class ParcelEvent extends Equatable {
   const ParcelEvent();

@@ -10,6 +10,7 @@ const ALL_FUNCTIONS = [
   { id: 'occurrences',       label: 'Ocorrências',             icon: 'warning',       emoji: '⚠️' },
   { id: 'bookings',          label: 'Reservas',                icon: 'calendar_month',emoji: '📅' },
   { id: 'documents',         label: 'Documentos',              icon: 'file_copy',     emoji: '📄' },
+  { id: 'contracts',         label: 'Contratos',               icon: 'description',   emoji: '📋' },
   { id: 'parcel_history',    label: 'Histórico Encomendas',    icon: 'history',       emoji: '🕓' },
   { id: 'visitor_approval',  label: 'Liberar Visitante',       icon: 'check_circle',  emoji: '✅' },
   { id: 'parcel_reg',        label: 'Registrar Encomenda',     icon: 'add_box',       emoji: '➕' },
@@ -99,7 +100,7 @@ export default function ConfigurarOrdemClient({ initialConfig, condominioId }: P
         <button
           onClick={handleSave}
           disabled={isPending}
-          className="flex items-center gap-2 bg-[#E85D26] text-white px-5 py-2.5 rounded-xl font-semibold text-sm hover:bg-[#c94e1f] transition-colors disabled:opacity-60"
+          className="flex items-center gap-2 bg-[#FC3951] text-white px-5 py-2.5 rounded-xl font-semibold text-sm hover:bg-[#D4253D] transition-colors disabled:opacity-60"
         >
           <Save size={16} />
           {isPending ? 'Salvando…' : saved ? '✅ Salvo!' : 'Salvar alterações'}
@@ -125,7 +126,7 @@ export default function ConfigurarOrdemClient({ initialConfig, condominioId }: P
               value={orders[def.id] === 99 ? '' : orders[def.id]}
               placeholder="—"
               onChange={e => handleChange(def.id, e.target.value)}
-              className="w-16 text-center text-base font-bold text-gray-700 border border-gray-200 rounded-lg py-1.5 px-1 focus:outline-none focus:ring-2 focus:ring-[#E85D26]/30 focus:border-[#E85D26] bg-gray-50"
+              className="w-16 text-center text-base font-bold text-gray-700 border border-gray-200 rounded-lg py-1.5 px-1 focus:outline-none focus:ring-2 focus:ring-[#FC3951]/30 focus:border-[#FC3951] bg-gray-50"
             />
           </div>
         ))}

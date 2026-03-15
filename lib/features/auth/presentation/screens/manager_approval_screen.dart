@@ -190,7 +190,7 @@ class _ManagerApprovalScreenState extends State<ManagerApprovalScreen> {
   Widget build(BuildContext context) {
     final tipoEstrutura = context.read<AuthBloc>().state.tipoEstrutura;
     return Scaffold(
-      backgroundColor: const Color(0xFFF5F5F5),
+      backgroundColor: AppColors.surface,
       appBar: AppBar(
         backgroundColor: Colors.white,
         elevation: 0,
@@ -217,11 +217,29 @@ class _ManagerApprovalScreenState extends State<ManagerApprovalScreen> {
           _buildSearchBar(),
           if (_isActing)
             LinearProgressIndicator(color: AppColors.primary, backgroundColor: AppColors.primary.withValues(alpha: 0.1)),
+          if (_filter == _StatusFilter.pendentes && _filtered.isNotEmpty)
+            Container(
+              width: double.infinity,
+              color: Colors.orange.shade50,
+              padding: const EdgeInsets.symmetric(vertical: 6, horizontal: 16),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(Icons.swipe, size: 14, color: Colors.orange.shade700),
+                  const SizedBox(width: 6),
+                  Text(
+                    'Deslize para direita → Aprovar    |    ← Esquerda → Recusar',
+                    style: TextStyle(fontSize: 11, color: Colors.orange.shade800),
+                  ),
+                ],
+              ),
+            ),
           Expanded(child: _buildBody(tipoEstrutura)),
         ],
       ),
     );
   }
+
 
   Widget _buildSearchBar() {
     return Container(
@@ -379,9 +397,67 @@ class _ManagerApprovalScreenState extends State<ManagerApprovalScreen> {
     return ListView.builder(
       padding: const EdgeInsets.all(12),
       itemCount: residents.length,
-      itemBuilder: (ctx, i) => _buildCard(residents[i], tipoEstrutura),
+      itemBuilder: (ctx, i) {
+        final resident = residents[i];
+        final isPending = resident.status == 'pendente';
+
+        if (!isPending) {
+          return _buildCard(resident, tipoEstrutura);
+        }
+
+        // ── Swipe-to-approve/reject for pending residents ──
+        return Dismissible(
+          key: ValueKey(resident.id),
+          direction: DismissDirection.horizontal,
+          confirmDismiss: (direction) async {
+            if (_isActing) return false;
+            if (direction == DismissDirection.startToEnd) {
+              await _approveResident(resident);
+            } else {
+              await _rejectResident(resident);
+            }
+            return false;
+          },
+          background: Container(
+            margin: const EdgeInsets.only(bottom: 12),
+            decoration: BoxDecoration(
+              color: Colors.green.shade400,
+              borderRadius: BorderRadius.circular(12),
+            ),
+            alignment: Alignment.centerLeft,
+            padding: const EdgeInsets.symmetric(horizontal: 24),
+            child: const Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(Icons.check_circle_rounded, color: Colors.white, size: 32),
+                SizedBox(height: 4),
+                Text('APROVAR', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 12)),
+              ],
+            ),
+          ),
+          secondaryBackground: Container(
+            margin: const EdgeInsets.only(bottom: 12),
+            decoration: BoxDecoration(
+              color: Colors.red.shade400,
+              borderRadius: BorderRadius.circular(12),
+            ),
+            alignment: Alignment.centerRight,
+            padding: const EdgeInsets.symmetric(horizontal: 24),
+            child: const Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(Icons.cancel_rounded, color: Colors.white, size: 32),
+                SizedBox(height: 4),
+                Text('RECUSAR', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 12)),
+              ],
+            ),
+          ),
+          child: _buildCard(resident, tipoEstrutura),
+        );
+      },
     );
   }
+
 
   Widget _buildCard(Resident resident, String? tipoEstrutura) {
     final isPending = resident.status == 'pendente';
@@ -524,7 +600,7 @@ class _ManagerApprovalScreenState extends State<ManagerApprovalScreen> {
                           Switch(
                             value: isApproved,
                             onChanged: _isActing ? null : (_) => _toggleBlock(resident),
-                            activeColor: Colors.green,
+                            activeThumbColor: Colors.green,
                             inactiveThumbColor: AppColors.error,
                           ),
                         ],
@@ -558,7 +634,7 @@ class _ManagerApprovalScreenState extends State<ManagerApprovalScreen> {
           Icon(icon, size: 13, color: Colors.grey),
           const SizedBox(width: 4),
           Expanded(
-            child: Text(text, style: const TextStyle(fontSize: 12, color: Color(0xFF555555))),
+            child: Text(text, style: const TextStyle(fontSize: 12, color: AppColors.textSecondary)),
           ),
         ],
       ),
