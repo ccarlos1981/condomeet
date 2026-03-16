@@ -3,7 +3,7 @@
 import { useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { useRouter } from 'next/navigation'
-import { Save, AlertTriangle, Loader2 } from 'lucide-react'
+import { Save, AlertTriangle, Loader2, Lock, Eye, EyeOff } from 'lucide-react'
 
 const TIPOS_MORADOR = [
   'Proprietário (a)', 'Inquilino (a)', 'Cônjuge', 'Dependente',
@@ -53,6 +53,15 @@ export default function ProfileForm({
 
   const [aptChanged, setAptChanged] = useState(false)
   const [message, setMessage] = useState<{ text: string; type: 'success' | 'error' | 'warning' } | null>(null)
+
+  // Change password state
+  const [showChangePwd, setShowChangePwd] = useState(false)
+  const [newPwd, setNewPwd] = useState('')
+  const [confirmPwd, setConfirmPwd] = useState('')
+  const [showNewPwd, setShowNewPwd] = useState(false)
+  const [showConfirmPwd, setShowConfirmPwd] = useState(false)
+  const [pwdLoading, setPwdLoading] = useState(false)
+  const [pwdError, setPwdError] = useState('')
 
   async function handleBlocoChange(blocoId: string) {
     const bloco = blocos.find(b => b.id === blocoId)
@@ -223,6 +232,76 @@ export default function ProfileForm({
             </div>
           )}
         </div>
+      </div>
+
+      {/* Segurança */}
+      <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6 mb-6">
+        <h2 className="text-lg font-semibold text-gray-700 mb-4">Segurança</h2>
+        {!showChangePwd ? (
+          <button
+            onClick={() => setShowChangePwd(true)}
+            className="flex items-center gap-2 text-sm text-[#FC3951] hover:underline font-medium"
+          >
+            <Lock size={16} /> Alterar Senha
+          </button>
+        ) : (
+          <div className="space-y-3">
+            <div className="relative">
+              <input
+                type={showNewPwd ? 'text' : 'password'}
+                inputMode="numeric"
+                placeholder="Nova senha (somente números)"
+                value={newPwd}
+                onChange={e => setNewPwd(e.target.value.replace(/\D/g, ''))}
+                className="w-full px-4 py-2.5 pr-11 rounded-xl border border-gray-200 focus:ring-2 focus:ring-[#FC3951]/20 focus:border-[#FC3951] outline-none text-sm"
+              />
+              <button type="button" onClick={() => setShowNewPwd(!showNewPwd)} className="absolute right-3.5 top-1/2 -translate-y-1/2 text-gray-400">
+                {showNewPwd ? <EyeOff size={16}/> : <Eye size={16}/>}
+              </button>
+            </div>
+            <div className="relative">
+              <input
+                type={showConfirmPwd ? 'text' : 'password'}
+                inputMode="numeric"
+                placeholder="Confirmar nova senha"
+                value={confirmPwd}
+                onChange={e => setConfirmPwd(e.target.value.replace(/\D/g, ''))}
+                className="w-full px-4 py-2.5 pr-11 rounded-xl border border-gray-200 focus:ring-2 focus:ring-[#FC3951]/20 focus:border-[#FC3951] outline-none text-sm"
+              />
+              <button type="button" onClick={() => setShowConfirmPwd(!showConfirmPwd)} className="absolute right-3.5 top-1/2 -translate-y-1/2 text-gray-400">
+                {showConfirmPwd ? <EyeOff size={16}/> : <Eye size={16}/>}
+              </button>
+            </div>
+            {pwdError && <p className="text-red-500 text-xs">{pwdError}</p>}
+            <div className="flex gap-2">
+              <button
+                onClick={async () => {
+                  if (newPwd.length < 4) { setPwdError('Mínimo de 4 dígitos'); return }
+                  if (newPwd !== confirmPwd) { setPwdError('As senhas não coincidem'); return }
+                  setPwdLoading(true); setPwdError('')
+                  try {
+                    const { error } = await supabase.auth.updateUser({ password: newPwd })
+                    if (error) throw error
+                    setMessage({ text: 'Senha alterada com sucesso! ✅', type: 'success' })
+                    setShowChangePwd(false); setNewPwd(''); setConfirmPwd('')
+                  } catch {
+                    setPwdError('Erro ao alterar senha. Tente novamente.')
+                  } finally { setPwdLoading(false) }
+                }}
+                disabled={pwdLoading || !newPwd || !confirmPwd}
+                className="px-4 py-2 bg-[#FC3951] text-white rounded-xl text-sm font-semibold hover:bg-[#D4253D] disabled:opacity-50"
+              >
+                {pwdLoading ? 'Salvando...' : 'Salvar Senha'}
+              </button>
+              <button
+                onClick={() => { setShowChangePwd(false); setNewPwd(''); setConfirmPwd(''); setPwdError('') }}
+                className="px-4 py-2 text-gray-500 text-sm hover:underline"
+              >
+                Cancelar
+              </button>
+            </div>
+          </div>
+        )}
       </div>
 
       <button onClick={handleSave} disabled={saving} className={`w-full flex items-center justify-center gap-2 px-6 py-3 rounded-xl text-white font-bold text-base transition-all shadow-lg ${aptChanged ? 'bg-orange-500 hover:bg-orange-600' : 'bg-[#FC3951] hover:bg-[#D4253D]'} disabled:opacity-50`}>

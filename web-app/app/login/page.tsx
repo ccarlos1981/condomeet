@@ -176,7 +176,7 @@ export default function LoginPage() {
                 inputMode="numeric"
                 placeholder="Senha (somente números)"
                 value={password}
-                onChange={e => setPassword(e.target.value)}
+                onChange={e => setPassword(e.target.value.replace(/\D/g, ''))}
                 onKeyDown={e => e.key === 'Enter' && handleLogin()}
                 className="w-full pl-10 pr-11 py-3 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#FC3951] bg-gray-50 text-sm"
               />

@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:get_it/get_it.dart';
 import 'package:condomeet/core/design_system/app_colors.dart';
+import '../../domain/repositories/auth_repository.dart';
 import '../bloc/auth_bloc.dart';
 import '../bloc/auth_event.dart';
 import '../bloc/auth_state.dart';
@@ -42,6 +44,82 @@ class _LoginScreenState extends State<LoginScreen> {
 
   void _navigateToRegistration() {
     Navigator.pushNamed(context, '/self-registration');
+  }
+
+  void _showForgotPasswordDialog() {
+    final emailCtrl = TextEditingController(text: _emailController.text.trim());
+    showDialog(
+      context: context,
+      builder: (ctx) {
+        bool sending = false;
+        String? msg;
+        return StatefulBuilder(
+          builder: (ctx, setDialogState) {
+            return AlertDialog(
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+              title: const Text('Esqueci a senha'),
+              content: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const Text('Digite seu email e enviaremos um link para redefinir sua senha.'),
+                  const SizedBox(height: 16),
+                  TextField(
+                    controller: emailCtrl,
+                    keyboardType: TextInputType.emailAddress,
+                    decoration: InputDecoration(
+                      hintText: 'Seu email',
+                      prefixIcon: const Icon(Icons.email_outlined),
+                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+                    ),
+                  ),
+                  if (msg != null) ...[
+                    const SizedBox(height: 12),
+                    Text(msg!, style: TextStyle(color: msg!.startsWith('✅') ? Colors.green : AppColors.error, fontSize: 13)),
+                  ],
+                ],
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.pop(ctx),
+                  child: const Text('Fechar'),
+                ),
+                ElevatedButton(
+                  onPressed: sending
+                      ? null
+                      : () async {
+                          final email = emailCtrl.text.trim().toLowerCase();
+                          if (email.isEmpty || !email.contains('@')) {
+                            setDialogState(() => msg = 'Digite um email válido');
+                            return;
+                          }
+                          setDialogState(() { sending = true; msg = null; });
+                          try {
+                            await GetIt.instance<AuthRepository>().resetPasswordForEmail(email);
+                            setDialogState(() {
+                              sending = false;
+                              msg = '✅ Email enviado! Verifique sua caixa de entrada.';
+                            });
+                          } catch (e) {
+                            setDialogState(() {
+                              sending = false;
+                              msg = 'Erro ao enviar. Verifique o email.';
+                            });
+                          }
+                        },
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: AppColors.primary,
+                    foregroundColor: Colors.white,
+                  ),
+                  child: sending
+                      ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                      : const Text('Enviar'),
+                ),
+              ],
+            );
+          },
+        );
+      },
+    );
   }
 
   @override
@@ -195,9 +273,7 @@ class _LoginScreenState extends State<LoginScreen> {
                               ],
                             ),
                             TextButton(
-                              onPressed: () {
-                                // TODO: Implement forgot password
-                              },
+                              onPressed: _showForgotPasswordDialog,
                               child: const Text(
                                 'Esqueci a senha',
                                 style: TextStyle(

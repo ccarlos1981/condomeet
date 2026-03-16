@@ -257,4 +257,14 @@ class AuthRepositoryImpl implements AuthRepository {
     });
   }
 
+  @override
+  Future<void> resetPasswordForEmail(String email) async {
+    await _supabase.auth.resetPasswordForEmail(email);
+  }
+
+  @override
+  Future<void> updatePassword(String newPassword) async {
+    await _supabase.auth.updateUser(UserAttributes(password: newPassword));
+  }
+
 }

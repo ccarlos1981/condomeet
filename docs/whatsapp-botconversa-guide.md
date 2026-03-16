@@ -501,6 +501,62 @@ cód interno: {5 chars}
 
 **Tabela `contatos_visitantes`**: Quando o visitante tem celular, o contato é salvo automaticamente (upsert) para formar uma agenda de visitantes do morador, e o `botconversa_id` do visitante é resolvido via `botconversa-resolve-subscriber`.
 
+### Liberação de Visitante pela Portaria — Notificações (WhatsApp)
+
+```sql
+-- Trigger: tr_convite_liberado
+-- Tabela: convites (AFTER UPDATE OF visitante_compareceu)
+-- Condição: visitante_compareceu muda de false/null para true
+-- Função: tr_fn_convite_liberado()
+--   Chama convite-whatsapp-notify via pg_net com action: 'entry_released'
+-- Autenticação: sb_secret_* key
+-- Notifica: morador (sempre) + visitante (se tiver celular)
+```
+
+**Mensagem para o MORADOR — Entrada liberada:**
+```
+🔔 {nome do condomínio}
+ 
+Notificação de entrada liberada
+
+Olá, {nome do morador}: 👋
+
+A portaria acabou de liberar a entrada do seu visitante.
+
+👤 Visitante: {nome do visitante ou 'Nome não preenchido'}
+
+🚗 Tipo: {visitor_type ou 'Visitante'}
+
+📅 Solicitado em: {created_at DD/MM/YYYY}
+
+📅 Data da entrada: {liberado_em DD/MM/YYYY}
+
+🔑 Código da solicitação: {código 3 chars}
+
+Tudo certo por aqui! ✅
+
+Condomeet agradece sua colaboração.
+Cód interno: {5 chars aleatórios - anti-ban Meta}
+```
+
+**Mensagem para o VISITANTE (se tiver celular, 10s depois):**
+```
+🚪 Ei, {nome visitante}, o(a) morador(a) {nome morador} do: 
+{nome condomínio}
+
+Acabou de autorizar a sua entrada para o dia:
+ {DD/MM/YYYY}.
+
+Seu nome estará na portaria, diga que tem a autorização informando o Código:
+
+{código 3 chars}.
+
+Condomeet agradece.
+Cód interno {5 chars aleatórios - anti-ban Meta}
+```
+
+O trigger dispara quando o porteiro marca `visitante_compareceu = true` via `approveVisitorEntry()`. Para o visitante, tenta primeiro buscar o `botconversa_id` na tabela `contatos_visitantes` (já resolvido na criação do convite) antes de chamar a API do BotConversa.
+
 ---
 
 ## Tabela `perfil` — Campos Relevantes
@@ -607,3 +663,4 @@ curl -X POST \
 | `supabase/migrations/20260308c_encomendas_push_triggers.sql` | Triggers da tabela encomendas |
 | `migration: encomenda_trigger_por_apto` | Trigger encomenda atualizado (por_apto) |
 | `migration: perfil_resolve_botconversa_trigger` | Trigger auto-resolve botconversa_id |
+| `supabase/migrations/20260316_convite_liberado_trigger.sql` | Trigger notificação quando porteiro libera visitante |

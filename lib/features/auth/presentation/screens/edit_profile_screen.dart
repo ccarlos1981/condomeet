@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:get_it/get_it.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:condomeet/core/design_system/app_colors.dart';
@@ -139,6 +140,120 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                           (newAptoTxt?.toLowerCase().trim() != widget.currentAptoTxt?.toLowerCase().trim());
     
     setState(() => _apartmentChanged = changed);
+  }
+
+  void _showChangePasswordSheet() {
+    final newPwdCtrl = TextEditingController();
+    final confirmPwdCtrl = TextEditingController();
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (ctx) {
+        bool saving = false;
+        String? errorMsg;
+        bool obscureNew = true;
+        bool obscureConfirm = true;
+        return StatefulBuilder(
+          builder: (ctx, setSheetState) {
+            return Padding(
+              padding: EdgeInsets.fromLTRB(24, 24, 24, MediaQuery.of(ctx).viewInsets.bottom + 24),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text('Alterar Senha', style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
+                  const SizedBox(height: 8),
+                  const Text('Crie uma nova senha numérica.', style: TextStyle(color: Colors.grey)),
+                  const SizedBox(height: 20),
+                  TextField(
+                    controller: newPwdCtrl,
+                    keyboardType: TextInputType.number,
+                    inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+                    obscureText: obscureNew,
+                    decoration: InputDecoration(
+                      labelText: 'Nova senha (somente números)',
+                      prefixIcon: const Icon(Icons.lock_outline),
+                      suffixIcon: IconButton(
+                        icon: Icon(obscureNew ? Icons.visibility_off : Icons.visibility),
+                        onPressed: () => setSheetState(() => obscureNew = !obscureNew),
+                      ),
+                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  TextField(
+                    controller: confirmPwdCtrl,
+                    keyboardType: TextInputType.number,
+                    inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+                    obscureText: obscureConfirm,
+                    decoration: InputDecoration(
+                      labelText: 'Confirmar nova senha',
+                      prefixIcon: const Icon(Icons.lock_outline),
+                      suffixIcon: IconButton(
+                        icon: Icon(obscureConfirm ? Icons.visibility_off : Icons.visibility),
+                        onPressed: () => setSheetState(() => obscureConfirm = !obscureConfirm),
+                      ),
+                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                    ),
+                  ),
+                  if (errorMsg != null) ...[
+                    const SizedBox(height: 12),
+                    Text(errorMsg!, style: const TextStyle(color: AppColors.error, fontSize: 13)),
+                  ],
+                  const SizedBox(height: 24),
+                  SizedBox(
+                    width: double.infinity,
+                    child: ElevatedButton(
+                      onPressed: saving
+                          ? null
+                          : () async {
+                              final newPwd = newPwdCtrl.text.trim();
+                              final confirmPwd = confirmPwdCtrl.text.trim();
+                              if (newPwd.length < 4) {
+                                setSheetState(() => errorMsg = 'Mínimo de 4 dígitos');
+                                return;
+                              }
+                              if (newPwd != confirmPwd) {
+                                setSheetState(() => errorMsg = 'As senhas não coincidem');
+                                return;
+                              }
+                              setSheetState(() { saving = true; errorMsg = null; });
+                              try {
+                                await GetIt.instance<AuthRepository>().updatePassword(newPwd);
+                                if (ctx.mounted) Navigator.pop(ctx);
+                                if (mounted) {
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    const SnackBar(content: Text('Senha alterada com sucesso! ✅'), backgroundColor: Colors.green),
+                                  );
+                                }
+                              } catch (e) {
+                                setSheetState(() {
+                                  saving = false;
+                                  errorMsg = 'Erro ao alterar senha. Tente novamente.';
+                                });
+                              }
+                            },
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: AppColors.primary,
+                        foregroundColor: Colors.white,
+                        padding: const EdgeInsets.symmetric(vertical: 16),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                      ),
+                      child: saving
+                          ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
+                          : const Text('Salvar Nova Senha', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                    ),
+                  ),
+                ],
+              ),
+            );
+          },
+        );
+      },
+    );
   }
 
   Future<void> _save() async {
@@ -398,6 +513,24 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                   ],
 
                   const SizedBox(height: 32),
+
+                  // Seção: Segurança
+                  const Text('Segurança', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+                  const SizedBox(height: 16),
+                  SizedBox(
+                    width: double.infinity,
+                    child: OutlinedButton.icon(
+                      onPressed: _showChangePasswordSheet,
+                      icon: const Icon(Icons.lock_outline),
+                      label: const Text('Alterar Senha', style: TextStyle(fontSize: 15)),
+                      style: OutlinedButton.styleFrom(
+                        foregroundColor: AppColors.primary,
+                        side: const BorderSide(color: AppColors.primary),
+                        padding: const EdgeInsets.symmetric(vertical: 14),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                      ),
+                    ),
+                  ),
                   
                   // Botão Salvar
                   SizedBox(

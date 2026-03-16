@@ -38,5 +38,9 @@ abstract class AuthRepository {
     required String nomeCompleto,
     required String whatsapp,
   });
+
+  // Password management
+  Future<void> resetPasswordForEmail(String email);
+  Future<void> updatePassword(String newPassword);
   
 }
