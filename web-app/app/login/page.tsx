@@ -115,7 +115,7 @@ export default function LoginPage() {
   return (
     <div className="min-h-screen bg-[#f4f6f9] flex">
       {/* Left brand panel */}
-      <div className="hidden lg:flex flex-col items-center justify-center w-96 bg-gradient-to-b from-[#FC3951] to-[#D4253D] p-10 text-white">
+      <div className="hidden lg:flex flex-col items-center justify-center w-96 bg-gradient-to-b from-[#FC5931] to-[#D42F1D] p-10 text-white">
         <img src="/logo.png" alt="Condomeet" className="w-24 h-24 rounded-3xl object-cover mb-6 shadow-lg" />
         <h1 className="text-3xl font-bold mb-2">Condomeet</h1>
         <p className="text-white/70 text-center text-sm leading-relaxed">
@@ -142,11 +142,11 @@ export default function LoginPage() {
           <div className="lg:hidden flex flex-col items-center mb-6">
             <img src="/logo.png" alt="Condomeet" className="w-16 h-16 rounded-2xl object-cover mb-3 shadow-md" />
             <h1 className="text-xl font-bold text-gray-900">Condomeet</h1>
-            <p className="text-xs text-[#FC3951] font-medium mt-0.5">seu Condomínio Digital</p>
+            <p className="text-xs text-[#FC5931] font-medium mt-0.5">seu Condomínio Digital</p>
           </div>
 
           {/* Register banner */}
-          <a href="/register" className="block w-full mb-6 py-3 bg-[#FC3951] text-white rounded-xl text-sm font-semibold text-center hover:bg-[#D4253D] transition-colors">
+          <a href="/register" className="block w-full mb-6 py-3 bg-[#FC5931] text-white rounded-xl text-sm font-semibold text-center hover:bg-[#D42F1D] transition-colors">
             Ainda não tem cadastro? Clique aqui!
           </a>
 
@@ -165,7 +165,7 @@ export default function LoginPage() {
                 value={email}
                 onChange={e => setEmail(e.target.value)}
                 onKeyDown={e => e.key === 'Enter' && handleLogin()}
-                className="w-full pl-10 pr-4 py-3 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#FC3951] bg-gray-50 text-sm"
+                className="w-full pl-10 pr-4 py-3 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#FC5931] bg-gray-50 text-sm"
               />
             </div>
 
@@ -178,7 +178,7 @@ export default function LoginPage() {
                 value={password}
                 onChange={e => setPassword(e.target.value.replace(/\D/g, ''))}
                 onKeyDown={e => e.key === 'Enter' && handleLogin()}
-                className="w-full pl-10 pr-11 py-3 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#FC3951] bg-gray-50 text-sm"
+                className="w-full pl-10 pr-11 py-3 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#FC5931] bg-gray-50 text-sm"
               />
               <button
                 type="button"
@@ -195,11 +195,11 @@ export default function LoginPage() {
                   type="checkbox"
                   checked={remember}
                   onChange={e => setRemember(e.target.checked)}
-                  className="w-4 h-4 rounded accent-[#FC3951]"
+                  className="w-4 h-4 rounded accent-[#FC5931]"
                 />
                 <span className="text-gray-600 text-xs">Lembrar Senha</span>
               </label>
-              <a href="/forgot-password" className="text-xs text-[#FC3951] hover:underline">Esqueci a senha</a>
+              <a href="/forgot-password" className="text-xs text-[#FC5931] hover:underline">Esqueci a senha</a>
             </div>
 
             {error && <p className="text-red-500 text-xs text-center">{error}</p>}
@@ -207,14 +207,14 @@ export default function LoginPage() {
             <button
               onClick={handleLogin}
               disabled={loading || !email || !password}
-              className="w-full py-3 border-2 border-[#FC3951] text-[#FC3951] rounded-xl font-bold text-sm hover:bg-[#FC3951] hover:text-white transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+              className="w-full py-3 border-2 border-[#FC5931] text-[#FC5931] rounded-xl font-bold text-sm hover:bg-[#FC5931] hover:text-white transition-all disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {loading ? 'Acessando...' : 'Acessar'}
             </button>
           </div>
 
           <div className="mt-5 text-center">
-            <a href="/sindico-register" className="text-xs text-gray-500 hover:text-[#FC3951] transition-colors">
+            <a href="/sindico-register" className="text-xs text-gray-500 hover:text-[#FC5931] transition-colors">
               Sou Síndico e quero registrar meu condomínio
             </a>
           </div>
@@ -231,8 +231,8 @@ export default function LoginPage() {
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-3xl shadow-2xl w-full max-w-sm p-8">
             <div className="flex flex-col items-center mb-6">
-              <div className="w-14 h-14 bg-[#FC3951]/10 rounded-full flex items-center justify-center mb-3">
-                <Lock size={28} className="text-[#FC3951]" />
+              <div className="w-14 h-14 bg-[#FC5931]/10 rounded-full flex items-center justify-center mb-3">
+                <Lock size={28} className="text-[#FC5931]" />
               </div>
               <h2 className="text-xl font-bold text-gray-900">Atualize sua senha</h2>
               <p className="text-sm text-gray-500 text-center mt-1">
@@ -250,7 +250,7 @@ export default function LoginPage() {
                   placeholder="Nova senha (somente números)"
                   value={newPassword}
                   onChange={e => setNewPassword(e.target.value.replace(/\D/g, ''))}
-                  className="w-full pl-10 pr-11 py-3 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#FC3951] bg-gray-50 text-sm"
+                  className="w-full pl-10 pr-11 py-3 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#FC5931] bg-gray-50 text-sm"
                 />
                 <button type="button" onClick={() => setShowNewPwd(!showNewPwd)}
                   className="absolute right-3.5 top-1/2 -translate-y-1/2 text-gray-400">
@@ -267,7 +267,7 @@ export default function LoginPage() {
                   placeholder="Confirmar senha"
                   value={confirmPassword}
                   onChange={e => setConfirmPassword(e.target.value.replace(/\D/g, ''))}
-                  className="w-full pl-10 pr-11 py-3 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#FC3951] bg-gray-50 text-sm"
+                  className="w-full pl-10 pr-11 py-3 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#FC5931] bg-gray-50 text-sm"
                 />
                 <button type="button" onClick={() => setShowConfirmPwd(!showConfirmPwd)}
                   className="absolute right-3.5 top-1/2 -translate-y-1/2 text-gray-400">
@@ -280,7 +280,7 @@ export default function LoginPage() {
               <button
                 onClick={handlePasswordSetup}
                 disabled={setupLoading || !newPassword || !confirmPassword}
-                className="w-full py-3 bg-[#FC3951] text-white rounded-xl font-bold text-sm hover:bg-[#D4253D] transition-all disabled:opacity-50"
+                className="w-full py-3 bg-[#FC5931] text-white rounded-xl font-bold text-sm hover:bg-[#D42F1D] transition-all disabled:opacity-50"
               >
                 {setupLoading ? 'Salvando...' : 'Confirmar'}
               </button>
@@ -311,7 +311,7 @@ export default function LoginPage() {
                 setShowBlocked(false)
                 supabase.auth.signOut()
               }}
-              className="w-full py-3 bg-[#FC3951] text-white rounded-xl font-bold text-sm hover:bg-[#D4253D] transition-all"
+              className="w-full py-3 bg-[#FC5931] text-white rounded-xl font-bold text-sm hover:bg-[#D42F1D] transition-all"
             >
               Voltar ao Início
             </button>

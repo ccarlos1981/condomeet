@@ -229,7 +229,7 @@ export default function RegistroTurnoPorteiroClient({
             name="tab"
             checked={tab === 'historico'}
             onChange={() => setTab('historico')}
-            className="w-4 h-4 accent-[#FC3951]"
+            className="w-4 h-4 accent-[#FC5931]"
           />
           <span className="flex items-center gap-1.5 font-medium text-sm text-gray-700">
             <History size={16} /> Histórico dos Registros
@@ -241,7 +241,7 @@ export default function RegistroTurnoPorteiroClient({
             name="tab"
             checked={tab === 'adicionar'}
             onChange={() => setTab('adicionar')}
-            className="w-4 h-4 accent-[#FC3951]"
+            className="w-4 h-4 accent-[#FC5931]"
           />
           <span className="flex items-center gap-1.5 font-medium text-sm text-gray-700">
             <PlusCircle size={16} /> Adicionar Registro de turno
@@ -271,7 +271,7 @@ export default function RegistroTurnoPorteiroClient({
                     {/* Back button */}
                     <button
                       onClick={() => setExpandedId(null)}
-                      className="flex items-center gap-2 text-[#FC3951] hover:text-[#D4253D] font-medium text-sm mb-4 transition-colors"
+                      className="flex items-center gap-2 text-[#FC5931] hover:text-[#D42F1D] font-medium text-sm mb-4 transition-colors"
                     >
                       <ArrowLeft size={18} /> Voltar ao histórico
                     </button>
@@ -351,7 +351,7 @@ export default function RegistroTurnoPorteiroClient({
                         onClick={() => toggleDetail(r.id)}
                         className={`border-b cursor-pointer transition-colors ${
                           isExpanded
-                            ? 'bg-[#FC3951]/10 border-l-4 border-l-[#FC3951] border-b-[#FC3951]/20'
+                            ? 'bg-[#FC5931]/10 border-l-4 border-l-[#FC5931] border-b-[#FC5931]/20'
                             : hasDivergencia
                               ? 'bg-red-50 border-b-red-100 hover:bg-red-100/60'
                               : 'border-b-gray-50 hover:bg-gray-50'
@@ -362,7 +362,7 @@ export default function RegistroTurnoPorteiroClient({
                         <td className={`px-5 py-3 font-medium ${hasDivergencia ? 'text-red-800' : 'text-gray-800'}`}>{r.porteiro_nome}</td>
                         <td className="px-3 py-3">
                           {isExpanded
-                            ? <ChevronUp size={16} className="text-[#FC3951]" />
+                            ? <ChevronUp size={16} className="text-[#FC5931]" />
                             : <ChevronDown size={16} className="text-gray-400" />
                           }
                         </td>
@@ -465,7 +465,7 @@ export default function RegistroTurnoPorteiroClient({
                     const p = porteiros.find(pt => pt.id === e.target.value)
                     setPorteiroNome(p?.nome_completo ?? '')
                   }}
-                  className="w-full border border-gray-200 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#FC3951]/30 focus:border-[#FC3951]"
+                  className="w-full border border-gray-200 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#FC5931]/30 focus:border-[#FC5931]"
                   title="Selecione o porteiro"
                 >
                   <option value="">Selecione...</option>
@@ -495,7 +495,7 @@ export default function RegistroTurnoPorteiroClient({
                     <button
                       key={i}
                       onClick={() => setObservacao(s)}
-                      className="text-xs px-3 py-1.5 bg-gray-100 hover:bg-[#FC3951]/10 hover:text-[#FC3951] text-gray-600 rounded-lg transition-colors text-left max-w-[300px] truncate"
+                      className="text-xs px-3 py-1.5 bg-gray-100 hover:bg-[#FC5931]/10 hover:text-[#FC5931] text-gray-600 rounded-lg transition-colors text-left max-w-[300px] truncate"
                       title={s}
                     >
                       {s.length > 60 ? s.slice(0, 60) + '…' : s}
@@ -513,7 +513,7 @@ export default function RegistroTurnoPorteiroClient({
                 onChange={e => setObservacao(e.target.value)}
                 placeholder="Escreva aqui a observação geral do seu turno"
                 rows={5}
-                className="w-full border border-gray-200 rounded-xl px-4 py-3 text-sm resize-none focus:outline-none focus:ring-2 focus:ring-[#FC3951]/30 focus:border-[#FC3951]"
+                className="w-full border border-gray-200 rounded-xl px-4 py-3 text-sm resize-none focus:outline-none focus:ring-2 focus:ring-[#FC5931]/30 focus:border-[#FC5931]"
               />
             </div>
 
@@ -522,7 +522,7 @@ export default function RegistroTurnoPorteiroClient({
               <button
                 onClick={handleSave}
                 disabled={saving || !selectedPorteiro}
-                className="flex items-center gap-2 bg-[#FC3951] text-white px-8 py-3 rounded-xl font-semibold text-sm hover:bg-[#D4253D] transition-colors disabled:opacity-40 shadow-sm shadow-[#FC3951]/20"
+                className="flex items-center gap-2 bg-[#FC5931] text-white px-8 py-3 rounded-xl font-semibold text-sm hover:bg-[#D42F1D] transition-colors disabled:opacity-40 shadow-sm shadow-[#FC5931]/20"
               >
                 {saving ? <Loader2 size={16} className="animate-spin" /> : <Save size={16} />}
                 {saving ? 'Salvando...' : 'Salvar'}

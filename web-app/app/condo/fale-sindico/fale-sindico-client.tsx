@@ -66,7 +66,7 @@ function ThreadCard({ thread, onClick }: { thread: Thread; onClick: () => void }
   return (
     <button
       onClick={onClick}
-      className="w-full text-left bg-white rounded-2xl border border-gray-100 shadow-sm hover:shadow-md hover:border-[#FC3951]/20 transition-all duration-200 p-4 group"
+      className="w-full text-left bg-white rounded-2xl border border-gray-100 shadow-sm hover:shadow-md hover:border-[#FC5931]/20 transition-all duration-200 p-4 group"
     >
       <div className="flex items-start gap-3">
         {/* Emoji tipo */}
@@ -89,7 +89,7 @@ function ThreadCard({ thread, onClick }: { thread: Thread; onClick: () => void }
           </div>
         </div>
 
-        <ChevronRight size={16} className="text-gray-300 group-hover:text-[#FC3951] transition-colors mt-1 flex-shrink-0" />
+        <ChevronRight size={16} className="text-gray-300 group-hover:text-[#FC5931] transition-colors mt-1 flex-shrink-0" />
       </div>
     </button>
   )
@@ -219,7 +219,7 @@ function ChatView({
       >
         {loading ? (
           <div className="flex items-center justify-center h-full">
-            <div className="w-6 h-6 border-2 border-[#FC3951]/30 border-t-[#FC3951] rounded-full animate-spin" />
+            <div className="w-6 h-6 border-2 border-[#FC5931]/30 border-t-[#FC5931] rounded-full animate-spin" />
           </div>
         ) : mensagens.length === 0 ? (
           <div className="text-center py-8">
@@ -234,12 +234,12 @@ function ChatView({
                 <div
                   className={`max-w-[75%] rounded-2xl px-4 py-2.5 shadow-sm ${
                     isOwn
-                      ? 'bg-[#FC3951] text-white rounded-br-sm'
+                      ? 'bg-[#FC5931] text-white rounded-br-sm'
                       : 'bg-white text-gray-800 rounded-bl-sm border border-gray-100'
                   }`}
                 >
                   {msg.is_admin && (
-                    <p className="text-xs font-semibold text-[#FC3951] mb-1">Síndico/Adm</p>
+                    <p className="text-xs font-semibold text-[#FC5931] mb-1">Síndico/Adm</p>
                   )}
                   <p className="text-sm leading-relaxed">{msg.texto}</p>
                   <p className={`text-[10px] mt-1 ${isOwn ? 'text-white/60' : 'text-gray-400'}`}>
@@ -263,13 +263,13 @@ function ChatView({
           }}
           placeholder="Digite sua mensagem..."
           rows={1}
-          className="flex-1 resize-none border border-gray-200 rounded-2xl px-4 py-2.5 text-sm text-gray-700 focus:outline-none focus:ring-2 focus:ring-[#FC3951]/30 focus:border-[#FC3951] transition-all max-h-32 overflow-y-auto"
+          className="flex-1 resize-none border border-gray-200 rounded-2xl px-4 py-2.5 text-sm text-gray-700 focus:outline-none focus:ring-2 focus:ring-[#FC5931]/30 focus:border-[#FC5931] transition-all max-h-32 overflow-y-auto"
           style={{ lineHeight: '1.5' }}
         />
         <button
           onClick={handleSend}
           disabled={sending || !text.trim()}
-          className="w-10 h-10 bg-[#FC3951] text-white rounded-2xl flex items-center justify-center hover:bg-[#D4253D] transition-colors disabled:opacity-40 disabled:cursor-not-allowed flex-shrink-0 shadow-sm shadow-[#FC3951]/30"
+          className="w-10 h-10 bg-[#FC5931] text-white rounded-2xl flex items-center justify-center hover:bg-[#D42F1D] transition-colors disabled:opacity-40 disabled:cursor-not-allowed flex-shrink-0 shadow-sm shadow-[#FC5931]/30"
         >
           {sending
             ? <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
@@ -398,7 +398,7 @@ function NewThreadModal({
               onChange={e => setAssunto(e.target.value)}
               placeholder="Ex: Barulho excessivo no corredor"
               maxLength={120}
-              className="w-full border border-gray-200 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#FC3951]/30 focus:border-[#FC3951] transition-all"
+              className="w-full border border-gray-200 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#FC5931]/30 focus:border-[#FC5931] transition-all"
             />
           </div>
 
@@ -412,7 +412,7 @@ function NewThreadModal({
               onChange={e => setMensagem(e.target.value)}
               rows={4}
               placeholder="Descreva o que aconteceu ou o que você precisa..."
-              className="w-full border border-gray-200 rounded-xl px-4 py-2.5 text-sm resize-none focus:outline-none focus:ring-2 focus:ring-[#FC3951]/30 focus:border-[#FC3951] transition-all"
+              className="w-full border border-gray-200 rounded-xl px-4 py-2.5 text-sm resize-none focus:outline-none focus:ring-2 focus:ring-[#FC5931]/30 focus:border-[#FC5931] transition-all"
             />
           </div>
 
@@ -429,7 +429,7 @@ function NewThreadModal({
           <button
             onClick={handleSubmit}
             disabled={saving}
-            className="flex items-center gap-2 bg-[#FC3951] text-white text-sm font-semibold px-6 py-2.5 rounded-xl hover:bg-[#D4253D] transition-colors disabled:opacity-40 shadow-sm shadow-[#FC3951]/30"
+            className="flex items-center gap-2 bg-[#FC5931] text-white text-sm font-semibold px-6 py-2.5 rounded-xl hover:bg-[#D42F1D] transition-colors disabled:opacity-40 shadow-sm shadow-[#FC5931]/30"
           >
             {saving ? (
               <><div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" /> Enviando...</>
@@ -503,8 +503,8 @@ export default function FaleSindicoClient({
               onClick={() => setFilter(key as typeof filter)}
               className={`text-sm font-medium px-4 py-2 rounded-xl border transition-all ${
                 filter === key
-                  ? 'bg-[#FC3951] text-white border-[#FC3951] shadow-sm shadow-[#FC3951]/20'
-                  : 'bg-white text-gray-600 border-gray-200 hover:border-[#FC3951]/50 hover:text-[#FC3951]'
+                  ? 'bg-[#FC5931] text-white border-[#FC5931] shadow-sm shadow-[#FC5931]/20'
+                  : 'bg-white text-gray-600 border-gray-200 hover:border-[#FC5931]/50 hover:text-[#FC5931]'
               }`}
             >
               {label}
@@ -514,7 +514,7 @@ export default function FaleSindicoClient({
 
         <button
           onClick={() => setShowModal(true)}
-          className="flex items-center gap-2 bg-[#FC3951] text-white text-sm font-semibold px-5 py-2.5 rounded-xl hover:bg-[#D4253D] transition-colors shadow-sm shadow-[#FC3951]/30"
+          className="flex items-center gap-2 bg-[#FC5931] text-white text-sm font-semibold px-5 py-2.5 rounded-xl hover:bg-[#D42F1D] transition-colors shadow-sm shadow-[#FC5931]/30"
         >
           <Plus size={16} />
           Novo Assunto

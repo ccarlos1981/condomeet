@@ -197,7 +197,7 @@ export default function EnquetesMoradorClient({
   return (
     <div className="max-w-3xl mx-auto space-y-4">
       <h1 className="text-2xl font-bold text-gray-800 flex items-center gap-2">
-        <BarChart3 size={24} className="text-[#FC3951]" />
+        <BarChart3 size={24} className="text-[#FC5931]" />
         Enquetes
       </h1>
 
@@ -225,13 +225,13 @@ export default function EnquetesMoradorClient({
               onClick={() => openModal(enquete)}
               className={`w-full flex items-center gap-4 px-5 py-4 rounded-2xl transition-all duration-150 text-left ${
                 expired
-                  ? 'bg-[#FC3951] text-white shadow-md shadow-[#FC3951]/20'
+                  ? 'bg-[#FC5931] text-white shadow-md shadow-[#FC5931]/20'
                   : voted
                     ? 'bg-green-50 border-2 border-green-200 text-gray-800 hover:shadow-md'
                     : 'bg-white border border-gray-200 text-gray-800 hover:shadow-md hover:border-gray-300'
               }`}
             >
-              <ListOrdered size={28} className={expired ? 'text-white/80' : 'text-[#FC3951]'} />
+              <ListOrdered size={28} className={expired ? 'text-white/80' : 'text-[#FC5931]'} />
               <div className="flex-1 min-w-0">
                 <p className={`text-xs font-medium ${expired ? 'text-white/70' : 'text-gray-400'}`}>
                   Pergunta:
@@ -306,7 +306,7 @@ export default function EnquetesMoradorClient({
                         key={opcao.id}
                         className={`flex items-center gap-3 px-4 py-3 rounded-xl border cursor-pointer transition-all ${
                           isSelected
-                            ? 'border-[#FC3951] bg-[#FC3951]/5'
+                            ? 'border-[#FC5931] bg-[#FC5931]/5'
                             : 'border-gray-200 hover:border-gray-300'
                         } ${disabled ? 'opacity-60 pointer-events-none' : ''}`}
                       >
@@ -315,7 +315,7 @@ export default function EnquetesMoradorClient({
                           name={`enquete-${openEnquete.id}`}
                           checked={isSelected}
                           onChange={() => handleSelect(opcao.id)}
-                          className="w-4 h-4 accent-[#FC3951]"
+                          className="w-4 h-4 accent-[#FC5931]"
                           disabled={disabled}
                         />
                         <span className="text-sm text-gray-700">{opcao.texto}</span>
@@ -413,7 +413,7 @@ function EnqueteBarChart({
     }
   }
   const maxVal = Math.max(...opcoes.map(o => counts[o.id] || 0), 1)
-  const colors = ['#FC3951', '#3B82F6', '#10B981', '#F59E0B', '#8B5CF6', '#EC4899', '#14B8A6', '#F97316']
+  const colors = ['#FC5931', '#3B82F6', '#10B981', '#F59E0B', '#8B5CF6', '#EC4899', '#14B8A6', '#F97316']
 
   return (
     <div className="bg-gray-50 rounded-xl p-4 border border-gray-100">

@@ -80,7 +80,7 @@ export default async function CondoDashboard() {
             {isPorter || isAdmin ? 'Autorizações Recentes' : 'Minhas Autorizações'}
           </h2>
           {pendingCount > 0 && (
-            <span className="flex items-center gap-1.5 text-xs font-semibold text-[#FC3951] bg-[#FC3951]/10 px-3 py-1.5 rounded-full">
+            <span className="flex items-center gap-1.5 text-xs font-semibold text-[#FC5931] bg-[#FC5931]/10 px-3 py-1.5 rounded-full">
               <Bell size={12} />
               {pendingCount} pendente{pendingCount !== 1 ? 's' : ''}
             </span>

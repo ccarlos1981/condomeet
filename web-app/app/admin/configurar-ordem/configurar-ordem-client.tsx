@@ -100,7 +100,7 @@ export default function ConfigurarOrdemClient({ initialConfig, condominioId }: P
         <button
           onClick={handleSave}
           disabled={isPending}
-          className="flex items-center gap-2 bg-[#FC3951] text-white px-5 py-2.5 rounded-xl font-semibold text-sm hover:bg-[#D4253D] transition-colors disabled:opacity-60"
+          className="flex items-center gap-2 bg-[#FC5931] text-white px-5 py-2.5 rounded-xl font-semibold text-sm hover:bg-[#D42F1D] transition-colors disabled:opacity-60"
         >
           <Save size={16} />
           {isPending ? 'Salvando…' : saved ? '✅ Salvo!' : 'Salvar alterações'}
@@ -126,7 +126,7 @@ export default function ConfigurarOrdemClient({ initialConfig, condominioId }: P
               value={orders[def.id] === 99 ? '' : orders[def.id]}
               placeholder="—"
               onChange={e => handleChange(def.id, e.target.value)}
-              className="w-16 text-center text-base font-bold text-gray-700 border border-gray-200 rounded-lg py-1.5 px-1 focus:outline-none focus:ring-2 focus:ring-[#FC3951]/30 focus:border-[#FC3951] bg-gray-50"
+              className="w-16 text-center text-base font-bold text-gray-700 border border-gray-200 rounded-lg py-1.5 px-1 focus:outline-none focus:ring-2 focus:ring-[#FC5931]/30 focus:border-[#FC5931] bg-gray-50"
             />
           </div>
         ))}

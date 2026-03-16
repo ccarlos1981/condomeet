@@ -6,8 +6,8 @@
    EXISTING APP DESIGN SYSTEM (preserved)
    ============================================ */
 :root {
-  --primary: #FC3951;
-  --primary-dark: #D4253D;
+  --primary: #FC5931;
+  --primary-dark: #D42F1D;
   --primary-light: #fff0f2;
   --sidebar-dark: #1f2d3d;
   --font-outfit: 'Outfit', sans-serif;
@@ -18,8 +18,8 @@
   --lp-bg: #0D1B2A;
   --lp-surface: #112233;
   --lp-surface-2: #162840;
-  --lp-accent: #FC3951;
-  --lp-accent-dark: #D4253D;
+  --lp-accent: #FC5931;
+  --lp-accent-dark: #D42F1D;
   --lp-primary-text: #F0F4F8;
   --lp-muted-text: #8FA3B8;
   --lp-border: rgba(255, 255, 255, 0.08);

@@ -17,7 +17,7 @@ export default async function PushUniversalPage() {
     <div>
       <div className="mb-8 flex items-center gap-3">
         <div className="w-10 h-10 rounded-xl bg-orange-50 flex items-center justify-center">
-          <Megaphone size={20} className="text-[#FC3951]" />
+          <Megaphone size={20} className="text-[#FC5931]" />
         </div>
         <div>
           <h1 className="text-2xl font-bold text-gray-900">Push Notification Universal</h1>

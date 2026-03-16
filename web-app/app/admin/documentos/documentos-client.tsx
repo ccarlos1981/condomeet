@@ -86,7 +86,7 @@ function PastaModal({
       <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md p-6">
         <div className="flex items-center justify-between mb-5">
           <div className="flex items-center gap-2">
-            <FileText size={18} className="text-[#FC3951]" />
+            <FileText size={18} className="text-[#FC5931]" />
             <h2 className="text-lg font-bold text-gray-900">
               {pasta ? 'Editar Pasta' : 'Nome da pasta de documento'}
             </h2>
@@ -98,25 +98,25 @@ function PastaModal({
             value={nome}
             onChange={e => setNome(e.target.value)}
             placeholder="Nome da pasta"
-            className="w-full border border-gray-200 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#FC3951]/30 focus:border-[#FC3951]"
+            className="w-full border border-gray-200 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#FC5931]/30 focus:border-[#FC5931]"
           />
           <textarea
             value={obs}
             onChange={e => setObs(e.target.value)}
             placeholder="Observação sobre a pasta"
             rows={3}
-            className="w-full border border-gray-200 rounded-xl px-4 py-2.5 text-sm resize-none focus:outline-none focus:ring-2 focus:ring-[#FC3951]/30 focus:border-[#FC3951]"
+            className="w-full border border-gray-200 rounded-xl px-4 py-2.5 text-sm resize-none focus:outline-none focus:ring-2 focus:ring-[#FC5931]/30 focus:border-[#FC5931]"
           />
         </div>
         <div className="flex gap-3 mt-5">
           <button
             onClick={handleSave}
             disabled={saving || !nome.trim()}
-            className="flex-1 bg-[#FC3951] text-white rounded-xl py-2.5 text-sm font-semibold hover:bg-[#D4253D] transition disabled:opacity-40"
+            className="flex-1 bg-[#FC5931] text-white rounded-xl py-2.5 text-sm font-semibold hover:bg-[#D42F1D] transition disabled:opacity-40"
           >
             {saving ? 'Salvando...' : pasta ? 'Salvar' : 'Criar Pasta'}
           </button>
-          <button onClick={onClose} className="flex-1 border border-[#FC3951] text-[#FC3951] rounded-xl py-2.5 text-sm font-semibold hover:bg-orange-50 transition">
+          <button onClick={onClose} className="flex-1 border border-[#FC5931] text-[#FC5931] rounded-xl py-2.5 text-sm font-semibold hover:bg-orange-50 transition">
             Cancelar
           </button>
         </div>
@@ -222,10 +222,10 @@ function DocumentoForm({
       <span className="text-sm text-gray-700">{label}</span>
       <div className="flex gap-4">
         <label className="flex items-center gap-1.5 cursor-pointer text-sm">
-          <input type="radio" checked={value} onChange={() => onChange(true)} className="accent-[#FC3951]" /> sim
+          <input type="radio" checked={value} onChange={() => onChange(true)} className="accent-[#FC5931]" /> sim
         </label>
         <label className="flex items-center gap-1.5 cursor-pointer text-sm">
-          <input type="radio" checked={!value} onChange={() => onChange(false)} className="accent-[#FC3951]" /> não
+          <input type="radio" checked={!value} onChange={() => onChange(false)} className="accent-[#FC5931]" /> não
         </label>
       </div>
     </div>
@@ -247,7 +247,7 @@ function DocumentoForm({
           <div className="flex gap-4">
             {TIPOS.map(t => (
               <label key={t.value} className="flex items-center gap-1.5 cursor-pointer text-sm">
-                <input type="radio" value={t.value} checked={tipo === t.value} onChange={() => setTipo(t.value)} className="accent-[#FC3951]" />
+                <input type="radio" value={t.value} checked={tipo === t.value} onChange={() => setTipo(t.value)} className="accent-[#FC5931]" />
                 {t.label}
               </label>
             ))}
@@ -259,12 +259,12 @@ function DocumentoForm({
           <div>
             <label className="text-xs font-semibold text-gray-500 uppercase tracking-wide block mb-1.5">Título do documento</label>
             <input value={titulo} onChange={e => setTitulo(e.target.value)} placeholder="Opcional"
-              className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#FC3951]/30 focus:border-[#FC3951]" />
+              className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#FC5931]/30 focus:border-[#FC5931]" />
           </div>
           <div>
             <label className="text-xs font-semibold text-gray-500 uppercase tracking-wide block mb-1.5">Categoria do documento</label>
             <select value={categoria} onChange={e => setCategoria(e.target.value)}
-              className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#FC3951]/30 focus:border-[#FC3951] bg-white">
+              className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#FC5931]/30 focus:border-[#FC5931] bg-white">
               <option value="">Selecione</option>
               {CATEGORIAS.map(c => <option key={c} value={c}>{c}</option>)}
             </select>
@@ -277,7 +277,7 @@ function DocumentoForm({
           <input ref={fileRef} type="file" accept=".pdf,.doc,.docx,.xls,.xlsx,.jpg,.png" className="hidden"
             onChange={e => setArquivo(e.target.files?.[0] ?? null)} />
           <button onClick={() => fileRef.current?.click()}
-            className="w-full border-2 border-dashed border-gray-200 rounded-xl px-4 py-3 text-sm text-gray-400 hover:border-[#FC3951] hover:text-[#FC3951] transition flex items-center gap-2 justify-center">
+            className="w-full border-2 border-dashed border-gray-200 rounded-xl px-4 py-3 text-sm text-gray-400 hover:border-[#FC5931] hover:text-[#FC5931] transition flex items-center gap-2 justify-center">
             <Upload size={16} />
             {arquivo ? arquivo.name : arquivoNomeAtual || 'Clique para importar o Documento'}
           </button>
@@ -287,7 +287,7 @@ function DocumentoForm({
         <div>
           <label className="text-xs font-semibold text-gray-500 uppercase tracking-wide block mb-1.5">Pasta de documento</label>
           <select value={pastaId} onChange={e => setPastaId(e.target.value)}
-            className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#FC3951]/30 focus:border-[#FC3951] bg-white">
+            className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#FC5931]/30 focus:border-[#FC5931] bg-white">
             <option value="">Escolha Pasta</option>
             {pastas.map(p => <option key={p.id} value={p.id}>{p.nome}</option>)}
           </select>
@@ -298,12 +298,12 @@ function DocumentoForm({
           <div>
             <label className="text-xs font-semibold text-gray-500 uppercase tracking-wide block mb-1.5">Data Expedição</label>
             <input type="date" value={dataExp} onChange={e => setDataExp(e.target.value)}
-              className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#FC3951]/30 focus:border-[#FC3951]" />
+              className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#FC5931]/30 focus:border-[#FC5931]" />
           </div>
           <div>
             <label className="text-xs font-semibold text-gray-500 uppercase tracking-wide block mb-1.5">Data validade</label>
             <input type="date" value={dataVal} onChange={e => setDataVal(e.target.value)}
-              className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#FC3951]/30 focus:border-[#FC3951]" />
+              className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#FC5931]/30 focus:border-[#FC5931]" />
           </div>
         </div>
 
@@ -321,19 +321,19 @@ function DocumentoForm({
           <label className="text-xs font-semibold text-gray-500 uppercase tracking-wide block mb-1.5">Descrição</label>
           <textarea value={descricao} onChange={e => setDescricao(e.target.value)}
             placeholder="Escreva aqui uma descrição" rows={3}
-            className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm resize-none focus:outline-none focus:ring-2 focus:ring-[#FC3951]/30 focus:border-[#FC3951]" />
+            className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm resize-none focus:outline-none focus:ring-2 focus:ring-[#FC5931]/30 focus:border-[#FC5931]" />
         </div>
 
         {error && <p className="text-red-500 text-sm bg-red-50 px-4 py-2 rounded-xl">{error}</p>}
 
         <div className="flex gap-3 pt-2">
           <button onClick={handleSave} disabled={saving}
-            className="flex items-center gap-2 bg-[#FC3951] text-white px-6 py-2.5 rounded-xl text-sm font-semibold hover:bg-[#D4253D] transition disabled:opacity-40">
+            className="flex items-center gap-2 bg-[#FC5931] text-white px-6 py-2.5 rounded-xl text-sm font-semibold hover:bg-[#D42F1D] transition disabled:opacity-40">
             {saving ? <Loader2 size={16} className="animate-spin" /> : null}
             {saving ? 'Salvando...' : doc ? 'Salvar' : `Inserir ${tituloLabel}`}
           </button>
           <button onClick={onClose}
-            className="border border-[#FC3951] text-[#FC3951] px-6 py-2.5 rounded-xl text-sm font-semibold hover:bg-orange-50 transition">
+            className="border border-[#FC5931] text-[#FC5931] px-6 py-2.5 rounded-xl text-sm font-semibold hover:bg-orange-50 transition">
             Voltar
           </button>
         </div>
@@ -431,25 +431,25 @@ export default function DocumentosClient({
       <div className="flex items-center gap-3 mb-6 flex-wrap">
         <button
           onClick={() => { setEditDoc(undefined); setShowDocForm(true) }}
-          className="flex items-center gap-2 bg-white border border-gray-200 hover:border-[#FC3951] text-gray-700 hover:text-[#FC3951] px-4 py-2.5 rounded-xl text-sm font-semibold shadow-sm transition"
+          className="flex items-center gap-2 bg-white border border-gray-200 hover:border-[#FC5931] text-gray-700 hover:text-[#FC5931] px-4 py-2.5 rounded-xl text-sm font-semibold shadow-sm transition"
         >
-          <FilePlus size={16} className="text-[#FC3951]" />
+          <FilePlus size={16} className="text-[#FC5931]" />
           Inserir {titulo}
         </button>
         <button
           onClick={() => { setEditPasta(undefined); setShowPastaModal(true) }}
-          className="flex items-center gap-2 bg-white border border-gray-200 hover:border-[#FC3951] text-gray-700 hover:text-[#FC3951] px-4 py-2.5 rounded-xl text-sm font-semibold shadow-sm transition"
+          className="flex items-center gap-2 bg-white border border-gray-200 hover:border-[#FC5931] text-gray-700 hover:text-[#FC5931] px-4 py-2.5 rounded-xl text-sm font-semibold shadow-sm transition"
         >
-          <FolderPlus size={16} className="text-[#FC3951]" />
+          <FolderPlus size={16} className="text-[#FC5931]" />
           Criar pasta
         </button>
         <div className="relative ml-auto">
           <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
           <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Buscar..."
-            className="pl-8 pr-3 py-2 text-sm border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#FC3951]/30 focus:border-[#FC3951] bg-white" />
+            className="pl-8 pr-3 py-2 text-sm border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#FC5931]/30 focus:border-[#FC5931] bg-white" />
         </div>
         <select value={filterCat} onChange={e => setFilterCat(e.target.value)}
-          className="border border-gray-200 rounded-xl px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-[#FC3951]/30 focus:border-[#FC3951]">
+          className="border border-gray-200 rounded-xl px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-[#FC5931]/30 focus:border-[#FC5931]">
           <option value="">Categoria</option>
           {CATEGORIAS.map(c => <option key={c} value={c}>{c}</option>)}
         </select>
@@ -478,7 +478,7 @@ export default function DocumentosClient({
                     className="flex items-center gap-2 flex-1 text-left"
                   >
                     {expanded ? <ChevronDown size={16} className="text-gray-400" /> : <ChevronRight size={16} className="text-gray-400" />}
-                    <FolderOpen size={20} className="text-[#FC3951]" />
+                    <FolderOpen size={20} className="text-[#FC5931]" />
                     <span className="font-semibold text-gray-800">{pasta.nome}</span>
                     {!expanded && (
                       <span className="text-xs text-gray-400 ml-1">
@@ -488,7 +488,7 @@ export default function DocumentosClient({
                   </button>
                   <div className="flex items-center gap-2 text-gray-400">
                     <button onClick={() => { setEditPasta(pasta); setShowPastaModal(true) }}
-                      className="p-1.5 rounded-lg hover:bg-orange-50 hover:text-[#FC3951] transition">
+                      className="p-1.5 rounded-lg hover:bg-orange-50 hover:text-[#FC5931] transition">
                       <Pencil size={14} />
                     </button>
                     <button onClick={() => deletePasta(pasta.id)}
@@ -520,7 +520,7 @@ export default function DocumentosClient({
                           {docsDaPasta.map(doc => (
                             <tr key={doc.id} className="border-t border-gray-50 hover:bg-gray-50/50 transition">
                               <td className="px-5 py-3 font-medium text-gray-800 flex items-center gap-2">
-                                <FileText size={14} className="text-[#FC3951] flex-shrink-0" />
+                                <FileText size={14} className="text-[#FC5931] flex-shrink-0" />
                                 {doc.titulo}
                               </td>
                               <td className="px-3 py-3 text-gray-500">{pasta.nome}</td>
@@ -533,7 +533,7 @@ export default function DocumentosClient({
                                   {doc.arquivo_url ? (
                                     <a href={doc.arquivo_url} download={doc.arquivo_nome ?? doc.titulo}
                                       title="Baixar arquivo"
-                                      className="p-1.5 rounded-lg text-gray-400 hover:text-[#FC3951] hover:bg-orange-50 transition">
+                                      className="p-1.5 rounded-lg text-gray-400 hover:text-[#FC5931] hover:bg-orange-50 transition">
                                       <Download size={14} />
                                     </a>
                                   ) : (
@@ -544,7 +544,7 @@ export default function DocumentosClient({
                                   {/* Editar */}
                                   <button onClick={() => { setEditDoc(doc); setShowDocForm(true) }}
                                     title="Editar"
-                                    className="p-1.5 rounded-lg text-gray-400 hover:text-[#FC3951] hover:bg-orange-50 transition">
+                                    className="p-1.5 rounded-lg text-gray-400 hover:text-[#FC5931] hover:bg-orange-50 transition">
                                     <Pencil size={14} />
                                   </button>
                                   {/* Deletar */}

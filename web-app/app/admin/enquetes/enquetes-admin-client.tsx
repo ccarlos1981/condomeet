@@ -293,7 +293,7 @@ export default function EnquetesAdminClient({
             value={pergunta}
             onChange={e => setPergunta(e.target.value)}
             placeholder="Ex: Qual cor preferem para o hall?"
-            className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:ring-2 focus:ring-[#FC3951]/30 focus:border-[#FC3951] outline-none text-sm"
+            className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:ring-2 focus:ring-[#FC5931]/30 focus:border-[#FC5931] outline-none text-sm"
           />
         </div>
 
@@ -310,7 +310,7 @@ export default function EnquetesAdminClient({
                   name="tipoResposta"
                   checked={tipoResposta === t}
                   onChange={() => setTipoResposta(t)}
-                  className="w-4 h-4 text-[#FC3951] focus:ring-[#FC3951]"
+                  className="w-4 h-4 text-[#FC5931] focus:ring-[#FC5931]"
                 />
                 <span className="text-sm text-gray-700">
                   {t === 'unica' ? '🔘 Única' : '☑️ Múltipla'}
@@ -332,12 +332,12 @@ export default function EnquetesAdminClient({
               onChange={e => setNovaOpcao(e.target.value)}
               onKeyDown={e => e.key === 'Enter' && addOpcao()}
               placeholder="Acrescente sua resposta aqui"
-              className="flex-1 px-4 py-2.5 rounded-xl border border-gray-200 focus:ring-2 focus:ring-[#FC3951]/30 focus:border-[#FC3951] outline-none text-sm"
+              className="flex-1 px-4 py-2.5 rounded-xl border border-gray-200 focus:ring-2 focus:ring-[#FC5931]/30 focus:border-[#FC5931] outline-none text-sm"
             />
             <button
               onClick={addOpcao}
               disabled={!novaOpcao.trim()}
-              className="px-4 py-2.5 bg-[#FC3951] text-white rounded-xl hover:bg-[#e0324a] disabled:opacity-40 transition-colors"
+              className="px-4 py-2.5 bg-[#FC5931] text-white rounded-xl hover:bg-[#e0324a] disabled:opacity-40 transition-colors"
               title="Adicionar opção"
             >
               <PlusCircle size={18} />
@@ -369,7 +369,7 @@ export default function EnquetesAdminClient({
             type="date"
             value={validade}
             onChange={e => setValidade(e.target.value)}
-            className="px-4 py-2.5 rounded-xl border border-gray-200 focus:ring-2 focus:ring-[#FC3951]/30 focus:border-[#FC3951] outline-none text-sm"
+            className="px-4 py-2.5 rounded-xl border border-gray-200 focus:ring-2 focus:ring-[#FC5931]/30 focus:border-[#FC5931] outline-none text-sm"
           />
         </div>
 
@@ -377,7 +377,7 @@ export default function EnquetesAdminClient({
         <button
           onClick={handleCreate}
           disabled={saving || !pergunta.trim() || opcoes.length < 2}
-          className="w-full py-3 bg-[#FC3951] text-white rounded-xl font-semibold hover:bg-[#e0324a] disabled:opacity-40 transition-colors text-sm"
+          className="w-full py-3 bg-[#FC5931] text-white rounded-xl font-semibold hover:bg-[#e0324a] disabled:opacity-40 transition-colors text-sm"
         >
           {saving ? 'Salvando...' : 'Inserir Enquete'}
         </button>
@@ -396,7 +396,7 @@ export default function EnquetesAdminClient({
             </span>
             <div className="flex-1 h-5 bg-gray-200 rounded-full overflow-hidden relative">
               <div
-                className="h-full bg-[#FC3951] rounded-full transition-all duration-500"
+                className="h-full bg-[#FC5931] rounded-full transition-all duration-500"
                 style={{ width: `${Math.min(pct(enquete), 100)}%` }}
               />
               <span className="absolute inset-0 flex items-center justify-center text-[10px] font-bold text-gray-700">
@@ -487,7 +487,7 @@ export default function EnquetesAdminClient({
             <div className="flex gap-3 mt-4 pt-4 border-t border-gray-100">
               <button
                 onClick={() => loadRespostas(enquete)}
-                className="flex items-center gap-2 px-4 py-2 bg-[#FC3951] text-white rounded-xl text-sm font-medium hover:bg-[#e0324a] transition-colors"
+                className="flex items-center gap-2 px-4 py-2 bg-[#FC5931] text-white rounded-xl text-sm font-medium hover:bg-[#e0324a] transition-colors"
               >
                 {expandedId === enquete.id ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
                 {expandedId === enquete.id ? 'Ocultar respostas' : 'Exibir Respostas'}
@@ -570,7 +570,7 @@ export default function EnquetesAdminClient({
               {chartData.map((d, i) => {
                 const total = chartData.reduce((s, x) => s + x.count, 0)
                 const pctVal = total > 0 ? Math.round((d.count / total) * 100) : 0
-                const colors = ['#FC3951', '#3B82F6', '#10B981', '#F59E0B', '#8B5CF6', '#EC4899']
+                const colors = ['#FC5931', '#3B82F6', '#10B981', '#F59E0B', '#8B5CF6', '#EC4899']
                 return (
                   <div key={i}>
                     <div className="flex justify-between text-sm mb-1">

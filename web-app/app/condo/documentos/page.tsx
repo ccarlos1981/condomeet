@@ -51,7 +51,7 @@ export default async function CondoDocumentosPage() {
           {Object.entries(grupos).map(([nomePasta, docsNaPasta]) => (
             <div key={nomePasta} className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
               <div className="flex items-center gap-2 px-5 py-4 border-b border-gray-50">
-                <FolderOpen size={18} className="text-[#FC3951]" />
+                <FolderOpen size={18} className="text-[#FC5931]" />
                 <span className="font-semibold text-gray-800">{nomePasta}</span>
                 <span className="ml-auto text-xs text-gray-400">{docsNaPasta?.length} doc(s)</span>
               </div>
@@ -68,7 +68,7 @@ export default async function CondoDocumentosPage() {
                   {docsNaPasta?.map((doc: any) => (
                     <tr key={doc.id} className="border-t border-gray-50 hover:bg-gray-50/50 transition">
                       <td className="px-5 py-3 font-medium text-gray-800 flex items-center gap-2">
-                        <FileText size={14} className="text-[#FC3951] flex-shrink-0" />
+                        <FileText size={14} className="text-[#FC5931] flex-shrink-0" />
                         {doc.titulo}
                       </td>
                       <td className="px-3 py-3 text-gray-500">{doc.categoria ?? '—'}</td>
@@ -80,7 +80,7 @@ export default async function CondoDocumentosPage() {
                           {doc.arquivo_url ? (
                             <a href={doc.arquivo_url} download={doc.arquivo_nome ?? doc.titulo}
                               title="Baixar arquivo"
-                              className="p-1.5 rounded-lg text-gray-400 hover:text-[#FC3951] hover:bg-orange-50 transition">
+                              className="p-1.5 rounded-lg text-gray-400 hover:text-[#FC5931] hover:bg-orange-50 transition">
                               <Download size={14} />
                             </a>
                           ) : (

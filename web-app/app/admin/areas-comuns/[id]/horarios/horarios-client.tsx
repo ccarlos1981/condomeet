@@ -90,7 +90,7 @@ export default function HorariosClient({ areaId, tipoAgenda, initialHorarios }: 
         </button>
         <div>
           <div className="flex items-center gap-2">
-            <Clock size={20} className="text-[#FC3951]" />
+            <Clock size={20} className="text-[#FC5931]" />
             <h1 className="text-xl font-bold text-gray-900">
               Horários para uso do(a) {tipoAgenda}
             </h1>
@@ -107,7 +107,7 @@ export default function HorariosClient({ areaId, tipoAgenda, initialHorarios }: 
             <select
               value={diaSemana}
               onChange={e => setDiaSemana(e.target.value)}
-              className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#FC3951]/30"
+              className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#FC5931]/30"
             >
               {DIAS.map(d => <option key={d}>{d}</option>)}
             </select>
@@ -119,7 +119,7 @@ export default function HorariosClient({ areaId, tipoAgenda, initialHorarios }: 
               type="time"
               value={horaInicio}
               onChange={e => setHoraInicio(e.target.value)}
-              className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#FC3951]/30"
+              className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#FC5931]/30"
             />
           </div>
 
@@ -129,7 +129,7 @@ export default function HorariosClient({ areaId, tipoAgenda, initialHorarios }: 
               type="number" min={15} step={5}
               value={duracao}
               onChange={e => setDuracao(Number(e.target.value))}
-              className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#FC3951]/30"
+              className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#FC5931]/30"
             />
           </div>
 
@@ -137,7 +137,7 @@ export default function HorariosClient({ areaId, tipoAgenda, initialHorarios }: 
             <button
               onClick={handleCreate}
               disabled={saving}
-              className="w-full bg-[#FC3951] text-white px-4 py-2.5 rounded-xl text-sm font-semibold hover:bg-[#D4253D] transition-colors disabled:opacity-50"
+              className="w-full bg-[#FC5931] text-white px-4 py-2.5 rounded-xl text-sm font-semibold hover:bg-[#D42F1D] transition-colors disabled:opacity-50"
             >
               {saving ? '...' : 'CRIAR'}
             </button>
@@ -156,14 +156,14 @@ export default function HorariosClient({ areaId, tipoAgenda, initialHorarios }: 
               onClick={() => setSelectedDay(d)}
               className={`flex-1 py-2 rounded-xl text-xs font-semibold transition-colors relative ${
                 selectedDay === d
-                  ? 'bg-[#FC3951] text-white shadow'
+                  ? 'bg-[#FC5931] text-white shadow'
                   : 'bg-white border border-gray-100 text-gray-600 hover:bg-gray-50'
               }`}
             >
               {d}
               {count > 0 && (
                 <span className={`absolute -top-1 -right-1 w-4 h-4 text-[10px] font-bold rounded-full flex items-center justify-center ${
-                  selectedDay === d ? 'bg-white text-[#FC3951]' : 'bg-[#FC3951] text-white'
+                  selectedDay === d ? 'bg-white text-[#FC5931]' : 'bg-[#FC5931] text-white'
                 }`}>
                   {count}
                 </span>

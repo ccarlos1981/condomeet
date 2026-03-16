@@ -55,7 +55,7 @@ export default function MoradoresClient({ moradores }: { moradores: Morador[] })
             value={search}
             onChange={e => setSearch(e.target.value)}
             placeholder="Buscar por nome, bloco, apto..."
-            className="w-full pl-9 pr-8 py-2.5 rounded-xl border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-[#FC3951]/30 focus:border-[#FC3951] bg-white"
+            className="w-full pl-9 pr-8 py-2.5 rounded-xl border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-[#FC5931]/30 focus:border-[#FC5931] bg-white"
           />
           {search && (
             <button onClick={() => setSearch('')} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600">
@@ -87,11 +87,11 @@ export default function MoradoresClient({ moradores }: { moradores: Morador[] })
                 {/* Avatar + name */}
                 <div className="flex items-center gap-3">
                   <div className={`w-11 h-11 rounded-xl flex items-center justify-center flex-shrink-0 ${
-                    isBlocked ? 'bg-red-50' : 'bg-[#FC3951]/10'
+                    isBlocked ? 'bg-red-50' : 'bg-[#FC5931]/10'
                   }`}>
                     {isBlocked
                       ? <Lock size={18} className="text-red-400" />
-                      : <User size={20} className="text-[#FC3951]" />}
+                      : <User size={20} className="text-[#FC5931]" />}
                   </div>
                   <div className="min-w-0">
                     <p className={`font-semibold text-sm leading-tight ${isBlocked ? 'line-through text-gray-400' : 'text-gray-900'}`}>

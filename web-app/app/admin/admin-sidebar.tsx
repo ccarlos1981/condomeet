@@ -84,7 +84,7 @@ export default function AdminSidebar({
       {/* Header */}
       <div className="flex items-center justify-between px-4 py-5 border-b border-white/10">
         <div className={`flex items-center gap-3 overflow-hidden transition-all duration-300 ${collapsed ? 'w-0 opacity-0' : 'w-full opacity-100'}`}>
-          <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-[#FC3951] to-[#FF6B81] flex items-center justify-center flex-shrink-0">
+          <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-[#FC5931] to-[#FF6B81] flex items-center justify-center flex-shrink-0">
             <Shield size={18} className="text-white" />
           </div>
           <div className="min-w-0">
@@ -104,7 +104,7 @@ export default function AdminSidebar({
       {!collapsed && (
         <div className="px-4 py-3 border-b border-white/5">
           <p className="text-sm font-medium text-white/80 truncate">{userName}</p>
-          <span className="inline-block mt-1 text-[10px] uppercase tracking-wider font-bold bg-[#FC3951]/20 text-[#FC3951] px-2 py-0.5 rounded-full">
+          <span className="inline-block mt-1 text-[10px] uppercase tracking-wider font-bold bg-[#FC5931]/20 text-[#FC5931] px-2 py-0.5 rounded-full">
             {role}
           </span>
         </div>
@@ -130,7 +130,7 @@ export default function AdminSidebar({
                     title={collapsed ? item.label : undefined}
                     className={`flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all duration-150 ${
                       isActive
-                        ? 'bg-[#FC3951] text-white shadow-lg shadow-[#FC3951]/20'
+                        ? 'bg-[#FC5931] text-white shadow-lg shadow-[#FC5931]/20'
                         : 'text-white/60 hover:bg-white/[0.06] hover:text-white'
                     }`}
                   >

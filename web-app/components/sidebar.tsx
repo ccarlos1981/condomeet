@@ -178,11 +178,11 @@ export default function Sidebar({ role, userName, condoName, unidade, featuresCo
       {/* Role badge + Painel Admin shortcut */}
       {!collapsed && (
         <div className="px-4 py-2 flex flex-col gap-1.5">
-          <span className="text-xs bg-[#FC3951]/20 text-[#FC3951] px-2 py-1 rounded-full font-medium self-start">{role}</span>
+          <span className="text-xs bg-[#FC5931]/20 text-[#FC5931] px-2 py-1 rounded-full font-medium self-start">{role}</span>
           {(role.toLowerCase().includes('síndico') || role.toLowerCase().includes('sindico') || role === 'admin' || role === 'ADMIN') && (
             <a
               href="/admin"
-              className="flex items-center gap-2 bg-[#FC3951] hover:bg-[#D4253D] transition-colors text-white text-xs font-bold px-3 py-1.5 rounded-xl shadow-sm shadow-[#FC3951]/40"
+              className="flex items-center gap-2 bg-[#FC5931] hover:bg-[#D42F1D] transition-colors text-white text-xs font-bold px-3 py-1.5 rounded-xl shadow-sm shadow-[#FC5931]/40"
             >
               <Shield size={12} />
               Painel Admin
@@ -202,7 +202,7 @@ export default function Sidebar({ role, userName, condoName, unidade, featuresCo
               onClick={() => setMobileOpen(false)}
               className={`flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all duration-150 ${
                 isActive
-                  ? 'bg-[#FC3951] text-white shadow-lg shadow-[#FC3951]/30'
+                  ? 'bg-[#FC5931] text-white shadow-lg shadow-[#FC5931]/30'
                   : 'text-white/70 hover:bg-white/10 hover:text-white'
               }`}
             >
@@ -220,7 +220,7 @@ export default function Sidebar({ role, userName, condoName, unidade, featuresCo
             onClick={() => setMobileOpen(false)}
             className={`flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all duration-150 ${
               pathname === '/condo/perfil'
-                ? 'bg-[#FC3951] text-white shadow-lg shadow-[#FC3951]/30'
+                ? 'bg-[#FC5931] text-white shadow-lg shadow-[#FC5931]/30'
                 : 'text-white/70 hover:bg-white/10 hover:text-white'
             }`}
           >
@@ -246,7 +246,7 @@ export default function Sidebar({ role, userName, condoName, unidade, featuresCo
     <>
       {/* Mobile menu button */}
       <button
-        className="lg:hidden fixed top-4 left-4 z-50 p-2 bg-[#FC3951] text-white rounded-xl shadow-lg"
+        className="lg:hidden fixed top-4 left-4 z-50 p-2 bg-[#FC5931] text-white rounded-xl shadow-lg"
         onClick={() => setMobileOpen(!mobileOpen)}
       >
         {mobileOpen ? <X size={20} /> : <Menu size={20} />}

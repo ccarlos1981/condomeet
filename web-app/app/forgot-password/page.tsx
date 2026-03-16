@@ -34,7 +34,7 @@ export default function ForgotPasswordPage() {
   return (
     <div className="min-h-screen bg-[#f4f6f9] flex items-center justify-center p-6">
       <div className="bg-white rounded-3xl shadow-xl w-full max-w-sm p-8">
-        <a href="/login" className="flex items-center gap-2 text-sm text-gray-500 hover:text-[#FC3951] mb-6 transition-colors">
+        <a href="/login" className="flex items-center gap-2 text-sm text-gray-500 hover:text-[#FC5931] mb-6 transition-colors">
           <ArrowLeft size={16} /> Voltar ao login
         </a>
 
@@ -54,8 +54,8 @@ export default function ForgotPasswordPage() {
         ) : (
           <>
             <div className="flex flex-col items-center mb-6">
-              <div className="w-14 h-14 bg-[#FC3951]/10 rounded-full flex items-center justify-center mb-3">
-                <Mail size={28} className="text-[#FC3951]" />
+              <div className="w-14 h-14 bg-[#FC5931]/10 rounded-full flex items-center justify-center mb-3">
+                <Mail size={28} className="text-[#FC5931]" />
               </div>
               <h2 className="text-xl font-bold text-gray-900">Esqueci a senha</h2>
               <p className="text-sm text-gray-500 text-center mt-1">
@@ -72,7 +72,7 @@ export default function ForgotPasswordPage() {
                   value={email}
                   onChange={e => setEmail(e.target.value)}
                   onKeyDown={e => e.key === 'Enter' && handleSubmit()}
-                  className="w-full pl-10 pr-4 py-3 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#FC3951] bg-gray-50 text-sm"
+                  className="w-full pl-10 pr-4 py-3 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#FC5931] bg-gray-50 text-sm"
                 />
               </div>
 
@@ -81,7 +81,7 @@ export default function ForgotPasswordPage() {
               <button
                 onClick={handleSubmit}
                 disabled={loading || !email}
-                className="w-full py-3 bg-[#FC3951] text-white rounded-xl font-bold text-sm hover:bg-[#D4253D] transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                className="w-full py-3 bg-[#FC5931] text-white rounded-xl font-bold text-sm hover:bg-[#D42F1D] transition-all disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 {loading ? 'Enviando...' : 'Enviar Link de Redefinição'}
               </button>

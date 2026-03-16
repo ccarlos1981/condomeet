@@ -31,15 +31,15 @@ export default function AdminCharts({ invitations }: { invitations: Invitation[]
           <AreaChart data={chartData}>
             <defs>
               <linearGradient id="colorTotal" x1="0" y1="0" x2="0" y2="1">
-                <stop offset="5%" stopColor="#FC3951" stopOpacity={0.18} />
-                <stop offset="95%" stopColor="#FC3951" stopOpacity={0} />
+                <stop offset="5%" stopColor="#FC5931" stopOpacity={0.18} />
+                <stop offset="95%" stopColor="#FC5931" stopOpacity={0} />
               </linearGradient>
             </defs>
             <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
             <XAxis dataKey="month" tick={{ fontSize: 11 }} />
             <YAxis tick={{ fontSize: 11 }} width={28} />
             <Tooltip contentStyle={{ fontSize: 12, borderRadius: 8 }} />
-            <Area type="monotone" dataKey="total" name="Total" stroke="#FC3951" fill="url(#colorTotal)" strokeWidth={2} />
+            <Area type="monotone" dataKey="total" name="Total" stroke="#FC5931" fill="url(#colorTotal)" strokeWidth={2} />
           </AreaChart>
         </ResponsiveContainer>
       </div>

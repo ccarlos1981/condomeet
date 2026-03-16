@@ -71,8 +71,8 @@ export default function ResetPasswordPage() {
         ) : (
           <>
             <div className="flex flex-col items-center mb-6">
-              <div className="w-14 h-14 bg-[#FC3951]/10 rounded-full flex items-center justify-center mb-3">
-                <Lock size={28} className="text-[#FC3951]" />
+              <div className="w-14 h-14 bg-[#FC5931]/10 rounded-full flex items-center justify-center mb-3">
+                <Lock size={28} className="text-[#FC5931]" />
               </div>
               <h2 className="text-xl font-bold text-gray-900">Redefinir Senha</h2>
               <p className="text-sm text-gray-500 text-center mt-1">
@@ -89,7 +89,7 @@ export default function ResetPasswordPage() {
                   placeholder="Nova senha (somente números)"
                   value={newPassword}
                   onChange={e => setNewPassword(e.target.value.replace(/\D/g, ''))}
-                  className="w-full pl-10 pr-11 py-3 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#FC3951] bg-gray-50 text-sm"
+                  className="w-full pl-10 pr-11 py-3 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#FC5931] bg-gray-50 text-sm"
                 />
                 <button type="button" onClick={() => setShowNew(!showNew)}
                   className="absolute right-3.5 top-1/2 -translate-y-1/2 text-gray-400">
@@ -106,7 +106,7 @@ export default function ResetPasswordPage() {
                   value={confirmPassword}
                   onChange={e => setConfirmPassword(e.target.value.replace(/\D/g, ''))}
                   onKeyDown={e => e.key === 'Enter' && handleReset()}
-                  className="w-full pl-10 pr-11 py-3 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#FC3951] bg-gray-50 text-sm"
+                  className="w-full pl-10 pr-11 py-3 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#FC5931] bg-gray-50 text-sm"
                 />
                 <button type="button" onClick={() => setShowConfirm(!showConfirm)}
                   className="absolute right-3.5 top-1/2 -translate-y-1/2 text-gray-400">
@@ -119,7 +119,7 @@ export default function ResetPasswordPage() {
               <button
                 onClick={handleReset}
                 disabled={loading || !newPassword || !confirmPassword}
-                className="w-full py-3 bg-[#FC3951] text-white rounded-xl font-bold text-sm hover:bg-[#D4253D] transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                className="w-full py-3 bg-[#FC5931] text-white rounded-xl font-bold text-sm hover:bg-[#D42F1D] transition-all disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 {loading ? 'Salvando...' : 'Redefinir Senha'}
               </button>

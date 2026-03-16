@@ -165,7 +165,7 @@ export default function ConfigurarAcessoClient({ initialConfig, condominioId, db
         <button
           onClick={handleSave}
           disabled={isPending}
-          className="flex items-center gap-2 bg-[#FC3951] text-white px-5 py-2.5 rounded-xl font-semibold text-sm hover:bg-[#D4253D] transition-colors disabled:opacity-60"
+          className="flex items-center gap-2 bg-[#FC5931] text-white px-5 py-2.5 rounded-xl font-semibold text-sm hover:bg-[#D42F1D] transition-colors disabled:opacity-60"
         >
           <Save size={16} />
           {isPending ? 'Salvando…' : saved ? '✅ Salvo!' : 'Salvar alterações'}
@@ -204,7 +204,7 @@ export default function ConfigurarAcessoClient({ initialConfig, condominioId, db
                           className="inline-flex items-center justify-center w-7 h-7 rounded-lg hover:bg-gray-100 transition-colors"
                         >
                           {checked
-                            ? <CheckSquare size={20} className="text-[#FC3951]" />
+                            ? <CheckSquare size={20} className="text-[#FC5931]" />
                             : <Square size={20} className="text-gray-300" />}
                         </button>
                       </td>

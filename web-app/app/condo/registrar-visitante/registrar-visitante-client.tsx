@@ -300,7 +300,7 @@ export default function RegistrarVisitanteClient({
         <div className="flex items-center gap-4 mb-6">
           <button
             onClick={() => setView('form')}
-            className="flex items-center gap-1.5 text-[#FC3951] font-semibold hover:underline"
+            className="flex items-center gap-1.5 text-[#FC5931] font-semibold hover:underline"
             title="Voltar ao formulário"
           >
             <ChevronLeft size={18} />
@@ -367,7 +367,7 @@ export default function RegistrarVisitanteClient({
     <div className="flex flex-col lg:flex-row gap-6">
       {/* ── LEFT: Registration Form ─────────────────────────── */}
       <div className="flex-1">
-        <div className="bg-[#FC3951] text-white text-center font-bold py-3 rounded-t-xl text-lg">
+        <div className="bg-[#FC5931] text-white text-center font-bold py-3 rounded-t-xl text-lg">
           Registrar Visitante
         </div>
         <div className="bg-white rounded-b-xl border border-gray-100 border-t-0 p-6 space-y-5">
@@ -382,7 +382,7 @@ export default function RegistrarVisitanteClient({
               onFocus={() => cpfSuggestions.length > 0 && setShowSuggestions(true)}
               onBlur={() => setTimeout(() => setShowSuggestions(false), 200)}
               placeholder="Digite o CPF ou RG"
-              className="w-full border border-gray-200 rounded-lg px-4 py-2.5 text-sm focus:outline-none focus:border-[#FC3951] focus:ring-1 focus:ring-[#FC3951]/30"
+              className="w-full border border-gray-200 rounded-lg px-4 py-2.5 text-sm focus:outline-none focus:border-[#FC5931] focus:ring-1 focus:ring-[#FC5931]/30"
             />
 
             {/* Auto-suggestions dropdown */}
@@ -448,7 +448,7 @@ export default function RegistrarVisitanteClient({
               <button
                 onClick={startWebcam}
                 type="button"
-                className="bg-[#FC3951] hover:bg-[#D4253D] text-white px-5 py-2.5 rounded-lg text-sm font-semibold transition-colors inline-flex items-center gap-2"
+                className="bg-[#FC5931] hover:bg-[#D42F1D] text-white px-5 py-2.5 rounded-lg text-sm font-semibold transition-colors inline-flex items-center gap-2"
               >
                 <Camera size={16} /> Capturar outra foto
               </button>
@@ -480,7 +480,7 @@ export default function RegistrarVisitanteClient({
                 value={bloco}
                 onChange={e => { setBloco(e.target.value); setApto('') }}
                 title="Selecione o bloco"
-                className="w-full border border-gray-200 rounded-lg px-4 py-2.5 text-sm focus:outline-none focus:border-[#FC3951] focus:ring-1 focus:ring-[#FC3951]/30 bg-white"
+                className="w-full border border-gray-200 rounded-lg px-4 py-2.5 text-sm focus:outline-none focus:border-[#FC5931] focus:ring-1 focus:ring-[#FC5931]/30 bg-white"
               >
                 <option value="">Selecione o bloco</option>
                 {blocos.map(b => (
@@ -495,7 +495,7 @@ export default function RegistrarVisitanteClient({
                 onChange={e => setApto(e.target.value)}
                 disabled={!bloco}
                 title="Selecione o apartamento"
-                className="w-full border border-gray-200 rounded-lg px-4 py-2.5 text-sm focus:outline-none focus:border-[#FC3951] focus:ring-1 focus:ring-[#FC3951]/30 bg-white disabled:bg-gray-50 disabled:text-gray-400"
+                className="w-full border border-gray-200 rounded-lg px-4 py-2.5 text-sm focus:outline-none focus:border-[#FC5931] focus:ring-1 focus:ring-[#FC5931]/30 bg-white disabled:bg-gray-50 disabled:text-gray-400"
               >
                 <option value="">Selecione o apto</option>
                 {availableAptos.map(a => (
@@ -513,7 +513,7 @@ export default function RegistrarVisitanteClient({
               value={nome}
               onChange={e => setNome(e.target.value)}
               placeholder="Nome do visitante"
-              className="w-full border border-gray-200 rounded-lg px-4 py-2.5 text-sm focus:outline-none focus:border-[#FC3951] focus:ring-1 focus:ring-[#FC3951]/30"
+              className="w-full border border-gray-200 rounded-lg px-4 py-2.5 text-sm focus:outline-none focus:border-[#FC5931] focus:ring-1 focus:ring-[#FC5931]/30"
             />
           </div>
 
@@ -525,7 +525,7 @@ export default function RegistrarVisitanteClient({
               value={whatsapp}
               onChange={e => setWhatsapp(e.target.value)}
               placeholder="(00) 00000-0000"
-              className="w-full border border-gray-200 rounded-lg px-4 py-2.5 text-sm focus:outline-none focus:border-[#FC3951] focus:ring-1 focus:ring-[#FC3951]/30"
+              className="w-full border border-gray-200 rounded-lg px-4 py-2.5 text-sm focus:outline-none focus:border-[#FC5931] focus:ring-1 focus:ring-[#FC5931]/30"
             />
           </div>
 
@@ -536,7 +536,7 @@ export default function RegistrarVisitanteClient({
               value={tipoVisitante}
               onChange={e => setTipoVisitante(e.target.value)}
               title="Tipo de visitante"
-              className="w-full border border-gray-200 rounded-lg px-4 py-2.5 text-sm focus:outline-none focus:border-[#FC3951] focus:ring-1 focus:ring-[#FC3951]/30 bg-white"
+              className="w-full border border-gray-200 rounded-lg px-4 py-2.5 text-sm focus:outline-none focus:border-[#FC5931] focus:ring-1 focus:ring-[#FC5931]/30 bg-white"
             >
               <option value="">Selecione o tipo de visitante</option>
               {TIPOS_VISITANTE.map(t => (
@@ -553,7 +553,7 @@ export default function RegistrarVisitanteClient({
               value={empresa}
               onChange={e => setEmpresa(e.target.value)}
               placeholder="Empresa (opcional)"
-              className="w-full border border-gray-200 rounded-lg px-4 py-2.5 text-sm focus:outline-none focus:border-[#FC3951] focus:ring-1 focus:ring-[#FC3951]/30"
+              className="w-full border border-gray-200 rounded-lg px-4 py-2.5 text-sm focus:outline-none focus:border-[#FC5931] focus:ring-1 focus:ring-[#FC5931]/30"
             />
           </div>
 
@@ -578,7 +578,7 @@ export default function RegistrarVisitanteClient({
                 <button
                   onClick={capturePhoto}
                   disabled={!videoReady}
-                  className="mt-4 w-full bg-[#FC3951] text-white py-3 rounded-xl font-bold hover:bg-[#D4253D] transition-colors flex items-center justify-center gap-2 disabled:opacity-50"
+                  className="mt-4 w-full bg-[#FC5931] text-white py-3 rounded-xl font-bold hover:bg-[#D42F1D] transition-colors flex items-center justify-center gap-2 disabled:opacity-50"
                 >
                   <Camera size={20} /> {videoReady ? 'Capturar' : 'Carregando câmera...'}
                 </button>
@@ -605,7 +605,7 @@ export default function RegistrarVisitanteClient({
               <button
                 onClick={startWebcam}
                 type="button"
-                className="bg-[#FC3951] hover:bg-[#D4253D] text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors flex items-center gap-2"
+                className="bg-[#FC5931] hover:bg-[#D42F1D] text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors flex items-center gap-2"
               >
                 <Video size={16} /> Tirar foto
               </button>
@@ -633,7 +633,7 @@ export default function RegistrarVisitanteClient({
               onChange={e => setObservacao(e.target.value)}
               rows={3}
               placeholder="Escreva uma observação (Opcional)"
-              className="w-full border border-gray-200 rounded-lg px-4 py-2.5 text-sm focus:outline-none focus:border-[#FC3951] focus:ring-1 focus:ring-[#FC3951]/30 resize-none"
+              className="w-full border border-gray-200 rounded-lg px-4 py-2.5 text-sm focus:outline-none focus:border-[#FC5931] focus:ring-1 focus:ring-[#FC5931]/30 resize-none"
             />
           </div>
 
@@ -648,7 +648,7 @@ export default function RegistrarVisitanteClient({
           <button
             onClick={handleSave}
             disabled={isPending || saved}
-            className="w-full bg-[#FC3951] text-white py-3 rounded-xl font-bold text-base hover:bg-[#D4253D] transition-colors disabled:opacity-60 flex items-center justify-center gap-2"
+            className="w-full bg-[#FC5931] text-white py-3 rounded-xl font-bold text-base hover:bg-[#D42F1D] transition-colors disabled:opacity-60 flex items-center justify-center gap-2"
           >
             {isPending ? (
               'Registrando...'
@@ -663,7 +663,7 @@ export default function RegistrarVisitanteClient({
 
       {/* ── RIGHT: Visitor History Sidebar ───────────────────── */}
       <div className="w-full lg:w-[380px] flex-shrink-0">
-        <div className="bg-[#FC3951] text-white text-center font-bold py-3 rounded-t-xl">
+        <div className="bg-[#FC5931] text-white text-center font-bold py-3 rounded-t-xl">
           Histórico de visitas
         </div>
         <div className="bg-white rounded-b-xl border border-gray-100 border-t-0 p-4 space-y-3 max-h-[700px] overflow-y-auto">
@@ -711,7 +711,7 @@ export default function RegistrarVisitanteClient({
         {visitantes.length > 0 && (
           <button
             onClick={() => setView('history')}
-            className="w-full mt-3 text-[#FC3951] font-semibold text-sm hover:underline py-2"
+            className="w-full mt-3 text-[#FC5931] font-semibold text-sm hover:underline py-2"
           >
             Ver histórico completo →
           </button>

@@ -42,7 +42,7 @@ function ConviteCard({ convite }: { convite: Convite }) {
       chegou ? 'border-green-200' : isExpired ? 'border-gray-200' : 'border-orange-100'
     }`}>
       <div className={`px-5 py-3 flex items-center justify-between ${
-        chegou ? 'bg-emerald-500' : isExpired ? 'bg-gray-400' : 'bg-[#FC3951]'
+        chegou ? 'bg-emerald-500' : isExpired ? 'bg-gray-400' : 'bg-[#FC5931]'
       }`}>
         <div className="flex items-center gap-3">
           <div className="w-9 h-9 bg-white/20 rounded-xl flex items-center justify-center">
@@ -194,8 +194,8 @@ export default function VisitantesResidentClient({
               onClick={() => setFilter(key as typeof filter)}
               className={`text-sm font-medium px-4 py-2 rounded-xl border transition-all ${
                 filter === key
-                  ? 'bg-[#FC3951] text-white border-[#FC3951] shadow-sm'
-                  : 'bg-white text-gray-600 border-gray-200 hover:border-[#FC3951]/50 hover:text-[#FC3951]'
+                  ? 'bg-[#FC5931] text-white border-[#FC5931] shadow-sm'
+                  : 'bg-white text-gray-600 border-gray-200 hover:border-[#FC5931]/50 hover:text-[#FC5931]'
               }`}
             >
               {label}
@@ -204,7 +204,7 @@ export default function VisitantesResidentClient({
         </div>
         <button
           onClick={() => setShowModal(true)}
-          className="flex items-center gap-2 bg-[#FC3951] text-white text-sm font-semibold px-5 py-2.5 rounded-xl hover:bg-[#D4253D] transition-colors shadow-sm shadow-[#FC3951]/30"
+          className="flex items-center gap-2 bg-[#FC5931] text-white text-sm font-semibold px-5 py-2.5 rounded-xl hover:bg-[#D42F1D] transition-colors shadow-sm shadow-[#FC5931]/30"
         >
           <Plus size={16} />
           Nova Autorização
@@ -232,10 +232,10 @@ export default function VisitantesResidentClient({
           <button
             onClick={handleLoadMore}
             disabled={loadingMore}
-            className="flex items-center gap-2 px-5 py-2.5 text-sm font-semibold text-[#FC3951] bg-[#FC3951]/10 rounded-xl hover:bg-[#FC3951]/20 transition-colors disabled:opacity-50"
+            className="flex items-center gap-2 px-5 py-2.5 text-sm font-semibold text-[#FC5931] bg-[#FC5931]/10 rounded-xl hover:bg-[#FC5931]/20 transition-colors disabled:opacity-50"
           >
             {loadingMore ? (
-              <div className="w-4 h-4 border-2 border-[#FC3951]/30 border-t-[#FC3951] rounded-full animate-spin" />
+              <div className="w-4 h-4 border-2 border-[#FC5931]/30 border-t-[#FC5931] rounded-full animate-spin" />
             ) : (
               <ChevronDown size={14} />
             )}
@@ -271,7 +271,7 @@ export default function VisitantesResidentClient({
                   value={form.visitor_type}
                   onChange={e => setForm(f => ({ ...f, visitor_type: e.target.value }))}
                   title="Tipo de visitante"
-                  className="w-full border border-gray-200 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#FC3951]/30 focus:border-[#FC3951] transition-all bg-white"
+                  className="w-full border border-gray-200 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#FC5931]/30 focus:border-[#FC5931] transition-all bg-white"
                 >
                   <option value="">Escolha o tipo de visitante</option>
                   {VISITOR_TYPES.map(type => (
@@ -290,7 +290,7 @@ export default function VisitantesResidentClient({
                   value={form.validity_date}
                   onChange={e => setForm(f => ({ ...f, validity_date: e.target.value }))}
                   title="Data de validade"
-                  className="w-full border border-gray-200 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#FC3951]/30 focus:border-[#FC3951] transition-all"
+                  className="w-full border border-gray-200 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#FC5931]/30 focus:border-[#FC5931] transition-all"
                 />
               </div>
 
@@ -304,7 +304,7 @@ export default function VisitantesResidentClient({
                   value={form.guest_name}
                   onChange={e => setForm(f => ({ ...f, guest_name: e.target.value }))}
                   placeholder="Nome do visitante"
-                  className="w-full border border-gray-200 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#FC3951]/30 focus:border-[#FC3951] transition-all"
+                  className="w-full border border-gray-200 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#FC5931]/30 focus:border-[#FC5931] transition-all"
                 />
               </div>
 
@@ -316,7 +316,7 @@ export default function VisitantesResidentClient({
                   value={form.whatsapp}
                   onChange={e => setForm(f => ({ ...f, whatsapp: e.target.value }))}
                   placeholder="(00) 0 0000-0000"
-                  className="w-full border border-gray-200 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#FC3951]/30 focus:border-[#FC3951] transition-all"
+                  className="w-full border border-gray-200 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#FC5931]/30 focus:border-[#FC5931] transition-all"
                 />
               </div>
 
@@ -328,7 +328,7 @@ export default function VisitantesResidentClient({
                   value={form.observacao}
                   onChange={e => setForm(f => ({ ...f, observacao: e.target.value }))}
                   placeholder="Observação (Opcional)"
-                  className="w-full border border-gray-200 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#FC3951]/30 focus:border-[#FC3951] transition-all"
+                  className="w-full border border-gray-200 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#FC5931]/30 focus:border-[#FC5931] transition-all"
                 />
               </div>
 
@@ -347,7 +347,7 @@ export default function VisitantesResidentClient({
               <button
                 onClick={handleCreate}
                 disabled={saving}
-                className="flex items-center gap-2 bg-[#FC3951] text-white text-sm font-semibold px-6 py-2.5 rounded-xl hover:bg-[#D4253D] transition-colors disabled:opacity-40 shadow-sm shadow-[#FC3951]/30"
+                className="flex items-center gap-2 bg-[#FC5931] text-white text-sm font-semibold px-6 py-2.5 rounded-xl hover:bg-[#D42F1D] transition-colors disabled:opacity-40 shadow-sm shadow-[#FC5931]/30"
               >
                 {saving
                   ? <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />

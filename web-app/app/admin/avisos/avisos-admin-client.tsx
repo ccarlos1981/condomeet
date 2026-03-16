@@ -62,7 +62,7 @@ export default function AvisosAdminClient({ condominioId, avisos: initial, total
     <div className="max-w-3xl">
       <div className="mb-8">
         <div className="flex items-center gap-3 mb-1">
-          <Megaphone size={22} className="text-[#FC3951]" />
+          <Megaphone size={22} className="text-[#FC5931]" />
           <h1 className="text-2xl font-bold text-gray-900">Avisos</h1>
         </div>
         <p className="text-sm text-gray-500">Envie comunicados para todos os moradores do condomínio.</p>
@@ -79,7 +79,7 @@ export default function AvisosAdminClient({ condominioId, avisos: initial, total
           placeholder="Título do aviso"
           value={titulo}
           onChange={e => setTitulo(e.target.value)}
-          className="w-full border border-gray-200 rounded-xl px-4 py-2.5 text-sm mb-1 focus:outline-none focus:ring-2 focus:ring-[#FC3951]/30 focus:border-[#FC3951]"
+          className="w-full border border-gray-200 rounded-xl px-4 py-2.5 text-sm mb-1 focus:outline-none focus:ring-2 focus:ring-[#FC5931]/30 focus:border-[#FC5931]"
         />
         <p className="text-xs text-gray-400 text-right mb-3">{titulo.length}/40 caracteres</p>
 
@@ -111,7 +111,7 @@ export default function AvisosAdminClient({ condominioId, avisos: initial, total
         <button
           onClick={handleSend}
           disabled={sending}
-          className="mt-4 flex items-center gap-2 bg-[#FC3951] hover:bg-[#D4253D] text-white px-6 py-2.5 rounded-full text-sm font-semibold transition-colors disabled:opacity-50"
+          className="mt-4 flex items-center gap-2 bg-[#FC5931] hover:bg-[#D42F1D] text-white px-6 py-2.5 rounded-full text-sm font-semibold transition-colors disabled:opacity-50"
         >
           <Send size={14} />
           {sending ? 'Enviando...' : 'Enviar Aviso'}

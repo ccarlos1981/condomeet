@@ -9,7 +9,7 @@ import {
 const TIPOS_AGENDA = [
   'Salão de Festa','Churrasqueira','Sauna','Quadra de Tênis','Piscina',
   'Campo de Futebol','Academia','Sala de Jogos','Espaço Gourmet','Coworking',
-  'Brinquedoteca','Lavanderia','Outro',
+  'Brinquedoteca','Lavanderia','Mudança','Obra','Outro',
 ]
 
 const LOCAIS = [
@@ -137,7 +137,7 @@ export default function AreasComunsClient({ condominioId, initialAreas }: Props)
       {/* Header */}
       <div className="mb-6 flex items-center justify-between">
         <div className="flex items-center gap-3">
-          <Building2 size={22} className="text-[#FC3951]" />
+          <Building2 size={22} className="text-[#FC5931]" />
           <div>
             <h1 className="text-2xl font-bold text-gray-900">Áreas Comuns</h1>
             <p className="text-sm text-gray-500">Configure os espaços disponíveis para reserva.</p>
@@ -145,7 +145,7 @@ export default function AreasComunsClient({ condominioId, initialAreas }: Props)
         </div>
         <button
           onClick={() => setShowForm(f => !f)}
-          className="flex items-center gap-2 bg-[#FC3951] text-white px-5 py-2.5 rounded-full text-sm font-semibold hover:bg-[#D4253D] transition-colors"
+          className="flex items-center gap-2 bg-[#FC5931] text-white px-5 py-2.5 rounded-full text-sm font-semibold hover:bg-[#D42F1D] transition-colors"
         >
           <Plus size={16} />
           Nova Área
@@ -164,7 +164,7 @@ export default function AreasComunsClient({ condominioId, initialAreas }: Props)
         <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
           <table className="w-full text-sm">
             <thead>
-              <tr className="bg-[#FC3951] text-white">
+              <tr className="bg-[#FC5931] text-white">
                 <th className="text-left px-4 py-3 font-semibold">Tipo Agenda</th>
                 <th className="text-left px-4 py-3 font-semibold">Local</th>
                 <th className="px-4 py-3 font-semibold">Reserva</th>
@@ -272,7 +272,7 @@ export default function AreasComunsClient({ condominioId, initialAreas }: Props)
                   type="radio"
                   checked={form.tipo_reserva === t}
                   onChange={() => setField('tipo_reserva', t)}
-                  className="accent-[#FC3951]"
+                  className="accent-[#FC5931]"
                 />
                 <span className="text-sm font-medium text-gray-700">
                   {t === 'por_dia' ? 'Por Dia (dia inteiro)' : 'Por Hora (com horários)'}
@@ -285,7 +285,7 @@ export default function AreasComunsClient({ condominioId, initialAreas }: Props)
             <select
               value={form.tipo_agenda}
               onChange={e => setField('tipo_agenda', e.target.value)}
-              className="col-span-2 border border-gray-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#FC3951]/30"
+              className="col-span-2 border border-gray-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#FC5931]/30"
             >
               <option value="">Tipo de Agenda</option>
               {TIPOS_AGENDA.map(t => <option key={t}>{t}</option>)}
@@ -294,7 +294,7 @@ export default function AreasComunsClient({ condominioId, initialAreas }: Props)
             <select
               value={form.local}
               onChange={e => setField('local', e.target.value)}
-              className="border border-gray-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#FC3951]/30 text-gray-700"
+              className="border border-gray-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#FC5931]/30 text-gray-700"
             >
               <option value="">Local</option>
               {LOCAIS.map(l => <option key={l}>{l}</option>)}
@@ -305,21 +305,21 @@ export default function AreasComunsClient({ condominioId, initialAreas }: Props)
               placeholder={form.local === 'Outro' ? 'Nome do local' : 'Outro local (opcional)'}
               value={form.outro_local ?? ''}
               onChange={e => setField('outro_local', e.target.value)}
-              className="border border-gray-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#FC3951]/30"
+              className="border border-gray-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#FC5931]/30"
             />
 
             <input
               type="number" min={1} placeholder="Capacidade (pessoas)"
               value={form.capacidade || ''}
               onChange={e => setField('capacidade', Number(e.target.value))}
-              className="border border-gray-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#FC3951]/30"
+              className="border border-gray-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#FC5931]/30"
             />
 
             <input
               type="number" min={1} placeholder="Limite de acesso"
               value={form.limite_acesso || ''}
               onChange={e => setField('limite_acesso', Number(e.target.value))}
-              className="border border-gray-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#FC3951]/30"
+              className="border border-gray-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#FC5931]/30"
             />
           </div>
 
@@ -328,7 +328,7 @@ export default function AreasComunsClient({ condominioId, initialAreas }: Props)
               type="number" min={0} placeholder="Hrs para cancelar"
               value={form.hrs_cancelar || ''}
               onChange={e => setField('hrs_cancelar', Number(e.target.value))}
-              className="border border-gray-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#FC3951]/30"
+              className="border border-gray-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#FC5931]/30"
             />
           </div>
 
@@ -346,7 +346,7 @@ export default function AreasComunsClient({ condominioId, initialAreas }: Props)
                     placeholder={`Valor ${i + 1}`}
                     value={form.precos[i]?.valor || ''}
                     onChange={e => setPreco(i, 'valor', Number(e.target.value))}
-                    className="flex-1 border border-gray-200 rounded-lg px-2 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#FC3951]/30"
+                    className="flex-1 border border-gray-200 rounded-lg px-2 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#FC5931]/30"
                   />
                 </div>
                 <textarea
@@ -354,7 +354,7 @@ export default function AreasComunsClient({ condominioId, initialAreas }: Props)
                   placeholder={`Regra ${i + 1} (ex: até 2 reservas/ano)`}
                   value={form.precos[i]?.regra || ''}
                   onChange={e => setPreco(i, 'regra', e.target.value)}
-                  className="w-full border border-gray-200 rounded-lg px-2 py-1.5 text-xs resize-none focus:outline-none focus:ring-2 focus:ring-[#FC3951]/30"
+                  className="w-full border border-gray-200 rounded-lg px-2 py-1.5 text-xs resize-none focus:outline-none focus:ring-2 focus:ring-[#FC5931]/30"
                 />
               </div>
             ))}
@@ -365,7 +365,7 @@ export default function AreasComunsClient({ condominioId, initialAreas }: Props)
             placeholder="Instrução de uso (ex: Não é permitido som alto...)"
             value={form.instrucao_uso || ''}
             onChange={e => setField('instrucao_uso', e.target.value)}
-            className="w-full border border-gray-200 rounded-xl px-4 py-3 text-sm resize-none mb-4 focus:outline-none focus:ring-2 focus:ring-[#FC3951]/30"
+            className="w-full border border-gray-200 rounded-xl px-4 py-3 text-sm resize-none mb-4 focus:outline-none focus:ring-2 focus:ring-[#FC5931]/30"
           />
 
           {error && <p className="text-red-500 text-xs mb-3">{error}</p>}
@@ -374,7 +374,7 @@ export default function AreasComunsClient({ condominioId, initialAreas }: Props)
             <button
               onClick={handleSave}
               disabled={saving}
-              className="bg-[#FC3951] text-white px-6 py-2.5 rounded-full text-sm font-semibold hover:bg-[#D4253D] transition-colors disabled:opacity-50"
+              className="bg-[#FC5931] text-white px-6 py-2.5 rounded-full text-sm font-semibold hover:bg-[#D42F1D] transition-colors disabled:opacity-50"
             >
               {saving ? 'Salvando...' : editId ? 'Atualizar' : 'Salvar'}
             </button>

@@ -191,15 +191,15 @@ export default function ProfileForm({
           </div>
           <div>
             <label className="block text-sm font-medium text-gray-600 mb-1">Nome Completo</label>
-            <input type="text" value={nome} onChange={e => setNome(e.target.value)} className="w-full px-4 py-2.5 rounded-xl border border-gray-200 focus:ring-2 focus:ring-[#FC3951]/20 focus:border-[#FC3951] outline-none" />
+            <input type="text" value={nome} onChange={e => setNome(e.target.value)} className="w-full px-4 py-2.5 rounded-xl border border-gray-200 focus:ring-2 focus:ring-[#FC5931]/20 focus:border-[#FC5931] outline-none" />
           </div>
           <div>
             <label className="block text-sm font-medium text-gray-600 mb-1">WhatsApp</label>
-            <input type="tel" value={whatsapp} onChange={e => setWhatsapp(e.target.value)} className="w-full px-4 py-2.5 rounded-xl border border-gray-200 focus:ring-2 focus:ring-[#FC3951]/20 focus:border-[#FC3951] outline-none" />
+            <input type="tel" value={whatsapp} onChange={e => setWhatsapp(e.target.value)} className="w-full px-4 py-2.5 rounded-xl border border-gray-200 focus:ring-2 focus:ring-[#FC5931]/20 focus:border-[#FC5931] outline-none" />
           </div>
           <div>
             <label className="block text-sm font-medium text-gray-600 mb-1">Tipo de Morador</label>
-            <select value={tipoMorador} onChange={e => setTipoMorador(e.target.value)} className="w-full px-4 py-2.5 rounded-xl border border-gray-200 focus:ring-2 focus:ring-[#FC3951]/20 focus:border-[#FC3951] outline-none bg-white">
+            <select value={tipoMorador} onChange={e => setTipoMorador(e.target.value)} className="w-full px-4 py-2.5 rounded-xl border border-gray-200 focus:ring-2 focus:ring-[#FC5931]/20 focus:border-[#FC5931] outline-none bg-white">
               {[...tiposSet].map(t => <option key={t} value={t}>{t}</option>)}
             </select>
           </div>
@@ -213,14 +213,14 @@ export default function ProfileForm({
         <div className="space-y-4">
           <div>
             <label className="block text-sm font-medium text-gray-600 mb-1">Bloco</label>
-            <select value={selectedBlocoId} onChange={e => handleBlocoChange(e.target.value)} className="w-full px-4 py-2.5 rounded-xl border border-gray-200 focus:ring-2 focus:ring-[#FC3951]/20 focus:border-[#FC3951] outline-none bg-white">
+            <select value={selectedBlocoId} onChange={e => handleBlocoChange(e.target.value)} className="w-full px-4 py-2.5 rounded-xl border border-gray-200 focus:ring-2 focus:ring-[#FC5931]/20 focus:border-[#FC5931] outline-none bg-white">
               <option value="">Selecione o bloco</option>
               {blocos.map(b => <option key={b.id} value={b.id}>Bloco {b.nome_ou_numero}</option>)}
             </select>
           </div>
           <div>
             <label className="block text-sm font-medium text-gray-600 mb-1">Apartamento</label>
-            <select value={selectedAptoId} onChange={e => handleAptoChange(e.target.value)} disabled={loadingAptos} className="w-full px-4 py-2.5 rounded-xl border border-gray-200 focus:ring-2 focus:ring-[#FC3951]/20 focus:border-[#FC3951] outline-none bg-white disabled:opacity-50">
+            <select value={selectedAptoId} onChange={e => handleAptoChange(e.target.value)} disabled={loadingAptos} className="w-full px-4 py-2.5 rounded-xl border border-gray-200 focus:ring-2 focus:ring-[#FC5931]/20 focus:border-[#FC5931] outline-none bg-white disabled:opacity-50">
               <option value="">{loadingAptos ? 'Carregando...' : 'Selecione o apartamento'}</option>
               {aptos.map(a => <option key={a.id} value={a.id}>Apto {a.numero}</option>)}
             </select>
@@ -240,7 +240,7 @@ export default function ProfileForm({
         {!showChangePwd ? (
           <button
             onClick={() => setShowChangePwd(true)}
-            className="flex items-center gap-2 text-sm text-[#FC3951] hover:underline font-medium"
+            className="flex items-center gap-2 text-sm text-[#FC5931] hover:underline font-medium"
           >
             <Lock size={16} /> Alterar Senha
           </button>
@@ -253,7 +253,7 @@ export default function ProfileForm({
                 placeholder="Nova senha (somente números)"
                 value={newPwd}
                 onChange={e => setNewPwd(e.target.value.replace(/\D/g, ''))}
-                className="w-full px-4 py-2.5 pr-11 rounded-xl border border-gray-200 focus:ring-2 focus:ring-[#FC3951]/20 focus:border-[#FC3951] outline-none text-sm"
+                className="w-full px-4 py-2.5 pr-11 rounded-xl border border-gray-200 focus:ring-2 focus:ring-[#FC5931]/20 focus:border-[#FC5931] outline-none text-sm"
               />
               <button type="button" onClick={() => setShowNewPwd(!showNewPwd)} className="absolute right-3.5 top-1/2 -translate-y-1/2 text-gray-400">
                 {showNewPwd ? <EyeOff size={16}/> : <Eye size={16}/>}
@@ -266,7 +266,7 @@ export default function ProfileForm({
                 placeholder="Confirmar nova senha"
                 value={confirmPwd}
                 onChange={e => setConfirmPwd(e.target.value.replace(/\D/g, ''))}
-                className="w-full px-4 py-2.5 pr-11 rounded-xl border border-gray-200 focus:ring-2 focus:ring-[#FC3951]/20 focus:border-[#FC3951] outline-none text-sm"
+                className="w-full px-4 py-2.5 pr-11 rounded-xl border border-gray-200 focus:ring-2 focus:ring-[#FC5931]/20 focus:border-[#FC5931] outline-none text-sm"
               />
               <button type="button" onClick={() => setShowConfirmPwd(!showConfirmPwd)} className="absolute right-3.5 top-1/2 -translate-y-1/2 text-gray-400">
                 {showConfirmPwd ? <EyeOff size={16}/> : <Eye size={16}/>}
@@ -289,7 +289,7 @@ export default function ProfileForm({
                   } finally { setPwdLoading(false) }
                 }}
                 disabled={pwdLoading || !newPwd || !confirmPwd}
-                className="px-4 py-2 bg-[#FC3951] text-white rounded-xl text-sm font-semibold hover:bg-[#D4253D] disabled:opacity-50"
+                className="px-4 py-2 bg-[#FC5931] text-white rounded-xl text-sm font-semibold hover:bg-[#D42F1D] disabled:opacity-50"
               >
                 {pwdLoading ? 'Salvando...' : 'Salvar Senha'}
               </button>
@@ -304,7 +304,7 @@ export default function ProfileForm({
         )}
       </div>
 
-      <button onClick={handleSave} disabled={saving} className={`w-full flex items-center justify-center gap-2 px-6 py-3 rounded-xl text-white font-bold text-base transition-all shadow-lg ${aptChanged ? 'bg-orange-500 hover:bg-orange-600' : 'bg-[#FC3951] hover:bg-[#D4253D]'} disabled:opacity-50`}>
+      <button onClick={handleSave} disabled={saving} className={`w-full flex items-center justify-center gap-2 px-6 py-3 rounded-xl text-white font-bold text-base transition-all shadow-lg ${aptChanged ? 'bg-orange-500 hover:bg-orange-600' : 'bg-[#FC5931] hover:bg-[#D42F1D]'} disabled:opacity-50`}>
         {saving ? <Loader2 className="animate-spin" size={20} /> : <Save size={20} />}
         {aptChanged ? 'Salvar e Solicitar Aprovação' : 'Salvar Alterações'}
       </button>

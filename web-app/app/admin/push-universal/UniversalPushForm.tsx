@@ -110,7 +110,7 @@ export default function UniversalPushForm() {
       <button
         type="submit"
         disabled={loading || !titulo.trim() || !corpo.trim()}
-        className="w-full flex items-center justify-center gap-2 px-6 py-3 bg-[#FC3951] text-white font-semibold rounded-xl hover:bg-[#D4253D] disabled:opacity-50 disabled:cursor-not-allowed transition-all"
+        className="w-full flex items-center justify-center gap-2 px-6 py-3 bg-[#FC5931] text-white font-semibold rounded-xl hover:bg-[#D42F1D] disabled:opacity-50 disabled:cursor-not-allowed transition-all"
       >
         {loading ? (
           <>

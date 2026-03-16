@@ -79,7 +79,7 @@ function ThreadListItem({
     <button
       onClick={onClick}
       className={`w-full text-left px-4 py-3.5 border-b border-gray-100 transition-all hover:bg-orange-50/50 ${
-        isSelected ? 'bg-[#FC3951]/8 border-l-2 border-l-[#FC3951]' : 'border-l-2 border-l-transparent'
+        isSelected ? 'bg-[#FC5931]/8 border-l-2 border-l-[#FC5931]' : 'border-l-2 border-l-transparent'
       }`}
     >
       <div className="flex items-start gap-3">
@@ -254,7 +254,7 @@ export default function FaleConoscoAdminClient({
               value={search}
               onChange={e => setSearch(e.target.value)}
               placeholder="Buscar conversas..."
-              className="w-full pl-9 pr-3 py-2 text-sm border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#FC3951]/30 focus:border-[#FC3951] transition-all bg-gray-50"
+              className="w-full pl-9 pr-3 py-2 text-sm border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#FC5931]/30 focus:border-[#FC5931] transition-all bg-gray-50"
             />
           </div>
 
@@ -270,7 +270,7 @@ export default function FaleConoscoAdminClient({
                 onClick={() => setFilterStatus(key as typeof filterStatus)}
                 className={`flex-1 text-xs font-medium py-1.5 rounded-lg transition-all ${
                   filterStatus === key
-                    ? 'bg-[#FC3951] text-white'
+                    ? 'bg-[#FC5931] text-white'
                     : 'text-gray-500 hover:bg-gray-100'
                 }`}
               >
@@ -352,7 +352,7 @@ export default function FaleConoscoAdminClient({
             >
               {loadingMsgs ? (
                 <div className="flex items-center justify-center h-full">
-                  <div className="w-6 h-6 border-2 border-[#FC3951]/30 border-t-[#FC3951] rounded-full animate-spin" />
+                  <div className="w-6 h-6 border-2 border-[#FC5931]/30 border-t-[#FC5931] rounded-full animate-spin" />
                 </div>
               ) : mensagens.length === 0 ? (
                 <div className="text-center py-12">
@@ -367,12 +367,12 @@ export default function FaleConoscoAdminClient({
                       <div
                         className={`max-w-[70%] rounded-2xl px-4 py-2.5 shadow-sm ${
                           isAdmin
-                            ? 'bg-[#FC3951] text-white rounded-br-sm'
+                            ? 'bg-[#FC5931] text-white rounded-br-sm'
                             : 'bg-white text-gray-800 rounded-bl-sm border border-gray-100'
                         }`}
                       >
                         {!isAdmin && (
-                          <p className="text-xs font-semibold text-[#FC3951] mb-1">
+                          <p className="text-xs font-semibold text-[#FC5931] mb-1">
                             {selected.perfil?.nome_completo?.split(' ')[0] ?? 'Morador'}
                           </p>
                         )}
@@ -398,12 +398,12 @@ export default function FaleConoscoAdminClient({
                   }}
                   placeholder="Digite sua resposta como síndico..."
                   rows={1}
-                  className="flex-1 resize-none border border-gray-200 rounded-2xl px-4 py-2.5 text-sm text-gray-700 focus:outline-none focus:ring-2 focus:ring-[#FC3951]/30 focus:border-[#FC3951] transition-all max-h-32 overflow-y-auto"
+                  className="flex-1 resize-none border border-gray-200 rounded-2xl px-4 py-2.5 text-sm text-gray-700 focus:outline-none focus:ring-2 focus:ring-[#FC5931]/30 focus:border-[#FC5931] transition-all max-h-32 overflow-y-auto"
                 />
                 <button
                   onClick={handleSend}
                   disabled={sending || !text.trim()}
-                  className="w-10 h-10 bg-[#FC3951] text-white rounded-2xl flex items-center justify-center hover:bg-[#D4253D] transition-colors disabled:opacity-40 disabled:cursor-not-allowed flex-shrink-0 shadow-sm shadow-[#FC3951]/30"
+                  className="w-10 h-10 bg-[#FC5931] text-white rounded-2xl flex items-center justify-center hover:bg-[#D42F1D] transition-colors disabled:opacity-40 disabled:cursor-not-allowed flex-shrink-0 shadow-sm shadow-[#FC5931]/30"
                 >
                   {sending
                     ? <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />

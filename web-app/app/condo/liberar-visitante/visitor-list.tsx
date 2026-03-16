@@ -152,7 +152,7 @@ export default function VisitorList({ initialInvitations, condoId, userId, initi
               placeholder={f.placeholder}
               value={f.value}
               onChange={e => f.set(e.target.value)}
-              className={`${f.width} px-3 py-2 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-[#FC3951] bg-gray-50`}
+              className={`${f.width} px-3 py-2 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-[#FC5931] bg-gray-50`}
             />
           ))}
           <input
@@ -161,7 +161,7 @@ export default function VisitorList({ initialInvitations, condoId, userId, initi
             onChange={e => setFDate(e.target.value)}
             aria-label="Filtrar por data de validade"
             title="Filtrar por data de validade"
-            className="px-3 py-2 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-[#FC3951] bg-gray-50"
+            className="px-3 py-2 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-[#FC5931] bg-gray-50"
           />
 
         </div>
@@ -180,7 +180,7 @@ export default function VisitorList({ initialInvitations, condoId, userId, initi
           <button
             onClick={handleRefresh}
             disabled={isPending || loading}
-            className="p-2 text-[#FC3951] hover:bg-[#FC3951]/10 rounded-lg transition-colors"
+            className="p-2 text-[#FC5931] hover:bg-[#FC5931]/10 rounded-lg transition-colors"
             title="Atualizar"
           >
             <RefreshCw size={16} className={isPending || loading ? 'animate-spin' : ''} />
@@ -194,7 +194,7 @@ export default function VisitorList({ initialInvitations, condoId, userId, initi
           <Filter size={32} className="mx-auto text-gray-300 mb-3" />
           <p className="text-gray-500 font-medium">Nenhuma autorização encontrada</p>
           {hasFilters && (
-            <button onClick={clearFilters} className="text-sm text-[#FC3951] hover:underline mt-2">
+            <button onClick={clearFilters} className="text-sm text-[#FC5931] hover:underline mt-2">
               Limpar filtros
             </button>
           )}
@@ -214,7 +214,7 @@ export default function VisitorList({ initialInvitations, condoId, userId, initi
                 }`}
               >
                 {/* Header */}
-                <div className={`px-5 py-3 flex items-center justify-between ${liberado ? 'bg-green-500' : 'bg-[#FC3951]'}`}>
+                <div className={`px-5 py-3 flex items-center justify-between ${liberado ? 'bg-green-500' : 'bg-[#FC5931]'}`}>
                   <div className="flex items-center gap-3">
                     <div className="w-10 h-10 bg-white/20 rounded-xl flex items-center justify-center flex-shrink-0">
                       <span className="text-white font-bold text-xs leading-tight text-center">
@@ -265,7 +265,7 @@ export default function VisitorList({ initialInvitations, condoId, userId, initi
                         <button
                           onClick={() => handleApprove(inv)}
                           disabled={approving === inv.id}
-                          className="flex items-center gap-2 px-4 py-1.5 bg-[#FC3951] text-white text-sm font-semibold rounded-xl hover:bg-[#D4253D] transition-colors disabled:opacity-60"
+                          className="flex items-center gap-2 px-4 py-1.5 bg-[#FC5931] text-white text-sm font-semibold rounded-xl hover:bg-[#D42F1D] transition-colors disabled:opacity-60"
                         >
                           {approving === inv.id && <RefreshCw size={13} className="animate-spin" />}
                           Confirmar Entrada
@@ -292,7 +292,7 @@ export default function VisitorList({ initialInvitations, condoId, userId, initi
           <button
             onClick={handleLoadAll}
             disabled={loadingMore}
-            className="flex items-center gap-2 px-5 py-2.5 text-sm font-semibold text-[#FC3951] bg-[#FC3951]/10 rounded-xl hover:bg-[#FC3951]/20 transition-colors disabled:opacity-50"
+            className="flex items-center gap-2 px-5 py-2.5 text-sm font-semibold text-[#FC5931] bg-[#FC5931]/10 rounded-xl hover:bg-[#FC5931]/20 transition-colors disabled:opacity-50"
           >
             {loadingMore ? (
               <RefreshCw size={14} className="animate-spin" />

@@ -87,21 +87,21 @@ function AssuntoForm({
           value={titulo}
           onChange={e => setTitulo(e.target.value)}
           placeholder="Título do assunto"
-          className="flex-1 border border-gray-200 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#FC3951]/30 focus:border-[#FC3951]"
+          className="flex-1 border border-gray-200 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#FC5931]/30 focus:border-[#FC5931]"
         />
         <textarea
           value={obs}
           onChange={e => setObs(e.target.value)}
           placeholder="Observação sobre o assunto"
           rows={2}
-          className="flex-1 border border-gray-200 rounded-xl px-4 py-2.5 text-sm resize-none focus:outline-none focus:ring-2 focus:ring-[#FC3951]/30 focus:border-[#FC3951]"
+          className="flex-1 border border-gray-200 rounded-xl px-4 py-2.5 text-sm resize-none focus:outline-none focus:ring-2 focus:ring-[#FC5931]/30 focus:border-[#FC5931]"
         />
       </div>
       <div className="mt-4">
         <button
           onClick={handleSave}
           disabled={saving || !titulo.trim()}
-          className="bg-[#FC3951] text-white px-6 py-2.5 rounded-xl text-sm font-semibold hover:bg-[#D4253D] transition disabled:opacity-40"
+          className="bg-[#FC5931] text-white px-6 py-2.5 rounded-xl text-sm font-semibold hover:bg-[#D42F1D] transition disabled:opacity-40"
         >
           {saving ? 'Salvando...' : 'Salvar'}
         </button>
@@ -177,7 +177,7 @@ function InventarioForm({
         value={nome}
         onChange={e => setNome(e.target.value)}
         placeholder="Objeto"
-        className="flex-[2] border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#FC3951]/30 focus:border-[#FC3951] bg-white"
+        className="flex-[2] border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#FC5931]/30 focus:border-[#FC5931] bg-white"
       />
       <input
         value={qtd}
@@ -185,12 +185,12 @@ function InventarioForm({
         placeholder="Qtd"
         type="number"
         min={0}
-        className="w-20 border border-gray-200 rounded-lg px-3 py-2 text-sm text-center focus:outline-none focus:ring-2 focus:ring-[#FC3951]/30 focus:border-[#FC3951] bg-white"
+        className="w-20 border border-gray-200 rounded-lg px-3 py-2 text-sm text-center focus:outline-none focus:ring-2 focus:ring-[#FC5931]/30 focus:border-[#FC5931] bg-white"
       />
       <select
         value={unidade}
         onChange={e => setUnidade(e.target.value)}
-        className="border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#FC3951]/30 focus:border-[#FC3951] bg-white"
+        className="border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#FC5931]/30 focus:border-[#FC5931] bg-white"
       >
         {UNIDADES.map(u => <option key={u} value={u}>{u}</option>)}
       </select>
@@ -198,12 +198,12 @@ function InventarioForm({
         value={obs}
         onChange={e => setObs(e.target.value)}
         placeholder="Observação do item"
-        className="flex-[2] border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#FC3951]/30 focus:border-[#FC3951] bg-white"
+        className="flex-[2] border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#FC5931]/30 focus:border-[#FC5931] bg-white"
       />
       <button
         onClick={handleSave}
         disabled={saving || !nome.trim()}
-        className="p-2 rounded-lg bg-[#FC3951] text-white hover:bg-[#D4253D] transition disabled:opacity-40"
+        className="p-2 rounded-lg bg-[#FC5931] text-white hover:bg-[#D42F1D] transition disabled:opacity-40"
         title={item ? 'Salvar' : 'Adicionar'}
       >
         {saving ? <Loader2 size={16} className="animate-spin" /> : <Plus size={16} />}
@@ -265,9 +265,9 @@ export default function RegistroTurnoClient({
       {/* Toggle form */}
       <button
         onClick={() => { setShowAssuntoForm(!showAssuntoForm); setEditAssunto(undefined) }}
-        className="flex items-center gap-2 text-sm font-semibold text-[#FC3951] hover:text-[#D4253D] transition"
+        className="flex items-center gap-2 text-sm font-semibold text-[#FC5931] hover:text-[#D42F1D] transition"
       >
-        <span className="w-6 h-6 rounded-full border-2 border-[#FC3951] flex items-center justify-center">
+        <span className="w-6 h-6 rounded-full border-2 border-[#FC5931] flex items-center justify-center">
           {showAssuntoForm ? <X size={12} /> : <Plus size={12} />}
         </span>
         Cadastrar campo de observação
@@ -316,7 +316,7 @@ export default function RegistroTurnoClient({
                   <div className="flex justify-center gap-1">
                     <button
                       onClick={() => { setEditAssunto(assunto); setShowAssuntoForm(true) }}
-                      className="p-1.5 rounded-lg text-gray-400 hover:text-[#FC3951] hover:bg-orange-50 transition"
+                      className="p-1.5 rounded-lg text-gray-400 hover:text-[#FC5931] hover:bg-orange-50 transition"
                       title="Editar assunto"
                     >
                       <Pencil size={14} />
@@ -340,7 +340,7 @@ export default function RegistroTurnoClient({
                   <div className="flex justify-center">
                     <button
                       onClick={() => setExpandedAssunto(isExpanded ? null : assunto.id)}
-                      className={`p-1.5 rounded-lg transition ${isExpanded ? 'bg-[#FC3951] text-white' : 'text-gray-400 hover:bg-orange-50 hover:text-[#FC3951]'}`}
+                      className={`p-1.5 rounded-lg transition ${isExpanded ? 'bg-[#FC5931] text-white' : 'text-gray-400 hover:bg-orange-50 hover:text-[#FC5931]'}`}
                       title="Gerenciar materiais"
                     >
                       {isExpanded ? <ChevronDown size={16} /> : <ChevronRight size={16} />}
@@ -352,7 +352,7 @@ export default function RegistroTurnoClient({
                 {isExpanded && (
                   <div className="border-t border-gray-100 bg-gray-50/50 px-5 py-4 space-y-3">
                     <div className="flex items-center gap-2 mb-3">
-                      <Package size={16} className="text-[#FC3951]" />
+                      <Package size={16} className="text-[#FC5931]" />
                       <span className="font-semibold text-gray-700 text-sm">Cadastro do inventário da Portaria</span>
                     </div>
 
@@ -388,7 +388,7 @@ export default function RegistroTurnoClient({
                                 <span className="flex-[2] text-gray-400 text-sm italic">{item.observacao || 'Observação do item'}</span>
                                 <button
                                   onClick={() => setEditItem(item)}
-                                  className="p-1.5 rounded-lg text-gray-400 hover:text-[#FC3951] hover:bg-orange-50 transition"
+                                  className="p-1.5 rounded-lg text-gray-400 hover:text-[#FC5931] hover:bg-orange-50 transition"
                                   title="Editar"
                                 >
                                   <Pencil size={14} />
