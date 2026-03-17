@@ -33,7 +33,7 @@ const _kAllFunctions = [
   _FunctionDef(id: 'bookings',           icon: 'calendar_month',label: 'Reservas',                route: '/area-booking',               defaultRoles: {'morador'}),
   _FunctionDef(id: 'documents',          icon: 'file_copy',     label: 'Documentos',              route: '/document-center',            defaultRoles: {'morador'}),
   _FunctionDef(id: 'parcel_history',     icon: 'history',       label: 'Histórico Encomendas',    route: '/parcel-history',             defaultRoles: {'morador'}),
-  _FunctionDef(id: 'visitor_approval',   icon: 'how_to_reg',    label: 'Liberar Visitante',       route: '/portaria-visitor-approval',  defaultRoles: {'portaria'}),
+  _FunctionDef(id: 'visitor_approval',   icon: 'how_to_reg',    label: 'Visitante c/ Autorização',route: '/portaria-visitor-approval',  defaultRoles: {'portaria'}),
   _FunctionDef(id: 'parcel_reg',         icon: 'add_box',       label: 'Registrar Encomenda',     route: '/parcel-registration',        defaultRoles: {'portaria'}),
   _FunctionDef(id: 'pending_del',        icon: 'local_shipping',label: 'Encomendas do Condomínio', route: '/pending-deliveries',         defaultRoles: {'portaria', 'sindico', 'sub_sindico'}),
   _FunctionDef(id: 'visitor_reg',        icon: 'person_add',    label: 'Registrar Visitante',     route: '/visitor-registration',       defaultRoles: {'portaria'}),

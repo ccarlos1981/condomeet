@@ -24,7 +24,7 @@ class CondominiumRepositoryImpl implements CondominiumRepository {
           .eq('id', id)
           .maybeSingle();
       if (row != null) {
-        print('✅ CondominiumRepository: loaded features_config from Supabase');
+
         return Condominium.fromJson(row);
       }
     } catch (e) {
@@ -48,8 +48,8 @@ class CondominiumRepositoryImpl implements CondominiumRepository {
     // Immediately yield current value
     yield await getCondominiumById(id);
 
-    // Then refresh every 5 seconds so config changes propagate quickly
-    await for (final _ in Stream.periodic(const Duration(seconds: 5))) {
+    // Then refresh every 60 seconds so config changes propagate
+    await for (final _ in Stream.periodic(const Duration(seconds: 60))) {
       yield await getCondominiumById(id);
     }
   }

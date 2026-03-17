@@ -25,8 +25,10 @@ class VisitorRegistrationScreen extends StatefulWidget {
       _VisitorRegistrationScreenState();
 }
 
-class _VisitorRegistrationScreenState extends State<VisitorRegistrationScreen> {
+class _VisitorRegistrationScreenState extends State<VisitorRegistrationScreen>
+    with SingleTickerProviderStateMixin {
   final _supabase = Supabase.instance.client;
+  late final TabController _tabController;
 
   // ── Block / Apt ──────────────────────────────────────────────
   List<Map<String, dynamic>> _blocos = [];
@@ -56,14 +58,23 @@ class _VisitorRegistrationScreenState extends State<VisitorRegistrationScreen> {
   Map<String, dynamic>? _lastVisit; // returning visitor data
   String? _existingPhotoUrl; // photo URL from last visit
 
+  // ── Liberar tab (visitor history) ────────────────────────
+  List<Map<String, dynamic>> _visitantes = [];
+  bool _loadingVisitantes = true;
+  int _visitanteLimit = 10;
+  String _liberarFilter = 'pendente'; // 'pendente', 'todos', 'liberado'
+
   @override
   void initState() {
     super.initState();
+    _tabController = TabController(length: 2, vsync: this);
     _loadBlocos();
+    _loadVisitantes();
   }
 
   @override
   void dispose() {
+    _tabController.dispose();
     _cpfCtrl.dispose();
     _nomeCtrl.dispose();
     _wpCtrl.dispose();
@@ -71,6 +82,65 @@ class _VisitorRegistrationScreenState extends State<VisitorRegistrationScreen> {
     _obsCtrl.dispose();
     _searchTimer?.cancel();
     super.dispose();
+  }
+
+  // ── Load visitor history ─────────────────────────────────
+  Future<void> _loadVisitantes() async {
+    final condoId = context.read<AuthBloc>().state.condominiumId;
+    if (condoId == null) return;
+    try {
+      final data = await _supabase
+          .from('visitante_registros')
+          .select('*')
+          .eq('condominio_id', condoId)
+          .order('entrada_at', ascending: false)
+          .limit(_visitanteLimit);
+      if (mounted) {
+        setState(() {
+          _visitantes = List<Map<String, dynamic>>.from(data);
+          _loadingVisitantes = false;
+        });
+      }
+    } catch (_) {
+      if (mounted) setState(() => _loadingVisitantes = false);
+    }
+  }
+
+  // ── Handle exit release ──────────────────────────────────
+  Future<void> _handleRegistrarSaida(String id) async {
+    try {
+      await _supabase
+          .from('visitante_registros')
+          .update({'saida_at': DateTime.now().toUtc().toIso8601String()})
+          .eq('id', id);
+      // Optimistic update
+      setState(() {
+        final idx = _visitantes.indexWhere((v) => v['id'] == id);
+        if (idx >= 0) {
+          _visitantes[idx] = {
+            ..._visitantes[idx],
+            'saida_at': DateTime.now().toIso8601String(),
+          };
+        }
+      });
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('✅ Saída registrada com sucesso'),
+            backgroundColor: Colors.green,
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Erro ao registrar saída: $e'),
+            backgroundColor: AppColors.error,
+          ),
+        );
+      }
+    }
   }
 
   // ── Load blocos ──────────────────────────────────────────────
@@ -379,14 +449,15 @@ class _VisitorRegistrationScreenState extends State<VisitorRegistrationScreen> {
       context: context,
       barrierDismissible: false,
       builder: (_) => const _SuccessDialog(),
-    ).then((_) {
-      if (mounted) {
-        Navigator.of(context)
-            .popUntil((r) => r.settings.name == '/home' || r.isFirst);
-      }
-    });
+    );
     Future.delayed(const Duration(seconds: 2), () {
-      if (mounted) Navigator.of(context).pop();
+      if (mounted) {
+        Navigator.of(context).pop(); // dismiss dialog
+        _clearForm();
+        _cpfCtrl.clear();
+        setState(() => _isRegistering = false);
+        _loadVisitantes(); // refresh Liberar tab
+      }
     });
   }
 
@@ -396,107 +467,348 @@ class _VisitorRegistrationScreenState extends State<VisitorRegistrationScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final pendentes = _visitantes.where((v) => v['saida_at'] == null).length;
+
     return Scaffold(
       backgroundColor: AppColors.surface,
       appBar: AppBar(
-        title: const Text('Registrar Visitante'),
+        title: const Text('Autorizar Visitante'),
         backgroundColor: Colors.white,
         foregroundColor: AppColors.primary,
         elevation: 0,
+        bottom: TabBar(
+          controller: _tabController,
+          labelColor: AppColors.primary,
+          unselectedLabelColor: Colors.grey,
+          indicatorColor: AppColors.primary,
+          indicatorWeight: 3,
+          tabs: [
+            const Tab(icon: Icon(Icons.person_add_outlined), text: 'Registrar'),
+            Tab(
+              icon: Badge(
+                isLabelVisible: pendentes > 0,
+                label: Text('$pendentes', style: const TextStyle(fontSize: 10)),
+                child: const Icon(Icons.exit_to_app_outlined),
+              ),
+              text: 'Liberar',
+            ),
+          ],
+        ),
       ),
       body: SafeArea(
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.all(20),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
+        child: TabBarView(
+          controller: _tabController,
+          children: [
+            // ═══ TAB 1: Registration form ═══
+            _buildRegistrationTab(),
+            // ═══ TAB 2: Visitor history / release ═══
+            _buildLiberarTab(),
+          ],
+        ),
+      ),
+    );
+  }
+
+  // ════════════════════════════════════════════════════════════
+  //  TAB 1 — Registration Form
+  // ════════════════════════════════════════════════════════════
+  Widget _buildRegistrationTab() {
+    return SingleChildScrollView(
+      padding: const EdgeInsets.all(20),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // ── CPF/RG search ──────────────────────────────
+          _buildCpfSearch(),
+          const SizedBox(height: 20),
+
+          // ── Returning visitor card ─────────────────────
+          if (_lastVisit != null) ...[
+            _buildReturningVisitorCard(),
+            const SizedBox(height: 20),
+          ],
+
+          // ── Name ──────────────────────────────────────
+          _buildTextField(
+            controller: _nomeCtrl,
+            label: 'Nome do Visitante',
+            hint: 'Ex: João da Silva',
+            icon: Icons.person_outline,
+            required: true,
+          ),
+          const SizedBox(height: 16),
+
+          // ── WhatsApp ──────────────────────────────────
+          _buildTextField(
+            controller: _wpCtrl,
+            label: 'WhatsApp',
+            hint: '(00) 00000-0000',
+            icon: Icons.phone_outlined,
+            keyboardType: TextInputType.phone,
+          ),
+          const SizedBox(height: 20),
+
+          // ── Tipo visitante ─────────────────────────────
+          _buildTipoSelector(),
+          const SizedBox(height: 16),
+
+          // ── Empresa ───────────────────────────────────
+          _buildTextField(
+            controller: _empresaCtrl,
+            label: 'Empresa',
+            hint: 'Ex: Net, Eletricista...',
+            icon: Icons.business_outlined,
+          ),
+          const SizedBox(height: 20),
+
+          // ── Bloco / Apto ──────────────────────────────
+          Row(children: [
+            Expanded(child: _buildBlocoDropdown()),
+            const SizedBox(width: 12),
+            Expanded(child: _buildAptoDropdown()),
+          ]),
+          const SizedBox(height: 20),
+
+          // ── Photo (only for new visitors) ──────────────
+          if (_lastVisit == null) ...[
+            _buildPhotoCapture(),
+            const SizedBox(height: 20),
+          ],
+
+          // ── Observação ─────────────────────────────────
+          _buildTextField(
+            controller: _obsCtrl,
+            label: 'Observação',
+            hint: 'Ex: Mudança, manutenção...',
+            icon: Icons.notes_outlined,
+            maxLines: 3,
+          ),
+          const SizedBox(height: 28),
+
+          // ── Submit ─────────────────────────────────────
+          (_isRegistering || _isUploadingPhoto)
+              ? Column(children: [
+                  const Center(
+                      child: CircularProgressIndicator(
+                          color: AppColors.primary)),
+                  const SizedBox(height: 8),
+                  Text(
+                      _isUploadingPhoto
+                          ? 'Enviando foto...'
+                          : 'Registrando...',
+                      textAlign: TextAlign.center,
+                      style: TextStyle(color: AppColors.textSecondary)),
+                ])
+              : CondoButton(
+                  label: 'Registrar Entrada',
+                  onPressed: _canRegister ? _handleRegister : null,
+                ),
+          const SizedBox(height: 20),
+        ],
+      ),
+    );
+  }
+
+  // ════════════════════════════════════════════════════════════
+  //  TAB 2 — Liberar (Visitor History)
+  // ════════════════════════════════════════════════════════════
+  Widget _buildLiberarTab() {
+    if (_loadingVisitantes) {
+      return const Center(child: CircularProgressIndicator(color: AppColors.primary));
+    }
+
+    if (_visitantes.isEmpty) {
+      return Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(Icons.people_outline, size: 64, color: Colors.grey.shade300),
+            const SizedBox(height: 12),
+            Text('Nenhum visitante registrado',
+                style: TextStyle(color: Colors.grey.shade500, fontSize: 14)),
+          ],
+        ),
+      );
+    }
+
+    // Apply filter
+    final filtered = _liberarFilter == 'todos'
+        ? _visitantes
+        : _liberarFilter == 'pendente'
+            ? _visitantes.where((v) => v['saida_at'] == null).toList()
+            : _visitantes.where((v) => v['saida_at'] != null).toList();
+
+    final hasMore = _visitantes.length >= _visitanteLimit;
+
+    return Column(
+      children: [
+        // Filter chips
+        Padding(
+          padding: const EdgeInsets.fromLTRB(12, 12, 12, 4),
+          child: Row(
             children: [
-              // ── CPF/RG search ──────────────────────────────
-              _buildCpfSearch(),
-              const SizedBox(height: 20),
-
-              // ── Returning visitor card ─────────────────────
-              if (_lastVisit != null) ...[
-                _buildReturningVisitorCard(),
-                const SizedBox(height: 20),
-              ],
-
-              // ── Name ──────────────────────────────────────
-              _buildTextField(
-                controller: _nomeCtrl,
-                label: 'Nome do Visitante',
-                hint: 'Ex: João da Silva',
-                icon: Icons.person_outline,
-                required: true,
-              ),
-              const SizedBox(height: 16),
-
-              // ── WhatsApp ──────────────────────────────────
-              _buildTextField(
-                controller: _wpCtrl,
-                label: 'WhatsApp',
-                hint: '(00) 00000-0000',
-                icon: Icons.phone_outlined,
-                keyboardType: TextInputType.phone,
-              ),
-              const SizedBox(height: 20),
-
-              // ── Tipo visitante ─────────────────────────────
-              _buildTipoSelector(),
-              const SizedBox(height: 16),
-
-              // ── Empresa ───────────────────────────────────
-              _buildTextField(
-                controller: _empresaCtrl,
-                label: 'Empresa',
-                hint: 'Ex: Net, Eletricista...',
-                icon: Icons.business_outlined,
-              ),
-              const SizedBox(height: 20),
-
-              // ── Bloco / Apto ──────────────────────────────
-              Row(children: [
-                Expanded(child: _buildBlocoDropdown()),
-                const SizedBox(width: 12),
-                Expanded(child: _buildAptoDropdown()),
-              ]),
-              const SizedBox(height: 20),
-
-              // ── Photo (only for new visitors) ──────────────
-              if (_lastVisit == null) ...[
-                _buildPhotoCapture(),
-                const SizedBox(height: 20),
-              ],
-
-              // ── Observação ─────────────────────────────────
-              _buildTextField(
-                controller: _obsCtrl,
-                label: 'Observação',
-                hint: 'Ex: Mudança, manutenção...',
-                icon: Icons.notes_outlined,
-                maxLines: 3,
-              ),
-              const SizedBox(height: 28),
-
-              // ── Submit ─────────────────────────────────────
-              (_isRegistering || _isUploadingPhoto)
-                  ? Column(children: [
-                      const Center(
-                          child: CircularProgressIndicator(
-                              color: AppColors.primary)),
-                      const SizedBox(height: 8),
-                      Text(
-                          _isUploadingPhoto
-                              ? 'Enviando foto...'
-                              : 'Registrando...',
-                          textAlign: TextAlign.center,
-                          style: TextStyle(color: AppColors.textSecondary)),
-                    ])
-                  : CondoButton(
-                      label: 'Registrar Entrada',
-                      onPressed: _canRegister ? _handleRegister : null,
-                    ),
-              const SizedBox(height: 20),
+              const Text('Status: ', style: TextStyle(fontSize: 12, color: Colors.grey)),
+              const SizedBox(width: 4),
+              _buildLiberarChip('Pendentes', 'pendente', Colors.orange),
+              const SizedBox(width: 6),
+              _buildLiberarChip('Todos', 'todos', Colors.grey),
+              const SizedBox(width: 6),
+              _buildLiberarChip('Liberados', 'liberado', Colors.green),
             ],
+          ),
+        ),
+
+        // List
+        Expanded(
+          child: filtered.isEmpty
+              ? Center(
+                  child: Text('Nenhum visitante ${_liberarFilter == 'pendente' ? 'pendente' : 'liberado'}',
+                      style: TextStyle(color: Colors.grey.shade500, fontSize: 14)),
+                )
+              : ListView.builder(
+                  padding: const EdgeInsets.all(12),
+                  itemCount: filtered.length + (hasMore ? 1 : 0),
+                  itemBuilder: (context, index) {
+                    if (index >= filtered.length) {
+          return Padding(
+            padding: const EdgeInsets.symmetric(vertical: 8),
+            child: Center(
+              child: TextButton.icon(
+                onPressed: () {
+                  setState(() => _visitanteLimit += 10);
+                  _loadVisitantes();
+                },
+                icon: const Icon(Icons.expand_more),
+                label: const Text('Carregar mais'),
+                style: TextButton.styleFrom(foregroundColor: AppColors.primary),
+              ),
+            ),
+          );
+        }
+
+        final v = _visitantes[index];
+        final nome = v['nome'] ?? '';
+        final bloco = v['bloco'] ?? '';
+        final apto = v['apto'] ?? '';
+        final rawFotoUrl = v['foto_url'] as String?;
+        final fotoUrl = (rawFotoUrl != null && rawFotoUrl.startsWith('http')) ? rawFotoUrl : null;
+        final entradaAt = v['entrada_at'] as String?;
+        final saidaAt = v['saida_at'] as String?;
+        final hasSaida = saidaAt != null;
+
+        return Container(
+          margin: const EdgeInsets.only(bottom: 10),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(14),
+            border: Border.all(
+              color: hasSaida ? Colors.green.shade100 : Colors.orange.shade100,
+            ),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withValues(alpha: 0.04),
+                blurRadius: 6,
+                offset: const Offset(0, 2),
+              ),
+            ],
+          ),
+          child: Padding(
+            padding: const EdgeInsets.all(12),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // Photo
+                CircleAvatar(
+                  radius: 24,
+                  backgroundColor: Colors.grey.shade200,
+                  backgroundImage: fotoUrl != null ? NetworkImage(fotoUrl) : null,
+                  child: fotoUrl == null
+                      ? Icon(Icons.person, color: Colors.grey.shade400)
+                      : null,
+                ),
+                const SizedBox(width: 12),
+                // Info
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(nome,
+                          style: const TextStyle(
+                              fontWeight: FontWeight.bold, fontSize: 14)),
+                      if (bloco.isNotEmpty || apto.isNotEmpty)
+                        Text('Bloco $bloco / Apto $apto',
+                            style: TextStyle(
+                                fontSize: 12, color: Colors.grey.shade600)),
+                      if (entradaAt != null)
+                        Text('Entrada: ${_formatDate(entradaAt)}',
+                            style: TextStyle(
+                                fontSize: 11, color: Colors.grey.shade500)),
+                      if (hasSaida)
+                        Text('Saída: ${_formatDate(saidaAt)}',
+                            style: TextStyle(
+                                fontSize: 11, color: Colors.green.shade600)),
+                    ],
+                  ),
+                ),
+                // Action
+                if (!hasSaida)
+                  ElevatedButton(
+                    onPressed: () => _handleRegistrarSaida(v['id']),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.red.shade500,
+                      foregroundColor: Colors.white,
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 12, vertical: 8),
+                      shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(8)),
+                      textStyle: const TextStyle(
+                          fontSize: 12, fontWeight: FontWeight.bold),
+                    ),
+                    child: const Text('Registrar\nSaída',
+                        textAlign: TextAlign.center),
+                  )
+                else
+                  Container(
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                    decoration: BoxDecoration(
+                      color: Colors.green.shade50,
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: Text('✅ Saiu',
+                        style: TextStyle(
+                            fontSize: 11,
+                            fontWeight: FontWeight.bold,
+                            color: Colors.green.shade700)),
+                  ),
+              ],
+            ),
+          ),
+        );
+      },
+    ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildLiberarChip(String label, String value, Color color) {
+    final isActive = _liberarFilter == value;
+    return GestureDetector(
+      onTap: () => setState(() => _liberarFilter = value),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+        decoration: BoxDecoration(
+          color: isActive ? color : Colors.transparent,
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: isActive ? color : Colors.grey.shade300),
+        ),
+        child: Text(
+          label,
+          style: TextStyle(
+            fontSize: 12,
+            fontWeight: isActive ? FontWeight.bold : FontWeight.normal,
+            color: isActive ? Colors.white : Colors.grey.shade600,
           ),
         ),
       ),

@@ -5,7 +5,7 @@ import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import {
   Home, UserCheck, Users, Bell, FileText, MessageSquare,
-  CalendarDays, MapPin, ClipboardList, Settings, Shield,
+  CalendarDays, MapPin, ClipboardList, Settings, Package,
   ChevronLeft, ChevronRight, Menu, X, LogOut, Megaphone,
   AlertCircle, SlidersHorizontal, ArrowRight, BarChart3
 } from 'lucide-react'
@@ -55,6 +55,7 @@ export default function AdminSidebar({
     {
       title: 'Gestão',
       items: [
+        { label: 'Encomendas do Cond.', href: '/admin/encomendas', icon: <Package size={18} /> },
         { label: 'Documentos',      href: '/admin/documentos',      icon: <FileText size={18} /> },
         { label: 'Contratos',       href: '/admin/contratos',       icon: <FileText size={18} /> },
         { label: 'Áreas Comuns',    href: '/admin/areas-comuns',    icon: <MapPin size={18} /> },

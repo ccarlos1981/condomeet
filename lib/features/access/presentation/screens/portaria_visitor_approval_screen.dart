@@ -22,8 +22,9 @@ class _PortariaVisitorApprovalScreenState
   final _blocoCtrl = TextEditingController();
   final _aptoCtrl = TextEditingController();
 
-  bool? _filterLiberado; // null = all, false = not released, true = released
+  bool? _filterLiberado = false; // false = pendentes (default), null = all, true = released
   String? _dateFilter;
+  int _displayLimit = 5;
 
   @override
   void initState() {
@@ -42,6 +43,7 @@ class _PortariaVisitorApprovalScreenState
             blocoFilter: _blocoCtrl.text,
             aptoFilter: _aptoCtrl.text,
             dateFilter: _dateFilter,
+            limit: _displayLimit,
           ),
         );
   }
@@ -125,92 +127,16 @@ class _PortariaVisitorApprovalScreenState
             ],
           ),
           const SizedBox(height: 8),
-          // Row 2: Toggle Liberado | Refresh | Filter
+          // Row 2: Status filter chips
           Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Row(
-                children: [
-                  const Text('Status: ', style: TextStyle(fontSize: 12, color: Colors.grey)),
-                  // 3-state toggle: null (all) → false (pendentes) → true (liberados)
-                  GestureDetector(
-                    onTap: () {
-                      setState(() {
-                        if (_filterLiberado == null) {
-                          _filterLiberado = false;
-                        } else if (_filterLiberado == false) {
-                          _filterLiberado = true;
-                        } else {
-                          _filterLiberado = null;
-                        }
-                      });
-                      _loadInvitations();
-                    },
-                    child: Container(
-                      margin: const EdgeInsets.symmetric(horizontal: 4),
-                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                      decoration: BoxDecoration(
-                        color: _filterLiberado == null
-                            ? Colors.grey.shade100
-                            : _filterLiberado == false
-                                ? Colors.orange.shade100
-                                : Colors.green.shade100,
-                        borderRadius: BorderRadius.circular(20),
-                        border: Border.all(
-                          color: _filterLiberado == null
-                              ? Colors.grey.shade300
-                              : _filterLiberado == false
-                                  ? Colors.orange.shade300
-                                  : Colors.green.shade300,
-                        ),
-                      ),
-                      child: Text(
-                        _filterLiberado == null
-                            ? '● Todos'
-                            : _filterLiberado == false
-                                ? '⏳ Pendentes'
-                                : '✓ Liberados',
-                        style: TextStyle(
-                          fontSize: 12,
-                          fontWeight: FontWeight.w600,
-                          color: _filterLiberado == null
-                              ? Colors.grey.shade600
-                              : _filterLiberado == false
-                                  ? Colors.orange.shade700
-                                  : Colors.green.shade700,
-                        ),
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-              Row(
-                children: [
-                  // Clear filters
-                  if (_filterLiberado != null ||
-                      _codeCtrl.text.isNotEmpty ||
-                      _blocoCtrl.text.isNotEmpty ||
-                      _aptoCtrl.text.isNotEmpty ||
-                      _dateFilter != null)
-                    IconButton(
-                      icon: const Icon(Icons.clear, color: Colors.grey, size: 20),
-                      onPressed: _clearFilters,
-                      tooltip: 'Limpar filtros',
-                    ),
-                  // Refresh
-                  IconButton(
-                    icon: Icon(Icons.refresh, color: AppColors.primary),
-                    onPressed: _loadInvitations,
-                    tooltip: 'Atualizar',
-                  ),
-                  // Search/Apply
-                  IconButton(
-                    icon: Icon(Icons.filter_alt, color: AppColors.primary),
-                    onPressed: _loadInvitations,
-                    tooltip: 'Filtrar',
-                  ),
-                ],
-              ),
+              const Text('Status: ', style: TextStyle(fontSize: 12, color: Colors.grey)),
+              const SizedBox(width: 4),
+              _buildFilterChip('Pendentes', false, Colors.orange),
+              const SizedBox(width: 6),
+              _buildFilterChip('Todos', null, Colors.grey),
+              const SizedBox(width: 6),
+              _buildFilterChip('Liberados', true, Colors.green),
             ],
           ),
         ],
@@ -226,7 +152,8 @@ class _PortariaVisitorApprovalScreenState
       decoration: InputDecoration(
         hintText: hint,
         hintStyle: const TextStyle(fontSize: 11, color: Colors.grey),
-        contentPadding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+        isDense: true,
+        contentPadding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
         border: OutlineInputBorder(
           borderRadius: BorderRadius.circular(6),
           borderSide: BorderSide(color: Colors.grey.shade300),
@@ -286,6 +213,37 @@ class _PortariaVisitorApprovalScreenState
     );
   }
 
+  Widget _buildFilterChip(String label, bool? value, MaterialColor color) {
+    final isActive = _filterLiberado == value;
+    return GestureDetector(
+      onTap: () {
+        setState(() {
+          _filterLiberado = value;
+          _displayLimit = 5;
+        });
+        _loadInvitations();
+      },
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+        decoration: BoxDecoration(
+          color: isActive ? color.shade100 : Colors.transparent,
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(
+            color: isActive ? color.shade400 : Colors.grey.shade300,
+          ),
+        ),
+        child: Text(
+          label,
+          style: TextStyle(
+            fontSize: 12,
+            fontWeight: isActive ? FontWeight.w600 : FontWeight.normal,
+            color: isActive ? color.shade700 : Colors.grey.shade500,
+          ),
+        ),
+      ),
+    );
+  }
+
   void _clearFilters() {
     _codeCtrl.clear();
     _blocoCtrl.clear();
@@ -324,11 +282,31 @@ class _PortariaVisitorApprovalScreenState
           );
         }
 
+        final hasMore = invitations.length >= _displayLimit;
         return ListView.builder(
           padding: const EdgeInsets.all(12),
-          itemCount: invitations.length,
+          itemCount: invitations.length + (hasMore ? 1 : 0),
           itemBuilder: (context, index) {
-            return _buildInvitationCard(invitations[index]);
+            if (index < invitations.length) {
+              return _buildInvitationCard(invitations[index]);
+            }
+            // "Carregar mais" button
+            return Padding(
+              padding: const EdgeInsets.symmetric(vertical: 8),
+              child: Center(
+                child: TextButton.icon(
+                  onPressed: () {
+                    setState(() => _displayLimit += 5);
+                    _loadInvitations();
+                  },
+                  icon: const Icon(Icons.expand_more),
+                  label: const Text('Carregar mais'),
+                  style: TextButton.styleFrom(
+                    foregroundColor: AppColors.primary,
+                  ),
+                ),
+              ),
+            );
           },
         );
       },
@@ -337,7 +315,7 @@ class _PortariaVisitorApprovalScreenState
 
   Widget _buildInvitationCard(Invitation inv) {
     final isLiberado = inv.visitanteCompareceu;
-    final code = inv.qrData.length >= 3 ? inv.qrData.substring(0, 3).toUpperCase() : inv.qrData.toUpperCase();
+    final code = inv.qrData.length >= 3 ? inv.qrData.substring(inv.qrData.length - 3).toUpperCase() : inv.qrData.toUpperCase();
     final dateFormatted = DateFormat('dd/MM/yyyy').format(inv.validityDate);
     final createdFormatted = DateFormat('dd/MM/yyyy – HH:mm').format(inv.createdAt);
 
@@ -457,34 +435,42 @@ class _PortariaVisitorApprovalScreenState
                   ],
                 ),
                 const SizedBox(height: 8),
-                // Toggle to release visitor
+                // Confirmar Entrada button or Confirmado label
                 Row(
                   children: [
                     const Text(
                       'Visitante compareceu',
                       style: TextStyle(fontSize: 12, color: AppColors.textSecondary),
                     ),
-                    const SizedBox(width: 8),
-                    Transform.scale(
-                      scale: 0.8,
-                      child: Switch(
-                        value: isLiberado,
-                        onChanged: isLiberado
-                            ? null // Already approved — no changing back
-                            : (val) {
-                                if (val) _showConfirmDialog(inv);
-                              },
-                        activeThumbColor: AppColors.primary,
-                      ),
-                    ),
-                    if (isLiberado)
-                      Text(
-                        'Liberado ✓',
-                        style: TextStyle(
-                          fontSize: 11,
-                          color: Colors.green.shade700,
-                          fontWeight: FontWeight.bold,
+                    const SizedBox(width: 12),
+                    if (!isLiberado)
+                      ElevatedButton(
+                        onPressed: () => _showConfirmDialog(inv),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: AppColors.primary,
+                          foregroundColor: Colors.white,
+                          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(20),
+                          ),
+                          textStyle: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
                         ),
+                        child: const Text('Confirmar Entrada'),
+                      )
+                    else
+                      Row(
+                        children: [
+                          Icon(Icons.check_circle, color: Colors.green.shade600, size: 18),
+                          const SizedBox(width: 4),
+                          Text(
+                            'Confirmado',
+                            style: TextStyle(
+                              fontSize: 12,
+                              color: Colors.green.shade700,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        ],
                       ),
                   ],
                 ),

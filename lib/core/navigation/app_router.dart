@@ -20,7 +20,6 @@ import 'package:condomeet/features/admin/presentation/screens/enquete_admin_scre
 import 'package:condomeet/features/enquete/presentation/screens/enquete_voting_screen.dart';
 
 import 'package:condomeet/features/access/presentation/screens/visitor_authorization_screen.dart';
-import 'package:condomeet/features/access/presentation/screens/guest_checkin_screen.dart';
 import 'package:condomeet/features/access/presentation/screens/portaria_visitor_approval_screen.dart';
 import 'package:condomeet/features/community/presentation/screens/documents_screen.dart';
 import 'package:condomeet/features/community/presentation/screens/contracts_screen.dart';
@@ -85,7 +84,7 @@ class AppRouter {
           child: const VisitorAuthorizationScreen(),
         );
       },
-      '/guest-checkin': (context) => const GuestCheckinScreen(),
+      '/guest-checkin': (context) => const PortariaVisitorApprovalScreen(),
       '/self-registration': (context) => const SelfRegistrationScreen(),
       '/sindico-registration': (context) => const SindicoRegistrationScreen(),
       '/waiting-approval': (context) => const WaitingApprovalScreen(),

@@ -85,7 +85,7 @@ class InvitationRepositoryImpl implements InvitationRepository {
             limit: limit,
           );
           // Then poll every 5 seconds
-          await for (final _ in Stream.periodic(const Duration(seconds: 5))) {
+          await for (final _ in Stream.periodic(const Duration(seconds: 15))) {
             yield await _fetchCondominiumInvitations(
               condominiumId: condominiumId,
               liberado: liberado,
@@ -122,8 +122,7 @@ class InvitationRepositoryImpl implements InvitationRepository {
               .eq('condominio_id', condominiumId);
 
           if (liberado != null) {
-            // visitante_compareceu is INTEGER (0/1) in Supabase — not boolean
-            query = query.eq('visitante_compareceu', liberado ? 1 : 0);
+            query = query.eq('visitante_compareceu', liberado);
           }
           if (dateFilter != null && dateFilter.isNotEmpty) {
             query = query.gte('validity_date', dateFilter).lte('validity_date', '${dateFilter}T23:59:59');

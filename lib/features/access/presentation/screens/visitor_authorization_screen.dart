@@ -150,7 +150,7 @@ class _VisitorAuthorizationScreenState extends State<VisitorAuthorizationScreen>
             onPressed: () => Navigator.pop(context),
           ),
           title: Text(
-            'Aprovações Pendentes',
+            'Autorizar visitante',
             style: AppTypography.h2.copyWith(color: Colors.black87),
           ),
           centerTitle: true,
@@ -193,12 +193,7 @@ class _VisitorAuthorizationScreenState extends State<VisitorAuthorizationScreen>
               'Autorizado por ${authState.userName ?? 'Morador'}',
               style: AppTypography.h3.copyWith(color: Colors.grey.shade700),
             ),
-            const SizedBox(height: 8),
-            Text(
-              'Acesso para:',
-              style: AppTypography.h2.copyWith(fontWeight: FontWeight.bold),
-            ),
-            const SizedBox(height: 20),
+            const SizedBox(height: 16),
             
             // Dropdown Tipo - using custom dialog to avoid DropdownButtonFormField
             // semantics assertion bug (parentDataDirty freeze)
