@@ -37,7 +37,7 @@ export default async function AdminLayout({ children }: { children: React.ReactN
         role={role}
         isSuperAdmin={isSuperAdmin}
       />
-      <main className="flex-1 overflow-y-auto min-h-screen">
+      <main className="flex-1 overflow-y-auto min-h-screen p-6 lg:p-8">
         {children}
       </main>
     </div>
