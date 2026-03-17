@@ -3,23 +3,38 @@
 import { useState, useTransition } from 'react'
 import { Save } from 'lucide-react'
 
-const ALL_FUNCTIONS = [
-  { id: 'authorize_visitor', label: 'Autorizar Visitante',     icon: 'how_to_reg',    emoji: '🔑' },
-  { id: 'parcels',           label: 'Minhas Encomendas',       icon: 'inventory_2',   emoji: '📦' },
-  { id: 'guest_checkin',     label: 'Visitante c/ Autorização',icon: 'qr_code',       emoji: '📷' },
-  { id: 'occurrences',       label: 'Ocorrências',             icon: 'warning',       emoji: '⚠️' },
-  { id: 'bookings',          label: 'Reservas',                icon: 'calendar_month',emoji: '📅' },
-  { id: 'documents',         label: 'Documentos',              icon: 'file_copy',     emoji: '📄' },
-  { id: 'contracts',         label: 'Contratos',               icon: 'description',   emoji: '📋' },
-  { id: 'parcel_history',    label: 'Histórico Encomendas',    icon: 'history',       emoji: '🕓' },
-  { id: 'visitor_approval',  label: 'Liberar Visitante',       icon: 'check_circle',  emoji: '✅' },
-  { id: 'parcel_reg',        label: 'Registrar Encomenda',     icon: 'add_box',       emoji: '➕' },
-  { id: 'pending_del',       label: 'Entregas Pendentes',      icon: 'local_shipping',emoji: '🚚' },
-  { id: 'approvals',         label: 'Aprovações',              icon: 'check_circle',  emoji: '✔️' },
-  { id: 'resident_search',   label: 'Busca Moradores',         icon: 'person_search', emoji: '🔍' },
-  { id: 'condo_structure',   label: 'Estrutura do Condomínio', icon: 'apartment',     emoji: '🏢' },
-  { id: 'assemblies',        label: 'Assembleias',             icon: 'groups',        emoji: '👥' },
-]
+// Display catalog — only used for labels/emojis
+const FUNCTION_CATALOG: Record<string, { label: string; emoji: string }> = {
+  authorize_visitor:  { label: 'Autorizar Visitante',      emoji: '🔑' },
+  parcels:            { label: 'Minhas Encomendas',        emoji: '📦' },
+  guest_checkin:      { label: 'Visitante c/ Autorização', emoji: '📷' },
+  occurrences:        { label: 'Ocorrências',              emoji: '⚠️' },
+  bookings:           { label: 'Reservas',                 emoji: '📅' },
+  documents:          { label: 'Documentos',               emoji: '📄' },
+  contracts:          { label: 'Contratos',                emoji: '📋' },
+  parcel_history:     { label: 'Histórico Encomendas',     emoji: '🕓' },
+  visitor_approval:   { label: 'Liberar Visitante',        emoji: '✅' },
+  parcel_reg:         { label: 'Registrar Encomenda',      emoji: '➕' },
+  pending_del:        { label: 'Encomendas',               emoji: '🚚' },
+  approvals:          { label: 'Aprovações',               emoji: '✔️' },
+  resident_search:    { label: 'Busca Moradores',          emoji: '🔍' },
+  condo_structure:    { label: 'Estrutura do Condomínio',  emoji: '🏢' },
+  assemblies:         { label: 'Assembleias',              emoji: '👥' },
+  avisos:             { label: 'Avisos',                   emoji: '📢' },
+  enquetes:           { label: 'Enquetes',                 emoji: '📊' },
+  fale_sindico:       { label: 'Fale com o Síndico',       emoji: '💬' },
+  registro_turno:     { label: 'Registro de Turno',        emoji: '📝' },
+  visitor_register:   { label: 'Registrar Visitante',      emoji: '🪪' },
+  enquete_admin:      { label: 'Enquetes (Admin)',         emoji: '📊' },
+  botconversa_send:   { label: 'Enviar WhatsApp',          emoji: '📱' },
+  chat:               { label: 'Chat Oficial',             emoji: '💬' },
+}
+
+interface FnData {
+  id: string
+  order?: number
+  [key: string]: unknown
+}
 
 interface Props {
   initialConfig: Record<string, unknown>
@@ -27,14 +42,14 @@ interface Props {
 }
 
 export default function ConfigurarOrdemClient({ initialConfig, condominioId }: Props) {
-  // Extract existing orders from config
-  const savedFns = (initialConfig?.functions as Array<{ id: string; order?: number }>) ?? []
-  const savedOrderMap: Record<string, number> = {}
-  for (const f of savedFns) savedOrderMap[f.id] = f.order ?? 99
+  // Build function list from DB config (preserves all fields including roles)
+  const savedFns = (initialConfig?.functions as FnData[]) ?? []
 
   const [orders, setOrders] = useState<Record<string, number>>(() => {
     const m: Record<string, number> = {}
-    for (const def of ALL_FUNCTIONS) m[def.id] = savedOrderMap[def.id] ?? 99
+    for (const f of savedFns) {
+      m[f.id] = typeof f.order === 'number' ? f.order : 99
+    }
     return m
   })
 
@@ -49,7 +64,7 @@ export default function ConfigurarOrdemClient({ initialConfig, condominioId }: P
 
   async function handleSave() {
     startTransition(async () => {
-      // Helper: update order in any menu array (resident_menu, porter_menu, admin_menu)
+      // Helper: update order in any legacy menu array
       function applyOrderToMenu(menu: unknown) {
         if (!Array.isArray(menu)) return menu
         return menu.map((item: Record<string, unknown>) => ({
@@ -58,34 +73,35 @@ export default function ConfigurarOrdemClient({ initialConfig, condominioId }: P
         }))
       }
 
-      // Merge order into functions array
-      const existingFns = (initialConfig?.functions as Array<Record<string, unknown>>) ?? []
-      const existingMap: Record<string, Record<string, unknown>> = {}
-      for (const f of existingFns) existingMap[f.id as string] = f
+      // IMPORTANT: preserve ALL existing function data (roles, route, label, etc.)
+      // Only update the 'order' field
+      const updatedFunctions = savedFns.map(fn => ({
+        ...fn,
+        order: orders[fn.id] ?? 99,
+      }))
 
       const merged = {
         ...initialConfig,
-        functions: ALL_FUNCTIONS.map(def => ({
-          ...(existingMap[def.id] ?? { id: def.id }),
-          order: orders[def.id] ?? 99,
-        })),
-        // Also update order inside the menu arrays that the mobile reads
+        functions: updatedFunctions,
+        // Also update order inside legacy menu arrays
         resident_menu: applyOrderToMenu(initialConfig?.resident_menu),
         porter_menu:   applyOrderToMenu(initialConfig?.porter_menu),
         admin_menu:    applyOrderToMenu(initialConfig?.admin_menu),
       }
 
-      await fetch('/api/admin/save-menu-config', {
+      const res = await fetch('/api/admin/save-menu-config', {
         method: 'POST',
         body: JSON.stringify({ condominioId, config: merged }),
         headers: { 'Content-Type': 'application/json' },
       })
-      setSaved(true)
+      if (res.ok) {
+        setSaved(true)
+      }
     })
   }
 
   // Sort by current order for display
-  const sortedFunctions = [...ALL_FUNCTIONS].sort((a, b) => (orders[a.id] ?? 99) - (orders[b.id] ?? 99))
+  const sortedFunctions = [...savedFns].sort((a, b) => (orders[a.id] ?? 99) - (orders[b.id] ?? 99))
 
   return (
     <div>
@@ -109,27 +125,35 @@ export default function ConfigurarOrdemClient({ initialConfig, condominioId }: P
 
       {/* 2-column grid */}
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-        {sortedFunctions.map(def => (
-          <div
-            key={def.id}
-            className="bg-white rounded-xl border border-gray-100 shadow-sm px-5 py-4 flex items-center gap-4"
-          >
-            {/* Icon + Label */}
-            <div className="flex-1 min-w-0">
-              <span className="mr-2 text-base">{def.emoji}</span>
-              <span className="font-medium text-gray-800 text-sm">{def.label}</span>
+        {sortedFunctions.map(fn => {
+          const catalog = FUNCTION_CATALOG[fn.id]
+          const label = (fn.label as string) ?? catalog?.label ?? fn.id
+          const emoji = catalog?.emoji ?? '⚙️'
+          const orderVal = orders[fn.id]
+
+          return (
+            <div
+              key={fn.id}
+              className="bg-white rounded-xl border border-gray-100 shadow-sm px-5 py-4 flex items-center gap-4"
+            >
+              {/* Icon + Label */}
+              <div className="flex-1 min-w-0">
+                <span className="mr-2 text-base">{emoji}</span>
+                <span className="font-medium text-gray-800 text-sm">{label}</span>
+              </div>
+              {/* Order input */}
+              <input
+                type="number"
+                min={1}
+                value={orderVal === 99 ? '' : orderVal}
+                placeholder="—"
+                onChange={e => handleChange(fn.id, e.target.value)}
+                aria-label={`Ordem de ${label}`}
+                className="w-16 text-center text-base font-bold text-gray-700 border border-gray-200 rounded-lg py-1.5 px-1 focus:outline-none focus:ring-2 focus:ring-[#FC5931]/30 focus:border-[#FC5931] bg-gray-50"
+              />
             </div>
-            {/* Order input */}
-            <input
-              type="number"
-              min={1}
-              value={orders[def.id] === 99 ? '' : orders[def.id]}
-              placeholder="—"
-              onChange={e => handleChange(def.id, e.target.value)}
-              className="w-16 text-center text-base font-bold text-gray-700 border border-gray-200 rounded-lg py-1.5 px-1 focus:outline-none focus:ring-2 focus:ring-[#FC5931]/30 focus:border-[#FC5931] bg-gray-50"
-            />
-          </div>
-        ))}
+          )
+        })}
       </div>
 
       <p className="mt-4 text-xs text-gray-400 text-center">
