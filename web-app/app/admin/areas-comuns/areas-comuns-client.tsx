@@ -285,6 +285,7 @@ export default function AreasComunsClient({ condominioId, initialAreas }: Props)
             <select
               value={form.tipo_agenda}
               onChange={e => setField('tipo_agenda', e.target.value)}
+              aria-label="Tipo de Agenda"
               className="col-span-2 border border-gray-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#FC5931]/30"
             >
               <option value="">Tipo de Agenda</option>
@@ -294,6 +295,7 @@ export default function AreasComunsClient({ condominioId, initialAreas }: Props)
             <select
               value={form.local}
               onChange={e => setField('local', e.target.value)}
+              aria-label="Local"
               className="border border-gray-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#FC5931]/30 text-gray-700"
             >
               <option value="">Local</option>

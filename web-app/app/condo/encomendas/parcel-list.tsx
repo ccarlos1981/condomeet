@@ -125,7 +125,7 @@ function DeliveryModal({ parcel, condoId, onClose, onConfirm }: DeliveryModalPro
         {/* Header */}
         <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100">
           <h2 className="font-bold text-gray-900 text-base">Registro de retirada de encomenda</h2>
-          <button onClick={onClose} className="p-1.5 hover:bg-gray-100 rounded-lg transition-colors">
+          <button onClick={onClose} title="Fechar" className="p-1.5 hover:bg-gray-100 rounded-lg transition-colors">
             <X size={18} className="text-gray-500" />
           </button>
         </div>
@@ -162,6 +162,7 @@ function DeliveryModal({ parcel, condoId, onClose, onConfirm }: DeliveryModalPro
               <div className="relative">
                 <select
                   value={pickedById ?? ''}
+                  aria-label="Selecione o morador"
                   onChange={e => {
                     setPickedById(e.target.value || null)
                     setIsThirdParty(false)
@@ -312,7 +313,7 @@ export default function ParcelList({ initialParcels, isPorter, condoId }: Props)
         <div className="fixed inset-0 bg-black/80 z-50 flex items-center justify-center p-4" onClick={() => setPhotoModal(null)}>
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img src={photoModal} alt="Foto da encomenda" className="max-w-full max-h-full rounded-2xl shadow-2xl" />
-          <button className="absolute top-4 right-4 text-white p-2 bg-white/10 rounded-xl hover:bg-white/20" onClick={() => setPhotoModal(null)}>
+          <button className="absolute top-4 right-4 text-white p-2 bg-white/10 rounded-xl hover:bg-white/20" title="Fechar foto" onClick={() => setPhotoModal(null)}>
             <X size={22} />
           </button>
         </div>
@@ -363,6 +364,7 @@ export default function ParcelList({ initialParcels, isPorter, condoId }: Props)
             <select
               value={blocoFilter}
               onChange={e => { setBlocoFilter(e.target.value); setAptoFilter(''); setPage(1) }}
+              aria-label="Filtrar por bloco"
               className="px-3 py-2 border border-gray-200 rounded-xl text-sm bg-white shadow-sm focus:outline-none focus:ring-2 focus:ring-[#FC5931]"
             >
               <option value="">Bloco</option>
@@ -371,6 +373,7 @@ export default function ParcelList({ initialParcels, isPorter, condoId }: Props)
             <select
               value={aptoFilter}
               onChange={e => { setAptoFilter(e.target.value); setPage(1) }}
+              aria-label="Filtrar por apartamento"
               className="px-3 py-2 border border-gray-200 rounded-xl text-sm bg-white shadow-sm focus:outline-none focus:ring-2 focus:ring-[#FC5931]"
             >
               <option value="">Apto</option>

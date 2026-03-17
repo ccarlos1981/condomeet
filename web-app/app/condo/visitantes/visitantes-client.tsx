@@ -268,6 +268,7 @@ export default function VisitantesResidentClient({
                 <p className="text-xs text-gray-400 mt-0.5">{bloco && `Bloco ${bloco} / Apto ${apto}`}</p>
               </div>
               <button onClick={() => setShowModal(false)}
+                title="Fechar"
                 className="w-8 h-8 rounded-xl flex items-center justify-center text-gray-400 hover:bg-gray-100">
                 <X size={16} />
               </button>

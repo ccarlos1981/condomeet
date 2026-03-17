@@ -163,6 +163,7 @@ export default function AvisosAdminClient({ condominioId, avisos: initial, total
 
                   <button
                     onClick={() => handleDelete(aviso.id)}
+                    title="Excluir aviso"
                     className="p-1.5 rounded-lg text-red-400 hover:bg-red-50 hover:text-red-600 transition-colors"
                   >
                     <Trash2 size={16} />

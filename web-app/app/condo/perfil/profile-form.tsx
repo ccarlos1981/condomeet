@@ -255,7 +255,7 @@ export default function ProfileForm({
                 onChange={e => setNewPwd(e.target.value.replace(/\D/g, ''))}
                 className="w-full px-4 py-2.5 pr-11 rounded-xl border border-gray-200 focus:ring-2 focus:ring-[#FC5931]/20 focus:border-[#FC5931] outline-none text-sm"
               />
-              <button type="button" onClick={() => setShowNewPwd(!showNewPwd)} className="absolute right-3.5 top-1/2 -translate-y-1/2 text-gray-400">
+              <button type="button" onClick={() => setShowNewPwd(!showNewPwd)} title="Mostrar/ocultar senha" className="absolute right-3.5 top-1/2 -translate-y-1/2 text-gray-400">
                 {showNewPwd ? <EyeOff size={16}/> : <Eye size={16}/>}
               </button>
             </div>
@@ -268,7 +268,7 @@ export default function ProfileForm({
                 onChange={e => setConfirmPwd(e.target.value.replace(/\D/g, ''))}
                 className="w-full px-4 py-2.5 pr-11 rounded-xl border border-gray-200 focus:ring-2 focus:ring-[#FC5931]/20 focus:border-[#FC5931] outline-none text-sm"
               />
-              <button type="button" onClick={() => setShowConfirmPwd(!showConfirmPwd)} className="absolute right-3.5 top-1/2 -translate-y-1/2 text-gray-400">
+              <button type="button" onClick={() => setShowConfirmPwd(!showConfirmPwd)} title="Mostrar/ocultar senha" className="absolute right-3.5 top-1/2 -translate-y-1/2 text-gray-400">
                 {showConfirmPwd ? <EyeOff size={16}/> : <Eye size={16}/>}
               </button>
             </div>
