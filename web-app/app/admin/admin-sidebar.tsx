@@ -48,7 +48,7 @@ export default function AdminSidebar({
       items: [
         { label: 'Avisos',       href: '/admin/avisos',       icon: <Bell size={18} /> },
         { label: 'Fale Conosco', href: '/admin/fale-conosco', icon: <MessageSquare size={18} /> },
-        { label: 'Ocorrências',  href: '/condo/ocorrencias',  icon: <AlertCircle size={18} /> },
+        { label: 'Ocorrências',  href: '/admin/ocorrencias',  icon: <AlertCircle size={18} /> },
         { label: 'Enquetes',     href: '/admin/enquetes',     icon: <BarChart3 size={18} /> },
       ],
     },
