@@ -1,8 +1,10 @@
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:get_it/get_it.dart';
+import 'package:image_picker/image_picker.dart';
 import 'package:condomeet/core/design_system/app_colors.dart';
 import 'package:condomeet/features/auth/presentation/bloc/auth_bloc.dart';
 import 'package:condomeet/features/auth/presentation/bloc/auth_state.dart';
@@ -31,17 +33,98 @@ class _HomeScreenState extends State<HomeScreen> {
   Stream<Condominium?>? _condominiumStream;
   String? _currentCondoId;
   int _selectedTab = 0;
+  String? _fotoUrl;
+  bool _uploadingSelfie = false;
 
   @override
   void initState() {
     super.initState();
     final authState = context.read<AuthBloc>().state;
     _initStream(authState.condominiumId);
+    _loadFotoUrl(authState.userId);
 
     if (authState.userId != null) {
       context.read<ParcelBloc>().add(
         WatchPendingParcelsRequested(authState.userId!),
       );
+    }
+  }
+
+  Future<void> _loadFotoUrl(String? userId) async {
+    if (userId == null) return;
+    try {
+      final data = await Supabase.instance.client
+          .from('perfil')
+          .select('foto_url')
+          .eq('id', userId)
+          .maybeSingle();
+      if (mounted && data != null) {
+        setState(() => _fotoUrl = data['foto_url'] as String?);
+      }
+    } catch (_) {}
+  }
+
+  Future<void> _captureSelfie() async {
+    final authState = context.read<AuthBloc>().state;
+    final userId = authState.userId;
+    if (userId == null) return;
+
+    final picker = ImagePicker();
+    final photo = await picker.pickImage(
+      source: ImageSource.camera,
+      preferredCameraDevice: CameraDevice.front,
+      maxWidth: 800,
+      maxHeight: 800,
+      imageQuality: 85,
+    );
+    if (photo == null || !mounted) return;
+
+    setState(() => _uploadingSelfie = true);
+    try {
+      final file = File(photo.path);
+      final ext = photo.path.split('.').last;
+      final path = '$userId/selfie.$ext';
+
+      await Supabase.instance.client.storage
+          .from('profile-photos')
+          .upload(path, file, fileOptions: const FileOptions(upsert: true));
+
+      final publicUrl = Supabase.instance.client.storage
+          .from('profile-photos')
+          .getPublicUrl(path);
+
+      // Add cache-buster to force new image
+      final urlWithCacheBust = '$publicUrl?t=${DateTime.now().millisecondsSinceEpoch}';
+
+      await Supabase.instance.client
+          .from('perfil')
+          .update({'foto_url': publicUrl})
+          .eq('id', userId);
+
+      if (mounted) {
+        setState(() {
+          _fotoUrl = urlWithCacheBust;
+          _uploadingSelfie = false;
+        });
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('📸 Selfie salva com sucesso!'),
+            backgroundColor: Colors.green,
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() => _uploadingSelfie = false);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Erro ao salvar selfie: $e'),
+            backgroundColor: Colors.red,
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+      }
     }
   }
 
@@ -267,37 +350,51 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   Widget _buildSelfieBanner() {
-    return Container(
-      width: double.infinity,
-      color: const Color(0xFFFFDEDE),
-      padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
-      margin: const EdgeInsets.only(top: 8),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Container(
-            width: 12,
-            height: 12,
-            decoration: const BoxDecoration(
-              color: Colors.red,
-              shape: BoxShape.circle,
-            ),
-          ),
-          const SizedBox(width: 12),
-          const Text(
-            'Vamos tirar uma Selfie? ',
-            style: TextStyle(color: AppColors.textMain, fontSize: 13),
-          ),
-          const Text(
-            'Clique aqui.',
-            style: TextStyle(
-              color: AppColors.textMain,
-              fontSize: 13,
-              fontWeight: FontWeight.bold,
-              decoration: TextDecoration.underline,
-            ),
-          ),
-        ],
+    // Don't show banner if user already has a photo
+    if (_fotoUrl != null && _fotoUrl!.isNotEmpty) return const SizedBox.shrink();
+
+    return GestureDetector(
+      onTap: _uploadingSelfie ? null : _captureSelfie,
+      child: Container(
+        width: double.infinity,
+        color: const Color(0xFFFFDEDE),
+        padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
+        margin: const EdgeInsets.only(top: 8),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            if (_uploadingSelfie) ...[
+              const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2, color: AppColors.primary)),
+              const SizedBox(width: 12),
+              const Text('Salvando selfie...', style: TextStyle(color: AppColors.textMain, fontSize: 13)),
+            ] else ...[
+              Container(
+                width: 12,
+                height: 12,
+                decoration: const BoxDecoration(
+                  color: Colors.red,
+                  shape: BoxShape.circle,
+                ),
+              ),
+              const SizedBox(width: 12),
+              const Icon(Icons.camera_alt, size: 18, color: AppColors.primary),
+              const SizedBox(width: 6),
+              const Text(
+                'Vamos tirar uma Selfie? ',
+                style: TextStyle(color: AppColors.textMain, fontSize: 13),
+              ),
+              const Text(
+                'Clique aqui.',
+                style: TextStyle(
+                  color: AppColors.primary,
+                  fontSize: 13,
+                  fontWeight: FontWeight.bold,
+                  decoration: TextDecoration.underline,
+                ),
+              ),
+            ],
+          ],
+        ),
       ),
     );
   }
@@ -367,8 +464,13 @@ class _HomeScreenState extends State<HomeScreen> {
             onTap: () => _scaffoldKey.currentState?.openEndDrawer(),
             child: CircleAvatar(
               radius: 18,
-              backgroundColor: const Color(0xFFB0BEC5), // Light grey
-              child: const Icon(Icons.person, color: Colors.white, size: 24),
+              backgroundColor: const Color(0xFFB0BEC5),
+              backgroundImage: _fotoUrl != null && _fotoUrl!.isNotEmpty
+                  ? NetworkImage(_fotoUrl!)
+                  : null,
+              child: _fotoUrl == null || _fotoUrl!.isEmpty
+                  ? const Icon(Icons.person, color: Colors.white, size: 24)
+                  : null,
             ),
           ),
         ],
@@ -488,7 +590,10 @@ class _HomeScreenState extends State<HomeScreen> {
       builder: (context, state) {
         List<Parcel> pendingParcels = [];
         if (state is ParcelLoaded) {
-          pendingParcels = state.pendingParcels;
+          final sevenDaysAgo = DateTime.now().subtract(const Duration(days: 7));
+          pendingParcels = state.pendingParcels
+              .where((p) => p.arrivalTime.isAfter(sevenDaysAgo))
+              .toList();
         }
         final pendingCount = pendingParcels.length;
         final firstParcel = pendingParcels.isNotEmpty ? pendingParcels.first : null;
@@ -552,8 +657,8 @@ class _HomeScreenState extends State<HomeScreen> {
                     Expanded(
                       child: Text(
                         pendingCount > 0
-                            ? 'Você tem $pendingCount ${pendingCount == 1 ? "encomenda pendente" : "encomendas pendentes"}'
-                            : 'Você não tem encomenda pendente :)',
+                            ? 'Você tem $pendingCount ${pendingCount == 1 ? "encomenda pendente" : "encomendas pendentes"} nos últimos 7 dias'
+                            : 'Nenhuma encomenda pendente nos últimos 7 dias :)',
                         style: const TextStyle(
                           fontWeight: FontWeight.bold,
                           fontSize: 14,
