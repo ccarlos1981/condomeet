@@ -25,7 +25,7 @@ const FN_TO_NAV: Record<string, { label: string; href: string; icon: React.React
   visitor_approval:   { label: 'Liberar Visitante',        href: '/condo/liberar-visitante',     icon: <UserCheck size={18} /> },
   parcel_reg:         { label: 'Registrar Encomenda',      href: '/condo/registrar-encomenda',   icon: <Package size={18} /> },
   pending_del:        { label: 'Entregas Pendentes',       href: '/condo/encomendas',            icon: <Package size={18} /> },
-  approvals:          { label: 'Aprovações',               href: '/admin/aprovacoes',            icon: <Users size={18} /> },
+  approvals:          { label: 'Aprovações',               href: '/condo/aprovacoes',            icon: <Users size={18} /> },
   resident_search:    { label: 'Busca Moradores',          href: '/admin/moradores',             icon: <Users size={18} /> },
   condo_structure:    { label: 'Estrutura do Condomínio',  href: '/admin/estrutura',             icon: <Building2 size={18} /> },
   assemblies:         { label: 'Assembleias',              href: '/admin/assembleias',           icon: <Users size={18} /> },
