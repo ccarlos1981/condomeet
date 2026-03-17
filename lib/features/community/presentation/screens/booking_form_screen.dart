@@ -372,7 +372,7 @@ class _BookingFormScreenState extends State<BookingFormScreen> {
               width: double.infinity,
               child: Builder(builder: (_) {
                 final dateBooked = _selectedDate != null && _bookedDates.contains(_selectedDate);
-                final canBook = !_saving && _selectedDate != null && !dateBooked;
+                final canBook = !_saving && _selectedDate != null && !dateBooked && _ciente;
                 final label = _saving ? 'Agendando...'
                   : _selectedDate == null ? 'Selecione uma data'
                   : dateBooked ? 'Data já reservada'

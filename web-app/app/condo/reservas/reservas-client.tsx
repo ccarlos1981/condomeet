@@ -320,6 +320,7 @@ function BookingModal({
             const canBook = !!selectedDate &&
               !dateBooked &&
               (area.tipo_reserva !== 'por_hora' || !!selectedHorario) &&
+              ciente &&
               !saving
             const label = saving ? 'Agendando...'
               : !selectedDate ? 'Selecione uma data'
