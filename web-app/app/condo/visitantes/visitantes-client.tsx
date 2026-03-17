@@ -21,7 +21,9 @@ const VISITOR_TYPES = ['Visitante', 'Uber', 'Farmácia', 'Mat. de obra', 'Diaris
 function formatDate(dateStr: string) {
   if (!dateStr) return '—'
   try {
-    const d = new Date(dateStr + 'T00:00:00')
+    // Handle both 'YYYY-MM-DD' and full ISO timestamps like '2026-03-15T11:12:39.062659+00:00'
+    const dateOnly = dateStr.includes('T') ? dateStr.split('T')[0] : dateStr
+    const d = new Date(dateOnly + 'T00:00:00')
     if (isNaN(d.getTime())) return dateStr
     return d.toLocaleDateString('pt-BR', {
       day: '2-digit', month: '2-digit', year: 'numeric',
@@ -33,9 +35,12 @@ function formatDate(dateStr: string) {
 
 function ConviteCard({ convite }: { convite: Convite }) {
   const chegou = Boolean(convite.visitante_compareceu)
-  const validDate = new Date(convite.validity_date + 'T00:00:00')
+  const dateOnly = convite.validity_date?.includes('T') ? convite.validity_date.split('T')[0] : convite.validity_date
+  const validDate = new Date(dateOnly + 'T00:00:00')
   const isExpired = validDate < new Date() && !chegou
-  const code = convite.qr_data ? convite.qr_data.toUpperCase() : '—'
+  // Show short code: for long codes like CONDOMEET_INV_xxx, show last 3 chars
+  const rawCode = convite.qr_data ? convite.qr_data.toUpperCase() : '—'
+  const code = rawCode.length > 6 ? rawCode.slice(-3) : rawCode
 
   return (
     <div className={`bg-white rounded-2xl border shadow-sm overflow-hidden ${

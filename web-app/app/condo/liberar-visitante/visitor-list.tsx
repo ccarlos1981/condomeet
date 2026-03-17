@@ -239,7 +239,7 @@ export default function VisitorList({ initialInvitations, condoId, userId, initi
                     <div>
                       <span className="text-xs text-gray-400 block">Solicitado para a data</span>
                       <span className="font-medium text-gray-800">
-                        {inv.validity_date ? new Date(inv.validity_date + 'T00:00:00').toLocaleDateString('pt-BR') : '—'}
+                        {inv.validity_date ? new Date((inv.validity_date.includes('T') ? inv.validity_date.split('T')[0] : inv.validity_date) + 'T00:00:00').toLocaleDateString('pt-BR') : '—'}
                       </span>
                     </div>
                     <div>
