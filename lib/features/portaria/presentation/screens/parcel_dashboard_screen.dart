@@ -246,22 +246,23 @@ class _ParcelDashboardScreenState extends State<ParcelDashboardScreen>
               ]),
             ),
           ],
-          // Dar Baixa button
+          // Status badge — Morador view: no Dar Baixa, just status
           if (isPending) ...[
             const SizedBox(height: 14),
-            SizedBox(
+            Container(
               width: double.infinity,
-              child: ElevatedButton.icon(
-                onPressed: () => _showDarBaixaModal(parcel),
-                icon: const Icon(Icons.check_circle_outline, size: 18),
-                label: const Text('Dar Baixa'),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: AppColors.primary,
-                  foregroundColor: Colors.white,
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                  padding: const EdgeInsets.symmetric(vertical: 12),
-                ),
+              padding: const EdgeInsets.symmetric(vertical: 10),
+              decoration: BoxDecoration(
+                color: Colors.orange.shade50,
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: Colors.orange.shade200),
               ),
+              child: Row(mainAxisAlignment: MainAxisAlignment.center, children: [
+                Icon(Icons.access_time, size: 18, color: Colors.orange.shade700),
+                const SizedBox(width: 8),
+                Text('Aguardando retirada',
+                    style: TextStyle(color: Colors.orange.shade700, fontWeight: FontWeight.bold, fontSize: 14)),
+              ]),
             ),
           ],
         ]),

@@ -10,10 +10,19 @@ class ParcelRepositoryImpl implements ParcelRepository {
 
   ParcelRepositoryImpl(this._supabase);
 
+  /// Cache for unit resident IDs to avoid repeated lookups
+  final Map<String, List<String>> _unitIdsCache = {};
+
   /// Looks up the user's bloco/apto from perfil, then returns all resident IDs
   /// sharing the same unit within the same condominium.
   Future<List<String>> _getUnitResidentIds(String residentId) async {
     if (residentId.isEmpty) return [];
+    
+    // Return cached value if available
+    if (_unitIdsCache.containsKey(residentId)) {
+      return _unitIdsCache[residentId]!;
+    }
+    
     // Step 1: Get the user's bloco, apto, and condominium
     final profile = await _supabase
         .from('perfil')
@@ -34,7 +43,11 @@ class ParcelRepositoryImpl implements ParcelRepository {
         .eq('condominio_id', condoId)
         .eq('bloco_txt', bloco)
         .eq('apto_txt', apto);
-    return (unitProfiles as List).map((r) => r['id'] as String).toList();
+    final ids = (unitProfiles as List).map((r) => r['id'] as String).toList();
+    
+    // Cache the result
+    _unitIdsCache[residentId] = ids;
+    return ids;
   }
 
   @override
@@ -98,9 +111,10 @@ class ParcelRepositoryImpl implements ParcelRepository {
   }
 
   Future<List<Parcel>> _fetchPendingForUnit(String residentId) async {
-    if (residentId.isEmpty) return [];
+    if (residentId.isEmpty) { print('⚠️ _fetchPendingForUnit: empty residentId'); return []; }
     final unitIds = await _getUnitResidentIds(residentId);
-    if (unitIds.isEmpty) return [];
+    print('📦 _fetchPendingForUnit: residentId=$residentId, unitIds=$unitIds');
+    if (unitIds.isEmpty) { print('⚠️ _fetchPendingForUnit: no unitIds found'); return []; }
 
     final rows = await _supabase
         .from('encomendas')
@@ -108,7 +122,8 @@ class ParcelRepositoryImpl implements ParcelRepository {
         .inFilter('resident_id', unitIds)
         .eq('status', 'pending')
         .order('arrival_time', ascending: false);
-    return (rows as List).map((r) => _mapToParcel(r as Map<String, dynamic>)).toList();
+    print('📦 _fetchPendingForUnit: found ${(rows as List).length} parcels');
+    return rows.map((r) => _mapToParcel(r as Map<String, dynamic>)).toList();
   }
 
   @override

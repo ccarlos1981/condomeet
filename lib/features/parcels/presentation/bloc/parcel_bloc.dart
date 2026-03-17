@@ -21,6 +21,9 @@ class ParcelBloc extends Bloc<ParcelEvent, ParcelState> {
     WatchPendingParcelsRequested event,
     Emitter<ParcelState> emit,
   ) async {
+    // Skip if empty residentId — don't cancel a working subscription
+    if (event.residentId.isEmpty) return;
+    
     emit(ParcelLoading());
     await _parcelsSubscription?.cancel();
     
