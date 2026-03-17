@@ -83,6 +83,7 @@ export default function ConfigurarAcessoClient({ initialConfig, condominioId, db
   // Build initial function configs
   const savedFunctions = (initialConfig?.functions as unknown[] ?? []) as Array<{
     id: string
+    order?: number
     roles?: Record<string, { visible?: boolean }>
   }>
   const savedMap: Record<string, typeof savedFunctions[0]> = {}
@@ -120,7 +121,9 @@ export default function ConfigurarAcessoClient({ initialConfig, condominioId, db
     startTransition(async () => {
       const functionsJson = functions.map((fn, i) => {
         const def = ALL_FUNCTIONS[i]
-        return { id: fn.id, icon: def.icon, label: def.label, route: def.route, roles: fn.roles }
+        // Preserve existing order from saved config so 'Configurar Ordem' values are not lost
+        const existingOrder = savedMap[fn.id]?.order as number | undefined
+        return { id: fn.id, icon: def.icon, label: def.label, route: def.route, roles: fn.roles, ...(existingOrder !== undefined ? { order: existingOrder } : {}) }
       })
       // Merge with existing config (preserve order)
       const merged = {
