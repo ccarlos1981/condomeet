@@ -15,13 +15,12 @@ export default async function EnquetesAdminPage() {
 
   const condoId = profile?.condominio_id ?? ''
 
-  // Load enquetes with options and response counts
+  // Load enquetes with options
   const { data: enquetes } = await supabase
     .from('enquetes')
     .select(`
       id, pergunta, tipo_resposta, ativa, validade, created_at,
-      enquete_opcoes(id, texto, ordem),
-      enquete_respostas(count)
+      enquete_opcoes(id, texto, ordem)
     `)
     .eq('condominio_id', condoId)
     .order('created_at', { ascending: false })
@@ -39,6 +38,31 @@ export default async function EnquetesAdminPage() {
     (unitsRaw ?? []).map(u => `${u.bloco_txt}-${u.apto_txt}`)
   )
 
+  // For each enquete, count unique responding units (bloco+apto)
+  const enqueteIds = (enquetes ?? []).map(e => e.id)
+  let unitCountMap: Record<string, number> = {}
+
+  if (enqueteIds.length > 0) {
+    // Fetch all responses with bloco/apto to count unique units per enquete
+    const { data: allRespostas } = await supabase
+      .from('enquete_respostas')
+      .select('enquete_id, bloco, apto')
+      .in('enquete_id', enqueteIds)
+
+    // Group by enquete_id and count unique bloco+apto combos
+    const enqueteUnitSets: Record<string, Set<string>> = {}
+    for (const r of (allRespostas ?? [])) {
+      if (!r.bloco || !r.apto) continue
+      if (!enqueteUnitSets[r.enquete_id]) {
+        enqueteUnitSets[r.enquete_id] = new Set()
+      }
+      enqueteUnitSets[r.enquete_id].add(`${r.bloco}-${r.apto}`)
+    }
+    for (const [eid, unitSet] of Object.entries(enqueteUnitSets)) {
+      unitCountMap[eid] = unitSet.size
+    }
+  }
+
   return (
     <EnquetesAdminClient
       condominioId={condoId}
@@ -46,7 +70,7 @@ export default async function EnquetesAdminPage() {
         ...e,
         opcoes: (e.enquete_opcoes as { id: string; texto: string; ordem: number }[])
           ?.sort((a, b) => a.ordem - b.ordem) ?? [],
-        totalRespostas: (e.enquete_respostas as unknown as { count: number }[])?.[0]?.count ?? 0,
+        totalRespostas: unitCountMap[e.id] ?? 0,
       }))}
       totalUnidades={uniqueUnits.size}
     />

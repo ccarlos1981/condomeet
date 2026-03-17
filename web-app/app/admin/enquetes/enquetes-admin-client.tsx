@@ -177,14 +177,25 @@ export default function EnquetesAdminClient({
 
   // ── Show chart modal ───────────────────────────────────────
   async function showChart(enquete: Enquete) {
-    // For each option, count responses
+    // Fetch responses with bloco/apto to deduplicate per unit
     const { data } = await supabase
       .from('enquete_respostas')
-      .select('opcao_id')
+      .select('opcao_id, bloco, apto, created_at')
       .eq('enquete_id', enquete.id)
+      .order('created_at', { ascending: false })
+
+    // Keep only the latest response per unit (bloco+apto)
+    const seen = new Set<string>()
+    const deduped: typeof data = []
+    for (const r of (data ?? [])) {
+      const key = `${r.bloco}-${r.apto}`
+      if (seen.has(key)) continue
+      seen.add(key)
+      deduped.push(r)
+    }
 
     const counts: Record<string, number> = {}
-    for (const r of (data ?? [])) {
+    for (const r of deduped) {
       counts[r.opcao_id] = (counts[r.opcao_id] || 0) + 1
     }
 
@@ -218,8 +229,17 @@ export default function EnquetesAdminClient({
     const opcaoMap: Record<string, string> = {}
     enquete.opcoes.forEach(o => { opcaoMap[o.id] = o.texto })
 
+    // Keep only the last response per unit (bloco+apto)
+    const seen = new Set<string>()
+    const deduped = (data ?? []).filter(r => {
+      const key = `${r.bloco}-${r.apto}`
+      if (seen.has(key)) return false
+      seen.add(key)
+      return true
+    })
+
     setRespostas(
-      (data ?? []).map(r => ({
+      deduped.map(r => ({
         nome: (r.perfil as unknown as { nome_completo: string })?.nome_completo ?? '',
         bloco: r.bloco ?? '',
         apto: r.apto ?? '',
