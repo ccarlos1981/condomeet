@@ -75,7 +75,7 @@ function ConviteCard({ convite }: { convite: Convite }) {
 
       <div className="px-5 py-4 flex items-center justify-between">
         <div className="text-sm">
-          <p className="text-gray-400 text-xs mb-0.5">Válido para</p>
+          <p className="text-gray-400 text-xs mb-0.5">Data da visita</p>
           <p className="font-semibold text-gray-800">{formatDate(convite.validity_date)}</p>
         </div>
         <div className="flex items-center gap-1.5 bg-gray-50 border border-gray-200 px-3 py-1.5 rounded-xl">
@@ -110,10 +110,11 @@ export default function VisitantesResidentClient({
   const [loadedAll, setLoadedAll] = useState(initialConvites.length < 5)
   const [loadingMore, setLoadingMore] = useState(false)
 
+  const todayStr = new Date().toISOString().split('T')[0]
   const [form, setForm] = useState({
     guest_name: '',
     visitor_type: '',
-    validity_date: '',
+    validity_date: todayStr,
     whatsapp: '',
     observacao: '',
   })
@@ -162,7 +163,7 @@ export default function VisitantesResidentClient({
     } else if (inserted) {
       setConvites(prev => [inserted, ...prev])
       setShowModal(false)
-      setForm({ guest_name: '', visitor_type: '', validity_date: '', whatsapp: '', observacao: '' })
+      setForm({ guest_name: '', visitor_type: '', validity_date: todayStr, whatsapp: '', observacao: '' })
     }
     setSaving(false)
   }
@@ -287,7 +288,7 @@ export default function VisitantesResidentClient({
 
               <div>
                 <label className="text-xs font-semibold text-gray-500 uppercase tracking-wider block mb-2">
-                  Data de validade *
+                  Data da visita *
                 </label>
                 <input
                   type="date"

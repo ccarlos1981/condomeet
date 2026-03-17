@@ -537,7 +537,7 @@ class _VisitorAuthorizationScreenState extends State<VisitorAuthorizationScreen>
                           ),
                           const SizedBox(height: 8),
                           Text(
-                            'Válido até: ${DateFormat('dd/MM/yyyy').format(inv.validityDate)}',
+                            'Data da visita: ${DateFormat('dd/MM/yyyy').format(inv.validityDate)}',
                             style: AppTypography.bodySmall.copyWith(color: Colors.grey.shade500),
                           ),
                           const SizedBox(height: 16),
@@ -617,7 +617,7 @@ class _VisitorAuthorizationScreenState extends State<VisitorAuthorizationScreen>
               const SizedBox(height: 16),
               Text(invitation.guestName, style: AppTypography.h3),
               Text(
-                'Válido até: ${DateFormat('dd/MM/yyyy').format(invitation.validityDate)}',
+                'Data da visita: ${DateFormat('dd/MM/yyyy').format(invitation.validityDate)}',
                 style: AppTypography.bodySmall,
               ),
             ],
