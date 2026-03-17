@@ -323,12 +323,14 @@ export default function OcorrenciasClient({
             </button>
           ))}
         </div>
-        <button
-          onClick={() => setShowModal(true)}
-          className="flex items-center gap-2 bg-[#FC5931] text-white text-sm font-semibold px-5 py-2.5 rounded-xl hover:bg-[#D42F1D] transition-colors shadow-sm"
-        >
-          + Nova Ocorrência
-        </button>
+        {!isAdmin && (
+          <button
+            onClick={() => setShowModal(true)}
+            className="flex items-center gap-2 bg-[#FC5931] text-white text-sm font-semibold px-5 py-2.5 rounded-xl hover:bg-[#D42F1D] transition-colors shadow-sm"
+          >
+            + Nova Ocorrência
+          </button>
+        )}
       </div>
 
       {/* Lista */}
