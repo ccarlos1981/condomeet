@@ -116,8 +116,6 @@ function buildNavFromConfig(role: string, config: any): NavItem[] | null {
 
     const navEntry = FN_TO_NAV[fn.id]
     if (navEntry) {
-      // Skip admin-panel links — those belong in the admin sidebar, not condo
-      if (navEntry.href.startsWith('/admin')) continue
       // Avoid duplicates by href
       if (!items.some(i => i.href === navEntry.href)) {
         items.push({ ...navEntry, fnId: fn.id })
