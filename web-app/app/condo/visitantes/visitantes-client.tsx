@@ -3,6 +3,7 @@
 import { useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { UserCheck, Plus, X, CheckCircle2, Clock, QrCode, ChevronDown } from 'lucide-react'
+import { QRCodeSVG } from 'qrcode.react'
 
 type Convite = {
   id: string
@@ -78,10 +79,14 @@ function ConviteCard({ convite }: { convite: Convite }) {
           <p className="text-gray-400 text-xs mb-0.5">Data da visita</p>
           <p className="font-semibold text-gray-800">{formatDate(convite.validity_date)}</p>
         </div>
-        <div className="flex items-center gap-1.5 bg-gray-50 border border-gray-200 px-3 py-1.5 rounded-xl">
-          <QrCode size={14} className="text-gray-400" />
-          <span className="text-xs font-bold text-gray-600 tracking-widest">{code}</span>
-        </div>
+        {convite.qr_data && (
+          <div className="flex flex-col items-center">
+            <div className="bg-white border border-gray-200 rounded-xl p-1.5 shadow-sm">
+              <QRCodeSVG value={convite.qr_data} size={64} />
+            </div>
+            <span className="text-[10px] text-gray-400 mt-0.5 font-mono tracking-widest">{code}</span>
+          </div>
+        )}
       </div>
     </div>
   )

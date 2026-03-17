@@ -3,6 +3,7 @@ import { useState, useEffect, useTransition } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { useRouter } from 'next/navigation'
 import { RefreshCw, Filter, ChevronLeft, ChevronRight, CheckCircle2 } from 'lucide-react'
+import { QRCodeSVG } from 'qrcode.react'
 
 interface PerfilJoin {
   nome_completo: string
@@ -235,21 +236,34 @@ export default function VisitorList({ initialInvitations, condoId, userId, initi
 
                 {/* Body */}
                 <div className="px-5 py-4">
-                  <div className="grid grid-cols-2 gap-x-8 gap-y-2 mb-4 text-sm">
-                    <div>
-                      <span className="text-xs text-gray-400 block">Data da visita</span>
-                      <span className="font-medium text-gray-800">
-                        {inv.validity_date ? new Date((inv.validity_date.includes('T') ? inv.validity_date.split('T')[0] : inv.validity_date) + 'T00:00:00').toLocaleDateString('pt-BR') : '—'}
-                      </span>
+                  <div className="flex gap-4">
+                    <div className="flex-1 grid grid-cols-2 gap-x-8 gap-y-2 mb-4 text-sm">
+                      <div>
+                        <span className="text-xs text-gray-400 block">Data da visita</span>
+                        <span className="font-medium text-gray-800">
+                          {inv.validity_date ? new Date((inv.validity_date.includes('T') ? inv.validity_date.split('T')[0] : inv.validity_date) + 'T00:00:00').toLocaleDateString('pt-BR') : '—'}
+                        </span>
+                      </div>
+                      <div>
+                        <span className="text-xs text-gray-400 block">Tipo de visitante</span>
+                        <span className="font-medium text-gray-800">{inv.visitor_type || '—'}</span>
+                      </div>
+                      <div className="col-span-2">
+                        <span className="text-xs text-gray-400 block">Nome Visitante</span>
+                        <span className="font-medium text-gray-800">{inv.guest_name || 'Nome não preenchido'}</span>
+                      </div>
                     </div>
-                    <div>
-                      <span className="text-xs text-gray-400 block">Tipo de visitante</span>
-                      <span className="font-medium text-gray-800">{inv.visitor_type || '—'}</span>
-                    </div>
-                    <div className="col-span-2">
-                      <span className="text-xs text-gray-400 block">Nome Visitante</span>
-                      <span className="font-medium text-gray-800">{inv.guest_name || 'Nome não preenchido'}</span>
-                    </div>
+                    {/* QR Code */}
+                    {inv.qr_data && (
+                      <div className="flex flex-col items-center justify-center flex-shrink-0">
+                        <div className="bg-white border border-gray-200 rounded-xl p-2 shadow-sm">
+                          <QRCodeSVG value={inv.qr_data} size={80} />
+                        </div>
+                        <span className="text-[10px] text-gray-400 mt-1 font-mono tracking-wider">
+                          {inv.qr_data.length > 6 ? inv.qr_data.slice(-3).toUpperCase() : inv.qr_data.toUpperCase()}
+                        </span>
+                      </div>
+                    )}
                   </div>
 
                   {/* Approve row */}
