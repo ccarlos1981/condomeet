@@ -16,7 +16,7 @@ type NavItem = { label: string; href: string; icon: React.ReactNode; fnId?: stri
 const FN_TO_NAV: Record<string, { label: string; href: string; icon: React.ReactNode }> = {
   authorize_visitor:  { label: 'Autorizar Visitante',     href: '/condo/visitantes',           icon: <UserCheck size={18} /> },
   parcels:            { label: 'Minhas Encomendas',        href: '/condo/encomendas',            icon: <Package size={18} /> },
-  guest_checkin:      { label: 'Visitante c/ Autorização', href: '/condo/checkin',               icon: <QrCode size={18} /> },
+  guest_checkin:      { label: 'Visitante c/ Autorização', href: '/condo/liberar-visitante',               icon: <QrCode size={18} /> },
   occurrences:        { label: 'Ocorrências',              href: '/condo/ocorrencias',           icon: <AlertCircle size={18} /> },
   bookings:           { label: 'Reservas',                 href: '/condo/reservas',              icon: <CalendarDays size={18} /> },
   documents:          { label: 'Documentos',               href: '/condo/documentos',            icon: <FileText size={18} /> },
@@ -61,7 +61,7 @@ const RESIDENT_NAV: NavItem[] = [
   { label: 'Contratos', href: '/condo/contratos', icon: <FileText size={18} /> },
   { label: 'Avisos', href: '/condo/avisos', icon: <Bell size={18} /> },
   { label: 'Enquetes', href: '/condo/enquetes', icon: <BarChart3 size={18} /> },
-  { label: 'Visitante c/ Autorização', href: '/condo/checkin', icon: <QrCode size={18} /> },
+  { label: 'Visitante c/ Autorização', href: '/condo/liberar-visitante', icon: <QrCode size={18} /> },
 ]
 
 const PORTER_NAV: NavItem[] = [
@@ -84,7 +84,7 @@ const ADMIN_NAV: NavItem[] = [
   { label: 'Contratos', href: '/condo/contratos', icon: <FileText size={18} /> },
   { label: 'Avisos', href: '/condo/avisos', icon: <Bell size={18} /> },
   { label: 'Enquetes', href: '/condo/enquetes', icon: <BarChart3 size={18} /> },
-  { label: 'Visitante c/ Autorização', href: '/condo/checkin', icon: <QrCode size={18} /> },
+  { label: 'Visitante c/ Autorização', href: '/condo/liberar-visitante', icon: <QrCode size={18} /> },
   { label: 'Registro de Turno', href: '/condo/registro-turno', icon: <ClipboardList size={18} /> },
   { label: 'Painel Admin', href: '/admin', icon: <Shield size={18} /> },
 ]

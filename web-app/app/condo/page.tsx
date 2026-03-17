@@ -36,7 +36,7 @@ export default async function CondoDashboard() {
   ] : [
     { label: 'Autorizar Visitante', sub: 'Gerar autorização', icon: UserCheck, href: '/condo/visitantes', iconColor: 'text-orange-500', iconBg: 'bg-orange-500/10' },
     { label: 'Minhas Encomendas', sub: 'Ver entregas', icon: Package, href: '/condo/encomendas', iconColor: 'text-blue-500', iconBg: 'bg-blue-500/10' },
-    { label: 'Visitante c/ Autorização', sub: 'Check-in QR', icon: QrCode, href: '/condo/checkin', iconColor: 'text-emerald-500', iconBg: 'bg-emerald-500/10' },
+    { label: 'Visitante c/ Autorização', sub: 'Check-in QR', icon: QrCode, href: '/condo/liberar-visitante', iconColor: 'text-emerald-500', iconBg: 'bg-emerald-500/10' },
   ]
 
   return (
