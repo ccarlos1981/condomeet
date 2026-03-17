@@ -10,9 +10,15 @@ export default async function CondoLayout({ children }: { children: React.ReactN
 
   const { data: profile } = await supabase
     .from('perfil')
-    .select('nome_completo, papel_sistema, bloco_txt, apto_txt, condominio_id')
+    .select('nome_completo, papel_sistema, bloco_txt, apto_txt, condominio_id, status_aprovacao')
     .eq('id', user.id)
     .single()
+
+  // Block pending/blocked users — same as Flutter's AuthState.pendingApproval
+  const status = profile?.status_aprovacao ?? 'pendente'
+  if (status === 'pendente' || status === 'bloqueado') {
+    redirect('/pending-approval')
+  }
 
   const { data: condo } = await supabase
     .from('condominios')
