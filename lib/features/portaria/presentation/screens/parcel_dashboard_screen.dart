@@ -200,12 +200,14 @@ class _ParcelDashboardScreenState extends State<ParcelDashboardScreen>
 
             // Photos column (package + signature)
             Column(crossAxisAlignment: CrossAxisAlignment.end, children: [
-              if (parcel.photoUrl != null)
-                _tappableThumb(parcel.photoUrl!, label: 'Foto'),
-              if (parcel.pickupProofUrl != null) ...[
-                const SizedBox(height: 6),
-                _tappableThumb(parcel.pickupProofUrl!, label: 'Assinatura', isSignature: true),
-              ],
+              parcel.photoUrl != null
+                  ? _tappableThumb(parcel.photoUrl!, label: 'Foto')
+                  : _placeholderThumb(icon: Icons.camera_alt_outlined, label: 'Foto'),
+              const SizedBox(height: 6),
+              if (!isPending)
+                parcel.pickupProofUrl != null
+                    ? _tappableThumb(parcel.pickupProofUrl!, label: 'Assinatura', isSignature: true)
+                    : _placeholderThumb(icon: Icons.draw_outlined, label: 'Assinatura'),
             ]),
           ]),
 
@@ -288,6 +290,25 @@ class _ParcelDashboardScreenState extends State<ParcelDashboardScreen>
         Text(label, style: TextStyle(fontSize: 9, color: AppColors.textSecondary)),
       ]),
     );
+  }
+
+  Widget _placeholderThumb({required IconData icon, required String label}) {
+    return Column(children: [
+      Container(
+        height: 56,
+        width: 56,
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(8),
+          border: Border.all(color: Colors.grey.shade200, style: BorderStyle.solid),
+          color: Colors.grey.shade50,
+        ),
+        child: Center(
+          child: Icon(icon, color: Colors.grey.shade300, size: 22),
+        ),
+      ),
+      const SizedBox(height: 2),
+      Text(label, style: TextStyle(fontSize: 9, color: AppColors.textSecondary)),
+    ]);
   }
 
   String _tipoLabelShort(String tipo) {

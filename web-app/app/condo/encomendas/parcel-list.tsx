@@ -4,7 +4,8 @@ import { useState, useEffect } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import {
   Package, CheckCircle2, Clock, Eye, X, Loader2,
-  Box, Mail, ShoppingBag, FileText, ChevronDown, UserCheck, RefreshCw
+  Box, Mail, ShoppingBag, FileText, ChevronDown, UserCheck, RefreshCw,
+  Camera, PenTool
 } from 'lucide-react'
 
 // ── Types ────────────────────────────────────────────────────────────────────
@@ -26,6 +27,7 @@ interface Parcel {
   tracking_code: string | null
   observacao: string | null
   photo_url: string | null
+  pickup_proof_url: string | null
   picked_up_by_id: string | null
   picked_up_by_name: string | null
   condominio_id: string
@@ -474,22 +476,42 @@ export default function ParcelList({ initialParcels, isPorter, condoId }: Props)
                       )}
                     </div>
 
-                    {/* Right side: photo thumbnail + dar baixa */}
+                    {/* Right side: photo + signature thumbnails + dar baixa */}
                     <div className="flex items-center gap-2 flex-shrink-0">
-                      {p.photo_url && (
+                      {/* Photo thumbnail */}
+                      <button
+                        onClick={() => p.photo_url ? setPhotoModal(p.photo_url) : null}
+                        className={`w-14 h-14 rounded-xl overflow-hidden border-2 transition-colors shadow-sm flex-shrink-0 flex items-center justify-center ${
+                          p.photo_url ? 'border-gray-200 hover:border-[#FC5931]' : 'border-dashed border-gray-200 bg-gray-50'
+                        }`}
+                        title={p.photo_url ? 'Ver foto da encomenda' : 'Sem foto'}
+                      >
+                        {p.photo_url ? (
+                          /* eslint-disable-next-line @next/next/no-img-element */
+                          <img src={p.photo_url} alt="Foto" className="w-full h-full object-cover" />
+                        ) : (
+                          <Camera size={18} className="text-gray-300" />
+                        )}
+                      </button>
+
+                      {/* Signature thumbnail (only for delivered) */}
+                      {delivered && (
                         <button
-                          onClick={() => setPhotoModal(p.photo_url!)}
-                          className="w-14 h-14 rounded-xl overflow-hidden border-2 border-gray-200 hover:border-[#FC5931] transition-colors shadow-sm flex-shrink-0"
-                          title="Ver foto da encomenda"
+                          onClick={() => p.pickup_proof_url ? setPhotoModal(p.pickup_proof_url) : null}
+                          className={`w-14 h-14 rounded-xl overflow-hidden border-2 transition-colors shadow-sm flex-shrink-0 flex items-center justify-center ${
+                            p.pickup_proof_url ? 'border-green-200 hover:border-green-500' : 'border-dashed border-gray-200 bg-gray-50'
+                          }`}
+                          title={p.pickup_proof_url ? 'Ver assinatura' : 'Sem assinatura'}
                         >
-                          {/* eslint-disable-next-line @next/next/no-img-element */}
-                          <img
-                            src={p.photo_url}
-                            alt="Foto"
-                            className="w-full h-full object-cover"
-                          />
+                          {p.pickup_proof_url ? (
+                            /* eslint-disable-next-line @next/next/no-img-element */
+                            <img src={p.pickup_proof_url} alt="Assinatura" className="w-full h-full object-cover" />
+                          ) : (
+                            <PenTool size={18} className="text-gray-300" />
+                          )}
                         </button>
                       )}
+
                       {!delivered && isPorter && (
                         <button
                           onClick={() => setDeliveryModal(p)}
