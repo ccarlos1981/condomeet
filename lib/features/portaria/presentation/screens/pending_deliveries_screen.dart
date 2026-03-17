@@ -144,6 +144,13 @@ class _PendingDeliveriesScreenState extends State<PendingDeliveriesScreen> {
           if (_fullscreenUrl != null) _buildFullscreen(),
         ],
       ),
+      floatingActionButton: FloatingActionButton.extended(
+        onPressed: () => Navigator.of(context).pushNamed('/parcel-registration').then((_) => _loadParcels()),
+        backgroundColor: AppColors.primary,
+        foregroundColor: Colors.white,
+        icon: const Icon(Icons.add, size: 20),
+        label: const Text('Nova Encomenda', style: TextStyle(fontWeight: FontWeight.bold)),
+      ),
     );
   }
 

@@ -31,12 +31,13 @@ class Condominium extends Equatable {
       'admin_menu': [
         { 'id': 'approvals', 'icon': 'check_circle', 'label': 'Aprovações', 'route': '/manager-approval', 'visible': true, 'order': 1 },
         { 'id': 'resident_search', 'icon': 'how_to_reg', 'label': 'Busca Moradores', 'route': '/resident-search', 'visible': true, 'order': 2 },
-        { 'id': 'parcel_history', 'icon': 'history', 'label': 'Histórico Entregas', 'route': '/parcel-history', 'visible': true, 'order': 3 },
-        { 'id': 'fale_conosco', 'icon': 'forum', 'label': 'Fale Conosco', 'route': '/fale-conosco', 'visible': true, 'order': 4 },
-        { 'id': 'occurrences', 'icon': 'warning', 'label': 'Ocorrências', 'route': '/report-occurrence', 'visible': true, 'order': 5 },
-        { 'id': 'bookings', 'icon': 'calendar_month', 'label': 'Reservas', 'route': '/area-booking', 'visible': true, 'order': 6 },
-        { 'id': 'documents', 'icon': 'file_copy', 'label': 'Documentos', 'route': '/document-center', 'visible': true, 'order': 7 },
-        { 'id': 'avisos', 'icon': 'campaign', 'label': 'Avisos', 'route': '/avisos', 'visible': true, 'order': 8 }
+        { 'id': 'pending_del', 'icon': 'local_shipping', 'label': 'Encomendas', 'route': '/pending-deliveries', 'visible': true, 'order': 3 },
+        { 'id': 'parcel_history', 'icon': 'history', 'label': 'Histórico Entregas', 'route': '/parcel-history', 'visible': true, 'order': 4 },
+        { 'id': 'fale_conosco', 'icon': 'forum', 'label': 'Fale Conosco', 'route': '/fale-conosco', 'visible': true, 'order': 5 },
+        { 'id': 'occurrences', 'icon': 'warning', 'label': 'Ocorrências', 'route': '/report-occurrence', 'visible': true, 'order': 6 },
+        { 'id': 'bookings', 'icon': 'calendar_month', 'label': 'Reservas', 'route': '/area-booking', 'visible': true, 'order': 7 },
+        { 'id': 'documents', 'icon': 'file_copy', 'label': 'Documentos', 'route': '/document-center', 'visible': true, 'order': 8 },
+        { 'id': 'avisos', 'icon': 'campaign', 'label': 'Avisos', 'route': '/avisos', 'visible': true, 'order': 9 }
       ],
       'porter_menu': [
         { 'id': 'visitor_approval', 'icon': 'how_to_reg', 'label': 'Liberar Visitante', 'route': '/portaria-visitor-approval', 'visible': true, 'order': 1 },
@@ -90,13 +91,14 @@ class Condominium extends Equatable {
         'admin_menu': [
           { 'id': 'approvals', 'icon': 'check_circle', 'label': 'Aprovações', 'route': '/manager-approval', 'visible': true, 'order': 1 },
           { 'id': 'resident_search', 'icon': 'how_to_reg', 'label': 'Busca Moradores', 'route': '/resident-search', 'visible': true, 'order': 2 },
-          { 'id': 'parcel_history', 'icon': 'history', 'label': 'Histórico Entregas', 'route': '/parcel-history', 'visible': true, 'order': 3 },
-          { 'id': 'fale_conosco', 'icon': 'forum', 'label': 'Fale Conosco', 'route': '/fale-conosco', 'visible': true, 'order': 4 },
-          { 'id': 'occurrences', 'icon': 'warning', 'label': 'Ocorrências', 'route': '/report-occurrence', 'visible': true, 'order': 5 },
-          { 'id': 'bookings', 'icon': 'calendar_month', 'label': 'Reservas', 'route': '/area-booking', 'visible': true, 'order': 6 },
-          { 'id': 'documents', 'icon': 'file_copy', 'label': 'Documentos', 'route': '/document-center', 'visible': true, 'order': 7 },
-          { 'id': 'avisos', 'icon': 'campaign', 'label': 'Avisos', 'route': '/avisos', 'visible': true, 'order': 8 },
-          { 'id': 'enquete_admin', 'icon': 'bar_chart', 'label': 'Enquetes', 'route': '/enquete-admin', 'visible': true, 'order': 9 }
+          { 'id': 'pending_del', 'icon': 'local_shipping', 'label': 'Encomendas', 'route': '/pending-deliveries', 'visible': true, 'order': 3 },
+          { 'id': 'parcel_history', 'icon': 'history', 'label': 'Histórico Entregas', 'route': '/parcel-history', 'visible': true, 'order': 4 },
+          { 'id': 'fale_conosco', 'icon': 'forum', 'label': 'Fale Conosco', 'route': '/fale-conosco', 'visible': true, 'order': 5 },
+          { 'id': 'occurrences', 'icon': 'warning', 'label': 'Ocorrências', 'route': '/report-occurrence', 'visible': true, 'order': 6 },
+          { 'id': 'bookings', 'icon': 'calendar_month', 'label': 'Reservas', 'route': '/area-booking', 'visible': true, 'order': 7 },
+          { 'id': 'documents', 'icon': 'file_copy', 'label': 'Documentos', 'route': '/document-center', 'visible': true, 'order': 8 },
+          { 'id': 'avisos', 'icon': 'campaign', 'label': 'Avisos', 'route': '/avisos', 'visible': true, 'order': 9 },
+          { 'id': 'enquete_admin', 'icon': 'bar_chart', 'label': 'Enquetes', 'route': '/enquete-admin', 'visible': true, 'order': 10 }
         ],
         'porter_menu': [
           { 'id': 'visitor_approval', 'icon': 'how_to_reg', 'label': 'Liberar Visitante', 'route': '/portaria-visitor-approval', 'visible': true, 'order': 1 },

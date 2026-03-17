@@ -8,8 +8,8 @@ abstract class ParcelRepository {
   /// Fetches all parcels for a specific resident.
   Future<Result<List<Parcel>>> getParcelsForResident(String residentId);
 
-  /// Watches all pending parcels for a specific resident (real-time).
-  Stream<List<Parcel>> watchPendingParcelsForResident(String residentId);
+  /// Watches pending parcels for the resident's unit (all members).
+  Stream<List<Parcel>> watchPendingParcelsForUnit(String residentId);
 
   /// Fetches all pending parcels for the porter.
   Future<Result<List<Parcel>>> getAllPendingParcels(String condominiumId);
@@ -24,6 +24,6 @@ abstract class ParcelRepository {
     String? pickedUpByName,
   });
 
-  /// Fetches parcel history. If residentId is null, fetches all for the condo.
+  /// Fetches parcel history for the unit. If residentId is provided, resolves unit from profile.
   Future<Result<List<Parcel>>> getParcelHistory({String? residentId, required String condominiumId});
 }

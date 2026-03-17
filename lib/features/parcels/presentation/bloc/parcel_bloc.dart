@@ -25,7 +25,7 @@ class ParcelBloc extends Bloc<ParcelEvent, ParcelState> {
     await _parcelsSubscription?.cancel();
     
     _parcelsSubscription = _parcelRepository
-        .watchPendingParcelsForResident(event.residentId)
+        .watchPendingParcelsForUnit(event.residentId)
         .listen((parcels) {
       add(_UpdatePendingParcels(parcels));
     });

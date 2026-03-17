@@ -10,6 +10,33 @@ class ParcelRepositoryImpl implements ParcelRepository {
 
   ParcelRepositoryImpl(this._supabase);
 
+  /// Looks up the user's bloco/apto from perfil, then returns all resident IDs
+  /// sharing the same unit within the same condominium.
+  Future<List<String>> _getUnitResidentIds(String residentId) async {
+    if (residentId.isEmpty) return [];
+    // Step 1: Get the user's bloco, apto, and condominium
+    final profile = await _supabase
+        .from('perfil')
+        .select('bloco_txt, apto_txt, condominio_id')
+        .eq('id', residentId)
+        .maybeSingle();
+    if (profile == null) return [residentId];
+
+    final bloco = profile['bloco_txt'] as String?;
+    final apto = profile['apto_txt'] as String?;
+    final condoId = profile['condominio_id'] as String?;
+    if (bloco == null || apto == null || condoId == null) return [residentId];
+
+    // Step 2: Get all resident IDs in the same unit
+    final unitProfiles = await _supabase
+        .from('perfil')
+        .select('id')
+        .eq('condominio_id', condoId)
+        .eq('bloco_txt', bloco)
+        .eq('apto_txt', apto);
+    return (unitProfiles as List).map((r) => r['id'] as String).toList();
+  }
+
   @override
   Future<Result<void>> registerParcel(Parcel parcel) async {
     try {
@@ -41,11 +68,15 @@ class ParcelRepositoryImpl implements ParcelRepository {
 
   @override
   Future<Result<List<Parcel>>> getParcelsForResident(String residentId) async {
+    if (residentId.isEmpty) return const Success([]);
     try {
+      final unitIds = await _getUnitResidentIds(residentId);
+      if (unitIds.isEmpty) return const Success([]);
+
       final rows = await _supabase
           .from('encomendas')
-          .select('*, perfil(nome_completo, apto_txt, bloco_txt)')
-          .eq('resident_id', residentId)
+          .select('*, perfil!encomendas_resident_id_fkey(nome_completo, apto_txt, bloco_txt)')
+          .inFilter('resident_id', unitIds)
           .order('arrival_time', ascending: false);
 
       return Success((rows as List).map((r) => _mapToParcel(r as Map<String, dynamic>)).toList());
@@ -55,22 +86,26 @@ class ParcelRepositoryImpl implements ParcelRepository {
   }
 
   @override
-  Stream<List<Parcel>> watchPendingParcelsForResident(String residentId) {
+  Stream<List<Parcel>> watchPendingParcelsForUnit(String residentId) {
     return Stream.fromIterable([0])
         .asyncExpand((_) async* {
-          yield await _fetchPendingForResident(residentId);
+          yield await _fetchPendingForUnit(residentId);
           await for (final _ in Stream.periodic(const Duration(seconds: 10))) {
-            yield await _fetchPendingForResident(residentId);
+            yield await _fetchPendingForUnit(residentId);
           }
         })
-        .handleError((e) => print('❌ watchPendingParcelsForResident error: $e'));
+        .handleError((e) => print('❌ watchPendingParcelsForUnit error: $e'));
   }
 
-  Future<List<Parcel>> _fetchPendingForResident(String residentId) async {
+  Future<List<Parcel>> _fetchPendingForUnit(String residentId) async {
+    if (residentId.isEmpty) return [];
+    final unitIds = await _getUnitResidentIds(residentId);
+    if (unitIds.isEmpty) return [];
+
     final rows = await _supabase
         .from('encomendas')
-        .select('*, perfil(nome_completo, apto_txt, bloco_txt)')
-        .eq('resident_id', residentId)
+        .select('*, perfil!encomendas_resident_id_fkey(nome_completo, apto_txt, bloco_txt)')
+        .inFilter('resident_id', unitIds)
         .eq('status', 'pending')
         .order('arrival_time', ascending: false);
     return (rows as List).map((r) => _mapToParcel(r as Map<String, dynamic>)).toList();
@@ -78,10 +113,11 @@ class ParcelRepositoryImpl implements ParcelRepository {
 
   @override
   Future<Result<List<Parcel>>> getAllPendingParcels(String condominiumId) async {
+    if (condominiumId.isEmpty) return const Success([]);
     try {
       final rows = await _supabase
           .from('encomendas')
-          .select('*, perfil(nome_completo, apto_txt, bloco_txt)')
+          .select('*, perfil!encomendas_resident_id_fkey(nome_completo, apto_txt, bloco_txt)')
           .eq('condominio_id', condominiumId)
           .eq('status', 'pending')
           .order('arrival_time', ascending: false);
@@ -104,9 +140,10 @@ class ParcelRepositoryImpl implements ParcelRepository {
   }
 
   Future<List<Parcel>> _fetchAllPending(String condominiumId) async {
+    if (condominiumId.isEmpty) return [];
     final rows = await _supabase
         .from('encomendas')
-        .select('*, perfil(nome_completo, apto_txt, bloco_txt)')
+        .select('*, perfil!encomendas_resident_id_fkey(nome_completo, apto_txt, bloco_txt)')
         .eq('condominio_id', condominiumId)
         .eq('status', 'pending')
         .order('arrival_time', ascending: false);
@@ -141,15 +178,20 @@ class ParcelRepositoryImpl implements ParcelRepository {
     String? residentId,
     required String condominiumId,
   }) async {
+    if (condominiumId.isEmpty) return const Success([]);
     try {
       var query = _supabase
           .from('encomendas')
-          .select('*, perfil(nome_completo, apto_txt, bloco_txt)')
+          .select('*, perfil!encomendas_resident_id_fkey(nome_completo, apto_txt, bloco_txt)')
           .eq('condominio_id', condominiumId)
           .eq('status', 'delivered');
 
-      if (residentId != null) {
-        query = query.eq('resident_id', residentId);
+      // If residentId is provided, resolve the unit and filter by all unit members
+      if (residentId != null && residentId.isNotEmpty) {
+        final unitIds = await _getUnitResidentIds(residentId);
+        if (unitIds.isNotEmpty) {
+          query = query.inFilter('resident_id', unitIds);
+        }
       }
 
       final rows = await query.order('delivery_time', ascending: false);

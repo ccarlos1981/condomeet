@@ -1,50 +1,41 @@
 import { createClient } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
-import ParcelList from './parcel-list'
+import ParcelList from '../encomendas/parcel-list'
 
-export const metadata = { title: 'Minhas Encomendas — Condomeet' }
+export const metadata = { title: 'Encomendas do Condomínio — Condomeet' }
 
-export default async function EncomendasPage() {
+export default async function EncomendasAdminPage() {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) redirect('/login')
 
   const { data: profile } = await supabase
     .from('perfil')
-    .select('condominio_id, papel_sistema, nome_completo, bloco_txt, apto_txt')
+    .select('condominio_id, papel_sistema')
     .eq('id', user.id)
     .single()
 
+  const role = profile?.papel_sistema ?? ''
+  const isAdmin =
+    role.toLowerCase().includes('portaria') ||
+    role.toLowerCase().includes('porteiro') ||
+    role.toLowerCase().includes('síndico') ||
+    role.toLowerCase().includes('sindico') ||
+    role === 'admin'
+
+  // Only admin/porter/sindico can access this page
+  if (!isAdmin) redirect('/condo/encomendas')
+
   const condoId = profile?.condominio_id ?? ''
 
-  // Always filter by unit (bloco + apto) — this is "Minhas Encomendas"
-  let query = supabase
+  // Load ALL parcels for the condominium
+  const { data: parcels, error } = await supabase
     .from('encomendas')
     .select('id, resident_id, status, arrival_time, delivery_time, tipo, tracking_code, observacao, photo_url, pickup_proof_url, condominio_id, picked_up_by_id, picked_up_by_name')
     .eq('condominio_id', condoId)
     .order('arrival_time', { ascending: false })
     .limit(200)
 
-  if (profile?.bloco_txt && profile?.apto_txt) {
-    // Get all residents in the same unit
-    const { data: unitResidents } = await supabase
-      .from('perfil')
-      .select('id')
-      .eq('condominio_id', condoId)
-      .eq('bloco_txt', profile.bloco_txt)
-      .eq('apto_txt', profile.apto_txt)
-    
-    const unitIds = (unitResidents ?? []).map((r: { id: string }) => r.id)
-    if (unitIds.length > 0) {
-      query = query.in('resident_id', unitIds)
-    } else {
-      query = query.eq('resident_id', user.id)
-    }
-  } else {
-    query = query.eq('resident_id', user.id)
-  }
-
-  const { data: parcels, error } = await query
   if (error) console.error('❌ parcels error:', JSON.stringify(error))
 
   // Resolve resident names
@@ -66,18 +57,26 @@ export default async function EncomendasPage() {
 
   return (
     <div className="p-6 lg:p-8 max-w-5xl">
-      <div className="mb-6">
-        <p className="text-sm text-gray-500 font-medium uppercase tracking-wider mb-1">
-          Meu Apartamento
-        </p>
-        <h1 className="text-2xl font-bold text-gray-900">
-          Minhas Encomendas
-        </h1>
+      <div className="mb-6 flex items-center justify-between flex-wrap gap-3">
+        <div>
+          <p className="text-sm text-gray-500 font-medium uppercase tracking-wider mb-1">
+            Gestão
+          </p>
+          <h1 className="text-2xl font-bold text-gray-900">
+            Encomendas do Condomínio
+          </h1>
+        </div>
+        <a
+          href="/condo/registrar-encomenda"
+          className="flex items-center gap-2 bg-[#FC5931] text-white text-sm font-semibold px-5 py-2.5 rounded-xl hover:bg-[#D42F1D] transition-colors shadow-sm"
+        >
+          + Nova Encomenda
+        </a>
       </div>
 
       <ParcelList
         initialParcels={parcelsWithResident}
-        isPorter={false}
+        isPorter={true}
         userId={user.id}
         condoId={condoId}
       />
