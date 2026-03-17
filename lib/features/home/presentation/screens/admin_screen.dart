@@ -41,9 +41,9 @@ class _AdminScreenState extends State<AdminScreen> {
             _buildSectionTitle('Liberações'),
             _buildAdminItem(
               context: context,
-              icon: Icons.inventory_2_outlined,
-              label: 'Encomendas',
-              onTap: () => Navigator.of(context).pushNamed('/parcel-history'),
+              icon: Icons.local_shipping_outlined,
+              label: 'Encomendas do Cond.',
+              onTap: () => Navigator.of(context).pushNamed('/pending-deliveries'),
             ),
             _buildAdminItem(
               context: context,

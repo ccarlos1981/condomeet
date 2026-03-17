@@ -107,14 +107,13 @@ class ParcelRepositoryImpl implements ParcelRepository {
             yield await _fetchPendingForUnit(residentId);
           }
         })
-        .handleError((e) => print('❌ watchPendingParcelsForUnit error: $e'));
+        .handleError((e) { /* silent */ });
   }
 
   Future<List<Parcel>> _fetchPendingForUnit(String residentId) async {
-    if (residentId.isEmpty) { print('⚠️ _fetchPendingForUnit: empty residentId'); return []; }
+    if (residentId.isEmpty) return [];
     final unitIds = await _getUnitResidentIds(residentId);
-    print('📦 _fetchPendingForUnit: residentId=$residentId, unitIds=$unitIds');
-    if (unitIds.isEmpty) { print('⚠️ _fetchPendingForUnit: no unitIds found'); return []; }
+    if (unitIds.isEmpty) return [];
 
     final rows = await _supabase
         .from('encomendas')
@@ -122,8 +121,7 @@ class ParcelRepositoryImpl implements ParcelRepository {
         .inFilter('resident_id', unitIds)
         .eq('status', 'pending')
         .order('arrival_time', ascending: false);
-    print('📦 _fetchPendingForUnit: found ${(rows as List).length} parcels');
-    return rows.map((r) => _mapToParcel(r as Map<String, dynamic>)).toList();
+    return rows.map((r) => _mapToParcel(r)).toList();
   }
 
   @override

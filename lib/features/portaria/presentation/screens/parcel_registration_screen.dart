@@ -485,7 +485,7 @@ class _ParcelRegistrationScreenState extends State<ParcelRegistrationScreen> {
         onTap: _takePhoto,
         child: AnimatedContainer(
           duration: const Duration(milliseconds: 200),
-          height: 160,
+          height: 100,
           width: double.infinity,
           decoration: BoxDecoration(
             color: Colors.white,
@@ -496,28 +496,28 @@ class _ParcelRegistrationScreenState extends State<ParcelRegistrationScreen> {
             ),
           ),
           child: _photo == null
-              ? Column(mainAxisAlignment: MainAxisAlignment.center, children: [
-                  Icon(Icons.camera_alt_outlined, size: 44, color: AppColors.border),
-                  const SizedBox(height: 8),
-                  Text('Tocar para tirar foto', style: TextStyle(color: AppColors.textSecondary)),
+              ? Row(mainAxisAlignment: MainAxisAlignment.center, children: [
+                  Icon(Icons.camera_alt_outlined, size: 28, color: AppColors.border),
+                  const SizedBox(width: 10),
+                  Text('Tocar para tirar foto', style: TextStyle(color: AppColors.textSecondary, fontSize: 13)),
                 ])
               : Stack(children: [
                   ClipRRect(
                     borderRadius: BorderRadius.circular(14),
-                    child: Image.file(File(_photo!.path), width: double.infinity, height: 160, fit: BoxFit.cover),
+                    child: Image.file(File(_photo!.path), width: double.infinity, height: 100, fit: BoxFit.cover),
                   ),
                   Positioned(
-                    bottom: 8, right: 8,
+                    bottom: 6, right: 6,
                     child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                       decoration: BoxDecoration(
                         color: Colors.black.withValues(alpha: 0.6),
                         borderRadius: BorderRadius.circular(20),
                       ),
                       child: const Row(mainAxisSize: MainAxisSize.min, children: [
-                        Icon(Icons.refresh, color: Colors.white, size: 14),
+                        Icon(Icons.refresh, color: Colors.white, size: 13),
                         SizedBox(width: 4),
-                        Text('Trocar', style: TextStyle(color: Colors.white, fontSize: 12)),
+                        Text('Trocar', style: TextStyle(color: Colors.white, fontSize: 11)),
                       ]),
                     ),
                   ),
