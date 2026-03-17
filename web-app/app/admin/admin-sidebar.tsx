@@ -84,8 +84,8 @@ export default function AdminSidebar({
       {/* Header */}
       <div className="flex items-center justify-between px-4 py-5 border-b border-white/10">
         <div className={`flex items-center gap-3 overflow-hidden transition-all duration-300 ${collapsed ? 'w-0 opacity-0' : 'w-full opacity-100'}`}>
-          <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-[#FC5931] to-[#FF6B81] flex items-center justify-center flex-shrink-0">
-            <Shield size={18} className="text-white" />
+          <div className="w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0 overflow-hidden">
+            <img src="/logo.png" alt="Condomeet" className="w-9 h-9 object-cover" />
           </div>
           <div className="min-w-0">
             <p className="font-bold text-sm truncate">{condoName}</p>
