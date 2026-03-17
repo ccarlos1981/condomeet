@@ -1,0 +1,147 @@
+id,created_at,condominio_id,user_id_morador,user_id_sindico,perfil_morador_id,perfil_sindico_id,bloco_txt,apto_txt,condominio_txt,assunto,fale_conosco_id,respondida,texto_do_sindico,texto_do_morador,registrado_pelo_morador,registrado_pelo_sindico,arquivo_morador,arquivo_sindico,nome_morador_txt,nome_sindico_txt
+29,2025-07-31 18:11:55.268501-03,8,f40fc244-6f52-45f7-8efd-8c0da988ccab,,108,,1,4,RealPark,Reclamação,10,false,,terterter,Cristiano,,,,Cristiano,
+30,2025-07-31 18:13:55.359626-03,8,f40fc244-6f52-45f7-8efd-8c0da988ccab,f40fc244-6f52-45f7-8efd-8c0da988ccab,108,108,1,4,RealPark,Reclamação,10,true,htrhtrhrt,,Cristiano,Cristiano,,,,Cristiano
+31,2025-07-31 18:18:07.500321-03,8,f40fc244-6f52-45f7-8efd-8c0da988ccab,f40fc244-6f52-45f7-8efd-8c0da988ccab,108,108,1,4,RealPark,Pendência,9,true,htrhtrhtyr,,Cristiano,Cristiano,,,Cristiano,Cristiano
+32,2025-07-31 18:18:46.230176-03,8,f40fc244-6f52-45f7-8efd-8c0da988ccab,,108,,1,4,RealPark,Reclamação,10,false,,kuykytkyt,Cristiano,,,,,
+33,2025-08-06 10:47:57.377573-03,8,f40fc244-6f52-45f7-8efd-8c0da988ccab,,108,,1,4,RealPark,Reclamação,10,false,,teste,Cristiano,,,,,
+34,2025-08-10 13:34:22.330092-03,8,0c79207b-3590-40bc-9188-2a828f9c3630,,3661,,1,5,RealPark,Elogio,11,false,,Gdghhvg,"Luciano ",,,,"Luciano ",
+35,2025-08-30 13:29:44.275982-03,42,d25efc2a-68a2-49f1-ab47-e33c5e0d2bd6,,12387,,125,303,Condomínio Residencial Recanto das Palmeiras,Outros...,12,false,,PRECISO DE UM ELETRICISTA PARA FAZER MANUTENÇÃO DO CHUVEIRO ELÉTRICO!,Nalbert,,,,Nalbert,
+36,2025-09-02 09:50:15.798769-03,42,c72930b5-847a-4d83-95c3-f4bb81a9c9c6,,8302,,87,301,Condomínio Residencial Recanto das Palmeiras,Reclamação,13,false,,"Bom dia.
+Venho, por meio desta, solicitar formalmente a limpeza dos fundos do bloco 87. Ressalto que já havia encaminhado vídeo no dia 28/08 e, novamente, no dia 02/09, ambos informados pelo WhatsApp da secretaria do condomínio, no número +55 22 99227-5387.
+
+Sugestão: a mesma pessoa responsável pela limpeza da frente também deverá se encarregar da limpeza dos fundos.
+
+Acabou de acontecer enquanto eu escrevia. Vide o último vídeo, no qual o funcionário observa a placa de vidro e nada faz.
+
+Agradeço desde já pela atenção e aguardo providências.",Moacyr,,,,Moacyr,
+37,2025-09-02 17:19:43.219538-03,42,d25efc2a-68a2-49f1-ab47-e33c5e0d2bd6,f8aa9075-312e-4129-95a4-949f8da04be6,12387,94,16,101,Condomínio Residencial Recanto das Palmeiras,Outros...,12,true,"Boa tarde! Érico 998459860 (ele é eletricista e é o zelador do condomínio). Att, Francielle Baptista.",,Nalbert,"Administração ",,,,"Administração "
+38,2025-09-03 12:39:43.504272-03,42,c72930b5-847a-4d83-95c3-f4bb81a9c9c6,,8302,,87,301,Condomínio Residencial Recanto das Palmeiras,Reclamação,14,false,,"Boa tarde, a falta da limpeza atrás do bloco 87 permanece, vide o vídeo enviado para o WhatsApp do condomínio.
+
+Copio a mensagem anterior: 
+
+Bom dia.
+Venho, por meio desta, solicitar formalmente a limpeza dos fundos do bloco 87. Ressalto que já havia encaminhado vídeo no dia 28/08 e, novamente, no dia 02/09, ambos informados pelo WhatsApp da secretaria do condomínio, no número +55 22 99227-5387.
+
+Sugestão: a mesma pessoa responsável pela limpeza da frente também deverá se encarregar da limpeza dos fundos.
+
+Acabou de acontecer enquanto eu escrevia. Vide o último vídeo, no qual o funcionário observa a placa de vidro e nada faz.
+
+Agradeço desde já pela atenção e aguardo providências.
+Criado no dia: 02/09/2025, 9:50 am",Moacyr,,,,Moacyr,
+39,2025-09-03 12:42:12.724968-03,42,c72930b5-847a-4d83-95c3-f4bb81a9c9c6,,8302,,87,301,Condomínio Residencial Recanto das Palmeiras,Reclamação,15,false,,"Boa tarde, venho acusar a falta da limpeza atrás do bloco 87, conforme já enviado hoje (03/09) no WhatsApp do condomínio.
+
+Remeto a mensagem anterior:
+
+
+Bom dia.
+Venho, por meio desta, solicitar formalmente a limpeza dos fundos do bloco 87. Ressalto que já havia encaminhado vídeo no dia 28/08 e, novamente, no dia 02/09, ambos informados pelo WhatsApp da secretaria do condomínio, no número +55 22 99227-5387.
+
+Sugestão: a mesma pessoa responsável pela limpeza da frente também deverá se encarregar da limpeza dos fundos.
+
+Acabou de acontecer enquanto eu escrevia. Vide o último vídeo, no qual o funcionário observa a placa de vidro e nada faz.
+
+Agradeço desde já pela atenção e aguardo providências.
+Criado no dia: 02/09/2025, 9:50 am",Moacyr,,,,Moacyr,
+40,2025-09-03 14:20:08.074524-03,42,c72930b5-847a-4d83-95c3-f4bb81a9c9c6,f8aa9075-312e-4129-95a4-949f8da04be6,8302,94,16,101,Condomínio Residencial Recanto das Palmeiras,Reclamação,15,true,"Boa tarde! Mais uma vez solicitei a limpeza novamente, ontem foi feita, mas o encarregado irá verificar novamente. Att, Francielle Baptista.",,Moacyr,"Administração ",,,,"Administração "
+41,2025-09-03 14:20:13.875794-03,42,c72930b5-847a-4d83-95c3-f4bb81a9c9c6,f8aa9075-312e-4129-95a4-949f8da04be6,8302,94,16,101,Condomínio Residencial Recanto das Palmeiras,Reclamação,14,true,"Boa tarde! Mais uma vez solicitei a limpeza novamente, ontem foi feita, mas o encarregado irá verificar novamente. Att, Francielle Baptista.",,Moacyr,"Administração ",,,,"Administração "
+42,2025-09-03 14:21:22.052464-03,42,c72930b5-847a-4d83-95c3-f4bb81a9c9c6,f8aa9075-312e-4129-95a4-949f8da04be6,8302,94,16,101,Condomínio Residencial Recanto das Palmeiras,Reclamação,13,true,"Boa tarde! Mais uma vez solicitei a limpeza novamente, ontem foi feita, mas o encarregado irá verificar novamente. Nós temos outro contato na administração também, que é o 22 992163473. Att, Francielle Baptista.",,Moacyr,"Administração ",,,,"Administração "
+43,2025-09-03 14:26:17.300265-03,8,0c79207b-3590-40bc-9188-2a828f9c3630,f40fc244-6f52-45f7-8efd-8c0da988ccab,3661,108,1,4,RealPark,Elogio,11,true,recebido!,,"Luciano ",Cristiano,,,,Cristiano
+44,2025-09-03 14:28:42.24273-03,8,f40fc244-6f52-45f7-8efd-8c0da988ccab,f40fc244-6f52-45f7-8efd-8c0da988ccab,108,108,1,4,RealPark,Reclamação,10,true,Teste,,Cristiano,Cristiano,,,,Cristiano
+45,2025-09-03 17:46:37.427109-03,42,c72930b5-847a-4d83-95c3-f4bb81a9c9c6,,8302,,87,301,Condomínio Residencial Recanto das Palmeiras,Reclamação,15,false,,"Boa tarde.
+O vídeo que enviei hoje foi gravado na própria data. É possível que, em ocasiões anteriores, algumas informações não tenham sido transmitidas corretamente. Contudo, não há qualquer razão para que se levantem inverdades em uma queixa condominial, não é mesmo?
+
+Peço que verifique com atenção, pois amanhã realizarei nova inspeção. Caso encontre novamente a mesma situação de descuido e podridão, não me restará alternativa senão ajuizar uma ação judicial para pagar o condomínio. 
+
+Ressalto que o pagamento será efetuado apenas no próximo mês, até porque venho quitando as cotas condominiais de forma antecipada, sempre no mês anterior ao vencimento.
+
+Repito, sei da sua boa vontade, mas, não pegue informações dada por terceiros antes de checar. 
+
+Agradeço a atenção.",Moacyr,,,,Moacyr,
+46,2025-09-03 17:47:12.532215-03,42,c72930b5-847a-4d83-95c3-f4bb81a9c9c6,,8302,,87,301,Condomínio Residencial Recanto das Palmeiras,Reclamação,13,false,,"Boa tarde.
+O vídeo que enviei hoje foi gravado na própria data. É possível que, em ocasiões anteriores, algumas informações não tenham sido transmitidas corretamente. Contudo, não há qualquer razão para que se levantem inverdades em uma queixa condominial, não é mesmo?
+
+Peço que verifique com atenção, pois amanhã realizarei nova inspeção. Caso encontre novamente a mesma situação de descuido e podridão, não me restará alternativa senão ajuizar uma ação judicial para pagar o condomínio. 
+
+Ressalto que o pagamento será efetuado apenas no próximo mês, até porque venho quitando as cotas condominiais de forma antecipada, sempre no mês anterior ao vencimento.
+
+Repito, sei da sua boa vontade, mas, não pegue informações dada por terceiros antes de checar. 
+
+Agradeço a atenção.",Moacyr,,,,Moacyr,
+47,2025-09-03 17:48:09.713747-03,42,c72930b5-847a-4d83-95c3-f4bb81a9c9c6,,8302,,87,301,Condomínio Residencial Recanto das Palmeiras,Reclamação,14,false,,"Boa tarde.
+O vídeo que enviei hoje foi gravado na própria data. É possível que, em ocasiões anteriores, algumas informações não tenham sido transmitidas corretamente. Contudo, não há qualquer razão para que se levantem inverdades em uma queixa condominial, não é mesmo?
+
+Peço que verifique com atenção, pois amanhã realizarei nova inspeção. Caso encontre novamente a mesma situação de descuido e podridão, não me restará alternativa senão ajuizar uma ação judicial para pagar o condomínio. 
+
+Ressalto que o pagamento será efetuado apenas no próximo mês, até porque venho quitando as cotas condominiais de forma antecipada, sempre no mês anterior ao vencimento.
+
+Repito, sei da sua boa vontade, mas, não pegue informações dada por terceiros antes de checar. 
+
+Agradeço a atenção.",Moacyr,,,,Moacyr,
+48,2025-09-03 21:48:08.92716-03,42,c72930b5-847a-4d83-95c3-f4bb81a9c9c6,,8302,,87,301,Condomínio Residencial Recanto das Palmeiras,Elogio,16,false,,"Boa noite,
+
+Venho agradecer pelo serviço realizado hoje, conforme o vídeo encaminhado ao WhatsApp do condomínio (+55 22 99227-5387), gravado na noite de 03/09, às 21h28min.
+
+Ressalto que este pedido já havia sido solicitado desde quinta-feira passada, dia 28/08.
+
+Espero que a limpeza seja mantida regularmente, em conformidade com o regulamento interno.
+
+Agradeço pela atenção.",Moacyr,,,,Moacyr,
+49,2025-09-04 09:25:52.068892-03,42,c72930b5-847a-4d83-95c3-f4bb81a9c9c6,f8aa9075-312e-4129-95a4-949f8da04be6,8302,94,16,101,Condomínio Residencial Recanto das Palmeiras,Elogio,16,true,"Bom dia, Moacyr. Agradeço o retorno, solicitarei uma revisão, mas fico a disposição para resolver essas questões. Att, Francielle Baptista.",,Moacyr,"Administração ",,,,"Administração "
+50,2025-09-04 16:22:02.259218-03,,0c79207b-3590-40bc-9188-2a828f9c3630,,3661,,1,5,,Elogio,17,false,,Gbgjgg,"Luciano ",,,,"Luciano ",
+51,2025-09-07 12:01:19.269048-03,42,4329c0ee-a88f-4140-9a18-b9d0fae16637,,1775,,86,103,Condomínio Residencial Recanto das Palmeiras,Reclamação,18,false,,"MANUTENÇÃO 
+
+NO BL 86 NO ROL DE ENTRADA PARTE EXTÉRNA
+LÂMPADA SE ENCONTRA QUEIMADA 
+
+DESDE JÁ AGRADEÇO 
+L","Narla Jane Boldes de Castro ",,,,"Narla Jane Boldes de Castro ",
+52,2025-09-08 09:30:48.880935-03,42,4329c0ee-a88f-4140-9a18-b9d0fae16637,f8aa9075-312e-4129-95a4-949f8da04be6,1775,94,16,101,Condomínio Residencial Recanto das Palmeiras,Reclamação,18,true,"Bom dia, vou solicitar a troca. Att, Francielle Baptista.",,"Narla Jane Boldes de Castro ","Administração ",,,,"Administração "
+53,2025-10-05 11:12:06.161668-03,42,d57ed4f6-d7f8-425c-9cdd-8ccfc7ee1b14,,694,,56,204,Condomínio Residencial Recanto das Palmeiras,Reclamação,19,false,,"Estou tentando falar desde cedo com a síndica responsável de hoje e não estou conseguindo. Preciso da liberação para saída de uma cama do meu apartamento e não estou conseguindo resolver isso. Moro a pouco tempo aqui, e não sabia que precisava de autorização para tal coisa. Ninguém nunca me informou sobre,eu nunca morei em condomínio. Peço que me ajude a resolver isso. O rapaz já está aqui para levar uma cama.. grata ","Maria Antonia ",,,,"Maria Antonia ",
+54,2025-10-10 14:37:48.544377-03,42,13f1c653-5def-4d49-8bab-4e289a4ba544,,5353,,85,202,Condomínio Residencial Recanto das Palmeiras,Outros...,20,false,,"Boa tarde 
+Sou proprietário do apartamento 202, BL 85. Eu sempre aluguei, mas resolvi não alugar mais. Por isso, só agora percebi. O chão da minha cozinha está com várias rachaduras grandes e o piso está com ondas e oco. No quarto menor tem uma outra rachadura no teto. Tem como verificar se elas ocorrem nos apartamentos tanto debaixo como de cima. É algo que merece uma investigação, pois se trata de rachaduras que podem comprometer a estrutura.","Rodrigo Rodrigues ",,,,"Rodrigo Rodrigues ",
+55,2025-10-10 14:47:31.368098-03,42,13f1c653-5def-4d49-8bab-4e289a4ba544,f8aa9075-312e-4129-95a4-949f8da04be6,5353,94,16,101,Condomínio Residencial Recanto das Palmeiras,Outros...,20,true,"Boa tarde! Eu posso marcar um horário para que um dos nossos funcionários verifique as rachaduras no seu apartamento. Qual seria a sua disponibilidade? Att, Francielle Baptista.",,"Rodrigo Rodrigues ","Administração ",,,"Rodrigo Rodrigues ","Administração "
+56,2025-10-10 14:56:52.284572-03,42,13f1c653-5def-4d49-8bab-4e289a4ba544,,5353,,85,202,Condomínio Residencial Recanto das Palmeiras,Outros...,20,false,,"Eu estou em São Francisco e talvez amanhã. Posso confirmar com.vc só amanhã . ","Rodrigo Rodrigues ",,,,"Rodrigo Rodrigues ",
+57,2025-10-17 18:26:29.152329-03,8,0c79207b-3590-40bc-9188-2a828f9c3630,f40fc244-6f52-45f7-8efd-8c0da988ccab,3661,108,1,4,RealPark,Elogio,11,true,tyjty,,"Luciano ",Cristiano1,,,"Luciano ",Cristiano1
+58,2025-10-18 16:39:42.844401-03,8,f40fc244-6f52-45f7-8efd-8c0da988ccab,f40fc244-6f52-45f7-8efd-8c0da988ccab,108,108,1,4,RealPark,Reclamação,10,true,o,,Cristiano,Cristiano1,,,Cristiano,Cristiano1
+59,2025-10-18 16:40:48.508319-03,8,f40fc244-6f52-45f7-8efd-8c0da988ccab,f40fc244-6f52-45f7-8efd-8c0da988ccab,108,108,1,4,RealPark,Reclamação,10,true,ok,,Cristiano,Cristiano1,,,Cristiano,Cristiano1
+60,2025-10-18 17:08:15.074124-03,8,0c79207b-3590-40bc-9188-2a828f9c3630,f40fc244-6f52-45f7-8efd-8c0da988ccab,3661,108,1,4,RealPark,Elogio,17,true,Teste,,"Luciano ",Cristiano1,,,"Luciano ",Cristiano1
+61,2025-10-28 12:00:02.705859-03,42,d25efc2a-68a2-49f1-ab47-e33c5e0d2bd6,,12387,,125,303,Condomínio Residencial Recanto das Palmeiras,Outros...,21,false,,"PROCURANDO UM APARTAMENTO MOBILIANDO DENTRO DO CONDOMÍNIO RECANTO DAS PALMEIRAS ",Nalbert,,,,Nalbert,
+62,2025-10-30 14:46:14.94042-03,42,d25efc2a-68a2-49f1-ab47-e33c5e0d2bd6,f8aa9075-312e-4129-95a4-949f8da04be6,12387,,,,Condomínio Residencial Recanto das Palmeiras,Outros...,21,true,"Boa tarde! Precisa vim na administração para olhar o livro de vendas e aluguel. Att, Francielle Baptista.",,Nalbert,,,,,
+63,2025-11-25 09:52:47.408254-03,42,5f0088ed-e65a-48cd-94c8-0a41bf66b6c5,,12562,,125,301,Condomínio Residencial Recanto das Palmeiras,,22,false,,"Sábado pode ser feito alguma obra no condomínio? ","Emanoel ",,,,"Emanoel ",
+64,2025-11-25 10:00:39.090187-03,42,5f0088ed-e65a-48cd-94c8-0a41bf66b6c5,9d015be7-118d-4de6-b8f3-defac8184e65,12562,12524,16,101,Condomínio Residencial Recanto das Palmeiras,,22,true,"Bom dia! Sábado pode de 8 às 12h. Att, Francielle Baptista.",,"Emanoel ",administração,,,"Emanoel ",administração
+65,2025-12-06 13:46:35.174336-03,42,17b9e939-0ef7-4caa-a40a-4fcc1c60152c,,153,,71,201,Condomínio Residencial Recanto das Palmeiras,Outros...,23,false,,"Boa tarde. 
+Desmontei um pequeno guarda roupa agora aqui no meu apto. 
+Doei para uma pessoa carente. 
+Gostaria de autorização para acesso retirada ","Carlos Barroso ",,,,"Carlos Barroso ",
+66,2025-12-19 13:32:46.198365-03,42,5f0088ed-e65a-48cd-94c8-0a41bf66b6c5,,12562,,125,301,Condomínio Residencial Recanto das Palmeiras,,24,false,,"Marquei um jogo ontem à noite noite no campinho lá atrás e não tinha luz para poder jogar, queria saber se teria como ajeitar a iluminação para poder jogar bola ","Emanoel ",,,,"Emanoel ",
+67,2025-12-19 14:05:57.165583-03,42,5f0088ed-e65a-48cd-94c8-0a41bf66b6c5,,12562,,125,301,Condomínio Residencial Recanto das Palmeiras,,24,false,,"Fui jogar uma bola no campo do condomínio e a iluminação estava muito ruim, queria saber se teria como colocar outros refletores tbm","Emanoel ",,,,"Emanoel ",
+68,2025-12-19 14:32:41.399823-03,42,5f0088ed-e65a-48cd-94c8-0a41bf66b6c5,9d015be7-118d-4de6-b8f3-defac8184e65,12562,12524,16,101,Condomínio Residencial Recanto das Palmeiras,,24,true,"Boa tarde! Acredito que não seja feito agora. Mas vou passar para o síndico de plantão. Att, Francielle Baptista.",,"Emanoel ",administração,,,"Emanoel ",administração
+69,2025-12-25 19:33:52.50333-03,42,5f0088ed-e65a-48cd-94c8-0a41bf66b6c5,,12562,,125,301,Condomínio Residencial Recanto das Palmeiras,,25,false,,"Boa noite, queria fazer uma reserva ","Emanoel ",,,,"Emanoel ",
+70,2025-12-26 09:29:54.957475-03,42,5f0088ed-e65a-48cd-94c8-0a41bf66b6c5,9d015be7-118d-4de6-b8f3-defac8184e65,12562,12524,16,101,Condomínio Residencial Recanto das Palmeiras,,25,true,"Bom dia! Reservas são feitas apenas na administração. Mediante assinatura de contrato. Att, Francielle Baptista.",,"Emanoel ",administração,,,"Emanoel ",administração
+71,2025-12-28 16:38:11.677149-03,42,925b45d1-ad67-46b5-9bc4-3253133effe0,,12460,,32,103,Condomínio Residencial Recanto das Palmeiras,,26,false,,"Olá meu nome é Eleni e miro no bloco 32 apto 103. E trabalho como cuidadora. Não tem como liberar a piscina por favor ? Eu já fiz exames de saúde. Não tenho doenças contagiosas. E atestado só pagando particular. ",Eleni Soares,,,,Eleni Soares,
+72,2025-12-29 09:34:16.179798-03,42,925b45d1-ad67-46b5-9bc4-3253133effe0,f8aa9075-312e-4129-95a4-949f8da04be6,12460,94,16,101,Condomínio Residencial Recanto das Palmeiras,,26,true,"Bom dia! Para usar a piscina precisa do atestado dizendo que você está apta a usar a piscina. Essa norma está na nossa convenção. ",,Eleni Soares,"Administração ",,,Eleni Soares,"Administração "
+73,2026-01-31 16:33:17.781243-03,42,d57ed4f6-d7f8-425c-9cdd-8ccfc7ee1b14,,694,,56,204,Condomínio Residencial Recanto das Palmeiras,Reclamação,19,false,,"Boa tarde! Estou sem energia, gostaria de saber se está acontecendo isso em outros apartamentos? E se VCS sabem o que está acontecendo? Grata. ","Maria Antonia ",,,,"Maria Antonia ",
+74,2026-02-04 19:13:09.057063-03,41,5564cc0b-e20e-479e-8b3b-a569dcf4b25b,,12600,,A,503,Condomínio Montserrat,Outros...,27,false,,"Olá boa noite
+
+Inclui uma reserva para realização de mudança nesta sexta-feira dia 06/02, gostaria de confirmar se está tudo ok.
+
+Obrigada ","Izabelle ",,,,"Izabelle ",
+75,2026-02-06 20:40:20.031732-03,41,5564cc0b-e20e-479e-8b3b-a569dcf4b25b,4d3c4fd9-e469-4081-84ab-7d08daa9ed2b,12600,3670,A,206,Condomínio Montserrat,Outros...,27,true,"Desculpe, esta semana foi tanta coisa que não vi o app. Mas e a mudança deu tudo certo?",,"Izabelle ",Adriana Ricardo Leonarde,,,"Izabelle ",Adriana Ricardo Leonarde
+76,2026-02-07 21:24:24.708439-03,41,5564cc0b-e20e-479e-8b3b-a569dcf4b25b,,12600,,A,503,Condomínio Montserrat,Outros...,27,false,,"Deu tudo certo.
+
+Obrigada ","Izabelle ",,,,"Izabelle ",
+77,2026-02-08 20:32:20.393133-03,42,4329c0ee-a88f-4140-9a18-b9d0fae16637,,1775,,86,103,Condomínio Residencial Recanto das Palmeiras,Outros...,28,false,,"Bom dia!
+
+A lâmpada da parte EXTERÑA fo rol 
+
+de entrada se encontra queimada 
+
+
+
+
+       Grata","Narla Jane Boldes de Castro ",,,,"Narla Jane Boldes de Castro ",
+78,2026-02-17 09:25:46.060064-03,8,0c79207b-3590-40bc-9188-2a828f9c3630,f40fc244-6f52-45f7-8efd-8c0da988ccab,3661,108,1,5,Condomínio RealPark,Elogio,17,true,gtrhtrhtr,,"Luciano ",Cristianos,,,"Luciano ",Cristianos
+79,2026-03-13 12:56:26.899479-03,42,925b45d1-ad67-46b5-9bc4-3253133effe0,,12460,,32,103,Condomínio Residencial Recanto das Palmeiras,,26,false,,"Certo. Mas encontrei um senhorzinho la que falou com o síndico e foi autorizado. Se pode pra uma teria que poder pra todos. ",Eleni Soares,,,,Eleni Soares,
+80,2026-03-15 11:15:33.679321-03,42,ef1f93cb-3e30-4912-b131-b48b3b34f870,,12471,,124,301,Condomínio Residencial Recanto das Palmeiras,Dúvida,29,false,,"Bom dia não consigo autorizar entrada de visitantes pelo meu aplicativo só o meu esposo ","Renalígia ",,,,"Renalígia ",
+81,2026-03-16 14:26:10.279938-03,42,ef1f93cb-3e30-4912-b131-b48b3b34f870,f8aa9075-312e-4129-95a4-949f8da04be6,12471,,,,Condomínio Residencial Recanto das Palmeiras,Dúvida,29,true,"Boa tarde! Pode vim aqui na administração, para eu tentar te ajudar. Att, Francielle Baptista.",,"Renalígia ",,,,,
+82,2026-03-16 14:27:08.152698-03,42,925b45d1-ad67-46b5-9bc4-3253133effe0,f8aa9075-312e-4129-95a4-949f8da04be6,12460,,,,Condomínio Residencial Recanto das Palmeiras,,26,true,Boa tarde! A norma é liberar apenas com atestado.,,Eleni Soares,,,,,

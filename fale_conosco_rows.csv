@@ -1,0 +1,22 @@
+id,created_at,condominio_id,user_id_morador,user_id_sindico,perfil_morador_id,perfil_sindico_id,bloco_txt,apto_txt,condominio_txt,assunto,nome_morador_txt,nome_sindico_txt,id_botconversa_morador,id_botconversa_sindico,foi_respondida
+9,2025-07-31 18:09:01.258466-03,8,f40fc244-6f52-45f7-8efd-8c0da988ccab,,108,,1,4,RealPark,Pendência,Cristiano,Cristianos,346077263,346077263,true
+10,2025-07-31 18:11:55.156954-03,8,f40fc244-6f52-45f7-8efd-8c0da988ccab,,108,,1,4,RealPark,Reclamação,Cristiano,Cristianos,346077263,346077263,true
+11,2025-08-10 13:34:22.163648-03,8,0c79207b-3590-40bc-9188-2a828f9c3630,,3661,,1,5,RealPark,Elogio,"Luciano ",Cristianos,468326495,346077263,true
+12,2025-08-30 13:29:44.067248-03,42,d25efc2a-68a2-49f1-ab47-e33c5e0d2bd6,,12387,,125,303,Condomínio Residencial Recanto das Palmeiras,Outros...,Nalbert,"Administração ",792734409,358321570,true
+13,2025-09-02 09:50:15.641923-03,42,c72930b5-847a-4d83-95c3-f4bb81a9c9c6,,8302,,87,301,Condomínio Residencial Recanto das Palmeiras,Reclamação,Moacyr,"Administração ",106351932,358321570,true
+14,2025-09-03 12:39:43.278177-03,42,c72930b5-847a-4d83-95c3-f4bb81a9c9c6,,8302,,87,301,Condomínio Residencial Recanto das Palmeiras,Reclamação,Moacyr,"Administração ",106351932,358321570,true
+15,2025-09-03 12:42:12.566893-03,42,c72930b5-847a-4d83-95c3-f4bb81a9c9c6,,8302,,87,301,Condomínio Residencial Recanto das Palmeiras,Reclamação,Moacyr,"Administração ",106351932,358321570,true
+16,2025-09-03 21:48:08.768747-03,42,c72930b5-847a-4d83-95c3-f4bb81a9c9c6,,8302,,87,301,Condomínio Residencial Recanto das Palmeiras,Elogio,Moacyr,"Administração ",106351932,358321570,true
+17,2025-09-04 16:22:02.032023-03,8,0c79207b-3590-40bc-9188-2a828f9c3630,,3661,,1,5,RealPark,Elogio,"Luciano ",Cristianos,468326495,346077263,true
+18,2025-09-07 12:01:18.869668-03,42,4329c0ee-a88f-4140-9a18-b9d0fae16637,,1775,,86,103,Condomínio Residencial Recanto das Palmeiras,Reclamação,"Narla Jane Boldes de Castro ","Administração ",106350316,358321570,true
+19,2025-10-05 11:12:05.736073-03,42,d57ed4f6-d7f8-425c-9cdd-8ccfc7ee1b14,,694,,56,204,Condomínio Residencial Recanto das Palmeiras,Reclamação,"Maria Antonia ",administração,719078003,358321570,true
+20,2025-10-10 14:37:48.346732-03,42,13f1c653-5def-4d49-8bab-4e289a4ba544,,5353,,85,202,Condomínio Residencial Recanto das Palmeiras,Outros...,"Rodrigo Rodrigues ","Administração ",106349805,358321570,true
+21,2025-10-28 12:00:02.45888-03,42,d25efc2a-68a2-49f1-ab47-e33c5e0d2bd6,,12387,,125,303,Condomínio Residencial Recanto das Palmeiras,Outros...,Nalbert,,792734409,,true
+22,2025-11-25 09:52:47.260182-03,42,5f0088ed-e65a-48cd-94c8-0a41bf66b6c5,,12562,,125,301,Condomínio Residencial Recanto das Palmeiras,,"Emanoel ",administração,838609727,358321570,true
+23,2025-12-06 13:46:34.881504-03,42,17b9e939-0ef7-4caa-a40a-4fcc1c60152c,,153,,71,201,Condomínio Residencial Recanto das Palmeiras,Outros...,"Carlos Barroso ",administração,93563977,358321570,true
+24,2025-12-19 13:32:46.061701-03,42,5f0088ed-e65a-48cd-94c8-0a41bf66b6c5,,12562,,125,301,Condomínio Residencial Recanto das Palmeiras,,"Emanoel ",administração,838609727,358321570,true
+25,2025-12-25 19:33:52.365518-03,42,5f0088ed-e65a-48cd-94c8-0a41bf66b6c5,,12562,,125,301,Condomínio Residencial Recanto das Palmeiras,,"Emanoel ",administração,838609727,358321570,true
+26,2025-12-28 16:38:11.233454-03,42,925b45d1-ad67-46b5-9bc4-3253133effe0,,12460,,32,103,Condomínio Residencial Recanto das Palmeiras,,Eleni Soares,,808118257,,true
+27,2026-02-04 19:13:08.793142-03,41,5564cc0b-e20e-479e-8b3b-a569dcf4b25b,,12600,,A,503,Condomínio Montserrat,Outros...,"Izabelle ",Adriana Ricardo Leonarde,853676957,93562778,true
+28,2026-02-08 20:32:19.767203-03,42,4329c0ee-a88f-4140-9a18-b9d0fae16637,,1775,,86,103,Condomínio Residencial Recanto das Palmeiras,Outros...,"Narla Jane Boldes de Castro ",administração,106350316,358321570,true
+29,2026-03-15 11:15:33.388364-03,42,ef1f93cb-3e30-4912-b131-b48b3b34f870,,12471,,124,301,Condomínio Residencial Recanto das Palmeiras,Dúvida,"Renalígia ",,810305380,,true
