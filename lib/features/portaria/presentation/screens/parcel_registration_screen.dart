@@ -281,11 +281,12 @@ class _ParcelRegistrationScreenState extends State<ParcelRegistrationScreen> {
       context: context,
       barrierDismissible: false,
       builder: (_) => const _SuccessDialog(),
-    ).then((_) {
-      if (mounted) Navigator.of(context).popUntil((r) => r.settings.name == '/home' || r.isFirst);
-    });
+    );
     Future.delayed(const Duration(seconds: 2), () {
-      if (mounted) Navigator.of(context).pop();
+      if (mounted) {
+        Navigator.of(context).pop(); // dismiss dialog
+        Navigator.of(context).pop(); // go back to previous screen
+      }
     });
   }
 
