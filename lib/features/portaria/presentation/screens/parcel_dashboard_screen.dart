@@ -32,8 +32,11 @@ class ParcelDashboardScreen extends StatefulWidget {
 
 class _ParcelDashboardScreenState extends State<ParcelDashboardScreen>
     with SingleTickerProviderStateMixin {
+  static const _itemsPerPage = 15;
+
   late TabController _tabController;
   String? _fullscreenPhotoUrl;
+  int _historyPage = 1;
 
   @override
   void initState() {
@@ -128,7 +131,34 @@ class _ParcelDashboardScreenState extends State<ParcelDashboardScreen>
         if (state is ParcelLoaded) {
           final parcels = state.historyParcels;
           if (parcels.isEmpty) return _buildEmptyState(icon: Icons.history, title: 'Histórico vazio', message: 'Suas encomendas entregues aparecerão aqui.');
-          return _buildParcelList(parcels, isPending: false);
+          final totalPages = (parcels.length / _itemsPerPage).ceil().clamp(1, 9999);
+          final start = (_historyPage - 1) * _itemsPerPage;
+          final end = start + _itemsPerPage;
+          final paginated = parcels.sublist(start, end > parcels.length ? parcels.length : end);
+          return Column(children: [
+            Expanded(child: _buildParcelList(paginated, isPending: false)),
+            if (totalPages > 1)
+              Container(
+                color: Colors.white,
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                child: Row(mainAxisAlignment: MainAxisAlignment.center, children: [
+                  IconButton(
+                    onPressed: _historyPage > 1 ? () => setState(() => _historyPage--) : null,
+                    icon: const Icon(Icons.chevron_left),
+                    color: AppColors.primary,
+                  ),
+                  Text(
+                    'Página $_historyPage de $totalPages',
+                    style: TextStyle(fontSize: 13, color: AppColors.textSecondary, fontWeight: FontWeight.w500),
+                  ),
+                  IconButton(
+                    onPressed: _historyPage < totalPages ? () => setState(() => _historyPage++) : null,
+                    icon: const Icon(Icons.chevron_right),
+                    color: AppColors.primary,
+                  ),
+                ]),
+              ),
+          ]);
         }
         return const SizedBox.shrink();
       },
@@ -322,7 +352,10 @@ class _ParcelDashboardScreenState extends State<ParcelDashboardScreen>
     return labels[tipo] ?? tipo;
   }
 
-  String _fmt(DateTime dt) => '${dt.day.toString().padLeft(2, '0')}/${dt.month.toString().padLeft(2, '0')} às ${dt.hour}:${dt.minute.toString().padLeft(2, '0')}';
+  String _fmt(DateTime dt) {
+    final local = dt.toLocal();
+    return '${local.day.toString().padLeft(2, '0')}/${local.month.toString().padLeft(2, '0')} às ${local.hour}:${local.minute.toString().padLeft(2, '0')}';
+  }
 
   Widget _buildImage(String url, {double height = 180, double? width}) {
     if (url.startsWith('http')) {

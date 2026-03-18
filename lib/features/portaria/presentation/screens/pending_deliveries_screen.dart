@@ -35,10 +35,13 @@ class PendingDeliveriesScreen extends StatefulWidget {
 }
 
 class _PendingDeliveriesScreenState extends State<PendingDeliveriesScreen> {
+  static const _itemsPerPage = 15;
+
   _Filter _filter = _Filter.todos;
   String _searchQuery = '';
   String? _filterBloco;
   String? _filterApto;
+  int _currentPage = 1;
 
   List<Parcel> _allParcels = [];
   bool _isLoading = true;
@@ -65,10 +68,11 @@ class _PendingDeliveriesScreenState extends State<PendingDeliveriesScreen> {
             id, resident_id, condominio_id, status, arrival_time, delivery_time,
             photo_url, pickup_proof_url, tipo, tracking_code, observacao,
             registered_by, picked_up_by_id, picked_up_by_name, created_at,
-            perfil!encomendas_resident_id_fkey(nome_completo, apto_txt, bloco_txt)
+          perfil!encomendas_resident_id_fkey(nome_completo, apto_txt, bloco_txt)
           ''')
           .eq('condominio_id', condoId)
-          .order('arrival_time', ascending: false);
+          .order('created_at', ascending: false)
+          .limit(500);
 
       final parcels = (data as List).map<Parcel>((row) {
         final raw = row['perfil'];
@@ -127,6 +131,14 @@ class _PendingDeliveriesScreenState extends State<PendingDeliveriesScreen> {
       return matchStatus && matchSearch && matchBloco && matchApto;
     }).toList();
   }
+
+  List<Parcel> _paginate(List<Parcel> list) {
+    final start = (_currentPage - 1) * _itemsPerPage;
+    final end = start + _itemsPerPage;
+    return list.sublist(start, end > list.length ? list.length : end);
+  }
+
+  int _totalPages(int totalItems) => (totalItems / _itemsPerPage).ceil().clamp(1, 9999);
 
   @override
   Widget build(BuildContext context) {
@@ -223,7 +235,7 @@ class _PendingDeliveriesScreenState extends State<PendingDeliveriesScreen> {
       Padding(
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
         child: TextField(
-          onChanged: (v) => setState(() => _searchQuery = v.toLowerCase()),
+          onChanged: (v) => setState(() { _searchQuery = v.toLowerCase(); _currentPage = 1; }),
           decoration: InputDecoration(
             hintText: 'Filtrar por nome ou unidade...',
             prefixIcon: const Icon(Icons.search, color: AppColors.textSecondary, size: 20),
@@ -251,12 +263,38 @@ class _PendingDeliveriesScreenState extends State<PendingDeliveriesScreen> {
       Expanded(
         child: filtered.isEmpty
             ? _buildEmpty()
-            : ListView.builder(
-                padding: const EdgeInsets.all(16),
-                itemCount: filtered.length,
-                itemBuilder: (_, i) => _buildCard(filtered[i]),
-              ),
+            : Builder(builder: (_) {
+                final page = _paginate(filtered);
+                return ListView.builder(
+                  padding: const EdgeInsets.all(16),
+                  itemCount: page.length,
+                  itemBuilder: (_, i) => _buildCard(page[i]),
+                );
+              }),
       ),
+
+      // ── Pagination controls
+      if (_totalPages(filtered.length) > 1)
+        Container(
+          color: Colors.white,
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+          child: Row(mainAxisAlignment: MainAxisAlignment.center, children: [
+            IconButton(
+              onPressed: _currentPage > 1 ? () => setState(() => _currentPage--) : null,
+              icon: const Icon(Icons.chevron_left),
+              color: AppColors.primary,
+            ),
+            Text(
+              'Página $_currentPage de ${_totalPages(filtered.length)}',
+              style: TextStyle(fontSize: 13, color: AppColors.textSecondary, fontWeight: FontWeight.w500),
+            ),
+            IconButton(
+              onPressed: _currentPage < _totalPages(filtered.length) ? () => setState(() => _currentPage++) : null,
+              icon: const Icon(Icons.chevron_right),
+              color: AppColors.primary,
+            ),
+          ]),
+        ),
     ]);
   }
 
@@ -309,7 +347,7 @@ class _PendingDeliveriesScreenState extends State<PendingDeliveriesScreen> {
             value: _filterBloco,
             hint: 'Bloco',
             items: blocosFromData,
-            onChanged: (v) => setState(() { _filterBloco = v; _filterApto = null; }),
+            onChanged: (v) => setState(() { _filterBloco = v; _filterApto = null; _currentPage = 1; }),
           )),
           const SizedBox(width: 10),
           Expanded(child: _buildDropdown(
@@ -317,7 +355,7 @@ class _PendingDeliveriesScreenState extends State<PendingDeliveriesScreen> {
             hint: 'Apto',
             items: all.where((p) => _filterBloco == null || p.block == _filterBloco)
                       .map((p) => p.unitNumber).toSet().toList()..sort(),
-            onChanged: (v) => setState(() => _filterApto = v),
+            onChanged: (v) => setState(() { _filterApto = v; _currentPage = 1; }),
           )),
         ]),
       ]),
@@ -327,7 +365,7 @@ class _PendingDeliveriesScreenState extends State<PendingDeliveriesScreen> {
   Widget _filterChip(String label, _Filter value) {
     final selected = _filter == value;
     return GestureDetector(
-      onTap: () => setState(() => _filter = value),
+      onTap: () => setState(() { _filter = value; _currentPage = 1; }),
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 150),
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
@@ -519,8 +557,10 @@ class _PendingDeliveriesScreenState extends State<PendingDeliveriesScreen> {
     );
   }
 
-  String _fmt(DateTime dt) =>
-      '${dt.day.toString().padLeft(2, '0')}/${dt.month.toString().padLeft(2, '0')}/${dt.year}, ${dt.hour}:${dt.minute.toString().padLeft(2, '0')}';
+  String _fmt(DateTime dt) {
+    final local = dt.toLocal();
+    return '${local.day.toString().padLeft(2, '0')}/${local.month.toString().padLeft(2, '0')}/${local.year}, ${local.hour}:${local.minute.toString().padLeft(2, '0')}';
+  }
 
   void _showDarBaixaModal(Parcel parcel) {
     showModalBottomSheet(
