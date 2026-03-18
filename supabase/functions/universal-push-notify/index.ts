@@ -60,7 +60,7 @@ serve(async (req) => {
   }
 
   try {
-    const { titulo, corpo } = await req.json()
+    const { titulo, corpo, condominio_id } = await req.json()
 
     if (!titulo || !corpo) {
       return new Response(JSON.stringify({ error: 'titulo e corpo são obrigatórios' }), {
@@ -71,10 +71,17 @@ serve(async (req) => {
 
     const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY)
 
-    const { data: perfis, error } = await supabase
+    let query = supabase
       .from('perfil')
       .select('fcm_token')
       .not('fcm_token', 'is', null)
+
+    // Filter by condominium if specified
+    if (condominio_id) {
+      query = query.eq('condominio_id', condominio_id)
+    }
+
+    const { data: perfis, error } = await query
 
     if (error) throw error
 

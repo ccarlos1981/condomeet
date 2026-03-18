@@ -3,11 +3,23 @@
 import { useState } from 'react'
 import { Send, Megaphone } from 'lucide-react'
 
-export default function UniversalPushForm() {
+interface Condominio {
+  id: string
+  nome: string
+}
+
+interface Props {
+  condominios: Condominio[]
+}
+
+export default function UniversalPushForm({ condominios }: Props) {
+  const [condominioId, setCondominioId] = useState('')
   const [titulo, setTitulo] = useState('')
   const [corpo, setCorpo] = useState('')
   const [loading, setLoading] = useState(false)
   const [result, setResult] = useState<{ type: 'success' | 'error'; message: string } | null>(null)
+
+  const selectedCondo = condominios.find(c => c.id === condominioId)
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
@@ -20,16 +32,24 @@ export default function UniversalPushForm() {
       const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!
       const anon = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
 
+      const body: Record<string, string> = {
+        titulo: titulo.trim(),
+        corpo: corpo.trim(),
+      }
+      if (condominioId) {
+        body.condominio_id = condominioId
+      }
+
       const res = await fetch(`${supabaseUrl}/functions/v1/universal-push-notify`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${anon}`,
         },
-        body: JSON.stringify({ titulo: titulo.trim(), corpo: corpo.trim() }),
+        body: JSON.stringify(body),
       })
 
-      let data: any
+      let data: Record<string, unknown>
       try {
         data = await res.json()
       } catch {
@@ -37,7 +57,7 @@ export default function UniversalPushForm() {
       }
 
       if (!res.ok) {
-        throw new Error(data?.error ?? `Erro ao enviar push (HTTP ${res.status})`)
+        throw new Error((data?.error as string) ?? `Erro ao enviar push (HTTP ${res.status})`)
       }
 
       setResult({
@@ -62,7 +82,10 @@ export default function UniversalPushForm() {
       <div className="bg-orange-50 border border-orange-200 rounded-xl p-4 flex gap-3 items-start">
         <Megaphone size={18} className="text-orange-500 mt-0.5 shrink-0" />
         <p className="text-sm text-orange-700">
-          Este push será enviado para <strong>todos os usuários cadastrados</strong> em todos os condomínios.
+          {condominioId
+            ? <>Este push será enviado para os usuários do <strong>{selectedCondo?.nome}</strong>.</>
+            : <>Este push será enviado para <strong>todos os usuários cadastrados</strong> em todos os condomínios.</>
+          }
         </p>
       </div>
 
@@ -77,12 +100,32 @@ export default function UniversalPushForm() {
         </div>
       )}
 
+      {/* Condomínio selector */}
+      <div>
+        <label htmlFor="condominio-select" className="block text-sm font-medium text-gray-700 mb-1.5">
+          Condomínio
+        </label>
+        <select
+          id="condominio-select"
+          value={condominioId}
+          onChange={e => setCondominioId(e.target.value)}
+          className="w-full px-4 py-3 rounded-xl border border-gray-200 bg-white text-sm focus:outline-none focus:ring-2 focus:ring-orange-400 focus:border-transparent transition appearance-none"
+          title="Selecionar condomínio"
+        >
+          <option value="">Todos os Condomínios</option>
+          {condominios.map(c => (
+            <option key={c.id} value={c.id}>{c.nome}</option>
+          ))}
+        </select>
+      </div>
+
       {/* Assunto */}
       <div>
-        <label className="block text-sm font-medium text-gray-700 mb-1.5">
+        <label htmlFor="push-titulo" className="block text-sm font-medium text-gray-700 mb-1.5">
           Assunto do Push
         </label>
         <input
+          id="push-titulo"
           type="text"
           value={titulo}
           onChange={e => setTitulo(e.target.value)}
@@ -96,10 +139,11 @@ export default function UniversalPushForm() {
 
       {/* Conteúdo */}
       <div>
-        <label className="block text-sm font-medium text-gray-700 mb-1.5">
+        <label htmlFor="push-corpo" className="block text-sm font-medium text-gray-700 mb-1.5">
           Conteúdo do Push
         </label>
         <textarea
+          id="push-corpo"
           value={corpo}
           onChange={e => setCorpo(e.target.value)}
           placeholder="Ex: Nova funcionalidade disponível no app..."
@@ -128,7 +172,7 @@ export default function UniversalPushForm() {
         ) : (
           <>
             <Send size={16} />
-            Enviar Push Universal
+            {condominioId ? 'Enviar Push' : 'Enviar Push Universal'}
           </>
         )}
       </button>

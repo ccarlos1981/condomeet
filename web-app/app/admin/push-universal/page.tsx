@@ -13,6 +13,12 @@ export default async function PushUniversalPage() {
     redirect('/admin')
   }
 
+  // Fetch all condominiums for the dropdown
+  const { data: condominios } = await supabase
+    .from('condominios')
+    .select('id, nome')
+    .order('nome')
+
   return (
     <div>
       <div className="mb-8 flex items-center gap-3">
@@ -21,12 +27,12 @@ export default async function PushUniversalPage() {
         </div>
         <div>
           <h1 className="text-2xl font-bold text-gray-900">Push Notification Universal</h1>
-          <p className="text-gray-500 text-sm mt-0.5">Envie uma notificação para todos os usuários do sistema</p>
+          <p className="text-gray-500 text-sm mt-0.5">Envie uma notificação para os usuários do sistema</p>
         </div>
       </div>
 
       <div className="max-w-xl bg-white rounded-2xl border border-gray-100 shadow-sm p-6">
-        <UniversalPushForm />
+        <UniversalPushForm condominios={condominios ?? []} />
       </div>
     </div>
   )
