@@ -71,22 +71,32 @@ class _PendingDeliveriesScreenState extends State<PendingDeliveriesScreen> {
           .order('arrival_time', ascending: false);
 
       final parcels = (data as List).map<Parcel>((row) {
-        final perfil = row['perfil'];
-        final residentName = perfil is Map ? (perfil['nome_completo'] as String? ?? 'Morador') : 'Morador';
-        final unitNumber = perfil is Map ? (perfil['apto_txt'] as String? ?? '?') : '?';
-        final block = perfil is Map ? (perfil['bloco_txt'] as String? ?? '?') : '?';
+        final raw = row['perfil'];
+        final perfil = (raw is Map) ? raw as Map<String, dynamic> : null;
+
+        // Prefer denormalized bloco/apto stored directly on row
+        final bloco = (row['bloco'] as String?)?.isNotEmpty == true
+            ? row['bloco'] as String
+            : (perfil?['bloco_txt'] as String?) ?? '?';
+        final apto = (row['apto'] as String?)?.isNotEmpty == true
+            ? row['apto'] as String
+            : (perfil?['apto_txt'] as String?) ?? '?';
 
         return Parcel(
-          id: row['id'] as String,
-          residentId: row['resident_id'] as String,
-          residentName: residentName,
-          unitNumber: unitNumber,
-          block: block,
-          arrivalTime: DateTime.parse(row['arrival_time'] as String),
-          deliveryTime: row['delivery_time'] != null ? DateTime.parse(row['delivery_time'] as String) : null,
+          id: row['id'] as String? ?? '',
+          residentId: row['resident_id'] as String?,  // nullable — encomendas sem morador
+          residentName: (perfil?['nome_completo'] as String?) ?? 'Sem morador',
+          unitNumber: apto,
+          block: bloco,
+          arrivalTime: row['arrival_time'] != null
+              ? DateTime.tryParse(row['arrival_time'] as String) ?? DateTime.now()
+              : DateTime.now(),
+          deliveryTime: row['delivery_time'] != null
+              ? DateTime.tryParse(row['delivery_time'] as String)
+              : null,
           photoUrl: row['photo_url'] as String?,
           pickupProofUrl: row['pickup_proof_url'] as String?,
-          status: row['status'] as String,
+          status: row['status'] as String? ?? 'pending',
           condominiumId: row['condominio_id'] as String?,
           tipo: row['tipo'] as String?,
           trackingCode: row['tracking_code'] as String?,
