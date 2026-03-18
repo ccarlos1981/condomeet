@@ -71,6 +71,8 @@ class ParcelRepositoryImpl implements ParcelRepository {
         'tracking_code': parcel.trackingCode,
         'observacao': parcel.observacao,
         'registered_by': parcel.registeredBy,
+        'bloco': parcel.block,
+        'apto': parcel.unitNumber,
         'created_at': DateTime.now().toIso8601String(),
       });
       return const Success(null);
@@ -217,13 +219,18 @@ class ParcelRepositoryImpl implements ParcelRepository {
   Parcel _mapToParcel(Map<String, dynamic> row) {
     // Handle Supabase join: perfil is a nested map
     final perfil = row['perfil'] as Map<String, dynamic>?;
+    // Prioritize bloco/apto stored directly on the encomenda record
+    final bloco = row['bloco'] as String? ?? perfil?['bloco_txt'] as String? ?? row['block'] as String? ?? '?';
+    final apto = row['apto'] as String? ?? perfil?['apto_txt'] as String? ?? row['unit_number'] as String? ?? '?';
     return Parcel(
       id: row['id'] as String,
-      residentId: row['resident_id'] as String,
-      residentName: perfil?['nome_completo'] as String? ?? row['nome_completo'] as String? ?? 'Residente Desconhecido',
-      unitNumber: perfil?['apto_txt'] as String? ?? row['unit_number'] as String? ?? 'N/A',
-      block: perfil?['bloco_txt'] as String? ?? row['block'] as String? ?? 'N/A',
-      arrivalTime: DateTime.parse(row['arrival_time'] as String),
+      residentId: row['resident_id'] as String?,
+      residentName: perfil?['nome_completo'] as String? ?? row['nome_completo'] as String? ?? 'Sem morador',
+      unitNumber: apto,
+      block: bloco,
+      arrivalTime: row['arrival_time'] != null
+          ? DateTime.parse(row['arrival_time'] as String)
+          : DateTime.now(),
       deliveryTime: row['delivery_time'] != null
           ? DateTime.parse(row['delivery_time'] as String)
           : null,

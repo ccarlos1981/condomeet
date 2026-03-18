@@ -70,6 +70,8 @@ const psSchema = Schema([
     Column.text('registered_by'),
     Column.text('picked_up_by_id'),
     Column.text('picked_up_by_name'),
+    Column.text('bloco'),
+    Column.text('apto'),
     Column.text('created_at'),
   ]),
   Table('convites', [
