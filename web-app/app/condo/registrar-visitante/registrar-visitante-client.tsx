@@ -34,10 +34,14 @@ interface Props {
 }
 
 const TIPOS_VISITANTE = [
+  'Uber ou Taxi',
+  'Delivery',
+  'Farmácia',
+  'Diarista',
   'Visitante',
-  'Prestador de Serviço',
-  'Entregador',
-  'Funcionário Terceirizado',
+  'Mat. Obra',
+  'Serviços',
+  'Hóspedes',
   'Outros',
 ]
 

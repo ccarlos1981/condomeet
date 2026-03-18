@@ -10,10 +10,14 @@ import 'package:condomeet/core/design_system/design_system.dart';
 import 'package:condomeet/features/auth/presentation/bloc/auth_bloc.dart';
 
 const _tipoVisitanteOptions = [
+  {'value': 'Uber ou Taxi', 'label': '🚗 Uber ou Taxi'},
+  {'value': 'Delivery', 'label': '📦 Delivery'},
+  {'value': 'Farmácia', 'label': '💊 Farmácia'},
+  {'value': 'Diarista', 'label': '🧹 Diarista'},
   {'value': 'Visitante', 'label': '🧑 Visitante'},
-  {'value': 'Prestador de Serviço', 'label': '🔧 Prestador'},
-  {'value': 'Entregador', 'label': '📦 Entregador'},
-  {'value': 'Funcionário Terceirizado', 'label': '👷 Terceirizado'},
+  {'value': 'Mat. Obra', 'label': '🧱 Mat. Obra'},
+  {'value': 'Serviços', 'label': '🔧 Serviços'},
+  {'value': 'Hóspedes', 'label': '🏨 Hóspedes'},
   {'value': 'Outros', 'label': '📋 Outros'},
 ];
 

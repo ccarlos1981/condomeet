@@ -35,13 +35,14 @@ class _VisitorAuthorizationScreenState extends State<VisitorAuthorizationScreen>
   );
 
   final List<String> _visitorTypes = [
-    'Visitante',
-    'Uber',
+    'Uber ou Taxi',
+    'Delivery',
     'Farmácia',
-    'Mat. de obra',
     'Diarista',
+    'Visitante',
+    'Mat. Obra',
     'Serviços',
-    'Hóspede',
+    'Hóspedes',
     'Outros',
   ];
 

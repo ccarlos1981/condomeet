@@ -17,7 +17,7 @@ type Convite = {
   status: string | null
 }
 
-const VISITOR_TYPES = ['Visitante', 'Uber', 'Farmácia', 'Mat. de obra', 'Diarista', 'Serviços', 'Hóspede', 'Outros']
+const VISITOR_TYPES = ['Uber ou Taxi', 'Delivery', 'Farmácia', 'Diarista', 'Visitante', 'Mat. Obra', 'Serviços', 'Hóspedes', 'Outros']
 
 function formatDate(dateStr: string) {
   if (!dateStr) return '—'
