@@ -1,7 +1,16 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
-  /* config options here */
+  async redirects() {
+    return [
+      {
+        source: '/:path*',
+        has: [{ type: 'host', value: 'home.condomeet.app.br' }],
+        destination: 'https://condomeet.app.br/login',
+        permanent: true,
+      },
+    ]
+  },
 };
 
 export default nextConfig;
