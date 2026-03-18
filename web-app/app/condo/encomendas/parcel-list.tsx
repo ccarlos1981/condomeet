@@ -247,6 +247,9 @@ export default function ParcelList({ initialParcels, isPorter, condoId }: Props)
   const [page, setPage] = useState(1)
   const [photoModal, setPhotoModal] = useState<string | null>(null)
   const [deliveryModal, setDeliveryModal] = useState<Parcel | null>(null)
+  const [mounted, setMounted] = useState(false)
+
+  useEffect(() => { requestAnimationFrame(() => setMounted(true)) }, [])
 
   const PER_PAGE = 10
 
@@ -441,7 +444,7 @@ export default function ParcelList({ initialParcels, isPorter, condoId }: Props)
                   <div className="grid grid-cols-2 gap-x-6 gap-y-2 text-sm mb-3">
                     <div>
                       <p className="text-xs text-gray-400 mb-0.5">Chegada</p>
-                      <p className="font-medium text-gray-700">{fmt(p.arrival_time)}</p>
+                      <p suppressHydrationWarning className="font-medium text-gray-700">{mounted ? fmt(p.arrival_time) : '—'}</p>
                     </div>
                     {p.tracking_code && (
                       <div>
@@ -464,7 +467,7 @@ export default function ParcelList({ initialParcels, isPorter, condoId }: Props)
                         <div className="space-y-1.5">
                           <div className="flex items-center gap-1.5 text-green-600 text-sm font-medium">
                             <CheckCircle2 size={15} />
-                            <span>Retirado {p.delivery_time ? fmt(p.delivery_time) : ''}</span>
+                            <span suppressHydrationWarning>Retirado {mounted && p.delivery_time ? fmt(p.delivery_time) : ''}</span>
                           </div>
                           {(p.picked_up_by_name) && (
                             <div className="inline-flex items-center gap-1.5 bg-green-50 border border-green-200 rounded-lg px-2.5 py-1">
