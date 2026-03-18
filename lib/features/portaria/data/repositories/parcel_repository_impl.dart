@@ -65,7 +65,7 @@ class ParcelRepositoryImpl implements ParcelRepository {
         'resident_id': parcel.residentId,
         'condominio_id': condoId,
         'status': parcel.status,
-        'arrival_time': parcel.arrivalTime.toIso8601String(),
+        'arrival_time': parcel.arrivalTime.toUtc().toIso8601String(),
         'photo_url': parcel.photoUrl,
         'tipo': parcel.tipo,
         'tracking_code': parcel.trackingCode,
@@ -73,7 +73,7 @@ class ParcelRepositoryImpl implements ParcelRepository {
         'registered_by': parcel.registeredBy,
         'bloco': parcel.block,
         'apto': parcel.unitNumber,
-        'created_at': DateTime.now().toIso8601String(),
+        'created_at': DateTime.now().toUtc().toIso8601String(),
       });
       return const Success(null);
     } catch (e) {
@@ -180,7 +180,7 @@ class ParcelRepositoryImpl implements ParcelRepository {
       // PowerSync records for parcels registered by other residents.
       await _supabase.from('encomendas').update({
         'status': 'delivered',
-        'delivery_time': DateTime.now().toIso8601String(),
+        'delivery_time': DateTime.now().toUtc().toIso8601String(),
         'pickup_proof_url': pickupProofUrl,
         'picked_up_by_id': pickedUpById,
         'picked_up_by_name': pickedUpByName,
