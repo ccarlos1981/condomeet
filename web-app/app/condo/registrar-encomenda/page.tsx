@@ -42,9 +42,9 @@ export default async function RegistrarEncomendaPage() {
     .select('id, nome_ou_numero')
     .eq('condominio_id', condoId)
     .order('nome_ou_numero')
+    .limit(10000)
 
   if (blocos && blocos.length > 0) {
-    const blocoIds = blocos.map(b => b.id)
     const blocoMap: Record<string, string> = {}
     blocos.forEach(b => { blocoMap[b.id] = b.nome_ou_numero })
 
@@ -52,14 +52,14 @@ export default async function RegistrarEncomendaPage() {
       .from('unidades')
       .select('id, bloco_id, apartamento_id')
       .eq('condominio_id', condoId)
-      .in('bloco_id', blocoIds)
+      .limit(10000)
 
     if (unidades && unidades.length > 0) {
-      const aptoIds = unidades.map(u => u.apartamento_id)
       const { data: aptos } = await supabase
         .from('apartamentos')
         .select('id, numero')
-        .in('id', aptoIds)
+        .eq('condominio_id', condoId)
+        .limit(10000)
       const aptoMap: Record<string, string> = {}
       ;(aptos ?? []).forEach((a: any) => { aptoMap[a.id] = a.numero })
 
@@ -69,6 +69,7 @@ export default async function RegistrarEncomendaPage() {
         .select('id, nome_completo, bloco_txt, apto_txt')
         .eq('condominio_id', condoId)
         .not('apto_txt', 'is', null)
+        .limit(10000)
 
       const residentMap: Record<string, { id: string; nome: string }> = {}
       ;(perfis ?? []).forEach((p: any) => {
@@ -100,6 +101,7 @@ export default async function RegistrarEncomendaPage() {
       .eq('condominio_id', condoId)
       .not('apto_txt', 'is', null)
       .order('bloco_txt').order('apto_txt')
+      .limit(10000)
 
     units = (perfis ?? []).map((p: any) => ({
       blocoNome: p.bloco_txt ?? '?',

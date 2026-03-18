@@ -2,7 +2,7 @@ import 'package:equatable/equatable.dart';
 
 class Parcel extends Equatable {
   final String id;
-  final String residentId;
+  final String? residentId;
   final String residentName;
   final String unitNumber;
   final String block;
@@ -22,7 +22,7 @@ class Parcel extends Equatable {
 
   const Parcel({
     required this.id,
-    required this.residentId,
+    this.residentId,
     required this.residentName,
     required this.unitNumber,
     required this.block,

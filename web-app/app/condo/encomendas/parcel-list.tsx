@@ -31,6 +31,8 @@ interface Parcel {
   picked_up_by_id: string | null
   picked_up_by_name: string | null
   condominio_id: string
+  bloco: string | null
+  apto: string | null
   perfil: Perfil | null
 }
 
@@ -75,8 +77,8 @@ function DeliveryModal({ parcel, condoId, onClose, onConfirm }: DeliveryModalPro
   const [isThirdParty, setIsThirdParty] = useState(false)
   const [confirming, setConfirming] = useState(false)
 
-  const bloco = parcel.perfil?.bloco_txt ?? null
-  const apto  = parcel.perfil?.apto_txt  ?? null
+  const bloco = parcel.bloco ?? parcel.perfil?.bloco_txt ?? null
+  const apto  = parcel.apto ?? parcel.perfil?.apto_txt  ?? null
 
   // Fetch residents of this unit
   useEffect(() => {
@@ -250,20 +252,20 @@ export default function ParcelList({ initialParcels, isPorter, condoId }: Props)
 
   // Derived
   const uniqueBlocos = [...new Set(
-    parcels.map(p => p.perfil?.bloco_txt).filter(Boolean) as string[]
+    parcels.map(p => p.bloco ?? p.perfil?.bloco_txt).filter(Boolean) as string[]
   )].sort()
   const uniqueAptos = [...new Set(
     parcels
-      .filter(p => !blocoFilter || p.perfil?.bloco_txt === blocoFilter)
-      .map(p => p.perfil?.apto_txt)
+      .filter(p => !blocoFilter || (p.bloco ?? p.perfil?.bloco_txt) === blocoFilter)
+      .map(p => p.apto ?? p.perfil?.apto_txt)
       .filter(Boolean) as string[]
   )].sort((a, b) => a.localeCompare(b, 'pt', { numeric: true }))
 
   const filtered = parcels.filter(p => {
     if (statusFilter === 'pending'   && p.status !== 'pending')   return false
     if (statusFilter === 'delivered' && p.status !== 'delivered') return false
-    if (blocoFilter && p.perfil?.bloco_txt !== blocoFilter) return false
-    if (aptoFilter  && p.perfil?.apto_txt  !== aptoFilter)  return false
+    if (blocoFilter && (p.bloco ?? p.perfil?.bloco_txt) !== blocoFilter) return false
+    if (aptoFilter  && (p.apto ?? p.perfil?.apto_txt)  !== aptoFilter)  return false
     return true
   })
 
@@ -420,7 +422,7 @@ export default function ParcelList({ initialParcels, isPorter, condoId }: Props)
                     </div>
                     <div>
                       <p className={`font-bold text-sm ${delivered ? 'text-gray-900' : 'text-white'}`}>
-                        Bloco {p.perfil?.bloco_txt ?? '?'} / Apto {p.perfil?.apto_txt ?? '?'}
+                        Bloco {p.bloco ?? p.perfil?.bloco_txt ?? '?'} / Apto {p.apto ?? p.perfil?.apto_txt ?? '?'}
                       </p>
                       <p className={`text-xs ${delivered ? 'text-gray-500' : 'text-white/70'}`}>
                         {p.perfil?.nome_completo ?? 'Sem morador'}

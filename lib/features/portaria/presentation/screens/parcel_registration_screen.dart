@@ -235,10 +235,10 @@ class _ParcelRegistrationScreenState extends State<ParcelRegistrationScreen> {
     final blocoNome = _selectedBloco!['nome_ou_numero'] as String;
     final aptoNum = _selectedApto!['numero'].toString();
 
-    // Use first resident of the unit as "owner", or a placeholder
+    // Use first resident of the unit, or null if no resident is registered
     final residentId = _residentesUnidade.isNotEmpty
-        ? _residentesUnidade[0]['id'] as String
-        : authState.userId ?? '';
+        ? _residentesUnidade[0]['id'] as String?
+        : null;
 
     String? photoUrl;
     if (_photo != null) photoUrl = await _uploadPhoto(_photo!);
@@ -248,7 +248,7 @@ class _ParcelRegistrationScreenState extends State<ParcelRegistrationScreen> {
       residentId: residentId,
       residentName: _residentesUnidade.isNotEmpty
           ? (_residentesUnidade[0]['nome_completo'] as String? ?? 'Morador')
-          : 'Morador',
+          : 'Sem morador cadastrado',
       unitNumber: aptoNum,
       block: blocoNome,
       arrivalTime: DateTime.now(),
@@ -311,6 +311,29 @@ class _ParcelRegistrationScreenState extends State<ParcelRegistrationScreen> {
                 const SizedBox(width: 12),
                 Expanded(child: _buildAptoDropdown()),
               ]),
+              // ── Resident warning
+              if (_selectedBloco != null && _selectedApto != null && _residentesUnidade.isEmpty)
+                Padding(
+                  padding: const EdgeInsets.only(top: 12),
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                    decoration: BoxDecoration(
+                      color: Colors.orange.shade50,
+                      border: Border.all(color: Colors.orange.shade200),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: Row(children: [
+                      Icon(Icons.info_outline, color: Colors.orange.shade700, size: 20),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: Text(
+                          'Não existe morador cadastrado na unidade',
+                          style: TextStyle(color: Colors.orange.shade800, fontSize: 13, fontWeight: FontWeight.w500),
+                        ),
+                      ),
+                    ]),
+                  ),
+                ),
               const SizedBox(height: 20),
 
               // ── Tipo (obrigatório)

@@ -79,6 +79,7 @@ export default function ProfileForm({
         .select('apartamento_id')
         .eq('condominio_id', condoId)
         .eq('bloco_id', blocoId)
+        .limit(10000)
 
       if (unidades && unidades.length > 0) {
         const aptoIds = unidades.map((u: any) => u.apartamento_id)
@@ -87,6 +88,7 @@ export default function ProfileForm({
           .select('id, numero')
           .in('id', aptoIds)
           .order('numero')
+          .limit(10000)
 
         const mapped: Apto[] = (aptosData ?? []).map((a: any) => ({ id: a.id, numero: String(a.numero) }))
         mapped.sort((a, b) => a.numero.localeCompare(b.numero, undefined, { numeric: true }))

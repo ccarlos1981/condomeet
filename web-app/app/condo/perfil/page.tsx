@@ -25,6 +25,7 @@ export default async function EditProfilePage() {
     .select('id, nome_ou_numero')
     .eq('condominio_id', condoId)
     .order('nome_ou_numero')
+    .limit(10000)
 
   const blocos = (blocosData ?? []).map((b: any) => ({ id: b.id, nome_ou_numero: b.nome_ou_numero }))
 
@@ -44,6 +45,7 @@ export default async function EditProfilePage() {
       .select('apartamento_id')
       .eq('condominio_id', condoId)
       .eq('bloco_id', currentBlocoId)
+      .limit(10000)
 
     if (unidades && unidades.length > 0) {
       const aptoIds = unidades.map((u: any) => u.apartamento_id)
@@ -52,6 +54,7 @@ export default async function EditProfilePage() {
         .select('id, numero')
         .in('id', aptoIds)
         .order('numero')
+        .limit(10000)
 
       initialAptos = (aptosData ?? []).map((a: any) => ({ id: a.id, numero: String(a.numero) }))
       initialAptos.sort((a, b) => a.numero.localeCompare(b.numero, undefined, { numeric: true }))

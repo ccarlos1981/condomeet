@@ -1,6 +1,6 @@
 import { createClient } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
-import { Users, ClipboardCheck, Package, UserCheck } from 'lucide-react'
+import { Users, ClipboardCheck, Package, UserCheck, Building2 } from 'lucide-react'
 import AdminCharts from './charts'
 
 export default async function AdminDashboard() {
@@ -53,10 +53,44 @@ export default async function AdminDashboard() {
         ))}
       </div>
 
+      {/* Quick Actions */}
+      <div className="mb-8">
+        <h2 className="text-lg font-semibold text-gray-800 mb-4">Acessos Rápidos</h2>
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+          <a href="/admin/estrutura" className="bg-white rounded-2xl p-4 border border-gray-100 shadow-sm hover:shadow-md hover:-translate-y-0.5 transition-all group flex items-center gap-3">
+            <div className="w-10 h-10 rounded-xl bg-indigo-50 flex items-center justify-center">
+              <Building2 size={20} className="text-indigo-500" />
+            </div>
+            <div>
+              <p className="font-semibold text-gray-900 text-sm">Estrutura</p>
+              <p className="text-xs text-gray-500">Blocos e Aptos</p>
+            </div>
+          </a>
+          <a href="/admin/moradores" className="bg-white rounded-2xl p-4 border border-gray-100 shadow-sm hover:shadow-md hover:-translate-y-0.5 transition-all group flex items-center gap-3">
+            <div className="w-10 h-10 rounded-xl bg-blue-50 flex items-center justify-center">
+              <Users size={20} className="text-blue-500" />
+            </div>
+            <div>
+              <p className="font-semibold text-gray-900 text-sm">Moradores</p>
+              <p className="text-xs text-gray-500">Gestão de perfis</p>
+            </div>
+          </a>
+          <a href="/admin/encomendas" className="bg-white rounded-2xl p-4 border border-gray-100 shadow-sm hover:shadow-md hover:-translate-y-0.5 transition-all group flex items-center gap-3">
+            <div className="w-10 h-10 rounded-xl bg-orange-50 flex items-center justify-center">
+              <Package size={20} className="text-orange-500" />
+            </div>
+            <div>
+              <p className="font-semibold text-gray-900 text-sm">Encomendas</p>
+              <p className="text-xs text-gray-500">Histórico e gestão</p>
+            </div>
+          </a>
+        </div>
+      </div>
+
       {/* Charts */}
       <AdminCharts invitations={invitations ?? []} />
 
-      {/* Quick links */}
+      {/* Pending Approvals Alert */}
       {(pendingApprovals ?? 0) > 0 && (
         <div className="mt-6 bg-amber-50 border border-amber-200 rounded-2xl p-5 flex items-center justify-between">
           <div>

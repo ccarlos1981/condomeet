@@ -482,8 +482,8 @@ class _HomeScreenState extends State<HomeScreen> {
     // 2 linhas fixas, colunas automáticas, scroll horizontal
     // mainAxisExtent = largura de cada coluna (= tamanho do ícone quadrado)
     // crossAxisExtent = altura de cada linha (ícone + espaço + label)
-    const double itemMainAxisExtent = 80.0;  // largura (e altura do ícone, por AspectRatio 1:1)
-    const double itemCrossAxisExtent = 120.0; // altura total: 80 ícone + 8 espaço + ~28 label
+    const double itemMainAxisExtent = 90.0;  // largura (e altura do ícone, por AspectRatio 1:1)
+    const double itemCrossAxisExtent = 115.0; // altura total: 64 ícone + 6 espaço + ~28 label
     const double spacing = 10.0;
     // Altura total = 2 linhas + espaço entre elas + padding vertical
     const double sectionHeight = itemCrossAxisExtent * 2 + spacing + 8;
@@ -550,6 +550,7 @@ class _HomeScreenState extends State<HomeScreen> {
         children: [
           Container(
             width: double.infinity,
+            height: 64,
             decoration: BoxDecoration(
               color: Colors.white,
               borderRadius: BorderRadius.circular(16),
@@ -562,22 +563,21 @@ class _HomeScreenState extends State<HomeScreen> {
               ],
               border: Border.all(color: Colors.grey.withValues(alpha: 0.15)),
             ),
-            child: AspectRatio(
-              aspectRatio: 1.0,
-              child: Center(
-                child: Icon(iconData, color: AppColors.primary, size: 36),
-              ),
+            child: Center(
+              child: Icon(iconData, color: AppColors.primary, size: 30),
             ),
           ),
-          const SizedBox(height: 8),
+          const SizedBox(height: 6),
           Text(
             item.label,
             textAlign: TextAlign.center,
+            maxLines: 2,
+            overflow: TextOverflow.ellipsis,
             style: const TextStyle(
-              fontSize: 11,
-              color: AppColors.textSecondary,
+              fontSize: 10,
+              color: AppColors.textMain,
               height: 1.2,
-              fontWeight: FontWeight.w500,
+              fontWeight: FontWeight.w700,
             ),
           ),
         ],

@@ -20,17 +20,20 @@ export default async function EstruturaPage() {
       .from('blocos')
       .select('id, nome_ou_numero, created_at')
       .eq('condominio_id', condoId)
-      .order('nome_ou_numero'),
+      .order('nome_ou_numero')
+      .limit(10000),
     supabase
       .from('apartamentos')
       .select('id, numero, created_at')
       .eq('condominio_id', condoId)
-      .order('numero'),
+      .order('numero')
+      .limit(10000),
     supabase
       .from('unidades')
       .select('id, bloco_id, apartamento_id, bloqueada, blocos(nome_ou_numero), apartamentos(numero)')
       .eq('condominio_id', condoId)
-      .order('created_at', { ascending: false }),
+      .order('created_at', { ascending: false })
+      .limit(10000),
   ])
 
   return (

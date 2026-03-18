@@ -115,6 +115,7 @@ export default function RegisterPage() {
       .select('id, nome_ou_numero')
       .eq('condominio_id', condoId)
       .order('nome_ou_numero')
+      .limit(10000)
     setBlocos((data || []).filter((b: any) => b.nome_ou_numero !== '0'))
     setSelectedBlocoId('')
     setSelectedAptoId('')
@@ -128,6 +129,7 @@ export default function RegisterPage() {
       .eq('condominio_id', condoId)
       .eq('bloco_id', blocoId)
       .order('apartamentos(numero)')
+      .limit(10000)
 
     const aptos = (data || []).map((e: any) => {
       const aptoData = e.apartamentos

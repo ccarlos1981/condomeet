@@ -170,6 +170,8 @@ export default function ParcelRegisterForm({ condoId, registeredById, units }: P
           tracking_code: trackingCode || null,
           observacao: observacao || null,
           photo_url: photoUrl,
+          bloco: blocoSel,
+          apto: aptoSel,
         })
 
       if (insertError) throw new Error(`Erro ao registrar: ${insertError.message}`)
@@ -353,7 +355,7 @@ export default function ParcelRegisterForm({ condoId, registeredById, units }: P
               <div className="w-9 h-9 rounded-xl bg-gray-200 flex items-center justify-center flex-shrink-0">
                 <span className="text-gray-500 font-bold text-sm">?</span>
               </div>
-              <p className="text-sm text-gray-500">Sem morador cadastrado neste apto</p>
+              <p className="text-sm text-gray-500">Não existe morador cadastrado na unidade</p>
             </div>
           ) : null}
         </div>
