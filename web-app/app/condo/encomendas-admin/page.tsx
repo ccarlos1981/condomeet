@@ -31,9 +31,9 @@ export default async function EncomendasAdminPage() {
   // Load ALL parcels for the condominium
   const { data: parcels, error } = await supabase
     .from('encomendas')
-    .select('id, resident_id, status, arrival_time, delivery_time, tipo, tracking_code, observacao, photo_url, pickup_proof_url, condominio_id, picked_up_by_id, picked_up_by_name, bloco, apto')
+    .select('id, resident_id, status, arrival_time, delivery_time, tipo, tracking_code, observacao, photo_url, pickup_proof_url, condominio_id, picked_up_by_id, picked_up_by_name, bloco, apto, created_at')
     .eq('condominio_id', condoId)
-    .order('arrival_time', { ascending: false })
+    .order('created_at', { ascending: false })
     .limit(200)
 
   if (error) console.error('❌ parcels error:', JSON.stringify(error))

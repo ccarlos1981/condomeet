@@ -92,7 +92,7 @@ class ParcelRepositoryImpl implements ParcelRepository {
           .from('encomendas')
           .select('*, perfil!encomendas_resident_id_fkey(nome_completo,apto_txt,bloco_txt)')
           .inFilter('resident_id', unitIds)
-          .order('arrival_time', ascending: false);
+          .order('created_at', ascending: false);
 
       return Success((rows as List).map((r) => _mapToParcel(r as Map<String, dynamic>)).toList());
     } catch (e) {
@@ -122,7 +122,7 @@ class ParcelRepositoryImpl implements ParcelRepository {
         .select('*, perfil!encomendas_resident_id_fkey(nome_completo,apto_txt,bloco_txt)')
         .inFilter('resident_id', unitIds)
         .eq('status', 'pending')
-        .order('arrival_time', ascending: false)
+        .order('created_at', ascending: false)
         .limit(10);
     return rows.map((r) => _mapToParcel(r)).toList();
   }
@@ -136,7 +136,7 @@ class ParcelRepositoryImpl implements ParcelRepository {
           .select('*, perfil!encomendas_resident_id_fkey(nome_completo,apto_txt,bloco_txt)')
           .eq('condominio_id', condominiumId)
           .eq('status', 'pending')
-          .order('arrival_time', ascending: false)
+          .order('created_at', ascending: false)
           .limit(10);
       return Success((rows as List).map((r) => _mapToParcel(r as Map<String, dynamic>)).toList());
     } catch (e) {
@@ -163,7 +163,7 @@ class ParcelRepositoryImpl implements ParcelRepository {
         .select('*, perfil!encomendas_resident_id_fkey(nome_completo,apto_txt,bloco_txt)')
         .eq('condominio_id', condominiumId)
         .eq('status', 'pending')
-        .order('arrival_time', ascending: false)
+        .order('created_at', ascending: false)
         .limit(10);
     return (rows as List).map((r) => _mapToParcel(r as Map<String, dynamic>)).toList();
   }
