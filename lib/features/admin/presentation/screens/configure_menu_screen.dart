@@ -29,7 +29,8 @@ const _kAllFunctions = [
   _FunctionDef(id: 'authorize_visitor',  icon: 'how_to_reg',    label: 'Autorizar Visitante',     route: '/invitation-generator',      defaultRoles: {'morador'}),
   _FunctionDef(id: 'parcels',            icon: 'inventory_2',   label: 'Minhas Encomendas',       route: '/parcel-dashboard',           defaultRoles: {'morador'}),
   _FunctionDef(id: 'guest_checkin',      icon: 'qr_code',       label: 'Visitante c/ Autorização',route: '/guest-checkin',              defaultRoles: {'morador', 'portaria'}),
-  _FunctionDef(id: 'occurrences',        icon: 'warning',       label: 'Ocorrências',             route: '/report-occurrence',          defaultRoles: {'morador'}),
+  _FunctionDef(id: 'occurrences',        icon: 'warning',       label: 'Ocorrências',             route: '/report-occurrence',          defaultRoles: {'morador', 'proprietario', 'inquilino', 'locatario', 'portaria', 'zelador', 'funcionario'}),
+  _FunctionDef(id: 'occurrence_admin',   icon: 'book',          label: 'Livro de Ocorrências',    route: '/occurrence-admin',           defaultRoles: {'sindico', 'sub_sindico'}),
   _FunctionDef(id: 'bookings',           icon: 'calendar_month',label: 'Reservas',                route: '/area-booking',               defaultRoles: {'morador'}),
   _FunctionDef(id: 'documents',          icon: 'file_copy',     label: 'Documentos',              route: '/document-center',            defaultRoles: {'morador'}),
   _FunctionDef(id: 'parcel_history',     icon: 'history',       label: 'Histórico Encomendas',    route: '/parcel-history',             defaultRoles: {'morador'}),
@@ -590,6 +591,7 @@ class _ConfigureMenuScreenState extends State<ConfigureMenuScreen>
       'person_add': Icons.person_add,
       'bar_chart': Icons.bar_chart,
       'send': Icons.send,
+      'book': Icons.book,
     };
     return map[name] ?? Icons.widgets;
   }
