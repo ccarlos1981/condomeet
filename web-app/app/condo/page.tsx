@@ -37,6 +37,7 @@ export default async function CondoDashboard() {
     { label: 'Autorizar Visitante', sub: 'Gerar autorização', icon: UserCheck, href: '/condo/visitantes', iconColor: 'text-orange-500', iconBg: 'bg-orange-500/10' },
     { label: 'Minhas Encomendas', sub: 'Ver entregas', icon: Package, href: '/condo/encomendas', iconColor: 'text-blue-500', iconBg: 'bg-blue-500/10' },
     { label: 'Visitante c/ Autorização', sub: 'Check-in QR', icon: QrCode, href: '/condo/liberar-visitante', iconColor: 'text-emerald-500', iconBg: 'bg-emerald-500/10' },
+    { label: 'Encomendas do Cond.', sub: 'Todas do prédio', icon: Package, href: '/condo/encomendas-admin', iconColor: 'text-indigo-500', iconBg: 'bg-indigo-500/10' },
   ]
 
   return (
@@ -55,18 +56,18 @@ export default async function CondoDashboard() {
       {/* Quick Actions */}
       <section className="mb-8">
         <h2 className="text-lg font-semibold text-gray-800 mb-4">Ações Rápidas</h2>
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+        <div className="grid grid-cols-2 grid-rows-2 sm:grid-cols-2 lg:grid-cols-4 gap-3">
           {quickActions.map(action => (
             <Link key={action.href} href={action.href}>
-              <div className="bg-white rounded-2xl p-5 border border-gray-100 shadow-sm hover:shadow-md hover:-translate-y-0.5 transition-all duration-200 cursor-pointer group">
-                <div className="flex items-start justify-between mb-4">
-                  <div className={`w-12 h-12 rounded-xl flex items-center justify-center ${action.iconBg}`}>
-                    <action.icon size={22} className={action.iconColor} />
+              <div className="bg-white rounded-2xl p-4 sm:p-5 border border-gray-100 shadow-sm hover:shadow-md hover:-translate-y-0.5 transition-all duration-200 cursor-pointer group flex flex-col h-full">
+                <div className="flex items-start justify-between mb-3 border-b border-transparent">
+                  <div className={`w-10 h-10 sm:w-12 sm:h-12 rounded-xl flex items-center justify-center ${action.iconBg}`}>
+                    <action.icon size={20} className={action.iconColor} />
                   </div>
-                  <ArrowRight size={16} className="text-gray-300 group-hover:text-gray-500 group-hover:translate-x-1 transition-all" />
+                  <ArrowRight size={14} className="text-gray-300 group-hover:text-gray-500 group-hover:translate-x-1 transition-all" />
                 </div>
-                <p className="font-semibold text-gray-900 text-sm">{action.label}</p>
-                <p className="text-xs text-gray-500 mt-0.5">{action.sub}</p>
+                <p className="font-semibold text-gray-900 text-[13px] sm:text-sm leading-tight grow">{action.label}</p>
+                <p className="text-[11px] sm:text-xs text-gray-500 mt-1 line-clamp-1">{action.sub}</p>
               </div>
             </Link>
           ))}
