@@ -1,6 +1,7 @@
 import { createClient } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
 import ParcelRegisterForm from './parcel-register-form'
+import { fetchAll } from '@/lib/supabase/utils'
 
 export const metadata = { title: 'Registrar Encomenda — Condomeet' }
 
@@ -37,39 +38,54 @@ export default async function RegistrarEncomendaPage() {
   // Strategy 1: fetch from structural tables (blocos + unidades + apartamentos)
   let units: UnitOption[] = []
 
-  const { data: blocos } = await supabase
-    .from('blocos')
-    .select('id, nome_ou_numero')
-    .eq('condominio_id', condoId)
-    .order('nome_ou_numero')
-    .limit(10000)
+  const blocos = await fetchAll(
+    supabase
+      .from('blocos')
+      .select('id, nome_ou_numero')
+      .eq('condominio_id', condoId)
+      .order('nome_ou_numero')
+  )
+
+  const rawAptos = await fetchAll(
+    supabase
+      .from('apartamentos')
+      .select('id, numero')
+      .eq('condominio_id', condoId)
+      .order('numero')
+  )
+
+  const allBlocosDesc = blocos ? blocos.map(b => b.nome_ou_numero) : []
+  const allAptosDesc = rawAptos ? rawAptos.map(a => a.numero) : []
 
   if (blocos && blocos.length > 0) {
     const blocoMap: Record<string, string> = {}
     blocos.forEach(b => { blocoMap[b.id] = b.nome_ou_numero })
 
-    const { data: unidades } = await supabase
-      .from('unidades')
-      .select('id, bloco_id, apartamento_id')
-      .eq('condominio_id', condoId)
-      .limit(10000)
+    const unidades = await fetchAll(
+      supabase
+        .from('unidades')
+        .select('id, bloco_id, apartamento_id')
+        .eq('condominio_id', condoId)
+    )
 
     if (unidades && unidades.length > 0) {
-      const { data: aptos } = await supabase
-        .from('apartamentos')
-        .select('id, numero')
-        .eq('condominio_id', condoId)
-        .limit(10000)
+      const aptos = await fetchAll(
+        supabase
+          .from('apartamentos')
+          .select('id, numero')
+          .eq('condominio_id', condoId)
+      )
       const aptoMap: Record<string, string> = {}
       ;(aptos ?? []).forEach((a: any) => { aptoMap[a.id] = a.numero })
 
       // Fetch residents to map bloco_txt+apto_txt → profile
-      const { data: perfis } = await supabase
-        .from('perfil')
-        .select('id, nome_completo, bloco_txt, apto_txt')
-        .eq('condominio_id', condoId)
-        .not('apto_txt', 'is', null)
-        .limit(10000)
+      const perfis = await fetchAll(
+        supabase
+          .from('perfil')
+          .select('id, nome_completo, bloco_txt, apto_txt')
+          .eq('condominio_id', condoId)
+          .not('apto_txt', 'is', null)
+      )
 
       const residentMap: Record<string, { id: string; nome: string }> = {}
       ;(perfis ?? []).forEach((p: any) => {
@@ -95,13 +111,15 @@ export default async function RegistrarEncomendaPage() {
 
   // Strategy 2 fallback: use denormalized bloco_txt/apto_txt from perfil
   if (units.length === 0) {
-    const { data: perfis } = await supabase
-      .from('perfil')
-      .select('id, nome_completo, bloco_txt, apto_txt')
-      .eq('condominio_id', condoId)
-      .not('apto_txt', 'is', null)
-      .order('bloco_txt').order('apto_txt')
-      .limit(10000)
+    const perfis = await fetchAll(
+      supabase
+        .from('perfil')
+        .select('id, nome_completo, bloco_txt, apto_txt')
+        .eq('condominio_id', condoId)
+        .not('apto_txt', 'is', null)
+        .order('bloco_txt')
+        .order('apto_txt')
+    )
 
     units = (perfis ?? []).map((p: any) => ({
       blocoNome: p.bloco_txt ?? '?',
@@ -125,6 +143,8 @@ export default async function RegistrarEncomendaPage() {
         condoId={condoId}
         registeredById={user.id}
         units={units}
+        allBlocos={allBlocosDesc}
+        allAptos={allAptosDesc}
       />
     </div>
   )

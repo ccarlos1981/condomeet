@@ -157,9 +157,15 @@ export default function EstruturaClient({ condoId, blocos, apartamentos, unidade
     }
   }
 
+  const [page, setPage] = useState(1)
+  const itemsPerPage = 10
+
   const filteredBlocos = blocos.filter(b => b.nome_ou_numero !== '0')
   const filteredAptos = apartamentos.filter(a => a.numero !== '0')
   const filteredUnidades = unidades.filter(u => u.bloco_nome !== '0' && u.apto_numero !== '0')
+
+  const totalPages = Math.ceil(filteredUnidades.length / itemsPerPage)
+  const paginatedUnidades = filteredUnidades.slice((page - 1) * itemsPerPage, page * itemsPerPage)
 
   return (
     <div>
@@ -186,7 +192,7 @@ export default function EstruturaClient({ condoId, blocos, apartamentos, unidade
           {tabs.map(t => (
             <button
               key={t.key}
-              onClick={() => { setTab(t.key); setShowAdd(false) }}
+              onClick={() => { setTab(t.key); setShowAdd(false); setPage(1) }}
               className={`flex-1 flex items-center justify-center gap-2 py-4 text-sm font-semibold transition-all ${
                 tab === t.key
                   ? 'text-[#FC5931] border-b-2 border-[#FC5931] bg-red-50/30'
@@ -363,51 +369,76 @@ export default function EstruturaClient({ condoId, blocos, apartamentos, unidade
                   </button>
                 </div>
               ) : (
-                <div className="overflow-x-auto">
-                  <table className="w-full">
-                    <thead>
-                      <tr className="border-b border-gray-100">
-                        <th className="text-left pb-3 text-xs font-semibold text-gray-400 uppercase tracking-wider">Bloco</th>
-                        <th className="text-left pb-3 text-xs font-semibold text-gray-400 uppercase tracking-wider">Apto</th>
-                        <th className="text-left pb-3 text-xs font-semibold text-gray-400 uppercase tracking-wider">Status</th>
-                        <th className="text-right pb-3 text-xs font-semibold text-gray-400 uppercase tracking-wider">Ações</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {filteredUnidades.map(u => (
-                        <tr key={u.id} className="border-b border-gray-50 hover:bg-gray-50/50 transition-colors">
-                          <td className="py-3">
-                            <div className="flex items-center gap-2">
-                              <Building2 size={14} className="text-[#FC5931]" />
-                              <span className="font-medium text-gray-800">{u.bloco_nome}</span>
-                            </div>
-                          </td>
-                          <td className="py-3">
-                            <div className="flex items-center gap-2">
-                              <Home size={14} className="text-gray-400" />
-                              <span className="text-gray-700">{u.apto_numero}</span>
-                            </div>
-                          </td>
-                          <td className="py-3">
-                            <span className={`text-xs px-2 py-1 rounded-full font-medium ${
-                              u.bloqueada ? 'bg-red-50 text-red-600' : 'bg-green-50 text-green-600'
-                            }`}>
-                              {u.bloqueada ? 'Bloqueada' : 'Ativa'}
-                            </span>
-                          </td>
-                          <td className="py-3 text-right">
-                            <button
-                              onClick={() => deleteUnidade(u.id)}
-                              className="p-1.5 text-red-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
-                              title="Excluir unidade"
-                            >
-                              <Trash2 size={14} />
-                            </button>
-                          </td>
+                <div className="space-y-4">
+                  <div className="overflow-x-auto">
+                    <table className="w-full">
+                      <thead>
+                        <tr className="border-b border-gray-100">
+                          <th className="text-left pb-3 text-xs font-semibold text-gray-400 uppercase tracking-wider">Bloco</th>
+                          <th className="text-left pb-3 text-xs font-semibold text-gray-400 uppercase tracking-wider">Apto</th>
+                          <th className="text-left pb-3 text-xs font-semibold text-gray-400 uppercase tracking-wider">Status</th>
+                          <th className="text-right pb-3 text-xs font-semibold text-gray-400 uppercase tracking-wider">Ações</th>
                         </tr>
-                      ))}
-                    </tbody>
-                  </table>
+                      </thead>
+                      <tbody>
+                        {paginatedUnidades.map(u => (
+                          <tr key={u.id} className="border-b border-gray-50 hover:bg-gray-50/50 transition-colors">
+                            <td className="py-3">
+                              <div className="flex items-center gap-2">
+                                <Building2 size={14} className="text-[#FC5931]" />
+                                <span className="font-medium text-gray-800">{u.bloco_nome}</span>
+                              </div>
+                            </td>
+                            <td className="py-3">
+                              <div className="flex items-center gap-2">
+                                <Home size={14} className="text-gray-400" />
+                                <span className="text-gray-700">{u.apto_numero}</span>
+                              </div>
+                            </td>
+                            <td className="py-3">
+                              <span className={`text-xs px-2 py-1 rounded-full font-medium ${
+                                u.bloqueada ? 'bg-red-50 text-red-600' : 'bg-green-50 text-green-600'
+                              }`}>
+                                {u.bloqueada ? 'Bloqueada' : 'Ativa'}
+                              </span>
+                            </td>
+                            <td className="py-3 text-right">
+                              <button
+                                onClick={() => deleteUnidade(u.id)}
+                                className="p-1.5 text-red-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                                title="Excluir unidade"
+                              >
+                                <Trash2 size={14} />
+                              </button>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                  {totalPages > 1 && (
+                    <div className="flex items-center justify-between mt-4 border-t border-gray-100 pt-4">
+                      <span className="text-sm text-gray-500">
+                        Mostrando {(page - 1) * itemsPerPage + 1} até {Math.min(page * itemsPerPage, filteredUnidades.length)} de {filteredUnidades.length}
+                      </span>
+                      <div className="flex gap-2">
+                        <button
+                          onClick={() => setPage(p => Math.max(1, p - 1))}
+                          disabled={page === 1}
+                          className="px-3 py-1 text-sm border border-gray-200 rounded-lg hover:bg-gray-50 disabled:opacity-50"
+                        >
+                          Anterior
+                        </button>
+                        <button
+                          onClick={() => setPage(p => Math.min(totalPages, p + 1))}
+                          disabled={page === totalPages}
+                          className="px-3 py-1 text-sm border border-gray-200 rounded-lg hover:bg-gray-50 disabled:opacity-50"
+                        >
+                          Próxima
+                        </button>
+                      </div>
+                    </div>
+                  )}
                 </div>
               )}
             </div>

@@ -3,6 +3,7 @@ import { useState, useCallback } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { useRouter } from 'next/navigation'
 import { Search, ChevronLeft, Building2, Mail, Lock, User, Phone, Eye, EyeOff, Check, Loader2 } from 'lucide-react'
+import { fetchAll } from '@/lib/supabase/utils'
 
 const TIPO_USUARIO_OPTIONS = [
   'Proprietário (a)',
@@ -110,12 +111,13 @@ export default function RegisterPage() {
   )
 
   async function fetchBlocos(condoId: string) {
-    const { data } = await supabase
-      .from('blocos')
-      .select('id, nome_ou_numero')
-      .eq('condominio_id', condoId)
-      .order('nome_ou_numero')
-      .limit(10000)
+    const data = await fetchAll(
+      supabase
+        .from('blocos')
+        .select('id, nome_ou_numero')
+        .eq('condominio_id', condoId)
+        .order('nome_ou_numero')
+    )
     setBlocos((data || []).filter((b: any) => b.nome_ou_numero !== '0'))
     setSelectedBlocoId('')
     setSelectedAptoId('')
@@ -123,13 +125,14 @@ export default function RegisterPage() {
   }
 
   async function fetchApartamentos(condoId: string, blocoId: string) {
-    const { data } = await supabase
-      .from('unidades')
-      .select('apartamento_id, apartamentos(numero)')
-      .eq('condominio_id', condoId)
-      .eq('bloco_id', blocoId)
-      .order('apartamentos(numero)')
-      .limit(10000)
+    const data = await fetchAll(
+      supabase
+        .from('unidades')
+        .select('apartamento_id, apartamentos(numero)')
+        .eq('condominio_id', condoId)
+        .eq('bloco_id', blocoId)
+        .order('apartamentos(numero)')
+    )
 
     const aptos = (data || []).map((e: any) => {
       const aptoData = e.apartamentos

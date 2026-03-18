@@ -13,6 +13,8 @@ interface Props {
   condoId: string
   registeredById: string
   units: UnitOption[]
+  allBlocos?: string[]
+  allAptos?: string[]
 }
 
 type TipoEncomenda = 'caixa' | 'envelope' | 'pacote' | 'notif_judicial'
@@ -24,7 +26,7 @@ const TIPOS: { value: TipoEncomenda; label: string; icon: React.ElementType }[] 
   { value: 'notif_judicial', label: 'Notif. Judicial', icon: FileText },
 ]
 
-export default function ParcelRegisterForm({ condoId, registeredById, units }: Props) {
+export default function ParcelRegisterForm({ condoId, registeredById, units, allBlocos, allAptos }: Props) {
   const router = useRouter()
   const supabase = createClient()
 
@@ -49,16 +51,16 @@ export default function ParcelRegisterForm({ condoId, registeredById, units }: P
   const streamRef = useRef<MediaStream | null>(null)
   const canvasRef = useRef<HTMLCanvasElement>(null)
 
-  // Derived lists from units
-  const blocos = [...new Set(units.map(u => u.blocoNome))].sort((a, b) =>
-    a.localeCompare(b, 'pt', { numeric: true })
-  )
-  const aptos = units
-    .filter(u => !blocoSel || u.blocoNome === blocoSel)
-    .map(u => u.aptoNumero)
-  const uniqueAptos = [...new Set(aptos)].sort((a, b) =>
-    a.localeCompare(b, 'pt', { numeric: true })
-  )
+  // Derived lists from units and structural tables
+  const blocos = allBlocos && allBlocos.length > 0
+    ? [...allBlocos].sort((a, b) => a.localeCompare(b, 'pt', { numeric: true }))
+    : [...new Set(units.map(u => u.blocoNome))].sort((a, b) => a.localeCompare(b, 'pt', { numeric: true }))
+
+  const aptosList = allAptos && allAptos.length > 0
+    ? allAptos
+    : units.filter(u => (!blocoSel || u.blocoNome === blocoSel)).map(u => u.aptoNumero)
+
+  const uniqueAptos = [...new Set(aptosList)].sort((a, b) => a.localeCompare(b, 'pt', { numeric: true }))
 
   const selectedUnit = units.find(u => u.blocoNome === blocoSel && u.aptoNumero === aptoSel)
 

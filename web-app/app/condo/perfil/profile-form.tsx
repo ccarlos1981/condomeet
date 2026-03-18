@@ -4,6 +4,7 @@ import { useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { useRouter } from 'next/navigation'
 import { Save, AlertTriangle, Loader2, Lock, Eye, EyeOff } from 'lucide-react'
+import { fetchAll } from '@/lib/supabase/utils'
 
 const TIPOS_MORADOR = [
   'Proprietário (a)', 'Inquilino (a)', 'Cônjuge', 'Dependente',
@@ -74,21 +75,23 @@ export default function ProfileForm({
     if (blocoId) {
       setLoadingAptos(true)
       // Step 1: get apartment IDs for this bloco
-      const { data: unidades } = await supabase
-        .from('unidades')
-        .select('apartamento_id')
-        .eq('condominio_id', condoId)
-        .eq('bloco_id', blocoId)
-        .limit(10000)
+      const unidades = await fetchAll(
+        supabase
+          .from('unidades')
+          .select('apartamento_id')
+          .eq('condominio_id', condoId)
+          .eq('bloco_id', blocoId)
+      )
 
       if (unidades && unidades.length > 0) {
         const aptoIds = unidades.map((u: any) => u.apartamento_id)
-        const { data: aptosData } = await supabase
-          .from('apartamentos')
-          .select('id, numero')
-          .in('id', aptoIds)
-          .order('numero')
-          .limit(10000)
+        const aptosData = await fetchAll(
+          supabase
+            .from('apartamentos')
+            .select('id, numero')
+            .in('id', aptoIds)
+            .order('numero')
+        )
 
         const mapped: Apto[] = (aptosData ?? []).map((a: any) => ({ id: a.id, numero: String(a.numero) }))
         mapped.sort((a, b) => a.numero.localeCompare(b.numero, undefined, { numeric: true }))

@@ -1,6 +1,7 @@
 import { createClient } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
 import ProfileForm from './profile-form'
+import { fetchAll } from '@/lib/supabase/utils'
 
 export default async function EditProfilePage() {
   const supabase = await createClient()
@@ -20,12 +21,13 @@ export default async function EditProfilePage() {
   const condoId = profile.condominio_id ?? ''
 
   // Fetch all blocos for this condo
-  const { data: blocosData } = await supabase
-    .from('blocos')
-    .select('id, nome_ou_numero')
-    .eq('condominio_id', condoId)
-    .order('nome_ou_numero')
-    .limit(10000)
+  const blocosData = await fetchAll(
+    supabase
+      .from('blocos')
+      .select('id, nome_ou_numero')
+      .eq('condominio_id', condoId)
+      .order('nome_ou_numero')
+  )
 
   const blocos = (blocosData ?? []).map((b: any) => ({ id: b.id, nome_ou_numero: b.nome_ou_numero }))
 
@@ -40,21 +42,23 @@ export default async function EditProfilePage() {
   let currentAptoId = ''
 
   if (currentBlocoId) {
-    const { data: unidades } = await supabase
-      .from('unidades')
-      .select('apartamento_id')
-      .eq('condominio_id', condoId)
-      .eq('bloco_id', currentBlocoId)
-      .limit(10000)
+    const unidades = await fetchAll(
+      supabase
+        .from('unidades')
+        .select('apartamento_id')
+        .eq('condominio_id', condoId)
+        .eq('bloco_id', currentBlocoId)
+    )
 
     if (unidades && unidades.length > 0) {
       const aptoIds = unidades.map((u: any) => u.apartamento_id)
-      const { data: aptosData } = await supabase
-        .from('apartamentos')
-        .select('id, numero')
-        .in('id', aptoIds)
-        .order('numero')
-        .limit(10000)
+      const aptosData = await fetchAll(
+        supabase
+          .from('apartamentos')
+          .select('id, numero')
+          .in('id', aptoIds)
+          .order('numero')
+      )
 
       initialAptos = (aptosData ?? []).map((a: any) => ({ id: a.id, numero: String(a.numero) }))
       initialAptos.sort((a, b) => a.numero.localeCompare(b.numero, undefined, { numeric: true }))
