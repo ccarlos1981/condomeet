@@ -24,7 +24,7 @@ export default async function AdminEncomendasPage() {
   // Load ALL parcels for the condominium
   const { data: parcels, error } = await supabase
     .from('encomendas')
-    .select('id, resident_id, status, arrival_time, delivery_time, tipo, tracking_code, observacao, photo_url, pickup_proof_url, condominio_id, picked_up_by_id, picked_up_by_name')
+    .select('id, resident_id, status, arrival_time, delivery_time, tipo, tracking_code, observacao, photo_url, pickup_proof_url, condominio_id, picked_up_by_id, picked_up_by_name, bloco, apto')
     .eq('condominio_id', condoId)
     .order('arrival_time', { ascending: false })
     .limit(200)
@@ -46,7 +46,7 @@ export default async function AdminEncomendasPage() {
   const parcelsWithResident = (parcels ?? []).map((p: { resident_id: string; [key: string]: unknown }) => ({
     ...p,
     perfil: perfilMap[p.resident_id] ?? null,
-  })) as { id: string; resident_id: string; status: string; arrival_time: string; delivery_time: string | null; tipo: string | null; tracking_code: string | null; observacao: string | null; photo_url: string | null; pickup_proof_url: string | null; condominio_id: string; picked_up_by_id: string | null; picked_up_by_name: string | null; perfil: { id: string; nome_completo: string; bloco_txt: string | null; apto_txt: string | null } | null }[]
+  })) as { id: string; resident_id: string; status: string; arrival_time: string; delivery_time: string | null; tipo: string | null; tracking_code: string | null; observacao: string | null; photo_url: string | null; pickup_proof_url: string | null; condominio_id: string; picked_up_by_id: string | null; picked_up_by_name: string | null; bloco: string | null; apto: string | null; perfil: { id: string; nome_completo: string; bloco_txt: string | null; apto_txt: string | null } | null }[]
 
   return (
     <div className="p-6 lg:p-8 max-w-5xl">
