@@ -1,5 +1,6 @@
 
 import 'dart:async';
+import 'package:flutter/foundation.dart';
 import 'package:condomeet/core/errors/result.dart';
 import 'package:condomeet/features/portaria/domain/repositories/parcel_repository.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
@@ -104,12 +105,21 @@ class ParcelRepositoryImpl implements ParcelRepository {
   Stream<List<Parcel>> watchPendingParcelsForUnit(String residentId) {
     return Stream.fromIterable([0])
         .asyncExpand((_) async* {
-          yield await _fetchPendingForUnit(residentId);
-          await for (final _ in Stream.periodic(const Duration(seconds: 10))) {
+          try {
             yield await _fetchPendingForUnit(residentId);
+          } catch (e) {
+            debugPrint('⚠️ watchPendingParcelsForUnit: initial fetch error: $e');
+            yield <Parcel>[];
           }
-        })
-        .handleError((e) { /* silent */ });
+          await for (final _ in Stream.periodic(const Duration(seconds: 10))) {
+            try {
+              yield await _fetchPendingForUnit(residentId);
+            } catch (e) {
+              debugPrint('⚠️ watchPendingParcelsForUnit: polling error: $e');
+              yield <Parcel>[];
+            }
+          }
+        });
   }
 
   Future<List<Parcel>> _fetchPendingForUnit(String residentId) async {
@@ -148,12 +158,21 @@ class ParcelRepositoryImpl implements ParcelRepository {
   Stream<List<Parcel>> watchAllPendingParcels(String condominiumId) {
     return Stream.fromIterable([0])
         .asyncExpand((_) async* {
-          yield await _fetchAllPending(condominiumId);
-          await for (final _ in Stream.periodic(const Duration(seconds: 10))) {
+          try {
             yield await _fetchAllPending(condominiumId);
+          } catch (e) {
+            debugPrint('⚠️ watchAllPendingParcels: initial fetch error: $e');
+            yield <Parcel>[];
           }
-        })
-        .handleError((e) => print('❌ watchAllPendingParcels error: $e'));
+          await for (final _ in Stream.periodic(const Duration(seconds: 10))) {
+            try {
+              yield await _fetchAllPending(condominiumId);
+            } catch (e) {
+              debugPrint('⚠️ watchAllPendingParcels: polling error: $e');
+              yield <Parcel>[];
+            }
+          }
+        });
   }
 
   Future<List<Parcel>> _fetchAllPending(String condominiumId) async {

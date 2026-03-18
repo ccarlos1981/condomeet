@@ -24,7 +24,10 @@ class ParcelBloc extends Bloc<ParcelEvent, ParcelState> {
     // Skip if empty residentId — don't cancel a working subscription
     if (event.residentId.isEmpty) return;
     
-    emit(ParcelLoading());
+    // Only show loading spinner on first load; preserve existing data on refresh
+    if (state is! ParcelLoaded) {
+      emit(ParcelLoading());
+    }
     await _parcelsSubscription?.cancel();
     
     _parcelsSubscription = _parcelRepository
