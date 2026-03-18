@@ -8,9 +8,9 @@ export default function ForgotPasswordPage() {
   const [loading, setLoading] = useState(false)
   const [sent, setSent] = useState(false)
   const [error, setError] = useState('')
-  const supabase = createClient()
 
   async function handleSubmit() {
+    const supabase = createClient()
     const normalizedEmail = email.trim().toLowerCase()
     if (!normalizedEmail || !normalizedEmail.includes('@')) {
       setError('Digite um email válido')
