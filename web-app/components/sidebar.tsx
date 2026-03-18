@@ -37,14 +37,28 @@ const FN_TO_NAV: Record<string, { label: string; href: string; icon: React.React
 }
 
 function normalizeRoleKey(role: string): string {
-  return role
+  const key = role
     .toLowerCase()
+    .replace(/\s*\(.*?\)/g, '')  // strip (a)/(o)
     .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
-    .replace(/\s+/g, '_')
+    .replace(/[^a-z0-9]/g, '_')
     .replace(/_+/g, '_')
-    .replace(/[^a-z0-9_]/g, '')
-    .replace(/^proprietario_nao_morador$/, 'prop_nao_morador')
-    .replace(/^sub_sindico$/, 'sub_sindico')
+    .replace(/^_|_$/g, '')
+    .trim()
+  const aliases: Record<string, string> = {
+    porteiro: 'portaria',
+    sindico: 'sindico',
+    sub_sindico: 'sub_sindico',
+    admin: 'admin',
+    zelador: 'zelador',
+    funcionario: 'funcionario',
+    morador: 'morador',
+    proprietario: 'proprietario',
+    proprietario_nao_morador: 'proprietario_nao_morador',
+    inquilino: 'inquilino',
+    locatario: 'locatario',
+  }
+  return aliases[key] ?? key
 }
 
 // ── Legacy hardcoded menus (fallback when no features_config) ──
