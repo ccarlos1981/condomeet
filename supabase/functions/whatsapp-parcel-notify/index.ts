@@ -3,7 +3,12 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2"
 
 serve(async (req) => {
   try {
-    const { parcel_id, resident_name, unit, block, photo_url, resident_id, unit_id } = await req.json()
+    const { parcel_id, event, condominio_id, bloco, apto, tipo, picked_up_by_name } = await req.json()
+
+    // Aceitar apenas eventos conhecidos: 'arrived' e 'delivered'
+    if (event !== 'arrived' && event !== 'delivered') {
+      return new Response(JSON.stringify({ skipped: true, reason: `Evento '${event}' ignorado para WhatsApp` }), { status: 200 })
+    }
 
     // 1. Inicializar Supabase Admin
     const supabaseAdmin = createClient(
@@ -12,35 +17,39 @@ serve(async (req) => {
     )
 
     const BOTCONVERSA_API_KEY = Deno.env.get('BOTCONVERSA_API_KEY')
-    const BOTCONVERSA_FLOW_ID = Deno.env.get('BOTCONVERSA_FLOW_ID')
 
     if (!BOTCONVERSA_API_KEY) {
       return new Response(JSON.stringify({ error: "BOTCONVERSA_API_KEY não configurada" }), { status: 400 })
     }
 
-    let profilesToNotify = [];
+    let condoNome = "Condomínio";
+    if (condominio_id) {
+      const { data: condo } = await supabaseAdmin.from('condominios').select('nome').eq('id', condominio_id).single();
+      if (condo) condoNome = condo.nome;
+    }
 
-    if (unit_id) {
-      // 2. Buscar todos os moradores da unidade
+    let parcelData: any = null;
+    if (parcel_id) {
+      const { data: enc } = await supabaseAdmin.from('encomendas').select('*').eq('id', parcel_id).single();
+      parcelData = enc;
+    }
+
+    let profilesToNotify: any[] = [];
+
+    if (condominio_id && bloco && apto) {
+      // 2. Buscar todos os moradores da unidade no schema 'perfil'
       const { data: profiles, error } = await supabaseAdmin
-        .from('profiles')
-        .select('id, full_name, phone, botconversa_id')
-        .eq('unit_id', unit_id)
-        .not('phone', 'is', null)
+        .from('perfil')
+        .select('id, nome_completo, fcm_token, botconversa_id')
+        .eq('condominio_id', condominio_id)
+        .eq('bloco_txt', bloco)
+        .eq('apto_txt', apto)
+        .eq('status_aprovacao', 'aprovado')
+        .eq('bloqueado', false)
+        .not('botconversa_id', 'is', null)
 
       if (!error && profiles) {
         profilesToNotify = profiles;
-      }
-    } else {
-      // Fallback para morador único caso unidade não exista no payload
-      const { data: singleProfile } = await supabaseAdmin
-        .from('profiles')
-        .select('id, full_name, phone, botconversa_id')
-        .eq('id', resident_id)
-        .single()
-
-      if (singleProfile && singleProfile.phone) {
-        profilesToNotify = [singleProfile];
       }
     }
 
@@ -48,46 +57,82 @@ serve(async (req) => {
       return new Response(JSON.stringify({ error: "Nenhum contato encontrado para notificação" }), { status: 400 })
     }
 
-    console.log(`Sending parcel notification to ${profilesToNotify.length} resident(s) of unit ${unit_id || 'unknown'}`)
+    console.log(`[${event}] Sending parcel WhatsApp to ${profilesToNotify.length} resident(s) of unit ${bloco} / ${apto}`)
+
+    const { sendMessage } = await import("../_shared/botconversa.ts")
 
     const sendPromises = profilesToNotify.map(async (profile: any) => {
-      // 1. Limpar e Garantir 55 (Brasil)
-      let cleanPhone = profile.phone?.replace(/\D/g, '') || ''
-      if (cleanPhone.length > 0 && !cleanPhone.startsWith('55')) {
-        cleanPhone = '55' + cleanPhone
-      }
-
-      const body: any = {
-        phone: cleanPhone,
-        first_name: profile.full_name?.split(' ')[0] || resident_name,
-        last_name: `(Apto ${unit})`,
-        variables: [
-          { key: "encomenda_id", value: parcel_id },
-          { key: "unidade", value: unit },
-          { key: "bloco", value: block },
-          { key: "foto_url", value: photo_url || "" }
-        ],
-        flow_id: BOTCONVERSA_FLOW_ID ? parseInt(BOTCONVERSA_FLOW_ID) : null
-      };
-
-      console.log(`Payload para ${cleanPhone}:`, JSON.stringify(body));
-
       try {
-        const response = await fetch(`https://backend.botconversa.com.br/api/v1/webhook/subscriber/`, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'API-KEY': BOTCONVERSA_API_KEY as string
-          },
-          body: JSON.stringify(body)
-        });
+        // Gerar código interno para anti-ban
+        const codInterno = Math.random().toString(36).substring(2, 7).toUpperCase();
 
-        const resultText = await response.text();
-        console.log(`Resposta BotConversa (${cleanPhone}):`, resultText);
-        return { success: response.ok, status: response.status, result: resultText, phone: cleanPhone };
+        let txtMsg: string;
+
+        if (event === 'arrived') {
+          // ── Mensagem de CHEGADA ──
+          const createdDate = parcelData?.created_at ? new Date(parcelData.created_at) : new Date();
+          createdDate.setDate(createdDate.getDate() + 7);
+          const withdrawUntil = `${String(createdDate.getDate()).padStart(2, '0')}/${String(createdDate.getMonth() + 1).padStart(2, '0')}/${createdDate.getFullYear()}`;
+
+          const observationText = parcelData?.observacao?.trim() || parcelData?.notes?.trim() || 'Nenhuma';
+          const trackingCode = parcelData?.tracking_code?.trim() || 'Nenhum';
+
+          txtMsg = `📦 ${condoNome}
+
+Chegou uma encomenda para o seu apartamento.
+
+📨 Tipo de encomenda:
+${tipo || 'Pacote'}
+
+🏢 Unidade
+Bloco: ${bloco} / Apto: ${apto}
+
+🔍 Cod. rastreio: ${trackingCode}
+
+⏱ Retirar até: ${withdrawUntil}
+
+🗒️ Observação da encomenda:
+${observationText}
+
+Condomeet agradece!
+Cod. interno: ${codInterno}`;
+        } else {
+          // ── Mensagem de ENTREGA ──
+          const deliveryTime = parcelData?.delivery_time
+            ? new Date(parcelData.delivery_time)
+            : new Date();
+          const deliveryStr = `${String(deliveryTime.getDate()).padStart(2, '0')}/${String(deliveryTime.getMonth() + 1).padStart(2, '0')}/${deliveryTime.getFullYear()} às ${String(deliveryTime.getHours()).padStart(2, '0')}:${String(deliveryTime.getMinutes()).padStart(2, '0')}`;
+
+          const whoPickedUp = picked_up_by_name?.trim() || 'Morador';
+
+          txtMsg = `✅ ${condoNome}
+
+Encomenda retirada com sucesso!
+
+📨 Tipo: ${tipo || 'Pacote'}
+
+🏢 Unidade
+Bloco: ${bloco} / Apto: ${apto}
+
+👤 Retirada por: ${whoPickedUp}
+📅 Data/Hora: ${deliveryStr}
+
+Condomeet agradece!
+Cod. interno: ${codInterno}`;
+        }
+
+        const result1 = await sendMessage(BOTCONVERSA_API_KEY as string, profile.botconversa_id, "text", txtMsg);
+        
+        // Enviar foto SOMENTE no evento 'arrived', com delay random (10-20s)
+        if (event === 'arrived' && result1.success && parcelData?.photo_url) {
+          const delayMs = Math.floor(Math.random() * (20000 - 10000 + 1) + 10000);
+          await new Promise(res => setTimeout(res, delayMs));
+          await sendMessage(BOTCONVERSA_API_KEY as string, profile.botconversa_id, "file", parcelData.photo_url);
+        }
+
+        return result1;
       } catch (err: any) {
-        console.error(`Erro ao enviar para ${cleanPhone}:`, err.message);
-        return { success: false, error: err.message, phone: cleanPhone };
+        return { success: false, error: err.message, subscriberId: profile.botconversa_id };
       }
     });
 
@@ -95,6 +140,7 @@ serve(async (req) => {
     const hasSuccess = results.some((r: any) => r.success);
 
     return new Response(JSON.stringify({
+      event,
       messages_sent: results.length,
       success: hasSuccess,
       results
@@ -103,7 +149,7 @@ serve(async (req) => {
       headers: { 'Content-Type': 'application/json' }
     });
 
-  } catch (error) {
+  } catch (error: any) {
     return new Response(JSON.stringify({ error: error.message }), { status: 500 })
   }
 })

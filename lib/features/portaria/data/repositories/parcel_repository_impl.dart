@@ -90,7 +90,7 @@ class ParcelRepositoryImpl implements ParcelRepository {
 
       final rows = await _supabase
           .from('encomendas')
-          .select('*, perfil(nome_completo,apto_txt,bloco_txt)')
+          .select('*, perfil!encomendas_resident_id_fkey(nome_completo,apto_txt,bloco_txt)')
           .inFilter('resident_id', unitIds)
           .order('arrival_time', ascending: false);
 
@@ -119,10 +119,11 @@ class ParcelRepositoryImpl implements ParcelRepository {
 
     final rows = await _supabase
         .from('encomendas')
-        .select('*, perfil(nome_completo,apto_txt,bloco_txt)')
+        .select('*, perfil!encomendas_resident_id_fkey(nome_completo,apto_txt,bloco_txt)')
         .inFilter('resident_id', unitIds)
         .eq('status', 'pending')
-        .order('arrival_time', ascending: false);
+        .order('arrival_time', ascending: false)
+        .limit(10);
     return rows.map((r) => _mapToParcel(r)).toList();
   }
 
@@ -132,10 +133,11 @@ class ParcelRepositoryImpl implements ParcelRepository {
     try {
       final rows = await _supabase
           .from('encomendas')
-          .select('*, perfil(nome_completo,apto_txt,bloco_txt)')
+          .select('*, perfil!encomendas_resident_id_fkey(nome_completo,apto_txt,bloco_txt)')
           .eq('condominio_id', condominiumId)
           .eq('status', 'pending')
-          .order('arrival_time', ascending: false);
+          .order('arrival_time', ascending: false)
+          .limit(10);
       return Success((rows as List).map((r) => _mapToParcel(r as Map<String, dynamic>)).toList());
     } catch (e) {
       return Failure('Erro ao buscar encomendas pendentes: $e');
@@ -158,10 +160,11 @@ class ParcelRepositoryImpl implements ParcelRepository {
     if (condominiumId.isEmpty) return [];
     final rows = await _supabase
         .from('encomendas')
-        .select('*, perfil(nome_completo,apto_txt,bloco_txt)')
+        .select('*, perfil!encomendas_resident_id_fkey(nome_completo,apto_txt,bloco_txt)')
         .eq('condominio_id', condominiumId)
         .eq('status', 'pending')
-        .order('arrival_time', ascending: false);
+        .order('arrival_time', ascending: false)
+        .limit(10);
     return (rows as List).map((r) => _mapToParcel(r as Map<String, dynamic>)).toList();
   }
 
@@ -197,7 +200,7 @@ class ParcelRepositoryImpl implements ParcelRepository {
     try {
       var query = _supabase
           .from('encomendas')
-          .select('*, perfil(nome_completo,apto_txt,bloco_txt)')
+          .select('*, perfil!encomendas_resident_id_fkey(nome_completo,apto_txt,bloco_txt)')
           .eq('condominio_id', condominiumId)
           .eq('status', 'delivered');
 
@@ -209,7 +212,7 @@ class ParcelRepositoryImpl implements ParcelRepository {
         }
       }
 
-      final rows = await query.order('delivery_time', ascending: false);
+      final rows = await query.order('delivery_time', ascending: false).limit(200);
       return Success((rows as List).map((r) => _mapToParcel(r as Map<String, dynamic>)).toList());
     } catch (e) {
       return Failure('Erro ao buscar histórico: $e');
