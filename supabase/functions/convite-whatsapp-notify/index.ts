@@ -29,10 +29,20 @@ function jsonResponse(body: unknown, status = 200): Response {
 }
 
 function isSecretKey(token: string): boolean {
-  return (
-    token.startsWith("sb_secret_") ||
-    token === (Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "")
-  )
+  // Accept sb_secret_ keys
+  if (token.startsWith("sb_secret_")) return true
+  // Accept exact match with SUPABASE_SERVICE_ROLE_KEY env
+  const envKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? ""
+  if (envKey && token === envKey) return true
+  // Accept JWT tokens with service_role
+  try {
+    const parts = token.split(".")
+    if (parts.length === 3) {
+      const payload = JSON.parse(atob(parts[1]))
+      if (payload.role === "service_role") return true
+    }
+  } catch { /* not a valid JWT */ }
+  return false
 }
 
 function genCodInterno(): string {

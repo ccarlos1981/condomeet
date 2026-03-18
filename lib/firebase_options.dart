@@ -46,19 +46,19 @@ class DefaultFirebaseOptions {
 
   static const FirebaseOptions ios = FirebaseOptions(
     apiKey: 'AIzaSyDDMEl2wCA4uDg-vZ2kJPgEKD80OuuxIqY',
-    appId: '1:239069018659:ios:a39da7953d03b1f1fccf',
+    appId: '1:239069018659:ios:8d6b005c96d2d966fccf96',
     messagingSenderId: '239069018659',
     projectId: 'condomeet-oficial',
     storageBucket: 'condomeet-oficial.firebasestorage.app',
-    iosBundleId: 'com.beep.condomeet.condomeet',
+    iosBundleId: 'br.app.condomeet.home',
   );
 
   static const FirebaseOptions macos = FirebaseOptions(
     apiKey: 'AIzaSyDDMEl2wCA4uDg-vZ2kJPgEKD80OuuxIqY',
-    appId: '1:239069018659:ios:a39da7953d03b1f1fccf',
+    appId: '1:239069018659:ios:8d6b005c96d2d966fccf96',
     messagingSenderId: '239069018659',
     projectId: 'condomeet-oficial',
     storageBucket: 'condomeet-oficial.firebasestorage.app',
-    iosBundleId: 'com.beep.condomeet.condomeet',
+    iosBundleId: 'br.app.condomeet.home',
   );
 }

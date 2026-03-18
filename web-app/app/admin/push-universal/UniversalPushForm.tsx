@@ -29,10 +29,15 @@ export default function UniversalPushForm() {
         body: JSON.stringify({ titulo: titulo.trim(), corpo: corpo.trim() }),
       })
 
-      const data = await res.json()
+      let data: any
+      try {
+        data = await res.json()
+      } catch {
+        throw new Error(`Resposta inválida do servidor (HTTP ${res.status}). Verifique os logs da Edge Function.`)
+      }
 
       if (!res.ok) {
-        throw new Error(data.error ?? 'Erro ao enviar push')
+        throw new Error(data?.error ?? `Erro ao enviar push (HTTP ${res.status})`)
       }
 
       setResult({

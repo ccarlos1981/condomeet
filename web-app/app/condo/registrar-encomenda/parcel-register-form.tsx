@@ -176,7 +176,7 @@ export default function ParcelRegisterForm({ condoId, registeredById, units }: P
 
       if (photoWarning) setWarning(photoWarning)
       setSuccess(true)
-      setTimeout(() => router.push('/condo/encomendas'), 3500)
+      setTimeout(() => router.push('/condo/encomendas-admin'), 3500)
     } catch (err: any) {
       setError(err.message ?? 'Erro inesperado.')
       setSubmitting(false)
