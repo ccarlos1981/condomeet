@@ -90,7 +90,7 @@ class ParcelRepositoryImpl implements ParcelRepository {
 
       final rows = await _supabase
           .from('encomendas')
-          .select('*, perfil!encomendas_resident_id_fkey(nome_completo, apto_txt, bloco_txt)')
+          .select('*, perfil(nome_completo,apto_txt,bloco_txt)')
           .inFilter('resident_id', unitIds)
           .order('arrival_time', ascending: false);
 
@@ -119,7 +119,7 @@ class ParcelRepositoryImpl implements ParcelRepository {
 
     final rows = await _supabase
         .from('encomendas')
-        .select('*, perfil!encomendas_resident_id_fkey(nome_completo, apto_txt, bloco_txt)')
+        .select('*, perfil(nome_completo,apto_txt,bloco_txt)')
         .inFilter('resident_id', unitIds)
         .eq('status', 'pending')
         .order('arrival_time', ascending: false);
@@ -132,7 +132,7 @@ class ParcelRepositoryImpl implements ParcelRepository {
     try {
       final rows = await _supabase
           .from('encomendas')
-          .select('*, perfil!encomendas_resident_id_fkey(nome_completo, apto_txt, bloco_txt)')
+          .select('*, perfil(nome_completo,apto_txt,bloco_txt)')
           .eq('condominio_id', condominiumId)
           .eq('status', 'pending')
           .order('arrival_time', ascending: false);
@@ -158,7 +158,7 @@ class ParcelRepositoryImpl implements ParcelRepository {
     if (condominiumId.isEmpty) return [];
     final rows = await _supabase
         .from('encomendas')
-        .select('*, perfil!encomendas_resident_id_fkey(nome_completo, apto_txt, bloco_txt)')
+        .select('*, perfil(nome_completo,apto_txt,bloco_txt)')
         .eq('condominio_id', condominiumId)
         .eq('status', 'pending')
         .order('arrival_time', ascending: false);
@@ -197,7 +197,7 @@ class ParcelRepositoryImpl implements ParcelRepository {
     try {
       var query = _supabase
           .from('encomendas')
-          .select('*, perfil!encomendas_resident_id_fkey(nome_completo, apto_txt, bloco_txt)')
+          .select('*, perfil(nome_completo,apto_txt,bloco_txt)')
           .eq('condominio_id', condominiumId)
           .eq('status', 'delivered');
 
@@ -217,26 +217,33 @@ class ParcelRepositoryImpl implements ParcelRepository {
   }
 
   Parcel _mapToParcel(Map<String, dynamic> row) {
-    // Handle Supabase join: perfil is a nested map
-    final perfil = row['perfil'] as Map<String, dynamic>?;
-    // Prioritize bloco/apto stored directly on the encomenda record
-    final bloco = row['bloco'] as String? ?? perfil?['bloco_txt'] as String? ?? row['block'] as String? ?? '?';
-    final apto = row['apto'] as String? ?? perfil?['apto_txt'] as String? ?? row['unit_number'] as String? ?? '?';
+    // perfil join: may be null (no resident), a Map, or occasionally a List
+    final raw = row['perfil'];
+    final perfil = (raw is Map) ? raw as Map<String, dynamic> : null;
+
+    // Prefer denormalized bloco/apto stored on the encomenda; fall back to perfil
+    final bloco = (row['bloco'] as String?)?.isNotEmpty == true
+        ? row['bloco'] as String
+        : (perfil?['bloco_txt'] as String?) ?? '?';
+    final apto = (row['apto'] as String?)?.isNotEmpty == true
+        ? row['apto'] as String
+        : (perfil?['apto_txt'] as String?) ?? '?';
+
     return Parcel(
-      id: row['id'] as String,
+      id: row['id'] as String? ?? '',
       residentId: row['resident_id'] as String?,
-      residentName: perfil?['nome_completo'] as String? ?? row['nome_completo'] as String? ?? 'Sem morador',
+      residentName: (perfil?['nome_completo'] as String?) ?? 'Sem morador',
       unitNumber: apto,
       block: bloco,
       arrivalTime: row['arrival_time'] != null
-          ? DateTime.parse(row['arrival_time'] as String)
+          ? DateTime.tryParse(row['arrival_time'] as String) ?? DateTime.now()
           : DateTime.now(),
       deliveryTime: row['delivery_time'] != null
-          ? DateTime.parse(row['delivery_time'] as String)
+          ? DateTime.tryParse(row['delivery_time'] as String)
           : null,
       photoUrl: row['photo_url'] as String?,
       pickupProofUrl: row['pickup_proof_url'] as String?,
-      status: row['status'] as String,
+      status: row['status'] as String? ?? 'pending',
       condominiumId: row['condominio_id'] as String?,
       tipo: row['tipo'] as String?,
       trackingCode: row['tracking_code'] as String?,
