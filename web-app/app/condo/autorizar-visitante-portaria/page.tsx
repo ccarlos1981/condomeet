@@ -24,38 +24,53 @@ export default async function AutorizarVisitantePortariaPage() {
     .eq('id', condoId)
     .single()
 
-  // Get distinct blocos/aptos from resident profiles
+  // Fetch structural blocks and apartments
+  const { data: structuralData } = await supabase
+    .from('blocos')
+    .select('nome_ou_numero, unidades ( apartamentos ( numero ) )')
+    .eq('condominio_id', condoId)
+    .order('nome_ou_numero')
+    .limit(10000)
+
+  // Build blocos + aptosMap from structural tables
+  const blocosSet = new Set<string>()
+  const aptosPerBloco: Record<string, Set<string>> = {}
+
+  for (const blk of structuralData ?? []) {
+    const blocoName = blk.nome_ou_numero
+    if (!blocoName) continue
+    blocosSet.add(blocoName)
+    if (!aptosPerBloco[blocoName]) aptosPerBloco[blocoName] = new Set()
+    const units = (blk as any).unidades ?? []
+    for (const u of units) {
+      const apto = u?.apartamentos?.numero
+      if (apto) aptosPerBloco[blocoName].add(apto)
+    }
+  }
+  const blocos = [...blocosSet].sort((a, z) => a.localeCompare(z, 'pt-BR', { numeric: true }))
+  const aptosMap: Record<string, string[]> = {}
+  for (const b of blocos) {
+    aptosMap[b] = [...(aptosPerBloco[b] ?? [])].sort((a, z) => a.localeCompare(z, 'pt-BR', { numeric: true }))
+  }
+
+  // Fetch residents for unit lookup (who requested the visit)
   const { data: moradores } = await supabase
     .from('perfil')
-    .select('id, nome_completo, bloco_txt, apto_txt, botconversa_id, whatsapp')
+    .select('id, nome_completo, bloco_txt, apto_txt')
     .eq('condominio_id', condoId)
     .not('bloco_txt', 'is', null)
     .or('status_aprovacao.is.null,status_aprovacao.eq.aprovado')
 
-  // Build unique sorted lists + residents per unit
-  const blocosSet = new Set<string>()
-  const aptosPerBloco: Record<string, Set<string>> = {}
   const residentsPerUnit: Record<string, { id: string; nome_completo: string }[]> = {}
-
   for (const m of moradores ?? []) {
-    if (m.bloco_txt) {
-      blocosSet.add(m.bloco_txt)
-      if (!aptosPerBloco[m.bloco_txt]) aptosPerBloco[m.bloco_txt] = new Set()
-      if (m.apto_txt) {
-        aptosPerBloco[m.bloco_txt].add(m.apto_txt)
-        const unitKey = `${m.bloco_txt}__${m.apto_txt}`
-        if (!residentsPerUnit[unitKey]) residentsPerUnit[unitKey] = []
-        residentsPerUnit[unitKey].push({
-          id: m.id,
-          nome_completo: m.nome_completo || 'Morador',
-        })
-      }
+    if (m.bloco_txt && m.apto_txt) {
+      const unitKey = `${m.bloco_txt}__${m.apto_txt}`
+      if (!residentsPerUnit[unitKey]) residentsPerUnit[unitKey] = []
+      residentsPerUnit[unitKey].push({
+        id: m.id,
+        nome_completo: m.nome_completo || 'Morador',
+      })
     }
-  }
-  const blocos = [...blocosSet].sort()
-  const aptosMap: Record<string, string[]> = {}
-  for (const b of blocos) {
-    aptosMap[b] = [...(aptosPerBloco[b] ?? [])].sort((a, z) => a.localeCompare(z, 'pt-BR', { numeric: true }))
   }
 
   return (
