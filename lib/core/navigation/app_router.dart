@@ -21,6 +21,7 @@ import 'package:condomeet/features/enquete/presentation/screens/enquete_voting_s
 
 import 'package:condomeet/features/access/presentation/screens/visitor_authorization_screen.dart';
 import 'package:condomeet/features/access/presentation/screens/portaria_visitor_approval_screen.dart';
+import 'package:condomeet/features/access/presentation/screens/portaria_visitor_authorization_form_screen.dart';
 import 'package:condomeet/features/community/presentation/screens/documents_screen.dart';
 import 'package:condomeet/features/community/presentation/screens/contracts_screen.dart';
 import 'package:condomeet/features/community/presentation/screens/admin_documentos_screen.dart';
@@ -141,7 +142,7 @@ class AppRouter {
       '/home': (context) => const HomeScreen(),
       '/admin': (context) => const AdminScreen(),
       '/condo-structure': (context) => const CondominiumStructureScreen(),
-      '/portaria-visitor-approval': (context) => const PortariaVisitorApprovalScreen(),
+      '/portaria-visitor-approval': (context) => const PortariaVisitorAuthorizationFormScreen(),
       '/configure-menu': (context) => const ConfigureMenuScreen(),
       '/sos': (context) => const SosScreen(),
       '/sos-contatos': (context) => const SosContatosScreen(),
