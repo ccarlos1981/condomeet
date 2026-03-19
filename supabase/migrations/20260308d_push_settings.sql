@@ -58,8 +58,19 @@ BEGIN
     'picked_up_by_name', COALESCE(p_picked_by, '')
   );
 
+  -- 1. Push Notificações
   PERFORM net.http_post(
     url     := v_supa_url || '/functions/v1/parcel-push-notify',
+    headers := jsonb_build_object(
+      'Content-Type',  'application/json',
+      'Authorization', 'Bearer ' || v_svc_key
+    ),
+    body    := payload
+  );
+
+  -- 2. WhatsApp Notificações
+  PERFORM net.http_post(
+    url     := v_supa_url || '/functions/v1/whatsapp-parcel-notify',
     headers := jsonb_build_object(
       'Content-Type',  'application/json',
       'Authorization', 'Bearer ' || v_svc_key

@@ -72,7 +72,11 @@ serve(async (req) => {
           // ── Mensagem de CHEGADA ──
           const createdDate = parcelData?.created_at ? new Date(parcelData.created_at) : new Date();
           createdDate.setDate(createdDate.getDate() + 7);
-          const withdrawUntil = `${String(createdDate.getDate()).padStart(2, '0')}/${String(createdDate.getMonth() + 1).padStart(2, '0')}/${createdDate.getFullYear()}`;
+          // Format in Brazil timezone (Deno edge runtime runs in UTC)
+          const withdrawUntil = createdDate.toLocaleDateString('pt-BR', {
+            timeZone: 'America/Sao_Paulo',
+            day: '2-digit', month: '2-digit', year: 'numeric',
+          });
 
           const observationText = parcelData?.observacao?.trim() || parcelData?.notes?.trim() || 'Nenhuma';
           const trackingCode = parcelData?.tracking_code?.trim() || 'Nenhum';
@@ -101,7 +105,12 @@ Cod. interno: ${codInterno}`;
           const deliveryTime = parcelData?.delivery_time
             ? new Date(parcelData.delivery_time)
             : new Date();
-          const deliveryStr = `${String(deliveryTime.getDate()).padStart(2, '0')}/${String(deliveryTime.getMonth() + 1).padStart(2, '0')}/${deliveryTime.getFullYear()} às ${String(deliveryTime.getHours()).padStart(2, '0')}:${String(deliveryTime.getMinutes()).padStart(2, '0')}`;
+          // Format in Brazil timezone (Deno edge runtime runs in UTC)
+          const deliveryStr = deliveryTime.toLocaleString('pt-BR', {
+            timeZone: 'America/Sao_Paulo',
+            day: '2-digit', month: '2-digit', year: 'numeric',
+            hour: '2-digit', minute: '2-digit',
+          });
 
           const whoPickedUp = picked_up_by_name?.trim() || 'Morador';
 

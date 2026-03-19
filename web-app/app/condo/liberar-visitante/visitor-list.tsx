@@ -49,7 +49,7 @@ export default function VisitorList({ initialInvitations, condoId, userId, initi
   const [fBloco, setFBloco] = useState('')
   const [fApto, setFApto] = useState('')
   const [fDate, setFDate] = useState('')
-  const [fStatus, setFStatus] = useState<null | boolean>(null)
+  const [fStatus, setFStatus] = useState<null | boolean>(false)
 
   // Pagination
   const [page, setPage] = useState(1)
@@ -97,13 +97,11 @@ export default function VisitorList({ initialInvitations, condoId, userId, initi
   }
 
   const isLiberado = (inv: Invitation) => Boolean(inv.visitante_compareceu)
-  const statusCycle = () => setFStatus(prev => prev === null ? false : prev === false ? true : null)
-  const statusLabel = fStatus === null ? '● Todos' : fStatus === false ? '⏳ Pendentes' : '✓ Liberados'
-  const statusColor = fStatus === null
-    ? 'bg-gray-100 text-gray-600 border-gray-200'
-    : fStatus === false
-      ? 'bg-orange-100 text-orange-700 border-orange-300'
-      : 'bg-green-100 text-green-700 border-green-300'
+  const statusOptions: { value: null | boolean; label: string }[] = [
+    { value: null, label: '● Todos' },
+    { value: false, label: '⏳ Pendentes' },
+    { value: true, label: '✓ Liberados' },
+  ]
   const hasFilters = fCode || fBloco || fApto || fDate || fStatus !== null
   const clearFilters = () => { setFCode(''); setFBloco(''); setFApto(''); setFDate(''); setFStatus(null) }
 
@@ -169,9 +167,25 @@ export default function VisitorList({ initialInvitations, condoId, userId, initi
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
             <span className="text-xs text-gray-500 font-medium">Status:</span>
-            <button onClick={statusCycle} className={`px-3 py-1.5 text-xs font-semibold rounded-full border transition-all ${statusColor}`}>
-              {statusLabel}
-            </button>
+            <div className="flex rounded-xl border border-gray-200 overflow-hidden bg-white shadow-sm">
+              {statusOptions.map(opt => (
+                <button
+                  key={String(opt.value)}
+                  onClick={() => setFStatus(opt.value)}
+                  className={`px-3 py-1.5 text-xs font-semibold transition-colors ${
+                    fStatus === opt.value
+                      ? opt.value === null
+                        ? 'bg-gray-600 text-white'
+                        : opt.value === false
+                          ? 'bg-orange-500 text-white'
+                          : 'bg-green-600 text-white'
+                      : 'text-gray-500 hover:bg-gray-50'
+                  }`}
+                >
+                  {opt.label}
+                </button>
+              ))}
+            </div>
             {hasFilters && (
               <button onClick={clearFilters} className="text-xs text-gray-400 hover:text-red-500 transition-colors ml-1">
                 Limpar

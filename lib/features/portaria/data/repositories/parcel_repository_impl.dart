@@ -199,7 +199,7 @@ class ParcelRepositoryImpl implements ParcelRepository {
       // PowerSync records for parcels registered by other residents.
       await _supabase.from('encomendas').update({
         'status': 'delivered',
-        'delivery_time': DateTime.now().toUtc().toIso8601String(),
+        // delivery_time is set server-side by DB trigger (fn_set_delivery_time)
         'pickup_proof_url': pickupProofUrl,
         'picked_up_by_id': pickedUpById,
         'picked_up_by_name': pickedUpByName,

@@ -290,7 +290,7 @@ export default function ParcelList({ initialParcels, isPorter, condoId }: Props)
       .from('encomendas')
       .update({
         status: 'delivered',
-        delivery_time: now,
+        // delivery_time is set server-side by DB trigger (fn_set_delivery_time)
         picked_up_by_id: pickedById,
         picked_up_by_name: pickedByName || null,
       })
