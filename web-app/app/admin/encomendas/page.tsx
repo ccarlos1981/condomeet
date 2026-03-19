@@ -21,32 +21,36 @@ export default async function AdminEncomendasPage() {
 
   const condoId = profile?.condominio_id ?? ''
 
-  // Load ALL parcels for the condominium
-  const { data: parcels, error } = await supabase
-    .from('encomendas')
-    .select('id, resident_id, status, arrival_time, delivery_time, tipo, tracking_code, observacao, photo_url, pickup_proof_url, condominio_id, picked_up_by_id, picked_up_by_name, bloco, apto')
+  // Fetch tipo_estrutura
+  const { data: condo } = await supabase
+    .from('condominios')
+    .select('tipo_estrutura')
+    .eq('id', condoId)
+    .single()
+  const tipoEstrutura = condo?.tipo_estrutura ?? 'predio'
+
+  // Fetch ALL blocos and aptos from structural tables for filter dropdowns
+  const { data: blocosData } = await supabase
+    .from('blocos')
+    .select('nome_ou_numero')
     .eq('condominio_id', condoId)
-    .order('arrival_time', { ascending: false })
-    .limit(200)
+    .gt('nome_ou_numero', '0')
 
-  if (error) console.error('❌ admin encomendas error:', JSON.stringify(error))
+  const { data: aptosData } = await supabase
+    .from('apartamentos')
+    .select('numero')
+    .eq('condominio_id', condoId)
+    .gt('numero', '0')
 
-  // Resolve resident names
-  const residentIds = [...new Set((parcels ?? []).map((p: { resident_id: string }) => p.resident_id).filter(Boolean))]
-  const perfilMap: Record<string, { id: string; nome_completo: string; bloco_txt: string | null; apto_txt: string | null }> = {}
-
-  if (residentIds.length > 0) {
-    const { data: perfis } = await supabase
-      .from('perfil')
-      .select('id, nome_completo, bloco_txt, apto_txt')
-      .in('id', residentIds)
-    ;(perfis ?? []).forEach((p: { id: string; nome_completo: string; bloco_txt: string | null; apto_txt: string | null }) => { perfilMap[p.id] = p })
+  const numSort = (a: string, b: string) => a.localeCompare(b, 'pt', { numeric: true })
+  const allBlocos = [...new Set((blocosData ?? []).map(b => b.nome_ou_numero).filter(Boolean) as string[])].sort(numSort)
+  const allAptosArr = [...new Set((aptosData ?? []).map(a => a.numero).filter(Boolean) as string[])].sort(numSort)
+  const allAptosMap: Record<string, string[]> = {}
+  for (const bloco of allBlocos) {
+    allAptosMap[bloco] = allAptosArr
   }
 
-  const parcelsWithResident = (parcels ?? []).map((p: { resident_id: string; [key: string]: unknown }) => ({
-    ...p,
-    perfil: perfilMap[p.resident_id] ?? null,
-  })) as { id: string; resident_id: string; status: string; arrival_time: string; delivery_time: string | null; tipo: string | null; tracking_code: string | null; observacao: string | null; photo_url: string | null; pickup_proof_url: string | null; condominio_id: string; picked_up_by_id: string | null; picked_up_by_name: string | null; bloco: string | null; apto: string | null; perfil: { id: string; nome_completo: string; bloco_txt: string | null; apto_txt: string | null } | null }[]
+  // NOTE: parcels are now fetched client-side by ParcelList
 
   return (
     <div className="p-6 lg:p-8 max-w-5xl">
@@ -68,10 +72,13 @@ export default async function AdminEncomendasPage() {
       </div>
 
       <ParcelList
-        initialParcels={parcelsWithResident}
+        initialParcels={[]}
         isPorter={true}
         userId={user.id}
         condoId={condoId}
+        tipoEstrutura={tipoEstrutura}
+        allBlocos={allBlocos}
+        allAptosMap={allAptosMap}
       />
     </div>
   )

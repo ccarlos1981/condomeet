@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import {
   Package, CheckCircle2, Clock, Eye, X, Loader2,
@@ -62,6 +62,8 @@ function fmt(iso: string) {
     hour: '2-digit', minute: '2-digit',
   })
 }
+
+const PARCEL_FIELDS = 'id, resident_id, status, arrival_time, delivery_time, tipo, tracking_code, observacao, photo_url, pickup_proof_url, condominio_id, picked_up_by_id, picked_up_by_name, bloco, apto, created_at'
 
 // ── Delivery Modal ────────────────────────────────────────────────────────────
 
@@ -254,6 +256,13 @@ export default function ParcelList({ initialParcels, isPorter, condoId, tipoEstr
   const [deliveryModal, setDeliveryModal] = useState<Parcel | null>(null)
   const [mounted, setMounted] = useState(false)
 
+  // Server-side fetch state (porter/admin mode)
+  const [loading, setLoading] = useState(isPorter)
+  const [totalFiltered, setTotalFiltered] = useState(0)
+  const [pendingStat, setPendingStat] = useState(0)
+  const [deliveredStat, setDeliveredStat] = useState(0)
+  const fetchIdRef = useRef(0)
+
   useEffect(() => { requestAnimationFrame(() => setMounted(true)) }, [])
 
   const PER_PAGE = 10
@@ -272,19 +281,130 @@ export default function ParcelList({ initialParcels, isPorter, condoId, tipoEstr
           .filter(Boolean) as string[]
       )].sort(numSort)
 
-  const filtered = parcels.filter(p => {
-    if (statusFilter === 'pending'   && p.status !== 'pending')   return false
-    if (statusFilter === 'delivered' && p.status !== 'delivered') return false
-    if (blocoFilter && (p.bloco ?? p.perfil?.bloco_txt) !== blocoFilter) return false
-    if (aptoFilter  && (p.apto ?? p.perfil?.apto_txt)  !== aptoFilter)  return false
-    return true
-  })
+  // ── Server-side fetch (porter/admin mode) ───────────────────────────────────
 
-  const totalPages = Math.max(1, Math.ceil(filtered.length / PER_PAGE))
-  const paginated  = filtered.slice((page - 1) * PER_PAGE, page * PER_PAGE)
+  const fetchParcels = useCallback(async (
+    status: 'all' | 'pending' | 'delivered',
+    bloco: string,
+    apto: string,
+    pageNum: number
+  ) => {
+    const fetchId = ++fetchIdRef.current
+    setLoading(true)
 
-  const pending   = parcels.filter(p => p.status === 'pending').length
-  const delivered = parcels.filter(p => p.status === 'delivered').length
+    try {
+      const from = (pageNum - 1) * PER_PAGE
+      const to = from + PER_PAGE - 1
+
+      // Main data query with count
+      let query = supabase
+        .from('encomendas')
+        .select(PARCEL_FIELDS, { count: 'exact' })
+        .eq('condominio_id', condoId)
+        .order('created_at', { ascending: false })
+
+      if (status !== 'all') query = query.eq('status', status)
+      if (bloco) query = query.eq('bloco', bloco)
+      if (apto) query = query.eq('apto', apto)
+
+      // Stats queries — filtered by bloco/apto but NOT by status
+      let pendingQ = supabase.from('encomendas')
+        .select('*', { count: 'exact', head: true })
+        .eq('condominio_id', condoId)
+        .eq('status', 'pending')
+      let deliveredQ = supabase.from('encomendas')
+        .select('*', { count: 'exact', head: true })
+        .eq('condominio_id', condoId)
+        .eq('status', 'delivered')
+
+      if (bloco) {
+        pendingQ = pendingQ.eq('bloco', bloco)
+        deliveredQ = deliveredQ.eq('bloco', bloco)
+      }
+      if (apto) {
+        pendingQ = pendingQ.eq('apto', apto)
+        deliveredQ = deliveredQ.eq('apto', apto)
+      }
+
+      // Execute all in parallel
+      const [dataResult, pendingResult, deliveredResult] = await Promise.all([
+        query.range(from, to),
+        pendingQ,
+        deliveredQ,
+      ])
+
+      // Race condition guard
+      if (fetchId !== fetchIdRef.current) return
+
+      const { data, count, error } = dataResult
+      if (error) console.error('❌ fetch parcels error:', error)
+
+      // Resolve resident names
+      const parcelsData = (data ?? []) as Record<string, unknown>[]
+      const residentIds = [...new Set(parcelsData.map(p => p.resident_id as string).filter(Boolean))]
+      const perfilMap: Record<string, Perfil> = {}
+
+      if (residentIds.length > 0) {
+        const { data: perfis } = await supabase
+          .from('perfil')
+          .select('id, nome_completo, bloco_txt, apto_txt')
+          .in('id', residentIds)
+        ;(perfis ?? []).forEach((p: Perfil) => { perfilMap[p.id] = p })
+      }
+
+      // Race condition guard
+      if (fetchId !== fetchIdRef.current) return
+
+      const parcelsWithResident = parcelsData.map(p => ({
+        ...p,
+        perfil: perfilMap[(p.resident_id as string)] ?? null,
+      })) as Parcel[]
+
+      setParcels(parcelsWithResident)
+      setTotalFiltered(count ?? 0)
+      setPendingStat(pendingResult.count ?? 0)
+      setDeliveredStat(deliveredResult.count ?? 0)
+    } catch (err) {
+      console.error('❌ fetchParcels error:', err)
+    } finally {
+      if (fetchId === fetchIdRef.current) setLoading(false)
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [condoId])
+
+  // Fetch on mount and filter change (porter/admin mode)
+  useEffect(() => {
+    if (isPorter) {
+      fetchParcels(statusFilter, blocoFilter, aptoFilter, page)
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [statusFilter, blocoFilter, aptoFilter, page, isPorter])
+
+  // ── Compute display data ──────────────────────────────────────────────────
+
+  // Porter mode: parcels state already contains server-filtered + paginated results
+  // Resident mode: client-side filtering from initialParcels
+  const filtered = isPorter
+    ? parcels
+    : parcels.filter(p => {
+        if (statusFilter === 'pending'   && p.status !== 'pending')   return false
+        if (statusFilter === 'delivered' && p.status !== 'delivered') return false
+        if (blocoFilter && (p.bloco ?? p.perfil?.bloco_txt) !== blocoFilter) return false
+        if (aptoFilter  && (p.apto ?? p.perfil?.apto_txt)  !== aptoFilter)  return false
+        return true
+      })
+
+  const totalPages = isPorter
+    ? Math.max(1, Math.ceil(totalFiltered / PER_PAGE))
+    : Math.max(1, Math.ceil(filtered.length / PER_PAGE))
+
+  const paginated = isPorter
+    ? filtered  // Already paginated from server
+    : filtered.slice((page - 1) * PER_PAGE, page * PER_PAGE)
+
+  const pending   = isPorter ? pendingStat   : parcels.filter(p => p.status === 'pending').length
+  const delivered  = isPorter ? deliveredStat : parcels.filter(p => p.status === 'delivered').length
+  const total      = isPorter ? (pendingStat + deliveredStat) : parcels.length
 
   // ── Dar Baixa confirm ──────────────────────────────────────────────────────
 
@@ -298,7 +418,6 @@ export default function ParcelList({ initialParcels, isPorter, condoId, tipoEstr
       .from('encomendas')
       .update({
         status: 'delivered',
-        // delivery_time is set server-side by DB trigger (fn_set_delivery_time)
         picked_up_by_id: pickedById,
         picked_up_by_name: pickedByName || null,
       })
@@ -309,12 +428,18 @@ export default function ParcelList({ initialParcels, isPorter, condoId, tipoEstr
       return
     }
 
+    // Optimistic update in local state + refresh from server for porter mode
     setParcels(prev => prev.map(p =>
       p.id === parcel.id
         ? { ...p, status: 'delivered', delivery_time: now, picked_up_by_id: pickedById, picked_up_by_name: pickedByName }
         : p
     ))
     setDeliveryModal(null)
+
+    // Refresh stats from server in porter mode
+    if (isPorter) {
+      fetchParcels(statusFilter, blocoFilter, aptoFilter, page)
+    }
   }
 
   // ── Render ─────────────────────────────────────────────────────────────────
@@ -346,7 +471,7 @@ export default function ParcelList({ initialParcels, isPorter, condoId, tipoEstr
       {/* Stats */}
       <div className="grid grid-cols-3 gap-4 mb-6">
         {[
-          { label: 'Total', value: parcels.length, color: 'text-gray-900' },
+          { label: 'Total', value: total, color: 'text-gray-900' },
           { label: 'Aguardando', value: pending, color: 'text-[#FC5931]' },
           { label: 'Entregues', value: delivered, color: 'text-green-600' },
         ].map(s => (
@@ -397,13 +522,22 @@ export default function ParcelList({ initialParcels, isPorter, condoId, tipoEstr
         )}
 
         <div className="ml-auto flex items-center gap-2 text-xs text-gray-400">
-          <RefreshCw size={12} />
-          {filtered.length} encomenda{filtered.length !== 1 ? 's' : ''}
+          {loading ? (
+            <Loader2 size={12} className="animate-spin" />
+          ) : (
+            <RefreshCw size={12} />
+          )}
+          {isPorter ? totalFiltered : filtered.length} encomenda{(isPorter ? totalFiltered : filtered.length) !== 1 ? 's' : ''}
         </div>
       </div>
 
-      {/* List */}
-      {paginated.length === 0 ? (
+      {/* Loading overlay */}
+      {loading ? (
+        <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-12 text-center">
+          <Loader2 size={32} className="text-[#FC5931] mx-auto mb-3 animate-spin" />
+          <p className="text-gray-400 text-sm">Carregando encomendas...</p>
+        </div>
+      ) : paginated.length === 0 ? (
         <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-12 text-center">
           <Package size={40} className="text-gray-200 mx-auto mb-3" />
           <p className="text-gray-400 text-sm">Nenhuma encomenda encontrada.</p>
@@ -413,30 +547,30 @@ export default function ParcelList({ initialParcels, isPorter, condoId, tipoEstr
           {paginated.map(p => {
             const info = TIPO_LABELS[p.tipo ?? ''] ?? TIPO_LABELS['pacote']
             const Icon = info.icon
-            const delivered = p.status === 'delivered'
+            const isDelivered = p.status === 'delivered'
 
             return (
               <div
                 key={p.id}
                 className={`bg-white rounded-2xl border shadow-sm overflow-hidden transition-all ${
-                  delivered ? 'border-gray-100 opacity-80' : 'border-gray-100 hover:shadow-md'
+                  isDelivered ? 'border-gray-100 opacity-80' : 'border-gray-100 hover:shadow-md'
                 }`}
               >
                 {/* Card header */}
                 <div className={`flex items-center justify-between px-5 py-3 ${
-                  delivered ? 'bg-green-50' : 'bg-[#FC5931]'
+                  isDelivered ? 'bg-green-50' : 'bg-[#FC5931]'
                 }`}>
                   <div className="flex items-center gap-3">
                     <div className={`w-9 h-9 rounded-xl flex items-center justify-center ${
-                      delivered ? 'bg-green-100' : 'bg-white/15'
+                      isDelivered ? 'bg-green-100' : 'bg-white/15'
                     }`}>
-                      <Icon size={17} className={delivered ? 'text-green-600' : 'text-white'} />
+                      <Icon size={17} className={isDelivered ? 'text-green-600' : 'text-white'} />
                     </div>
                     <div>
-                      <p className={`font-bold text-sm ${delivered ? 'text-gray-900' : 'text-white'}`}>
+                      <p className={`font-bold text-sm ${isDelivered ? 'text-gray-900' : 'text-white'}`}>
                         {getBlocoLabel(tipoEstrutura)} {p.bloco ?? p.perfil?.bloco_txt ?? '?'} / {getAptoLabel(tipoEstrutura)} {p.apto ?? p.perfil?.apto_txt ?? '?'}
                       </p>
-                      <p className={`text-xs ${delivered ? 'text-gray-500' : 'text-white/70'}`}>
+                      <p className={`text-xs ${isDelivered ? 'text-gray-500' : 'text-white/70'}`}>
                         {p.perfil?.nome_completo ?? 'Sem morador'}
                       </p>
                     </div>
@@ -472,7 +606,7 @@ export default function ParcelList({ initialParcels, isPorter, condoId, tipoEstr
                   {/* Status row */}
                   <div className="flex items-end justify-between gap-3 mt-1">
                     <div className="flex-1">
-                      {delivered ? (
+                      {isDelivered ? (
                         <div className="space-y-1.5">
                           <div className="flex items-center gap-1.5 text-green-600 text-sm font-medium">
                             <CheckCircle2 size={15} />
@@ -512,7 +646,7 @@ export default function ParcelList({ initialParcels, isPorter, condoId, tipoEstr
                       </button>
 
                       {/* Signature thumbnail (only for delivered) */}
-                      {delivered && (
+                      {isDelivered && (
                         <button
                           onClick={() => p.pickup_proof_url ? setPhotoModal(p.pickup_proof_url) : null}
                           className={`w-14 h-14 rounded-xl overflow-hidden border-2 transition-colors shadow-sm flex-shrink-0 flex items-center justify-center ${
@@ -529,7 +663,7 @@ export default function ParcelList({ initialParcels, isPorter, condoId, tipoEstr
                         </button>
                       )}
 
-                      {!delivered && isPorter && (
+                      {!isDelivered && isPorter && (
                         <button
                           onClick={() => setDeliveryModal(p)}
                           className="flex items-center gap-1.5 bg-green-600 hover:bg-green-700 text-white text-xs font-semibold px-4 py-2 rounded-xl transition-colors shadow-sm"

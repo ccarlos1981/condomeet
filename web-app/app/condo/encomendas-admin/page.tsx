@@ -23,9 +23,6 @@ export default async function EncomendasAdminPage() {
     role.toLowerCase().includes('sindico') ||
     role === 'admin'
 
-  // Only admin/porter/sindico can access this page
-  // if (!isAdmin) redirect('/condo/encomendas')
-
   const condoId = profile?.condominio_id ?? ''
 
   // Fetch tipo_estrutura from condominios
@@ -36,29 +33,7 @@ export default async function EncomendasAdminPage() {
     .single()
   const tipoEstrutura = condo?.tipo_estrutura ?? 'predio'
 
-  // Load ALL parcels for the condominium
-  const { data: parcels, error } = await supabase
-    .from('encomendas')
-    .select('id, resident_id, status, arrival_time, delivery_time, tipo, tracking_code, observacao, photo_url, pickup_proof_url, condominio_id, picked_up_by_id, picked_up_by_name, bloco, apto, created_at')
-    .eq('condominio_id', condoId)
-    .order('created_at', { ascending: false })
-    .limit(200)
-
-  if (error) console.error('❌ parcels error:', JSON.stringify(error))
-
-  // Resolve resident names
-  const residentIds = [...new Set((parcels ?? []).map((p: { resident_id: string }) => p.resident_id).filter(Boolean))]
-  const perfilMap: Record<string, { id: string; nome_completo: string; bloco_txt: string | null; apto_txt: string | null }> = {}
-
-  if (residentIds.length > 0) {
-    const { data: perfis } = await supabase
-      .from('perfil')
-      .select('id, nome_completo, bloco_txt, apto_txt')
-      .in('id', residentIds)
-    ;(perfis ?? []).forEach((p: { id: string; nome_completo: string; bloco_txt: string | null; apto_txt: string | null }) => { perfilMap[p.id] = p })
-  }
-
-  // Fetch ALL blocos and aptos from structural tables, ordered numerically at DB level
+  // Fetch ALL blocos and aptos from structural tables for filter dropdowns
   const { data: blocosData } = await supabase
     .from('blocos')
     .select('nome_ou_numero')
@@ -80,10 +55,8 @@ export default async function EncomendasAdminPage() {
     allAptosMap[bloco] = allAptosArr
   }
 
-  const parcelsWithResident = (parcels ?? []).map((p: { resident_id: string; [key: string]: unknown }) => ({
-    ...p,
-    perfil: perfilMap[p.resident_id] ?? null,
-  })) as { id: string; resident_id: string; status: string; arrival_time: string; delivery_time: string | null; tipo: string | null; tracking_code: string | null; observacao: string | null; photo_url: string | null; pickup_proof_url: string | null; condominio_id: string; picked_up_by_id: string | null; picked_up_by_name: string | null; bloco: string | null; apto: string | null; perfil: { id: string; nome_completo: string; bloco_txt: string | null; apto_txt: string | null } | null }[]
+  // NOTE: parcels are now fetched client-side by ParcelList with server-side
+  // filtering + pagination (10/page). No need to preload here.
 
   return (
     <div className="p-6 lg:p-8 max-w-5xl">
@@ -107,7 +80,7 @@ export default async function EncomendasAdminPage() {
       </div>
 
       <ParcelList
-        initialParcels={parcelsWithResident}
+        initialParcels={[]}
         isPorter={isAdmin}
         userId={user.id}
         condoId={condoId}
