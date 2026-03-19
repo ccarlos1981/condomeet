@@ -22,6 +22,10 @@ interface Invitation {
   liberado_em: string | null
   status: string | null
   perfil: PerfilJoin | null
+  criado_por_portaria?: boolean
+  bloco_destino?: string | null
+  apto_destino?: string | null
+  morador_nome_manual?: string | null
 }
 
 interface Props {
@@ -60,8 +64,14 @@ export default function VisitorList({ initialInvitations, condoId, userId, initi
   useEffect(() => {
     let result = invitations
     if (fCode) result = result.filter(i => i.qr_data?.toLowerCase().includes(fCode.toLowerCase()))
-    if (fBloco) result = result.filter(i => i.perfil?.bloco_txt?.toLowerCase().includes(fBloco.toLowerCase()))
-    if (fApto) result = result.filter(i => i.perfil?.apto_txt?.toLowerCase().includes(fApto.toLowerCase()))
+    if (fBloco) result = result.filter(i => {
+      const b = i.criado_por_portaria ? i.bloco_destino : i.perfil?.bloco_txt
+      return b?.toLowerCase().includes(fBloco.toLowerCase())
+    })
+    if (fApto) result = result.filter(i => {
+      const a = i.criado_por_portaria ? i.apto_destino : i.perfil?.apto_txt
+      return a?.toLowerCase().includes(fApto.toLowerCase())
+    })
     if (fDate) result = result.filter(i => i.validity_date?.startsWith(fDate))
     if (fStatus !== null) result = result.filter(i => Boolean(i.visitante_compareceu) === fStatus)
     setFiltered(result)
@@ -109,7 +119,7 @@ export default function VisitorList({ initialInvitations, condoId, userId, initi
     setLoadingMore(true)
     const { data: allConvites } = await supabase
       .from('convites')
-      .select('id, qr_data, guest_name, visitor_type, visitante_compareceu, validity_date, created_at, liberado_em, resident_id, status')
+      .select('id, qr_data, guest_name, visitor_type, visitante_compareceu, validity_date, created_at, liberado_em, resident_id, status, criado_por_portaria, bloco_destino, apto_destino, morador_nome_manual')
       .eq('condominio_id', condoId)
       .order('created_at', { ascending: false })
 
@@ -218,9 +228,13 @@ export default function VisitorList({ initialInvitations, condoId, userId, initi
         <div className="space-y-4">
           {paginated.map(inv => {
             const liberado = isLiberado(inv)
-            const bloco = inv.perfil?.bloco_txt ?? '—'
-            const apto = inv.perfil?.apto_txt ?? '—'
-            const residentName = inv.perfil?.nome_completo ?? '—'
+            const isPortaria = inv.criado_por_portaria === true
+            const bloco = isPortaria ? (inv.bloco_destino ?? '—') : (inv.perfil?.bloco_txt ?? '—')
+            const apto = isPortaria ? (inv.apto_destino ?? '—') : (inv.perfil?.apto_txt ?? '—')
+            const residentName = isPortaria
+              ? (inv.perfil?.nome_completo ?? inv.morador_nome_manual ?? 'Não identificado')
+              : (inv.perfil?.nome_completo ?? '—')
+            const solicitadoPor = isPortaria ? 'Portaria' : residentName
             return (
               <div
                 key={inv.id}
@@ -240,11 +254,13 @@ export default function VisitorList({ initialInvitations, condoId, userId, initi
                       <p className="text-white font-semibold text-sm">
                         Bloco: {bloco} / Apto: {apto}
                       </p>
-                      <p className="text-white/80 text-xs">Morador(a): {residentName}</p>
+                      <p className="text-white/80 text-xs">
+                        {isPortaria ? `Solicitado por: ${solicitadoPor}` : `Morador(a): ${residentName}`}
+                      </p>
                     </div>
                   </div>
                   <span className="text-xs font-bold px-3 py-1 rounded-full bg-white/20 text-white">
-                    Acesso para Unidade
+                    {isPortaria ? 'Registrado via Portaria' : 'Acesso para Unidade'}
                   </span>
                 </div>
 

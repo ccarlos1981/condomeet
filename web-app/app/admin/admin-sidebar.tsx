@@ -56,6 +56,7 @@ export default function AdminSidebar({
       title: 'Gestão',
       items: [
         { label: 'Encomendas do Cond.', href: '/admin/encomendas', icon: <Package size={18} /> },
+        { label: 'Autorização Visitante', href: '/condo/autorizar-visitante-portaria', icon: <UserCheck size={18} /> },
         { label: 'Documentos',      href: '/admin/documentos',      icon: <FileText size={18} /> },
         { label: 'Contratos',       href: '/admin/contratos',       icon: <FileText size={18} /> },
         { label: 'Áreas Comuns',    href: '/admin/areas-comuns',    icon: <MapPin size={18} /> },

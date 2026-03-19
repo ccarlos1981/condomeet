@@ -18,7 +18,7 @@ export default async function LiberarVisitantePage() {
   // 1) Fetch convites without join — only real columns from migrations (últimos 5)
   const { data: convites, error: convitesError } = await supabase
     .from('convites')
-    .select('id, qr_data, guest_name, visitor_type, visitante_compareceu, validity_date, created_at, liberado_em, resident_id, status')
+    .select('id, qr_data, guest_name, visitor_type, visitante_compareceu, validity_date, created_at, liberado_em, resident_id, status, criado_por_portaria, bloco_destino, apto_destino, morador_nome_manual')
     .eq('condominio_id', condoId)
     .order('created_at', { ascending: false })
     .limit(5)
