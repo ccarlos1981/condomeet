@@ -143,6 +143,7 @@ class AppRouter {
       '/admin': (context) => const AdminScreen(),
       '/condo-structure': (context) => const CondominiumStructureScreen(),
       '/portaria-visitor-approval': (context) => const PortariaVisitorAuthorizationFormScreen(),
+      '/autorizar-visitante-portaria': (context) => const PortariaVisitorAuthorizationFormScreen(),
       '/configure-menu': (context) => const ConfigureMenuScreen(),
       '/sos': (context) => const SosScreen(),
       '/sos-contatos': (context) => const SosContatosScreen(),
