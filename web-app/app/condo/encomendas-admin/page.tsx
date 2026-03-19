@@ -21,6 +21,7 @@ export default async function EncomendasAdminPage() {
     role.toLowerCase().includes('porteiro') ||
     role.toLowerCase().includes('síndico') ||
     role.toLowerCase().includes('sindico') ||
+    role.toLowerCase().includes('sub') ||
     role === 'admin'
 
   const condoId = profile?.condominio_id ?? ''

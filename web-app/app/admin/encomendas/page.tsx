@@ -16,7 +16,7 @@ export default async function AdminEncomendasPage() {
     .single()
 
   const role = (profile?.papel_sistema ?? '').toLowerCase()
-  const isAdmin = role.includes('síndico') || role.includes('sindico') || role === 'admin'
+  const isAdmin = role.includes('síndico') || role.includes('sindico') || role.includes('sub') || role === 'admin'
   if (!isAdmin) redirect('/condo')
 
   const condoId = profile?.condominio_id ?? ''
