@@ -637,6 +637,61 @@ async function handlePortariaCreated(
 
   console.log(`handlePortariaCreated results:`, results)
 
+  // ── FCM Push Notification ──────────────────────────────────────────
+  try {
+    const serviceAccountJson = Deno.env.get("FIREBASE_SERVICE_ACCOUNT_JSON")
+    if (serviceAccountJson) {
+      const serviceAccount = JSON.parse(serviceAccountJson)
+      const fcmAccessToken = await getFcmAccessToken(serviceAccount)
+      const projectId = serviceAccount.project_id
+
+      const pushTitle = "🚪 Autorização de visitante registrada"
+      const pushBody = `Tipo: ${tipoVisitante} — ${blocoLabel} ${bloco_destino} / ${aptoLabel} ${apto_destino} — Data: ${visitDate}`
+      const pushData: Record<string, string> = {
+        type: "convite",
+        event: "portaria_created",
+        convite_id: convite_id || "",
+      }
+
+      // Get FCM tokens: from specific resident or all unit residents
+      let fcmTargets: { id: string; fcm_token: string }[] = []
+
+      if (resident_id && resident_id.trim() !== "") {
+        const { data: rp } = await supabase
+          .from("perfil")
+          .select("id, fcm_token")
+          .eq("id", resident_id)
+          .not("fcm_token", "is", null)
+          .maybeSingle()
+        if (rp?.fcm_token) fcmTargets = [rp]
+      } else {
+        const { data: unitResidents2 } = await supabase
+          .from("perfil")
+          .select("id, fcm_token")
+          .eq("condominio_id", condominio_id)
+          .eq("bloco_txt", bloco_destino)
+          .eq("apto_txt", apto_destino)
+          .not("fcm_token", "is", null)
+        fcmTargets = (unitResidents2 ?? []).filter((r: any) => r.fcm_token && r.fcm_token.length > 10)
+      }
+
+      for (const target of fcmTargets) {
+        const pushResult = await sendFcmPush(fcmAccessToken, projectId, target.fcm_token, pushTitle, pushBody, pushData)
+        console.log(`FCM push to ${target.id}: ${pushResult.success ? "✅" : "❌"} ${pushResult.error || ""}`)
+        results.push(`FCM ${target.id}: ${pushResult.success ? "✅" : "❌"}`)
+      }
+
+      if (fcmTargets.length === 0) {
+        console.log("No FCM tokens found for portaria_created push")
+        results.push("FCM: no tokens found")
+      }
+    }
+  } catch (fcmErr: unknown) {
+    const msg = fcmErr instanceof Error ? fcmErr.message : String(fcmErr)
+    console.error("FCM push error in handlePortariaCreated:", msg)
+    results.push(`FCM error: ${msg}`)
+  }
+
   return jsonResponse({
     action: "portaria_created",
     results,
