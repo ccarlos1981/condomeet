@@ -104,7 +104,7 @@ export default async function RegistrarEncomendaPage() {
           residentName: resident?.nome ?? null,
         }
       }).sort((a, b) =>
-        a.blocoNome.localeCompare(b.blocoNome) || a.aptoNumero.localeCompare(b.aptoNumero)
+        a.blocoNome.localeCompare(b.blocoNome, 'pt', { numeric: true }) || a.aptoNumero.localeCompare(b.aptoNumero, 'pt', { numeric: true })
       )
     }
   }

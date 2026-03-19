@@ -41,6 +41,8 @@ interface Props {
   isPorter: boolean
   userId: string
   condoId: string
+  allBlocos?: string[]
+  allAptosMap?: Record<string, string[]>
 }
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
@@ -237,7 +239,7 @@ function DeliveryModal({ parcel, condoId, onClose, onConfirm }: DeliveryModalPro
 
 // ── Main List ─────────────────────────────────────────────────────────────────
 
-export default function ParcelList({ initialParcels, isPorter, condoId }: Props) {
+export default function ParcelList({ initialParcels, isPorter, condoId, allBlocos, allAptosMap }: Props) {
   const supabase = createClient()
 
   const [parcels, setParcels] = useState<Parcel[]>(initialParcels)
@@ -252,17 +254,20 @@ export default function ParcelList({ initialParcels, isPorter, condoId }: Props)
   useEffect(() => { requestAnimationFrame(() => setMounted(true)) }, [])
 
   const PER_PAGE = 10
+  const numSort = (a: string, b: string) => a.localeCompare(b, 'pt', { numeric: true })
 
-  // Derived
-  const uniqueBlocos = [...new Set(
+  // Use server-provided blocos/aptos when available, fallback to parcel-derived
+  const uniqueBlocos = allBlocos ?? [...new Set(
     parcels.map(p => p.bloco ?? p.perfil?.bloco_txt).filter(Boolean) as string[]
-  )].sort()
-  const uniqueAptos = [...new Set(
-    parcels
-      .filter(p => !blocoFilter || (p.bloco ?? p.perfil?.bloco_txt) === blocoFilter)
-      .map(p => p.apto ?? p.perfil?.apto_txt)
-      .filter(Boolean) as string[]
-  )].sort((a, b) => a.localeCompare(b, 'pt', { numeric: true }))
+  )].sort(numSort)
+  const uniqueAptos = blocoFilter && allAptosMap?.[blocoFilter]
+    ? allAptosMap[blocoFilter]
+    : [...new Set(
+        parcels
+          .filter(p => !blocoFilter || (p.bloco ?? p.perfil?.bloco_txt) === blocoFilter)
+          .map(p => p.apto ?? p.perfil?.apto_txt)
+          .filter(Boolean) as string[]
+      )].sort(numSort)
 
   const filtered = parcels.filter(p => {
     if (statusFilter === 'pending'   && p.status !== 'pending')   return false
@@ -373,7 +378,7 @@ export default function ParcelList({ initialParcels, isPorter, condoId }: Props)
               className="px-3 py-2 border border-gray-200 rounded-xl text-sm bg-white shadow-sm focus:outline-none focus:ring-2 focus:ring-[#FC5931]"
             >
               <option value="">Bloco</option>
-              {uniqueBlocos.map(b => <option key={b} value={b}>{b}</option>)}
+              {[...uniqueBlocos].sort((a, b) => a.localeCompare(b, 'pt', { numeric: true })).map(b => <option key={b} value={b}>{b}</option>)}
             </select>
             <select
               value={aptoFilter}
@@ -382,7 +387,7 @@ export default function ParcelList({ initialParcels, isPorter, condoId }: Props)
               className="px-3 py-2 border border-gray-200 rounded-xl text-sm bg-white shadow-sm focus:outline-none focus:ring-2 focus:ring-[#FC5931]"
             >
               <option value="">Apto</option>
-              {uniqueAptos.map(a => <option key={a} value={a}>{a}</option>)}
+              {[...uniqueAptos].sort((a, b) => a.localeCompare(b, 'pt', { numeric: true })).map(a => <option key={a} value={a}>{a}</option>)}
             </select>
           </>
         )}

@@ -50,6 +50,28 @@ export default async function EncomendasAdminPage() {
     ;(perfis ?? []).forEach((p: { id: string; nome_completo: string; bloco_txt: string | null; apto_txt: string | null }) => { perfilMap[p.id] = p })
   }
 
+  // Fetch ALL blocos and aptos from structural tables, ordered numerically at DB level
+  const { data: blocosData } = await supabase
+    .from('blocos')
+    .select('nome_ou_numero')
+    .eq('condominio_id', condoId)
+    .gt('nome_ou_numero', '0')
+
+  const { data: aptosData } = await supabase
+    .from('apartamentos')
+    .select('numero')
+    .eq('condominio_id', condoId)
+    .gt('numero', '0')
+
+  const numSort = (a: string, b: string) => a.localeCompare(b, 'pt', { numeric: true })
+  const allBlocos = [...new Set((blocosData ?? []).map(b => b.nome_ou_numero).filter(Boolean) as string[])].sort(numSort)
+  const allAptosArr = [...new Set((aptosData ?? []).map(a => a.numero).filter(Boolean) as string[])].sort(numSort)
+  // Map: every bloco gets the same set of aptos (standard structure)
+  const allAptosMap: Record<string, string[]> = {}
+  for (const bloco of allBlocos) {
+    allAptosMap[bloco] = allAptosArr
+  }
+
   const parcelsWithResident = (parcels ?? []).map((p: { resident_id: string; [key: string]: unknown }) => ({
     ...p,
     perfil: perfilMap[p.resident_id] ?? null,
@@ -81,6 +103,8 @@ export default async function EncomendasAdminPage() {
         isPorter={isAdmin}
         userId={user.id}
         condoId={condoId}
+        allBlocos={allBlocos}
+        allAptosMap={allAptosMap}
       />
     </div>
   )
