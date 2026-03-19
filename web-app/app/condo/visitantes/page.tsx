@@ -17,6 +17,14 @@ export default async function VisitantesPage() {
 
   const condoId = profile?.condominio_id ?? ''
 
+  // Fetch tipo_estrutura from condominios
+  const { data: condo } = await supabase
+    .from('condominios')
+    .select('tipo_estrutura')
+    .eq('id', condoId)
+    .single()
+  const tipoEstrutura = condo?.tipo_estrutura ?? 'predio'
+
   // Morador só vê os próprios convites — carregar os 5 últimos
   const { data: convites, error } = await supabase
     .from('convites')
@@ -45,6 +53,7 @@ export default async function VisitantesPage() {
         residentName={profile?.nome_completo ?? ''}
         bloco={profile?.bloco_txt ?? ''}
         apto={profile?.apto_txt ?? ''}
+        tipoEstrutura={tipoEstrutura}
       />
     </div>
   )

@@ -8,11 +8,13 @@ import {
   Camera, Package, CheckCircle2, ChevronLeft, Loader2,
   Box, Mail, ShoppingBag, FileText, X, RefreshCw, Video
 } from 'lucide-react'
+import { getBlocoLabel, getAptoLabel } from '@/lib/labels'
 
 interface Props {
   condoId: string
   registeredById: string
   units: UnitOption[]
+  tipoEstrutura?: string
   allBlocos?: string[]
   allAptos?: string[]
 }
@@ -26,7 +28,7 @@ const TIPOS: { value: TipoEncomenda; label: string; icon: React.ElementType }[] 
   { value: 'notif_judicial', label: 'Notif. Judicial', icon: FileText },
 ]
 
-export default function ParcelRegisterForm({ condoId, registeredById, units, allBlocos, allAptos }: Props) {
+export default function ParcelRegisterForm({ condoId, registeredById, units, tipoEstrutura, allBlocos, allAptos }: Props) {
   const router = useRouter()
   const supabase = createClient()
 
@@ -130,7 +132,7 @@ export default function ParcelRegisterForm({ condoId, registeredById, units, all
     setError(null)
 
     if (!blocoSel || !aptoSel) {
-      setError('Selecione o Bloco e o Apto do destinatário.')
+      setError(`Selecione o ${getBlocoLabel(tipoEstrutura)} e o ${getAptoLabel(tipoEstrutura)} do destinatário.`)
       return
     }
 
@@ -197,7 +199,7 @@ export default function ParcelRegisterForm({ condoId, registeredById, units, all
         </div>
         <h2 className="text-2xl font-bold text-gray-900 mb-2">Encomenda Registrada!</h2>
         <p className="text-gray-500 text-sm">
-          Bloco {blocoSel} / Apto {aptoSel}
+          {getBlocoLabel(tipoEstrutura)} {blocoSel} / {getAptoLabel(tipoEstrutura)} {aptoSel}
           {selectedUnit?.residentName && ` — ${selectedUnit.residentName}`}
         </p>
         {warning && (
@@ -312,21 +314,21 @@ export default function ParcelRegisterForm({ condoId, registeredById, units, all
           </p>
           <div className="grid grid-cols-2 gap-4 mb-3">
             <div>
-              <label className="block text-xs font-medium text-gray-600 mb-1.5">Bloco</label>
+              <label className="block text-xs font-medium text-gray-600 mb-1.5">{getBlocoLabel(tipoEstrutura)}</label>
               <select
                 value={blocoSel}
                 onChange={e => setBlocoSel(e.target.value)}
                 required
                 className="w-full px-3 py-2.5 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-[#FC5931] bg-gray-50"
               >
-                <option value="">Selecione o Bloco</option>
+                <option value="">Selecione o {getBlocoLabel(tipoEstrutura)}</option>
                 {blocos.map(b => (
                   <option key={b} value={b}>{b}</option>
                 ))}
               </select>
             </div>
             <div>
-              <label className="block text-xs font-medium text-gray-600 mb-1.5">Apto</label>
+              <label className="block text-xs font-medium text-gray-600 mb-1.5">{getAptoLabel(tipoEstrutura)}</label>
               <select
                 value={aptoSel}
                 onChange={e => setAptoSel(e.target.value)}
@@ -334,7 +336,7 @@ export default function ParcelRegisterForm({ condoId, registeredById, units, all
                 disabled={!blocoSel}
                 className="w-full px-3 py-2.5 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-[#FC5931] bg-gray-50 disabled:opacity-50"
               >
-                <option value="">Selecione o Apto</option>
+                <option value="">Selecione o {getAptoLabel(tipoEstrutura)}</option>
                 {uniqueAptos.map(a => (
                   <option key={a} value={a}>{a}</option>
                 ))}

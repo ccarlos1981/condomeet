@@ -2,6 +2,18 @@ import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2"
 import { create, getNumericDate } from "https://deno.land/x/djwt@v2.9.1/mod.ts"
 
+// ── Dynamic structure labels ────────────────────────────────────────────────
+function getBlocoLabel(tipo?: string): string {
+  if (tipo === 'casa_quadra') return 'Quadra'
+  if (tipo === 'casa_rua') return 'Rua'
+  return 'Bloco'
+}
+function getAptoLabel(tipo?: string): string {
+  if (tipo === 'casa_quadra') return 'Lote'
+  if (tipo === 'casa_rua') return 'Número'
+  return 'Apto'
+}
+
 // ── FCM HTTP v1 send ───────────────────────────────────────────────────────
 
 async function getAccessToken(serviceAccount: any): Promise<string> {
@@ -154,8 +166,16 @@ serve(async (req) => {
       return new Response(JSON.stringify({ sent: 0, message: "No tokens found" }), { status: 200 })
     }
 
-    // 4. Build notification content
-    const unitLabel = `Bloco ${bloco ?? "?"} / Apto ${apto ?? "?"}`
+    // 4. Fetch tipo_estrutura for dynamic labels
+    const { data: condoData } = await supabase
+      .from("condominios")
+      .select("tipo_estrutura")
+      .eq("id", condominio_id)
+      .single()
+    const tipoEstrutura = condoData?.tipo_estrutura ?? 'predio'
+
+    // 5. Build notification content
+    const unitLabel = `${getBlocoLabel(tipoEstrutura)} ${bloco ?? "?"} / ${getAptoLabel(tipoEstrutura)} ${apto ?? "?"}`
     const tipoLabel: Record<string, string> = {
       caixa: "Caixa", envelope: "Envelope", pacote: "Pacote",
       notif_judicial: "Notif. Judicial",

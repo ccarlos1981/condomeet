@@ -20,9 +20,10 @@ export default async function AutorizarVisitantePortariaPage() {
   // Get condo name
   const { data: condo } = await supabase
     .from('condominios')
-    .select('nome')
+    .select('nome, tipo_estrutura')
     .eq('id', condoId)
     .single()
+  const tipoEstrutura = condo?.tipo_estrutura ?? 'predio'
 
   // Fetch structural blocks and apartments
   const { data: structuralData } = await supabase
@@ -88,6 +89,7 @@ export default async function AutorizarVisitantePortariaPage() {
         condoName={condo?.nome ?? 'Condomínio'}
         currentUserId={user.id}
         currentUserName={profile?.nome_completo ?? ''}
+        tipoEstrutura={tipoEstrutura}
         blocos={blocos}
         aptosMap={aptosMap}
         residentsPerUnit={residentsPerUnit}

@@ -7,12 +7,15 @@
 CREATE OR REPLACE FUNCTION public.tr_fn_perfil_approved()
 RETURNS TRIGGER AS $$
 DECLARE
-  v_condo_nome   TEXT;
-  v_cod_interno  TEXT;
-  v_msg          TEXT;
-  v_payload      JSONB;
-  v_supabase_url TEXT;
-  v_secret_key   TEXT;
+  v_condo_nome     TEXT;
+  v_tipo_estrutura TEXT;
+  v_bloco_label    TEXT;
+  v_apto_label     TEXT;
+  v_cod_interno    TEXT;
+  v_msg            TEXT;
+  v_payload        JSONB;
+  v_supabase_url   TEXT;
+  v_secret_key     TEXT;
 BEGIN
   -- Only fire when status_aprovacao transitions to 'aprovado'
   IF NEW.status_aprovacao <> 'aprovado' THEN
@@ -28,14 +31,23 @@ BEGIN
     RETURN NEW;
   END IF;
 
-  -- Fetch condominium name
-  SELECT nome INTO v_condo_nome
+  -- Fetch condominium name and tipo_estrutura
+  SELECT nome, COALESCE(tipo_estrutura, 'predio')
+    INTO v_condo_nome, v_tipo_estrutura
   FROM public.condominios
   WHERE id = NEW.condominio_id;
 
   IF v_condo_nome IS NULL THEN
     v_condo_nome := 'seu condomínio';
+    v_tipo_estrutura := 'predio';
   END IF;
+
+  -- Compute dynamic labels based on tipo_estrutura
+  CASE v_tipo_estrutura
+    WHEN 'casa_quadra' THEN v_bloco_label := 'Quadra'; v_apto_label := 'Lote';
+    WHEN 'casa_rua'    THEN v_bloco_label := 'Rua';    v_apto_label := 'Número';
+    ELSE                     v_bloco_label := 'Bloco';  v_apto_label := 'Apto';
+  END CASE;
 
   -- Anti-ban code (5 random chars)
   v_cod_interno := substr(md5(random()::text), 1, 5);
@@ -50,8 +62,8 @@ BEGIN
     || E'\n'
     || 'Sua unidade está em:' || E'\n'
     || E'\n'
-    || 'Bloco: ' || COALESCE(NEW.bloco_txt, '-') || E'\n'
-    || 'Apto: ' || COALESCE(NEW.apto_txt, '-') || E'\n'
+    || v_bloco_label || ': ' || COALESCE(NEW.bloco_txt, '-') || E'\n'
+    || v_apto_label || ': ' || COALESCE(NEW.apto_txt, '-') || E'\n'
     || E'\n'
     || 'Condomeet agradece!' || E'\n'
     || 'Cód interno: ' || v_cod_interno;

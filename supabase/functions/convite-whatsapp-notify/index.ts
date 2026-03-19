@@ -3,9 +3,23 @@
 //   1. A convite (visitor invitation) is created  (action: 'created' / default)
 //   2. Porteiro releases visitor entry             (action: 'entry_released')
 // Sends WhatsApp notification to resident + visitor (if phone provided).
+// Also sends FCM push notification to resident on entry_released.
 // Also upserts visitor contact to contatos_visitantes (agenda).
 
 import { createClient } from "npm:@supabase/supabase-js@2"
+import { create, getNumericDate } from "https://deno.land/x/djwt@v2.9.1/mod.ts"
+
+// ── Dynamic structure labels ────────────────────────────────────────────────
+function getBlocoLabel(tipo?: string): string {
+  if (tipo === 'casa_quadra') return 'Quadra'
+  if (tipo === 'casa_rua') return 'Rua'
+  return 'Bloco'
+}
+function getAptoLabel(tipo?: string): string {
+  if (tipo === 'casa_quadra') return 'Lote'
+  if (tipo === 'casa_rua') return 'Número'
+  return 'Apto'
+}
 
 const BOTCONVERSA_BASE_URL =
   "https://backend.botconversa.com.br/api/v1/webhook"
@@ -47,6 +61,98 @@ function isSecretKey(token: string): boolean {
 
 function genCodInterno(): string {
   return Math.random().toString(36).substring(2, 7).toUpperCase()
+}
+
+// ── FCM Push Notification helpers ─────────────────────────────────────────
+
+function pemToBinary(pem: string): ArrayBuffer {
+  const b64 = pem
+    .replace(/-----BEGIN PRIVATE KEY-----/, "")
+    .replace(/-----END PRIVATE KEY-----/, "")
+    .replace(/\n/g, "")
+  const binary = atob(b64)
+  const bytes = new Uint8Array(binary.length)
+  for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i)
+  return bytes.buffer
+}
+
+async function getFcmAccessToken(serviceAccount: Record<string, string>): Promise<string> {
+  const now = Math.floor(Date.now() / 1000)
+  const payload = {
+    iss: serviceAccount.client_email,
+    scope: "https://www.googleapis.com/auth/firebase.messaging",
+    aud: "https://oauth2.googleapis.com/token",
+    iat: now,
+    exp: getNumericDate(3600),
+  }
+
+  const binaryDer = pemToBinary(serviceAccount.private_key)
+  const cryptoKey = await crypto.subtle.importKey(
+    "pkcs8",
+    binaryDer,
+    { name: "RSASSA-PKCS1-v1_5", hash: "SHA-256" },
+    false,
+    ["sign"]
+  )
+
+  const jwt = await create({ alg: "RS256" as const, typ: "JWT" }, payload, cryptoKey)
+
+  const tokenRes = await fetch("https://oauth2.googleapis.com/token", {
+    method: "POST",
+    headers: { "Content-Type": "application/x-www-form-urlencoded" },
+    body: new URLSearchParams({
+      grant_type: "urn:ietf:params:oauth:grant-type:jwt-bearer",
+      assertion: jwt,
+    }),
+  })
+
+  const tokenData = await tokenRes.json()
+  if (!tokenData.access_token) {
+    throw new Error(`FCM access token failed: ${JSON.stringify(tokenData)}`)
+  }
+  return tokenData.access_token
+}
+
+async function sendFcmPush(
+  accessToken: string,
+  projectId: string,
+  fcmToken: string,
+  title: string,
+  body: string,
+  data: Record<string, string>
+): Promise<{ success: boolean; error?: string }> {
+  const url = `https://fcm.googleapis.com/v1/projects/${projectId}/messages:send`
+  const message = {
+    message: {
+      token: fcmToken,
+      notification: { title, body },
+      data,
+      android: { priority: "high" },
+      apns: {
+        headers: { "apns-priority": "10" },
+        payload: { aps: { sound: "default", badge: 1 } },
+      },
+    },
+  }
+
+  try {
+    const res = await fetch(url, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${accessToken}`,
+      },
+      body: JSON.stringify(message),
+    })
+    if (!res.ok) {
+      const result = await res.json()
+      return { success: false, error: result?.error?.message ?? JSON.stringify(result) }
+    }
+    return { success: true }
+  } catch (e: unknown) {
+    const msg = e instanceof Error ? e.message : String(e)
+    return { success: false, error: msg }
+  }
 }
 
 function formatDateBR(dateStr: string): string {
@@ -347,6 +453,198 @@ async function handleCreated(
 }
 
 // ══════════════════════════════════════════════════════════════════════════
+//  ACTION: portaria_created (convite criado pela portaria em nome do morador)
+// ══════════════════════════════════════════════════════════════════════════
+async function handlePortariaCreated(
+  payload: Record<string, unknown>,
+  supabase: ReturnType<typeof createClient>,
+  apiKey: string
+): Promise<Response> {
+  const {
+    convite_id,
+    resident_id,
+    condominio_id,
+    guest_name,
+    visitor_phone,
+    visitor_type,
+    validity_date,
+    qr_data,
+    observacao,
+    bloco_destino,
+    apto_destino,
+    morador_nome_manual,
+  } = payload as Record<string, string>
+
+  // ── Fetch condominium name ────────────────────────────────────────
+  const { data: condo } = await supabase
+    .from("condominios")
+    .select("nome, tipo_estrutura")
+    .eq("id", condominio_id)
+    .single()
+  const condoNome = condo?.nome || "Condomínio"
+  const tipoEstrutura = condo?.tipo_estrutura || 'predio'
+  const blocoLabel = getBlocoLabel(tipoEstrutura)
+  const aptoLabel = getAptoLabel(tipoEstrutura)
+
+  const shortCode = qr_data || "---"
+  const visitDate = formatDateBR(validity_date)
+  const tipoVisitante = visitor_type || "Visitante"
+  const obsText = observacao && observacao.trim() ? observacao.trim() : "Não preenchida"
+  const codInterno = genCodInterno()
+
+  const results: string[] = []
+
+  // ── CASE 1: Resident identified ───────────────────────────────────
+  if (resident_id && resident_id.trim() !== "") {
+    const { data: perfil } = await supabase
+      .from("perfil")
+      .select("nome_completo, botconversa_id")
+      .eq("id", resident_id)
+      .single()
+
+    if (perfil?.botconversa_id) {
+      const residentName = perfil.nome_completo?.split(" ")[0] || "Morador"
+
+      const msg1 =
+        `🗯 Autorização enviada !\n` +
+        `\n` +
+        `Ei, ${residentName}, registramos sua solicitação para entrada do seu visitante para a data:\n` +
+        `${visitDate}\n` +
+        `\n` +
+        `Tipo de visitante:\n` +
+        `${tipoVisitante}\n` +
+        `\n` +
+        `📝 Avise ele(a) para apresentar na portaria o código de autorização:\n` +
+        `${shortCode}\n` +
+        `\n` +
+        `📒 Observação\n` +
+        `${obsText}\n` +
+        `\n` +
+        `Condomeet agradece!\n` +
+        `Cod. int: ${codInterno}`
+
+      const sent = await sendMessage(apiKey, perfil.botconversa_id, msg1)
+      results.push(`Msg1 resident ${resident_id}: ${sent ? "✅" : "❌"}`)
+    } else {
+      results.push(`Msg1 skipped: no botconversa_id for ${resident_id}`)
+    }
+  }
+  // ── CASE 2: Resident NOT identified → notify ALL unit residents ───
+  else {
+    const { data: unitResidents } = await supabase
+      .from("perfil")
+      .select("id, nome_completo, botconversa_id")
+      .eq("condominio_id", condominio_id)
+      .eq("bloco_txt", bloco_destino)
+      .eq("apto_txt", apto_destino)
+      .not("botconversa_id", "is", null)
+
+    const codInterno2 = genCodInterno()
+    const msg2 =
+      `🏙 Autorização enviada!\n` +
+      `\n` +
+      `Olá morador(a), parece que alguém do seu apto pediu a portaria um registro de visitante, porém, não se identificou.\n` +
+      `\n` +
+      `Tipo de visitante:\n` +
+      `${tipoVisitante}\n` +
+      `\n` +
+      `🗓️ O registro foi para a data:\n` +
+      `${visitDate}\n` +
+      `\n` +
+      `📝 Avise ele(a) para apresentar na portaria o código de autorização:\n` +
+      `${shortCode}\n` +
+      `\n` +
+      `📒 Observação\n` +
+      `${obsText}\n` +
+      `\n` +
+      `A pessoa que solicitou, não se identificou.\n` +
+      `\n` +
+      `🚨Atenção, caso não tenha sido ninguém do apto, favor procurar a direção do condomínio.\n` +
+      `\n` +
+      `Condomeet agradece!\n` +
+      `Cod int ${codInterno2}`
+
+    for (const r of unitResidents ?? []) {
+      if (r.botconversa_id) {
+        const sent = await sendMessage(apiKey, r.botconversa_id, msg2)
+        results.push(`Msg2 resident ${r.id}: ${sent ? "✅" : "❌"}`)
+      }
+    }
+    if (!unitResidents || unitResidents.length === 0) {
+      results.push(`Msg2 skipped: no residents with botconversa_id in ${bloco_destino}/${apto_destino}`)
+    }
+  }
+
+  // ── MSG 3: Visitor (if phone provided) ─────────────────────────────
+  const hasVisitorPhone = visitor_phone && visitor_phone.replace(/\D/g, "").length >= 10
+  let sentVisitor = false
+
+  if (hasVisitorPhone) {
+    const phone = cleanPhone(visitor_phone)
+
+    // Get resident name for message
+    let moradorNome = morador_nome_manual || ""
+    if (resident_id && resident_id.trim() !== "") {
+      const { data: rp } = await supabase
+        .from("perfil")
+        .select("nome_completo")
+        .eq("id", resident_id)
+        .single()
+      moradorNome = rp?.nome_completo || moradorNome
+    }
+
+    const visitorBcId = await resolveSubscriber(apiKey, phone, guest_name || "Visitante")
+
+    if (visitorBcId) {
+      await new Promise((resolve) => setTimeout(resolve, 10_000))
+
+      const codInterno3 = genCodInterno()
+      const visitorFirstName = (guest_name || "Visitante").split(" ")[0]
+
+      const msg3 =
+        `🏢 ${condoNome}\n` +
+        `\n` +
+        `✔ Ei ${visitorFirstName}\n` +
+        `\n` +
+        `O(A) morador(a) ${moradorNome} do condomínio\n` +
+        `${condoNome}\n` +
+        `\n` +
+        `🗓️ Acabou de autorizar a sua entrada para o dia:\n` +
+        `${visitDate}\n` +
+        `\n` +
+        `Tipo do visitante:\n` +
+        `${tipoVisitante}\n` +
+        `\n` +
+        `Unidade\n` +
+        `${blocoLabel}: ${bloco_destino}\n` +
+        `${aptoLabel}: ${apto_destino}\n` +
+        `\n` +
+        `📝 Diga que tem a autorização informando o Código:\n` +
+        `${shortCode}\n` +
+        `.\n` +
+        `📒 Observação:\n` +
+        `${obsText}\n` +
+        `\n` +
+        `Condomeet agradece!\n` +
+        `Cod int ${codInterno3}`
+
+      sentVisitor = await sendMessage(apiKey, visitorBcId, msg3)
+      results.push(`Msg3 visitor ${guest_name}: ${sentVisitor ? "✅" : "❌"}`)
+    } else {
+      results.push(`Msg3 skipped: could not resolve subscriber for ${phone}`)
+    }
+  }
+
+  console.log(`handlePortariaCreated results:`, results)
+
+  return jsonResponse({
+    action: "portaria_created",
+    results,
+    convite_id,
+  })
+}
+
+// ══════════════════════════════════════════════════════════════════════════
 //  ACTION: entry_released (porteiro liberou entrada do visitante)
 // ══════════════════════════════════════════════════════════════════════════
 async function handleEntryReleased(
@@ -367,10 +665,10 @@ async function handleEntryReleased(
     liberado_em,
   } = payload as Record<string, string>
 
-  // ── Fetch resident data ──────────────────────────────────────────
+  // ── Fetch resident data (include fcm_token for push) ─────────────
   const { data: perfil } = await supabase
     .from("perfil")
-    .select("nome_completo, botconversa_id")
+    .select("nome_completo, botconversa_id, fcm_token")
     .eq("id", resident_id)
     .single()
 
@@ -512,10 +810,49 @@ async function handleEntryReleased(
     }
   }
 
+  // ── PUSH NOTIFICATION — FCM to requesting resident ──────────────
+  let pushSent = false
+  const fcmToken = perfil?.fcm_token
+  if (fcmToken && fcmToken.length > 10 && !fcmToken.startsWith("dummy")) {
+    try {
+      const serviceAccountJson = Deno.env.get("FIREBASE_SERVICE_ACCOUNT_JSON")
+      if (serviceAccountJson) {
+        const serviceAccount = JSON.parse(serviceAccountJson)
+        const fcmAccessToken = await getFcmAccessToken(serviceAccount)
+        const pushResult = await sendFcmPush(
+          fcmAccessToken,
+          serviceAccount.project_id,
+          fcmToken,
+          "🚪 Visitante chegou!",
+          `${guestDisplayName} — entrada liberada pela portaria.`,
+          {
+            type: "visitor_entry",
+            convite_id: convite_id || "",
+            guest_name: guestDisplayName,
+          }
+        )
+        pushSent = pushResult.success
+        if (!pushResult.success) {
+          console.warn(`Push FCM failed for resident ${resident_id}: ${pushResult.error}`)
+        } else {
+          console.log(`✅ Push FCM sent to resident ${resident_id}`)
+        }
+      } else {
+        console.warn("FIREBASE_SERVICE_ACCOUNT_JSON not set, skipping push")
+      }
+    } catch (pushErr: unknown) {
+      const msg = pushErr instanceof Error ? pushErr.message : String(pushErr)
+      console.error(`Push notification error: ${msg}`)
+    }
+  } else {
+    console.log(`No valid FCM token for resident ${resident_id}, skipping push`)
+  }
+
   return jsonResponse({
     action: "entry_released",
     sent_resident: sentResident,
     sent_visitor: sentVisitor,
+    push_sent: pushSent,
     visitor_botconversa_id: visitorBotconversaId,
     convite_id,
   })
@@ -547,9 +884,16 @@ Deno.serve(async (req) => {
     const payload = await req.json()
     const { resident_id, condominio_id, action } = payload
 
-    if (!resident_id || !condominio_id) {
+    // For portaria_created, resident_id can be empty (unidentified)
+    if (action !== "portaria_created" && (!resident_id || !condominio_id)) {
       return jsonResponse(
         { error: "resident_id and condominio_id are required" },
+        400
+      )
+    }
+    if (action === "portaria_created" && !condominio_id) {
+      return jsonResponse(
+        { error: "condominio_id is required" },
         400
       )
     }
@@ -568,6 +912,10 @@ Deno.serve(async (req) => {
     )
 
     // ── Route by action ────────────────────────────────────────────
+    if (action === "portaria_created") {
+      return await handlePortariaCreated(payload, supabase, BOTCONVERSA_API_KEY)
+    }
+
     if (action === "entry_released") {
       return await handleEntryReleased(payload, supabase, BOTCONVERSA_API_KEY)
     }

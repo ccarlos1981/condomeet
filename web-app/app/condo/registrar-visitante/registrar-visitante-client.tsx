@@ -6,6 +6,7 @@ import {
   Camera, UserPlus, Clock,
   CheckCircle, AlertCircle, ChevronLeft, X, Video
 } from 'lucide-react'
+import { getBlocoLabel, getAptoLabel } from '@/lib/labels'
 
 interface Visitante {
   id: string
@@ -29,6 +30,7 @@ interface Props {
   condoId: string
   currentUserId: string
   currentUserName: string
+  tipoEstrutura?: string
   blocos: string[]
   aptosMap: Record<string, string[]>
 }
@@ -50,6 +52,7 @@ export default function RegistrarVisitanteClient({
   condoId,
   currentUserId,
   currentUserName,
+  tipoEstrutura,
   blocos,
   aptosMap,
 }: Props) {
@@ -326,7 +329,7 @@ export default function RegistrarVisitanteClient({
               <div className="flex-1 min-w-0">
                 <p className="font-bold text-gray-800">Visitante: {v.nome}</p>
                 {(v.bloco || v.apto) && (
-                  <p className="text-sm text-gray-500">Bloco: {v.bloco || '−'} / Apto: {v.apto || '−'}</p>
+                  <p className="text-sm text-gray-500">{getBlocoLabel(tipoEstrutura)}: {v.bloco || '−'} / {getAptoLabel(tipoEstrutura)}: {v.apto || '−'}</p>
                 )}
                 <p className="text-sm text-gray-500">
                   <span className="font-medium">Entrada:</span> {fmtDate(v.entrada_at)}
@@ -444,8 +447,8 @@ export default function RegistrarVisitanteClient({
               <p className="font-bold text-gray-800 text-lg">{lastVisit.nome}</p>
               <p className="text-sm text-gray-500">
                 🔄 Última visita: {fmtDate(lastVisit.entrada_at)}
-                {lastVisit.bloco && ` — Bloco ${lastVisit.bloco}`}
-                {lastVisit.apto && ` / Apto ${lastVisit.apto}`}
+                {lastVisit.bloco && ` — ${getBlocoLabel(tipoEstrutura)} ${lastVisit.bloco}`}
+                {lastVisit.apto && ` / ${getAptoLabel(tipoEstrutura)} ${lastVisit.apto}`}
               </p>
 
               {/* Option to retake photo */}
@@ -479,21 +482,21 @@ export default function RegistrarVisitanteClient({
           {/* Bloco / Apto — Dropdowns */}
           <div className="grid grid-cols-2 gap-4">
             <div>
-              <label className="block text-sm font-semibold text-gray-700 mb-1">Bloco*</label>
+              <label className="block text-sm font-semibold text-gray-700 mb-1">{getBlocoLabel(tipoEstrutura)}*</label>
               <select
                 value={bloco}
                 onChange={e => { setBloco(e.target.value); setApto('') }}
                 title="Selecione o bloco"
                 className="w-full border border-gray-200 rounded-lg px-4 py-2.5 text-sm focus:outline-none focus:border-[#FC5931] focus:ring-1 focus:ring-[#FC5931]/30 bg-white"
               >
-                <option value="">Selecione o bloco</option>
+                <option value="">Selecione o {getBlocoLabel(tipoEstrutura).toLowerCase()}</option>
                 {blocos.map(b => (
                   <option key={b} value={b}>{b}</option>
                 ))}
               </select>
             </div>
             <div>
-              <label className="block text-sm font-semibold text-gray-700 mb-1">Apto*</label>
+              <label className="block text-sm font-semibold text-gray-700 mb-1">{getAptoLabel(tipoEstrutura)}*</label>
               <select
                 value={apto}
                 onChange={e => setApto(e.target.value)}
@@ -501,7 +504,7 @@ export default function RegistrarVisitanteClient({
                 title="Selecione o apartamento"
                 className="w-full border border-gray-200 rounded-lg px-4 py-2.5 text-sm focus:outline-none focus:border-[#FC5931] focus:ring-1 focus:ring-[#FC5931]/30 bg-white disabled:bg-gray-50 disabled:text-gray-400"
               >
-                <option value="">Selecione o apto</option>
+                <option value="">Selecione o {getAptoLabel(tipoEstrutura).toLowerCase()}</option>
                 {availableAptos.map(a => (
                   <option key={a} value={a}>{a}</option>
                 ))}
@@ -694,7 +697,7 @@ export default function RegistrarVisitanteClient({
                   </p>
                 )}
                 {(v.bloco || v.apto) && (
-                  <p className="text-xs text-gray-400">Bloco {v.bloco || '−'} / Apto: {v.apto || '−'}</p>
+                  <p className="text-xs text-gray-400">{getBlocoLabel(tipoEstrutura)} {v.bloco || '−'} / {getAptoLabel(tipoEstrutura)}: {v.apto || '−'}</p>
                 )}
                 {!v.saida_at && (
                   <button

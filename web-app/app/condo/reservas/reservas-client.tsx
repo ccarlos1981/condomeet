@@ -7,11 +7,13 @@ import {
   CheckCircle2, Calendar, BookOpen, Trash2
 } from 'lucide-react'
 import type { AreaComum, MinhaReserva } from './page'
+import { getBlocoLabel, getAptoLabel } from '@/lib/labels'
 
 interface Props {
   areas: AreaComum[]
   minhasReservas: MinhaReserva[]
   profile: { nome: string; bloco: string; apto: string }
+  tipoEstrutura?: string
 }
 
 type HorarioSlot = { id: string; hora_inicio: string; duracao_minutos: number; disponivel: boolean }
@@ -153,10 +155,11 @@ function MiniCalendar({
 // Booking Modal
 // ──────────────────────────────────────────────────────────────────────────────
 function BookingModal({
-  area, profile, onClose, onBooked
+  area, profile, tipoEstrutura, onClose, onBooked
 }: {
   area: AreaComum
   profile: Props['profile']
+  tipoEstrutura?: string
   onClose: () => void
   onBooked: () => void
 }) {
@@ -232,8 +235,8 @@ function BookingModal({
         <div className="flex items-start justify-between p-5 border-b border-gray-100">
           <div className="grid grid-cols-3 gap-x-4 gap-y-1 text-xs flex-1">
             <div><span className="text-gray-400">Nome:</span><br /><span className="font-semibold text-gray-800">{profile.nome.split(' ')[0]}</span></div>
-            <div><span className="text-gray-400">Bloco:</span><br /><span className="font-semibold text-gray-800">{profile.bloco || '—'}</span></div>
-            <div><span className="text-gray-400">Apto:</span><br /><span className="font-semibold text-gray-800">{profile.apto || '—'}</span></div>
+            <div><span className="text-gray-400">{getBlocoLabel(tipoEstrutura)}:</span><br /><span className="font-semibold text-gray-800">{profile.bloco || '—'}</span></div>
+            <div><span className="text-gray-400">{getAptoLabel(tipoEstrutura)}:</span><br /><span className="font-semibold text-gray-800">{profile.apto || '—'}</span></div>
             <div className="col-span-3"><span className="text-gray-400">Área comum:</span><br /><span className="font-semibold text-gray-800">{area.tipo_agenda}</span></div>
           </div>
           <button onClick={onClose} aria-label="Fechar" title="Fechar" className="ml-2 text-gray-400 hover:text-gray-700 transition-colors">
@@ -414,7 +417,7 @@ function AreaCard({ area, onOpen }: { area: AreaComum; onOpen: () => void }) {
 // ──────────────────────────────────────────────────────────────────────────────
 // Main Component
 // ──────────────────────────────────────────────────────────────────────────────
-export default function ReservasClient({ areas, minhasReservas, profile }: Props) {
+export default function ReservasClient({ areas, minhasReservas, profile, tipoEstrutura }: Props) {
   const router = useRouter()
   const [tab, setTab] = useState<'disponiveis' | 'minhas'>('disponiveis')
   const [modalArea, setModalArea] = useState<AreaComum | null>(null)
@@ -537,6 +540,7 @@ export default function ReservasClient({ areas, minhasReservas, profile }: Props
         <BookingModal
           area={modalArea}
           profile={profile}
+          tipoEstrutura={tipoEstrutura}
           onClose={() => setModalArea(null)}
           onBooked={handleBooked}
         />

@@ -17,6 +17,13 @@ export default async function EncomendasPage() {
 
   const condoId = profile?.condominio_id ?? ''
 
+  const { data: condoData } = await supabase
+    .from('condominios')
+    .select('tipo_estrutura')
+    .eq('id', condoId)
+    .single()
+  const tipoEstrutura = condoData?.tipo_estrutura ?? 'predio'
+
   // Always filter by unit (bloco + apto) — this is "Minhas Encomendas"
   let query = supabase
     .from('encomendas')
@@ -80,6 +87,7 @@ export default async function EncomendasPage() {
         isPorter={false}
         userId={user.id}
         condoId={condoId}
+        tipoEstrutura={tipoEstrutura}
       />
     </div>
   )

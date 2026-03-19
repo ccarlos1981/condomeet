@@ -20,6 +20,14 @@ export default async function EditProfilePage() {
 
   const condoId = profile.condominio_id ?? ''
 
+  // Fetch tipo_estrutura from condominios
+  const { data: condo } = await supabase
+    .from('condominios')
+    .select('tipo_estrutura')
+    .eq('id', condoId)
+    .single()
+  const tipoEstrutura = condo?.tipo_estrutura ?? 'predio'
+
   // Fetch all blocos for this condo
   const blocosData = await fetchAll(
     supabase
@@ -83,6 +91,7 @@ export default async function EditProfilePage() {
       currentAptoTxt={profile.apto_txt ?? ''}
       currentBlocoId={currentBlocoId}
       currentAptoId={currentAptoId}
+      tipoEstrutura={tipoEstrutura}
       blocos={blocos}
       initialAptos={initialAptos}
     />

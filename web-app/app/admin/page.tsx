@@ -2,6 +2,7 @@ import { createClient } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
 import { Users, ClipboardCheck, Package, UserCheck, Building2 } from 'lucide-react'
 import AdminCharts from './charts'
+import { getEstruturaLabel } from '@/lib/labels'
 
 export default async function AdminDashboard() {
   const supabase = await createClient()
@@ -13,6 +14,13 @@ export default async function AdminDashboard() {
     .select('condominio_id')
     .eq('id', user.id)
     .single()
+
+  const { data: condoData } = await supabase
+    .from('condominios')
+    .select('tipo_estrutura')
+    .eq('id', profile?.condominio_id ?? '')
+    .single()
+  const tipoEstrutura = condoData?.tipo_estrutura ?? 'predio'
 
   const condoId = profile?.condominio_id
 
@@ -63,7 +71,7 @@ export default async function AdminDashboard() {
             </div>
             <div>
               <p className="font-semibold text-gray-900 text-sm">Estrutura</p>
-              <p className="text-xs text-gray-500">Blocos e Aptos</p>
+              <p className="text-xs text-gray-500">{getEstruturaLabel(tipoEstrutura)}</p>
             </div>
           </a>
           <a href="/admin/moradores" className="bg-white rounded-2xl p-4 border border-gray-100 shadow-sm hover:shadow-md hover:-translate-y-0.5 transition-all group flex items-center gap-3">

@@ -4,6 +4,7 @@ import { useState, useMemo } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { UserCheck, CheckCircle, AlertCircle } from 'lucide-react'
 import { QRCodeSVG } from 'qrcode.react'
+import { getBlocoLabel, getAptoLabel } from '@/lib/labels'
 
 const VISITOR_TYPES = ['Uber ou Taxi', 'Delivery', 'Farmácia', 'Diarista', 'Visitante', 'Mat. Obra', 'Serviços', 'Hóspedes', 'Outros']
 
@@ -12,6 +13,7 @@ interface Props {
   condoName: string
   currentUserId: string
   currentUserName: string
+  tipoEstrutura?: string
   blocos: string[]
   aptosMap: Record<string, string[]>
   residentsPerUnit: Record<string, { id: string; nome_completo: string }[]>
@@ -22,6 +24,7 @@ export default function AutorizarVisitantePortariaClient({
   condoName: _condoName,
   currentUserId: _currentUserId,
   currentUserName,
+  tipoEstrutura,
   blocos,
   aptosMap,
   residentsPerUnit,
@@ -199,21 +202,21 @@ export default function AutorizarVisitantePortariaClient({
         {/* Bloco / Apto */}
         <div className="grid grid-cols-2 gap-4">
           <div>
-            <label className="block text-sm font-semibold text-gray-700 mb-1">Bloco *</label>
+            <label className="block text-sm font-semibold text-gray-700 mb-1">{getBlocoLabel(tipoEstrutura)} *</label>
             <select
               value={bloco}
               onChange={e => { setBloco(e.target.value); setApto(''); setSelectedResident('') }}
               title="Selecione o bloco"
               className="w-full border border-gray-200 rounded-lg px-4 py-2.5 text-sm focus:outline-none focus:border-[#FC5931] focus:ring-1 focus:ring-[#FC5931]/30 bg-white"
             >
-              <option value="">Bloco</option>
+              <option value="">{getBlocoLabel(tipoEstrutura)}</option>
               {blocos.map(b => (
                 <option key={b} value={b}>{b}</option>
               ))}
             </select>
           </div>
           <div>
-            <label className="block text-sm font-semibold text-gray-700 mb-1">Apto *</label>
+            <label className="block text-sm font-semibold text-gray-700 mb-1">{getAptoLabel(tipoEstrutura)} *</label>
             <select
               value={apto}
               onChange={e => { setApto(e.target.value); setSelectedResident('') }}
@@ -221,7 +224,7 @@ export default function AutorizarVisitantePortariaClient({
               title="Selecione o apartamento"
               className="w-full border border-gray-200 rounded-lg px-4 py-2.5 text-sm focus:outline-none focus:border-[#FC5931] focus:ring-1 focus:ring-[#FC5931]/30 bg-white disabled:bg-gray-50 disabled:text-gray-400"
             >
-              <option value="">Apto</option>
+              <option value="">{getAptoLabel(tipoEstrutura)}</option>
               {availableAptos.map(a => (
                 <option key={a} value={a}>{a}</option>
               ))}

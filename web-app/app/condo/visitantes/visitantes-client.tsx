@@ -4,6 +4,7 @@ import { useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { UserCheck, Plus, X, CheckCircle2, Clock, QrCode, ChevronDown } from 'lucide-react'
 import { QRCodeSVG } from 'qrcode.react'
+import { getBlocoLabel, getAptoLabel } from '@/lib/labels'
 
 type Convite = {
   id: string
@@ -99,6 +100,7 @@ export default function VisitantesResidentClient({
   residentName,
   bloco,
   apto,
+  tipoEstrutura,
 }: {
   initialConvites: Convite[]
   userId: string
@@ -106,6 +108,7 @@ export default function VisitantesResidentClient({
   residentName: string
   bloco: string
   apto: string
+  tipoEstrutura?: string
 }) {
   const [convites, setConvites] = useState<Convite[]>(initialConvites)
   const [showModal, setShowModal] = useState(false)
@@ -265,7 +268,7 @@ export default function VisitantesResidentClient({
             <div className="flex items-center justify-between px-6 py-5 border-b border-gray-100">
               <div>
                 <h2 className="text-lg font-bold text-gray-900">Nova Autorização</h2>
-                <p className="text-xs text-gray-400 mt-0.5">{bloco && `Bloco ${bloco} / Apto ${apto}`}</p>
+                <p className="text-xs text-gray-400 mt-0.5">{bloco && `${getBlocoLabel(tipoEstrutura)} ${bloco} / ${getAptoLabel(tipoEstrutura)} ${apto}`}</p>
               </div>
               <button onClick={() => setShowModal(false)}
                 title="Fechar"

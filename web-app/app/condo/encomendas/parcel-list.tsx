@@ -7,6 +7,7 @@ import {
   Box, Mail, ShoppingBag, FileText, ChevronDown, UserCheck, RefreshCw,
   Camera, PenTool
 } from 'lucide-react'
+import { getBlocoLabel, getAptoLabel } from '@/lib/labels'
 
 // ── Types ────────────────────────────────────────────────────────────────────
 
@@ -41,6 +42,7 @@ interface Props {
   isPorter: boolean
   userId: string
   condoId: string
+  tipoEstrutura?: string
   allBlocos?: string[]
   allAptosMap?: Record<string, string[]>
 }
@@ -66,11 +68,12 @@ function fmt(iso: string) {
 interface DeliveryModalProps {
   parcel: Parcel
   condoId: string
+  tipoEstrutura?: string
   onClose: () => void
   onConfirm: (parcel: Parcel, pickedById: string | null, pickedByName: string) => Promise<void>
 }
 
-function DeliveryModal({ parcel, condoId, onClose, onConfirm }: DeliveryModalProps) {
+function DeliveryModal({ parcel, condoId, tipoEstrutura, onClose, onConfirm }: DeliveryModalProps) {
   const supabase = createClient()
   const [residents, setResidents] = useState<Perfil[]>([])
   const [loadingResidents, setLoadingResidents] = useState(true)
@@ -144,7 +147,7 @@ function DeliveryModal({ parcel, condoId, onClose, onConfirm }: DeliveryModalPro
             <div className="min-w-0">
               <p className="font-semibold text-gray-900">{tipoInfo.label}</p>
               <p className="text-sm text-gray-500">
-                Bloco {bloco ?? '?'} / Apto {apto ?? '?'}
+                {getBlocoLabel(tipoEstrutura)} {bloco ?? '?'} / {getAptoLabel(tipoEstrutura)} {apto ?? '?'}
                 {parcel.tracking_code && <span className="ml-2 font-mono text-xs">· {parcel.tracking_code}</span>}
               </p>
               {parcel.observacao && (
@@ -239,7 +242,7 @@ function DeliveryModal({ parcel, condoId, onClose, onConfirm }: DeliveryModalPro
 
 // ── Main List ─────────────────────────────────────────────────────────────────
 
-export default function ParcelList({ initialParcels, isPorter, condoId, allBlocos, allAptosMap }: Props) {
+export default function ParcelList({ initialParcels, isPorter, condoId, tipoEstrutura, allBlocos, allAptosMap }: Props) {
   const supabase = createClient()
 
   const [parcels, setParcels] = useState<Parcel[]>(initialParcels)
@@ -334,6 +337,7 @@ export default function ParcelList({ initialParcels, isPorter, condoId, allBloco
         <DeliveryModal
           parcel={deliveryModal}
           condoId={condoId}
+          tipoEstrutura={tipoEstrutura}
           onClose={() => setDeliveryModal(null)}
           onConfirm={handleDeliveryConfirm}
         />
@@ -377,7 +381,7 @@ export default function ParcelList({ initialParcels, isPorter, condoId, allBloco
               aria-label="Filtrar por bloco"
               className="px-3 py-2 border border-gray-200 rounded-xl text-sm bg-white shadow-sm focus:outline-none focus:ring-2 focus:ring-[#FC5931]"
             >
-              <option value="">Bloco</option>
+              <option value="">{getBlocoLabel(tipoEstrutura)}</option>
               {[...uniqueBlocos].sort((a, b) => a.localeCompare(b, 'pt', { numeric: true })).map(b => <option key={b} value={b}>{b}</option>)}
             </select>
             <select
@@ -386,7 +390,7 @@ export default function ParcelList({ initialParcels, isPorter, condoId, allBloco
               aria-label="Filtrar por apartamento"
               className="px-3 py-2 border border-gray-200 rounded-xl text-sm bg-white shadow-sm focus:outline-none focus:ring-2 focus:ring-[#FC5931]"
             >
-              <option value="">Apto</option>
+              <option value="">{getAptoLabel(tipoEstrutura)}</option>
               {[...uniqueAptos].sort((a, b) => a.localeCompare(b, 'pt', { numeric: true })).map(a => <option key={a} value={a}>{a}</option>)}
             </select>
           </>
@@ -430,7 +434,7 @@ export default function ParcelList({ initialParcels, isPorter, condoId, allBloco
                     </div>
                     <div>
                       <p className={`font-bold text-sm ${delivered ? 'text-gray-900' : 'text-white'}`}>
-                        Bloco {p.bloco ?? p.perfil?.bloco_txt ?? '?'} / Apto {p.apto ?? p.perfil?.apto_txt ?? '?'}
+                        {getBlocoLabel(tipoEstrutura)} {p.bloco ?? p.perfil?.bloco_txt ?? '?'} / {getAptoLabel(tipoEstrutura)} {p.apto ?? p.perfil?.apto_txt ?? '?'}
                       </p>
                       <p className={`text-xs ${delivered ? 'text-gray-500' : 'text-white/70'}`}>
                         {p.perfil?.nome_completo ?? 'Sem morador'}

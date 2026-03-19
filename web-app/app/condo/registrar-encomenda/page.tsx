@@ -35,6 +35,14 @@ export default async function RegistrarEncomendaPage() {
 
   const condoId = profile?.condominio_id ?? ''
 
+  // Fetch tipo_estrutura from condominios
+  const { data: condo } = await supabase
+    .from('condominios')
+    .select('tipo_estrutura')
+    .eq('id', condoId)
+    .single()
+  const tipoEstrutura = condo?.tipo_estrutura ?? 'predio'
+
   // Strategy 1: fetch from structural tables (blocos + unidades + apartamentos)
   let units: UnitOption[] = []
 
@@ -143,6 +151,7 @@ export default async function RegistrarEncomendaPage() {
         condoId={condoId}
         registeredById={user.id}
         units={units}
+        tipoEstrutura={tipoEstrutura}
         allBlocos={allBlocosDesc}
         allAptos={allAptosDesc}
       />

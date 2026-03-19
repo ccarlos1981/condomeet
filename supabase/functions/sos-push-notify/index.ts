@@ -2,6 +2,18 @@ import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2"
 import { create, getNumericDate } from "https://deno.land/x/djwt@v2.9.1/mod.ts"
 
+// ── Dynamic structure labels ────────────────────────────────────────────────
+function getBlocoLabel(tipo?: string): string {
+  if (tipo === 'casa_quadra') return 'Quadra'
+  if (tipo === 'casa_rua') return 'Rua'
+  return 'Bloco'
+}
+function getAptoLabel(tipo?: string): string {
+  if (tipo === 'casa_quadra') return 'Lote'
+  if (tipo === 'casa_rua') return 'Número'
+  return 'Apto'
+}
+
 // ── FCM HTTP v1 helpers (same pattern as parcel-push-notify) ──────────────
 
 async function getAccessToken(serviceAccount: any): Promise<string> {
@@ -134,12 +146,20 @@ serve(async (req) => {
       return new Response(JSON.stringify({ error: "Resident not found" }), { status: 404 })
     }
 
+    // Fetch tipo_estrutura for dynamic labels
+    const { data: condoData } = await supabase
+      .from("condominios")
+      .select("tipo_estrutura")
+      .eq("id", condominium_id)
+      .single()
+    const tipoEstrutura = condoData?.tipo_estrutura ?? 'predio'
+
     const residentName = resident.nome_completo ?? "Morador"
     const unitLabel =
       resident.bloco_txt && resident.apto_txt
-        ? `Bloco ${resident.bloco_txt} / Apto ${resident.apto_txt}`
+        ? `${getBlocoLabel(tipoEstrutura)} ${resident.bloco_txt} / ${getAptoLabel(tipoEstrutura)} ${resident.apto_txt}`
         : resident.apto_txt
-          ? `Apto ${resident.apto_txt}`
+          ? `${getAptoLabel(tipoEstrutura)} ${resident.apto_txt}`
           : "Sem unidade"
 
     // 4. Get FCM tokens of síndicos, subsíndicos, and admins in the same condo

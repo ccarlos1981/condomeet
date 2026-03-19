@@ -17,6 +17,14 @@ export default async function RegistrarVisitantePage() {
 
   const condoId = profile?.condominio_id ?? ''
 
+  // Fetch tipo_estrutura from condominios
+  const { data: condo } = await supabase
+    .from('condominios')
+    .select('tipo_estrutura')
+    .eq('id', condoId)
+    .single()
+  const tipoEstrutura = condo?.tipo_estrutura ?? 'predio'
+
   // Recent visitors (last 50)
   const { data: visitantes } = await supabase
     .from('visitante_registros')
@@ -55,6 +63,7 @@ export default async function RegistrarVisitantePage() {
         condoId={condoId}
         currentUserId={user.id}
         currentUserName={profile?.nome_completo ?? ''}
+        tipoEstrutura={tipoEstrutura}
         blocos={blocos}
         aptosMap={aptosMap}
       />

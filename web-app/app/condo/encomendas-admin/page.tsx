@@ -28,6 +28,14 @@ export default async function EncomendasAdminPage() {
 
   const condoId = profile?.condominio_id ?? ''
 
+  // Fetch tipo_estrutura from condominios
+  const { data: condo } = await supabase
+    .from('condominios')
+    .select('tipo_estrutura')
+    .eq('id', condoId)
+    .single()
+  const tipoEstrutura = condo?.tipo_estrutura ?? 'predio'
+
   // Load ALL parcels for the condominium
   const { data: parcels, error } = await supabase
     .from('encomendas')
@@ -103,6 +111,7 @@ export default async function EncomendasAdminPage() {
         isPorter={isAdmin}
         userId={user.id}
         condoId={condoId}
+        tipoEstrutura={tipoEstrutura}
         allBlocos={allBlocos}
         allAptosMap={allAptosMap}
       />

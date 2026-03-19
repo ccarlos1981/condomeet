@@ -2,6 +2,7 @@ import { createClient } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
 import Link from 'next/link'
 import { UserCheck, Package, QrCode, ArrowRight, Bell } from 'lucide-react'
+import { getBlocoLabel, getAptoLabel } from '@/lib/labels'
 
 export default async function CondoDashboard() {
   const supabase = await createClient()
@@ -13,6 +14,13 @@ export default async function CondoDashboard() {
     .select('nome_completo, papel_sistema, bloco_txt, apto_txt, condominio_id')
     .eq('id', user.id)
     .single()
+
+  const { data: condo } = await supabase
+    .from('condominios')
+    .select('tipo_estrutura')
+    .eq('id', profile?.condominio_id ?? '')
+    .single()
+  const tipoEstrutura = condo?.tipo_estrutura ?? 'predio'
 
   const role = profile?.papel_sistema ?? 'Morador'
   const firstName = profile?.nome_completo?.split(' ')[0] ?? 'Morador'
@@ -48,7 +56,7 @@ export default async function CondoDashboard() {
         <h1 className="text-3xl font-bold text-gray-900">{firstName} 👋</h1>
         {profile?.bloco_txt && (
           <p className="text-gray-500 text-sm mt-1">
-            Unidade: <span className="font-medium text-gray-700">Bloco {profile.bloco_txt} / Apto {profile.apto_txt}</span>
+            Unidade: <span className="font-medium text-gray-700">{getBlocoLabel(tipoEstrutura)} {profile.bloco_txt} / {getAptoLabel(tipoEstrutura)} {profile.apto_txt}</span>
           </p>
         )}
       </div>

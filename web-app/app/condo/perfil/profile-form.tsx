@@ -5,6 +5,7 @@ import { createClient } from '@/lib/supabase/client'
 import { useRouter } from 'next/navigation'
 import { Save, AlertTriangle, Loader2, Lock, Eye, EyeOff } from 'lucide-react'
 import { fetchAll } from '@/lib/supabase/utils'
+import { getBlocoLabel, getAptoLabel } from '@/lib/labels'
 
 const TIPOS_MORADOR = [
   'Proprietário (a)', 'Inquilino (a)', 'Cônjuge', 'Dependente',
@@ -26,6 +27,7 @@ interface ProfileFormProps {
   currentAptoTxt: string
   currentBlocoId: string
   currentAptoId: string
+  tipoEstrutura?: string
   blocos: Bloco[]
   initialAptos: Apto[]
 }
@@ -35,6 +37,7 @@ export default function ProfileForm({
   currentName, currentWhatsapp, currentTipoMorador,
   currentBlocoTxt, currentAptoTxt,
   currentBlocoId, currentAptoId,
+  tipoEstrutura,
   blocos, initialAptos,
 }: ProfileFormProps) {
   const supabase = createClient()
@@ -214,20 +217,20 @@ export default function ProfileForm({
       {/* Minha Unidade */}
       <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6 mb-6">
         <h2 className="text-lg font-semibold text-gray-700 mb-2">Minha Unidade</h2>
-        <p className="text-sm text-gray-400 mb-4">Atualmente: Bloco {currentBlocoTxt || '?'} / Apto {currentAptoTxt || '?'}</p>
+        <p className="text-sm text-gray-400 mb-4">Atualmente: {getBlocoLabel(tipoEstrutura)} {currentBlocoTxt || '?'} / {getAptoLabel(tipoEstrutura)} {currentAptoTxt || '?'}</p>
         <div className="space-y-4">
           <div>
-            <label className="block text-sm font-medium text-gray-600 mb-1">Bloco</label>
+            <label className="block text-sm font-medium text-gray-600 mb-1">{getBlocoLabel(tipoEstrutura)}</label>
             <select value={selectedBlocoId} onChange={e => handleBlocoChange(e.target.value)} className="w-full px-4 py-2.5 rounded-xl border border-gray-200 focus:ring-2 focus:ring-[#FC5931]/20 focus:border-[#FC5931] outline-none bg-white">
-              <option value="">Selecione o bloco</option>
-              {blocos.map(b => <option key={b.id} value={b.id}>Bloco {b.nome_ou_numero}</option>)}
+              <option value="">Selecione o {getBlocoLabel(tipoEstrutura).toLowerCase()}</option>
+              {blocos.map(b => <option key={b.id} value={b.id}>{getBlocoLabel(tipoEstrutura)} {b.nome_ou_numero}</option>)}
             </select>
           </div>
           <div>
-            <label className="block text-sm font-medium text-gray-600 mb-1">Apartamento</label>
+            <label className="block text-sm font-medium text-gray-600 mb-1">{getAptoLabel(tipoEstrutura)}</label>
             <select value={selectedAptoId} onChange={e => handleAptoChange(e.target.value)} disabled={loadingAptos} className="w-full px-4 py-2.5 rounded-xl border border-gray-200 focus:ring-2 focus:ring-[#FC5931]/20 focus:border-[#FC5931] outline-none bg-white disabled:opacity-50">
-              <option value="">{loadingAptos ? 'Carregando...' : 'Selecione o apartamento'}</option>
-              {aptos.map(a => <option key={a.id} value={a.id}>Apto {a.numero}</option>)}
+              <option value="">{loadingAptos ? 'Carregando...' : `Selecione o ${getAptoLabel(tipoEstrutura).toLowerCase()}`}</option>
+              {aptos.map(a => <option key={a.id} value={a.id}>{getAptoLabel(tipoEstrutura)} {a.numero}</option>)}
             </select>
           </div>
           {aptChanged && (

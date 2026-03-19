@@ -15,6 +15,14 @@ export default async function LiberarVisitantePage() {
 
   const condoId = profile?.condominio_id ?? ''
 
+  // Fetch tipo_estrutura from condominios
+  const { data: condo } = await supabase
+    .from('condominios')
+    .select('tipo_estrutura')
+    .eq('id', condoId)
+    .single()
+  const tipoEstrutura = condo?.tipo_estrutura ?? 'predio'
+
   // 1) Fetch convites without join — only real columns from migrations (últimos 5)
   const { data: convites, error: convitesError } = await supabase
     .from('convites')
@@ -52,6 +60,7 @@ export default async function LiberarVisitantePage() {
         initialInvitations={invitations}
         condoId={condoId}
         userId={user.id}
+        tipoEstrutura={tipoEstrutura}
         initialLimit={5}
       />
     </div>

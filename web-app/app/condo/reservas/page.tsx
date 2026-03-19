@@ -15,6 +15,14 @@ export default async function ReservasPage() {
 
   const condoId = profile?.condominio_id ?? ''
 
+  // Fetch tipo_estrutura from condominios
+  const { data: condo } = await supabase
+    .from('condominios')
+    .select('tipo_estrutura')
+    .eq('id', condoId)
+    .single()
+  const tipoEstrutura = condo?.tipo_estrutura ?? 'predio'
+
   // Load active areas for this condo
   const { data: areas } = await supabase
     .from('areas_comuns')
@@ -35,6 +43,7 @@ export default async function ReservasPage() {
     <ReservasClient
       areas={(areas ?? []) as AreaComum[]}
       minhasReservas={(minhasReservas ?? []) as unknown as MinhaReserva[]}
+      tipoEstrutura={tipoEstrutura}
       profile={{
         nome: profile?.nome_completo ?? '',
         bloco: profile?.bloco_txt ?? '',

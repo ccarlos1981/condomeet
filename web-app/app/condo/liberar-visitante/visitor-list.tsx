@@ -4,6 +4,7 @@ import { createClient } from '@/lib/supabase/client'
 import { useRouter } from 'next/navigation'
 import { RefreshCw, Filter, ChevronLeft, ChevronRight, CheckCircle2 } from 'lucide-react'
 import { QRCodeSVG } from 'qrcode.react'
+import { getBlocoLabel, getAptoLabel } from '@/lib/labels'
 
 interface PerfilJoin {
   nome_completo: string
@@ -32,12 +33,13 @@ interface Props {
   initialInvitations: Invitation[]
   condoId: string
   userId: string
+  tipoEstrutura?: string
   initialLimit?: number
 }
 
 const PAGE_SIZE = 5
 
-export default function VisitorList({ initialInvitations, condoId, userId, initialLimit }: Props) {
+export default function VisitorList({ initialInvitations, condoId, userId, tipoEstrutura, initialLimit }: Props) {
   const [invitations, setInvitations] = useState<Invitation[]>(initialInvitations)
   const [filtered, setFiltered] = useState<Invitation[]>(initialInvitations)
   const [approving, setApproving] = useState<string | null>(null)
@@ -152,8 +154,8 @@ export default function VisitorList({ initialInvitations, condoId, userId, initi
         <div className="flex flex-wrap gap-2 mb-3">
           {[
             { placeholder: 'Código', value: fCode, set: setFCode, width: 'w-24' },
-            { placeholder: 'Bloco', value: fBloco, set: setFBloco, width: 'w-24' },
-            { placeholder: 'Apto', value: fApto, set: setFApto, width: 'w-24' },
+            { placeholder: getBlocoLabel(tipoEstrutura), value: fBloco, set: setFBloco, width: 'w-24' },
+            { placeholder: getAptoLabel(tipoEstrutura), value: fApto, set: setFApto, width: 'w-24' },
           ].map(f => (
             <input
               key={f.placeholder}
@@ -252,7 +254,7 @@ export default function VisitorList({ initialInvitations, condoId, userId, initi
                     </div>
                     <div>
                       <p className="text-white font-semibold text-sm">
-                        Bloco: {bloco} / Apto: {apto}
+                        {getBlocoLabel(tipoEstrutura)}: {bloco} / {getAptoLabel(tipoEstrutura)}: {apto}
                       </p>
                       <p className="text-white/80 text-xs">
                         {isPortaria ? `Solicitado por: ${solicitadoPor}` : `Morador(a): ${residentName}`}

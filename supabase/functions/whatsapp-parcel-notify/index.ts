@@ -1,6 +1,18 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2"
 
+// ── Dynamic structure labels ────────────────────────────────────────────────
+function getBlocoLabel(tipo?: string): string {
+  if (tipo === 'casa_quadra') return 'Quadra'
+  if (tipo === 'casa_rua') return 'Rua'
+  return 'Bloco'
+}
+function getAptoLabel(tipo?: string): string {
+  if (tipo === 'casa_quadra') return 'Lote'
+  if (tipo === 'casa_rua') return 'Número'
+  return 'Apto'
+}
+
 serve(async (req) => {
   try {
     const { parcel_id, event, condominio_id, bloco, apto, tipo, picked_up_by_name } = await req.json()
@@ -23,10 +35,16 @@ serve(async (req) => {
     }
 
     let condoNome = "Condomínio";
+    let tipoEstrutura = 'predio';
     if (condominio_id) {
-      const { data: condo } = await supabaseAdmin.from('condominios').select('nome').eq('id', condominio_id).single();
-      if (condo) condoNome = condo.nome;
+      const { data: condo } = await supabaseAdmin.from('condominios').select('nome, tipo_estrutura').eq('id', condominio_id).single();
+      if (condo) {
+        condoNome = condo.nome;
+        tipoEstrutura = condo.tipo_estrutura || 'predio';
+      }
     }
+    const blocoLabel = getBlocoLabel(tipoEstrutura);
+    const aptoLabel = getAptoLabel(tipoEstrutura);
 
     let parcelData: any = null;
     if (parcel_id) {
@@ -89,7 +107,7 @@ Chegou uma encomenda para o seu apartamento.
 ${tipo || 'Pacote'}
 
 🏢 Unidade
-Bloco: ${bloco} / Apto: ${apto}
+${blocoLabel}: ${bloco} / ${aptoLabel}: ${apto}
 
 🔍 Cod. rastreio: ${trackingCode}
 
@@ -121,7 +139,7 @@ Encomenda retirada com sucesso!
 📨 Tipo: ${tipo || 'Pacote'}
 
 🏢 Unidade
-Bloco: ${bloco} / Apto: ${apto}
+${blocoLabel}: ${bloco} / ${aptoLabel}: ${apto}
 
 👤 Retirada por: ${whoPickedUp}
 📅 Data/Hora: ${deliveryStr}
