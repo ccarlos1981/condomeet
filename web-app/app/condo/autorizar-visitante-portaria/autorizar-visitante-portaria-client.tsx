@@ -83,7 +83,7 @@ export default function AutorizarVisitantePortariaClient({
         .insert({
           resident_id: residentId,
           condominio_id: condoId,
-          guest_name: guestName.trim() || null,
+          guest_name: guestName.trim() || '',
           visitor_type: visitorType,
           validity_date: validityDate,
           qr_data: code,

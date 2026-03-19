@@ -205,7 +205,7 @@ class _PortariaVisitorAuthorizationFormScreenState
       await supabase.from('convites').insert({
         'resident_id': residentId,
         'condominio_id': condoId,
-        'guest_name': _guestNameCtrl.text.trim().isEmpty ? null : _guestNameCtrl.text.trim(),
+        'guest_name': _guestNameCtrl.text.trim().isEmpty ? '' : _guestNameCtrl.text.trim(),
         'visitor_type': _visitorType,
         'validity_date': '${_validityDate.year}-${_validityDate.month.toString().padLeft(2, '0')}-${_validityDate.day.toString().padLeft(2, '0')}',
         'qr_data': code,
