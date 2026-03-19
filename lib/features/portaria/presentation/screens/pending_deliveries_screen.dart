@@ -415,6 +415,10 @@ class _PendingDeliveriesScreenState extends State<PendingDeliveriesScreen> {
         ? _allAptosMap[_filterBloco]!
         : <String>[];
 
+    // Safety: if selected value is not in items, pass null to avoid assertion error
+    final safeBloco = (_filterBloco != null && _allBlocos.contains(_filterBloco)) ? _filterBloco : null;
+    final safeApto = (_filterApto != null && aptos.contains(_filterApto)) ? _filterApto : null;
+
     return Container(
       color: Colors.white,
       padding: const EdgeInsets.fromLTRB(16, 8, 16, 12),
@@ -431,14 +435,14 @@ class _PendingDeliveriesScreenState extends State<PendingDeliveriesScreen> {
         // Bloco + Apto dropdowns
         Row(children: [
           Expanded(child: _buildDropdown(
-            value: _filterBloco,
+            value: safeBloco,
             hint: getBlocoLabel(context.read<AuthBloc>().state.tipoEstrutura),
             items: _allBlocos,
             onChanged: (v) => _onFilterChanged(bloco: v, resetApto: true),
           )),
           const SizedBox(width: 10),
           Expanded(child: _buildDropdown(
-            value: _filterApto,
+            value: safeApto,
             hint: getAptoLabel(context.read<AuthBloc>().state.tipoEstrutura),
             items: aptos,
             onChanged: (v) => _onFilterChanged(apto: v),
