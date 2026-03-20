@@ -258,7 +258,7 @@ class _SelfRegistrationScreenState extends State<SelfRegistrationScreen> {
                    _submitRegistration();
                  } else {
                    ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text('Selecione Bloco e Apartamento')),
+                    SnackBar(content: Text('Selecione ${StructureHelper.getNivel1Label(_selectedTipoEstrutura)} e ${StructureHelper.getNivel2Label(_selectedTipoEstrutura)}')),
                   );
                  }
               }

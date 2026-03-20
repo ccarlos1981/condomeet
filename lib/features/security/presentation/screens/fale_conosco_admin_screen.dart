@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:condomeet/core/design_system/app_colors.dart';
 import 'package:condomeet/features/auth/presentation/bloc/auth_bloc.dart';
+import 'package:condomeet/shared/utils/structure_labels.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'fale_sindico_screen.dart';
 
@@ -273,7 +274,7 @@ class _FaleConoscoAdminScreenState extends State<FaleConoscoAdminScreen> {
               const SizedBox(width: 8),
               Expanded(
                 child: Text(
-                  'Conversando com ${t.residentNome ?? 'Morador'} / Bloco: ${t.residentBloco ?? '-'} / Apto: ${t.residentApto ?? '-'}',
+                  'Conversando com ${t.residentNome ?? 'Morador'} / ${getBlocoLabel(context.read<AuthBloc>().state.tipoEstrutura)}: ${t.residentBloco ?? '-'} / ${getAptoLabel(context.read<AuthBloc>().state.tipoEstrutura)}: ${t.residentApto ?? '-'}',
                   style: const TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.w600),
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
@@ -409,7 +410,7 @@ class _AdminThreadCard extends StatelessWidget {
             if (thread.residentNome != null)
               Text('Nome: ${thread.residentNome}',
                   style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700)),
-            Text('Bloco: ${thread.residentBloco ?? '-'} Apto: ${thread.residentApto ?? '-'}',
+            Text('${getBlocoLabel(context.read<AuthBloc>().state.tipoEstrutura)}: ${thread.residentBloco ?? '-'} ${getAptoLabel(context.read<AuthBloc>().state.tipoEstrutura)}: ${thread.residentApto ?? '-'}',
                 style: const TextStyle(fontSize: 11, color: Colors.grey)),
             const SizedBox(height: 4),
             Text(tipoLabelText, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w500)),

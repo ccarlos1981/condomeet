@@ -447,7 +447,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                   const Text('Minha Unidade', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
                   const SizedBox(height: 8),
                   Text(
-                    'Atualmente: Bloco ${widget.currentBlocoTxt ?? '?'} / Apto ${widget.currentAptoTxt ?? '?'}',
+                    'Atualmente: ${StructureHelper.getNivel1Label(_tipoEstrutura)} ${widget.currentBlocoTxt ?? '?'} / ${StructureHelper.getNivel2Label(_tipoEstrutura)} ${widget.currentAptoTxt ?? '?'}',
                     style: TextStyle(color: Colors.grey.shade600, fontSize: 14),
                   ),
                   const SizedBox(height: 16),

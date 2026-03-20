@@ -7,6 +7,7 @@ import 'package:image_picker/image_picker.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:condomeet/core/design_system/design_system.dart';
 import 'package:condomeet/core/errors/result.dart';
+import 'package:condomeet/shared/utils/structure_labels.dart';
 import '../../domain/entities/parcel.dart';
 import '../../domain/repositories/parcel_repository.dart';
 import '../../../auth/presentation/bloc/auth_bloc.dart';
@@ -385,9 +386,11 @@ class _ParcelRegistrationScreenState extends State<ParcelRegistrationScreen> {
   }
 
   Widget _buildBlocoDropdown() {
+    final tipo = context.read<AuthBloc>().state.tipoEstrutura;
+    final label = getBlocoLabel(tipo);
     return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
       Row(children: [
-        Text('Bloco', style: AppTypography.label),
+        Text(label, style: AppTypography.label),
         const Text(' *', style: TextStyle(color: Colors.red, fontWeight: FontWeight.bold)),
       ]),
       const SizedBox(height: 8),
@@ -405,12 +408,12 @@ class _ParcelRegistrationScreenState extends State<ParcelRegistrationScreen> {
                 child: DropdownButton<Map<String, dynamic>>(
                   value: _selectedBloco,
                   isExpanded: true,
-                  hint: const Padding(padding: EdgeInsets.symmetric(horizontal: 12), child: Text('Bloco')),
+                  hint: Padding(padding: const EdgeInsets.symmetric(horizontal: 12), child: Text(label)),
                   items: _blocos.map((b) => DropdownMenuItem(
                     value: b,
                     child: Padding(
                       padding: const EdgeInsets.symmetric(horizontal: 12),
-                      child: Text('Bloco ${b['nome_ou_numero']}'),
+                      child: Text('$label ${b['nome_ou_numero']}'),
                     ),
                   )).toList(),
                   onChanged: _onBlocoSelected,
@@ -421,9 +424,11 @@ class _ParcelRegistrationScreenState extends State<ParcelRegistrationScreen> {
   }
 
   Widget _buildAptoDropdown() {
+    final tipo = context.read<AuthBloc>().state.tipoEstrutura;
+    final label = getAptoLabel(tipo);
     return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
       Row(children: [
-        Text('Apto', style: AppTypography.label),
+        Text(label, style: AppTypography.label),
         const Text(' *', style: TextStyle(color: Colors.red, fontWeight: FontWeight.bold)),
       ]),
       const SizedBox(height: 8),
@@ -441,12 +446,12 @@ class _ParcelRegistrationScreenState extends State<ParcelRegistrationScreen> {
                 child: DropdownButton<Map<String, dynamic>>(
                   value: _selectedApto,
                   isExpanded: true,
-                  hint: const Padding(padding: EdgeInsets.symmetric(horizontal: 12), child: Text('Apto')),
+                  hint: Padding(padding: const EdgeInsets.symmetric(horizontal: 12), child: Text(label)),
                   items: _aptos.map((a) => DropdownMenuItem(
                     value: a,
                     child: Padding(
                       padding: const EdgeInsets.symmetric(horizontal: 12),
-                      child: Text('Apto ${a['numero']}'),
+                      child: Text('$label ${a['numero']}'),
                     ),
                   )).toList(),
                   onChanged: _selectedBloco == null ? null : _onAptoSelected,

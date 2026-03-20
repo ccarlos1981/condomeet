@@ -1,7 +1,7 @@
 import { createClient } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
 import Link from 'next/link'
-import { UserCheck, Package, QrCode, ArrowRight, Bell } from 'lucide-react'
+import { UserCheck, Package, QrCode, ArrowRight, Bell, Calendar, Clock } from 'lucide-react'
 import { getBlocoLabel, getAptoLabel } from '@/lib/labels'
 
 export default async function CondoDashboard() {
@@ -38,6 +38,25 @@ export default async function CondoDashboard() {
   // Count pending
   const pendingCount = recentInvitations?.filter(i => !i.visitante_compareceu).length ?? 0
 
+  // Fetch pending parcels count for user's unit
+  const { count: pendingParcelsCount } = await supabase
+    .from('encomendas')
+    .select('*', { count: 'exact', head: true })
+    .eq('condominio_id', profile?.condominio_id ?? '')
+    .eq('bloco_txt', profile?.bloco_txt ?? '')
+    .eq('apto_txt', profile?.apto_txt ?? '')
+    .is('data_retirada', null)
+
+  // Fetch invitations this month count
+  const startOfMonth = new Date()
+  startOfMonth.setDate(1)
+  startOfMonth.setHours(0, 0, 0, 0)
+  const { count: monthInvitationsCount } = await supabase
+    .from('convites')
+    .select('*', { count: 'exact', head: true })
+    .eq('condominio_id', profile?.condominio_id ?? '')
+    .gte('created_at', startOfMonth.toISOString())
+
   const quickActions = isPorter ? [
     { label: 'Liberar Visitante', sub: `${pendingCount} aguardando`, icon: UserCheck, href: '/condo/liberar-visitante', iconColor: 'text-orange-500', iconBg: 'bg-orange-500/10' },
     { label: 'Registrar Encomenda', sub: 'Novo pacote recebido', icon: Package, href: '/condo/registrar-encomenda', iconColor: 'text-blue-500', iconBg: 'bg-blue-500/10' },
@@ -46,6 +65,34 @@ export default async function CondoDashboard() {
     { label: 'Minhas Encomendas', sub: 'Ver entregas', icon: Package, href: '/condo/encomendas', iconColor: 'text-blue-500', iconBg: 'bg-blue-500/10' },
     { label: 'Visitante c/ Autorização', sub: 'Check-in QR', icon: QrCode, href: '/condo/liberar-visitante', iconColor: 'text-emerald-500', iconBg: 'bg-emerald-500/10' },
     { label: 'Encomendas do Cond.', sub: 'Todas do prédio', icon: Package, href: '/condo/encomendas-admin', iconColor: 'text-indigo-500', iconBg: 'bg-indigo-500/10' },
+  ]
+
+  // Stats strip data
+  const statsItems = [
+    {
+      label: 'Autorizações Pendentes',
+      value: pendingCount,
+      icon: Clock,
+      iconColor: 'text-orange-500',
+      iconBg: 'bg-orange-500/10',
+      accentColor: 'border-orange-200',
+    },
+    {
+      label: 'Encomendas a Retirar',
+      value: pendingParcelsCount ?? 0,
+      icon: Package,
+      iconColor: 'text-blue-500',
+      iconBg: 'bg-blue-500/10',
+      accentColor: 'border-blue-200',
+    },
+    {
+      label: 'Convites este Mês',
+      value: monthInvitationsCount ?? 0,
+      icon: Calendar,
+      iconColor: 'text-emerald-500',
+      iconBg: 'bg-emerald-500/10',
+      accentColor: 'border-emerald-200',
+    },
   ]
 
   return (
@@ -62,7 +109,7 @@ export default async function CondoDashboard() {
       </div>
 
       {/* Quick Actions */}
-      <section className="mb-8">
+      <section className="mb-5">
         <h2 className="text-lg font-semibold text-gray-800 mb-4">Ações Rápidas</h2>
         <div className="grid grid-cols-2 grid-rows-2 sm:grid-cols-2 lg:grid-cols-4 gap-3">
           {quickActions.map(action => (
@@ -78,6 +125,26 @@ export default async function CondoDashboard() {
                 <p className="text-[11px] sm:text-xs text-gray-500 mt-1 line-clamp-1">{action.sub}</p>
               </div>
             </Link>
+          ))}
+        </div>
+      </section>
+
+      {/* Summary Stats Strip */}
+      <section className="mb-5">
+        <div className="grid grid-cols-3 gap-3">
+          {statsItems.map(stat => (
+            <div
+              key={stat.label}
+              className={`bg-white rounded-2xl px-4 py-3.5 border border-gray-100 shadow-sm flex items-center gap-3 border-l-[3px] ${stat.accentColor}`}
+            >
+              <div className={`w-9 h-9 rounded-lg flex items-center justify-center shrink-0 ${stat.iconBg}`}>
+                <stat.icon size={18} className={stat.iconColor} />
+              </div>
+              <div className="min-w-0">
+                <p className="text-xl font-bold text-gray-900 leading-none">{stat.value}</p>
+                <p className="text-[11px] text-gray-500 mt-0.5 truncate">{stat.label}</p>
+              </div>
+            </div>
           ))}
         </div>
       </section>

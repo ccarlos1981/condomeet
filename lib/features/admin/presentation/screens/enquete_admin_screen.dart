@@ -5,6 +5,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:condomeet/core/design_system/design_system.dart';
 import 'package:condomeet/features/auth/presentation/bloc/auth_bloc.dart';
+import 'package:condomeet/shared/utils/structure_labels.dart';
 
 
 
@@ -643,12 +644,12 @@ class _EnqueteAdminScreenState extends State<EnqueteAdminScreen> {
                             dataRowMinHeight: 32,
                             dataRowMaxHeight: 40,
                             columnSpacing: 16,
-                            columns: const [
-                              DataColumn(label: Text('Nome', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12))),
-                              DataColumn(label: Text('Data', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12))),
-                              DataColumn(label: Text('Bloco', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12))),
-                              DataColumn(label: Text('Apto', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12))),
-                              DataColumn(label: Text('Resposta', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12))),
+                            columns: [
+                              const DataColumn(label: Text('Nome', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12))),
+                              const DataColumn(label: Text('Data', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12))),
+                              DataColumn(label: Text(getBlocoLabel(context.read<AuthBloc>().state.tipoEstrutura), style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12))),
+                              DataColumn(label: Text(getAptoLabel(context.read<AuthBloc>().state.tipoEstrutura), style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12))),
+                              const DataColumn(label: Text('Resposta', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12))),
                             ],
                             rows: _respostas.map((r) => DataRow(cells: [
                               DataCell(Text(r['nome'] ?? '', style: const TextStyle(fontSize: 12))),

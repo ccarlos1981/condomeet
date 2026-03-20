@@ -8,6 +8,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:uuid/uuid.dart';
 import 'package:condomeet/core/design_system/design_system.dart';
 import 'package:condomeet/features/auth/presentation/bloc/auth_bloc.dart';
+import 'package:condomeet/shared/utils/structure_labels.dart';
 
 const _tipoVisitanteOptions = [
   {'value': 'Uber ou Taxi', 'label': '🚗 Uber ou Taxi'},
@@ -740,7 +741,7 @@ class _VisitorRegistrationScreenState extends State<VisitorRegistrationScreen>
                           style: const TextStyle(
                               fontWeight: FontWeight.bold, fontSize: 14)),
                       if (bloco.isNotEmpty || apto.isNotEmpty)
-                        Text('Bloco $bloco / Apto $apto',
+                        Text('${getBlocoLabel(context.read<AuthBloc>().state.tipoEstrutura)} $bloco / ${getAptoLabel(context.read<AuthBloc>().state.tipoEstrutura)} $apto',
                             style: TextStyle(
                                 fontSize: 12, color: Colors.grey.shade600)),
                       if (entradaAt != null)
@@ -1160,10 +1161,12 @@ class _VisitorRegistrationScreenState extends State<VisitorRegistrationScreen>
 
   // ── Bloco dropdown ───────────────────────────────────────────
   Widget _buildBlocoDropdown() {
+    final tipo = context.read<AuthBloc>().state.tipoEstrutura;
+    final label = getBlocoLabel(tipo);
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text('Bloco', style: AppTypography.label),
+        Text(label, style: AppTypography.label),
         const SizedBox(height: 8),
         Container(
           decoration: BoxDecoration(
@@ -1183,16 +1186,16 @@ class _VisitorRegistrationScreenState extends State<VisitorRegistrationScreen>
                   child: DropdownButton<Map<String, dynamic>>(
                     value: _selectedBloco,
                     isExpanded: true,
-                    hint: const Padding(
-                        padding: EdgeInsets.symmetric(horizontal: 12),
-                        child: Text('Bloco')),
+                    hint: Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 12),
+                        child: Text(label)),
                     items: _blocos
                         .map((b) => DropdownMenuItem(
                               value: b,
                               child: Padding(
                                 padding:
                                     const EdgeInsets.symmetric(horizontal: 12),
-                                child: Text('Bloco ${b['nome_ou_numero']}'),
+                                child: Text('$label ${b['nome_ou_numero']}'),
                               ),
                             ))
                         .toList(),
@@ -1206,10 +1209,12 @@ class _VisitorRegistrationScreenState extends State<VisitorRegistrationScreen>
 
   // ── Apto dropdown ────────────────────────────────────────────
   Widget _buildAptoDropdown() {
+    final tipo = context.read<AuthBloc>().state.tipoEstrutura;
+    final label = getAptoLabel(tipo);
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text('Apto', style: AppTypography.label),
+        Text(label, style: AppTypography.label),
         const SizedBox(height: 8),
         Container(
           decoration: BoxDecoration(
@@ -1229,16 +1234,16 @@ class _VisitorRegistrationScreenState extends State<VisitorRegistrationScreen>
                   child: DropdownButton<Map<String, dynamic>>(
                     value: _selectedApto,
                     isExpanded: true,
-                    hint: const Padding(
-                        padding: EdgeInsets.symmetric(horizontal: 12),
-                        child: Text('Apto')),
+                    hint: Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 12),
+                        child: Text(label)),
                     items: _aptos
                         .map((a) => DropdownMenuItem(
                               value: a,
                               child: Padding(
                                 padding:
                                     const EdgeInsets.symmetric(horizontal: 12),
-                                child: Text('Apto ${a['numero']}'),
+                                child: Text('$label ${a['numero']}'),
                               ),
                             ))
                         .toList(),

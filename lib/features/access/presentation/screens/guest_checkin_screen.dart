@@ -5,6 +5,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:condomeet/features/auth/presentation/bloc/auth_bloc.dart';
 import 'package:condomeet/features/access/domain/models/invitation.dart';
+import 'package:condomeet/shared/utils/structure_labels.dart';
 import '../bloc/invitation_bloc.dart';
 import '../bloc/invitation_event.dart';
 import '../bloc/invitation_state.dart';
@@ -111,7 +112,7 @@ class _GuestCheckinScreenState extends State<GuestCheckinScreen> {
                     height: 40,
                     child: TextField(
                       decoration: InputDecoration(
-                        hintText: 'Bloco',
+                        hintText: getBlocoLabel(context.read<AuthBloc>().state.tipoEstrutura),
                         hintStyle: TextStyle(color: Colors.grey.shade400, fontSize: 13),
                         prefixIcon: Icon(Icons.apartment, size: 18, color: Colors.grey.shade400),
                         filled: true,
@@ -140,7 +141,7 @@ class _GuestCheckinScreenState extends State<GuestCheckinScreen> {
                     height: 40,
                     child: TextField(
                       decoration: InputDecoration(
-                        hintText: 'Apto',
+                        hintText: getAptoLabel(context.read<AuthBloc>().state.tipoEstrutura),
                         hintStyle: TextStyle(color: Colors.grey.shade400, fontSize: 13),
                         prefixIcon: Icon(Icons.door_front_door, size: 18, color: Colors.grey.shade400),
                         filled: true,
@@ -295,8 +296,8 @@ class _GuestCheckinScreenState extends State<GuestCheckinScreen> {
 
   Widget _buildInvitationTile(Invitation invitation) {
     final unit = [
-      if (invitation.blocoTxt != null && invitation.blocoTxt!.isNotEmpty) 'Bl. ${invitation.blocoTxt}',
-      if (invitation.aptoTxt != null && invitation.aptoTxt!.isNotEmpty) 'Ap. ${invitation.aptoTxt}',
+      if (invitation.blocoTxt != null && invitation.blocoTxt!.isNotEmpty) '${getBlocoLabel(context.read<AuthBloc>().state.tipoEstrutura).substring(0, 2)}. ${invitation.blocoTxt}',
+      if (invitation.aptoTxt != null && invitation.aptoTxt!.isNotEmpty) '${getAptoLabel(context.read<AuthBloc>().state.tipoEstrutura).substring(0, 2)}. ${invitation.aptoTxt}',
     ].join(' / ');
 
     final tipoLabel = invitation.visitorType ?? '';

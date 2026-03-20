@@ -79,8 +79,17 @@ serve(async (req) => {
 
     const { sendMessage } = await import("../_shared/botconversa.ts")
 
-    const sendPromises = profilesToNotify.map(async (profile: any) => {
+    const results: any[] = [];
+
+    for (let i = 0; i < profilesToNotify.length; i++) {
+      const profile = profilesToNotify[i];
+
       try {
+        // Delay aleatório de 10-20s ANTES de cada morador (anti-ban)
+        const textDelayMs = Math.floor(Math.random() * 10_000) + 10_000;
+        console.log(`⏳ [${i + 1}/${profilesToNotify.length}] Delay ${textDelayMs}ms antes de enviar texto para ${profile.nome_completo}`);
+        await new Promise(res => setTimeout(res, textDelayMs));
+
         // Gerar código interno para anti-ban
         const codInterno = Math.random().toString(36).substring(2, 7).toUpperCase();
 
@@ -152,18 +161,17 @@ Cod. interno: ${codInterno}`;
         
         // Enviar foto SOMENTE no evento 'arrived', com delay random (10-20s)
         if (event === 'arrived' && result1.success && parcelData?.photo_url) {
-          const delayMs = Math.floor(Math.random() * (20000 - 10000 + 1) + 10000);
-          await new Promise(res => setTimeout(res, delayMs));
+          const photoDelayMs = Math.floor(Math.random() * 10_000) + 10_000;
+          console.log(`📸 [${i + 1}/${profilesToNotify.length}] Delay ${photoDelayMs}ms antes da foto para ${profile.nome_completo}`);
+          await new Promise(res => setTimeout(res, photoDelayMs));
           await sendMessage(BOTCONVERSA_API_KEY as string, profile.botconversa_id, "file", parcelData.photo_url);
         }
 
-        return result1;
+        results.push(result1);
       } catch (err: any) {
-        return { success: false, error: err.message, subscriberId: profile.botconversa_id };
+        results.push({ success: false, error: err.message, subscriberId: profile.botconversa_id });
       }
-    });
-
-    const results = await Promise.all(sendPromises);
+    }
     const hasSuccess = results.some((r: any) => r.success);
 
     return new Response(JSON.stringify({

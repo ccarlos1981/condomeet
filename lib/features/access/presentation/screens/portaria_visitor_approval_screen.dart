@@ -7,6 +7,7 @@ import 'package:condomeet/features/access/presentation/bloc/invitation_bloc.dart
 import 'package:condomeet/features/access/presentation/bloc/invitation_event.dart';
 import 'package:condomeet/features/access/presentation/bloc/invitation_state.dart';
 import 'package:condomeet/features/access/domain/models/invitation.dart';
+import 'package:condomeet/shared/utils/structure_labels.dart';
 
 class PortariaVisitorApprovalScreen extends StatefulWidget {
   const PortariaVisitorApprovalScreen({super.key});
@@ -119,9 +120,9 @@ class _PortariaVisitorApprovalScreenState
             children: [
               Expanded(child: _filterField('Código', _codeCtrl)),
               const SizedBox(width: 6),
-              Expanded(child: _filterField('Bloco', _blocoCtrl)),
+              Expanded(child: _filterField(getBlocoLabel(context.read<AuthBloc>().state.tipoEstrutura), _blocoCtrl)),
               const SizedBox(width: 6),
-              Expanded(child: _filterField('Apto', _aptoCtrl)),
+              Expanded(child: _filterField(getAptoLabel(context.read<AuthBloc>().state.tipoEstrutura), _aptoCtrl)),
               const SizedBox(width: 6),
               Expanded(child: _buildDateFilter()),
             ],
@@ -377,7 +378,7 @@ class _PortariaVisitorApprovalScreenState
                     mainAxisSize: MainAxisSize.min,
                     children: [
                       Text(
-                        'Bloco: ${inv.blocoTxt ?? '-'}  /  Apto: ${inv.aptoTxt ?? '-'}',
+                        '${getBlocoLabel(context.read<AuthBloc>().state.tipoEstrutura)}: ${inv.blocoTxt ?? '-'}  /  ${getAptoLabel(context.read<AuthBloc>().state.tipoEstrutura)}: ${inv.aptoTxt ?? '-'}',
                         style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
                         overflow: TextOverflow.ellipsis,
                       ),
@@ -545,7 +546,7 @@ class _PortariaVisitorApprovalScreenState
             const SizedBox(height: 6),
             _dialogRow(Icons.category_outlined, 'Tipo', inv.visitorType ?? '-'),
             const SizedBox(height: 6),
-            _dialogRow(Icons.home_outlined, 'Solicitado por', '${inv.residentName ?? '-'} — Bloco ${inv.blocoTxt ?? '-'} / Apto ${inv.aptoTxt ?? '-'}'),
+            _dialogRow(Icons.home_outlined, 'Solicitado por', '${inv.residentName ?? '-'} — ${getBlocoLabel(context.read<AuthBloc>().state.tipoEstrutura)} ${inv.blocoTxt ?? '-'} / ${getAptoLabel(context.read<AuthBloc>().state.tipoEstrutura)} ${inv.aptoTxt ?? '-'}'),
             const SizedBox(height: 12),
             Container(
               padding: const EdgeInsets.all(10),

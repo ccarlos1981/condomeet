@@ -1,4 +1,5 @@
 import 'dart:io';
+import 'package:url_launcher/url_launcher.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/services.dart';
@@ -898,6 +899,10 @@ class _HomeScreenState extends State<HomeScreen> {
                   _drawerItem(
                     Icons.privacy_tip_outlined,
                     'Política de privacidade',
+                    onTap: () {
+                      Navigator.pop(context);
+                      launchUrl(Uri.parse('https://condomeet.app.br/privacidade'), mode: LaunchMode.externalApplication);
+                    },
                   ),
                   _drawerItem(
                     Icons.chevron_left,

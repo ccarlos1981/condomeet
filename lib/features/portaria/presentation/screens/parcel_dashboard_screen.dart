@@ -8,6 +8,7 @@ import 'package:condomeet/core/utils/structure_helper.dart';
 import 'package:condomeet/core/errors/result.dart';
 import 'package:condomeet/features/auth/presentation/bloc/auth_bloc.dart';
 import 'package:condomeet/core/di/injection_container.dart';
+import 'package:condomeet/shared/utils/structure_labels.dart';
 import '../../../parcels/presentation/bloc/parcel_bloc.dart';
 import '../../../parcels/presentation/bloc/parcel_event.dart';
 import '../../../parcels/presentation/bloc/parcel_state.dart';
@@ -564,7 +565,7 @@ class _DarBaixaSheetState extends State<_DarBaixaSheet> {
               Text('Dar Baixa na Encomenda', style: AppTypography.h2),
             ]),
             const SizedBox(height: 6),
-            Text('${widget.parcel.block} / Apto ${widget.parcel.unitNumber}',
+            Text('${widget.parcel.block} / ${getAptoLabel(context.read<AuthBloc>().state.tipoEstrutura)} ${widget.parcel.unitNumber}',
                 style: AppTypography.bodyMedium.copyWith(color: AppColors.textSecondary)),
             const Divider(height: 28),
 

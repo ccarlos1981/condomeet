@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
+import 'package:url_launcher/url_launcher.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:get_it/get_it.dart';
 import 'package:condomeet/core/design_system/app_colors.dart';
@@ -21,13 +21,24 @@ class _LoginScreenState extends State<LoginScreen> {
   final _formKey = GlobalKey<FormState>();
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
+  final _passwordFocusNode = FocusNode();
   bool _obscurePassword = true;
   bool _rememberMe = true;
+  bool _passwordHasFocus = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _passwordFocusNode.addListener(() {
+      setState(() => _passwordHasFocus = _passwordFocusNode.hasFocus);
+    });
+  }
 
   @override
   void dispose() {
     _emailController.dispose();
     _passwordController.dispose();
+    _passwordFocusNode.dispose();
     super.dispose();
   }
 
@@ -126,7 +137,10 @@ class _LoginScreenState extends State<LoginScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: Colors.white,
-      body: BlocListener<AuthBloc, AuthState>(
+      resizeToAvoidBottomInset: true,
+      body: Stack(
+        children: [
+          BlocListener<AuthBloc, AuthState>(
         listener: (context, state) {
           if (state.status == AuthStatus.needsPasswordSetup && state.phoneNumber != null) {
             PasswordSetupSheet.show(context, state.phoneNumber!);
@@ -215,6 +229,7 @@ class _LoginScreenState extends State<LoginScreen> {
                         TextFormField(
                           controller: _emailController,
                           keyboardType: TextInputType.emailAddress,
+                          textInputAction: TextInputAction.next,
                           decoration: InputDecoration(
                             hintText: 'Digite seu email',
                             prefixIcon: const Icon(Icons.email_outlined),
@@ -232,10 +247,9 @@ class _LoginScreenState extends State<LoginScreen> {
                         const SizedBox(height: 16),
                         TextFormField(
                           controller: _passwordController,
-                          keyboardType: TextInputType.number, // SOMENTE NÚMEROS
-                          inputFormatters: [
-                            FilteringTextInputFormatter.digitsOnly, // REGRA: Apenas digitos numéricos
-                          ],
+                          focusNode: _passwordFocusNode,
+                          readOnly: true, // Suppress native keyboard
+                          showCursor: true,
                           obscureText: _obscurePassword,
                           decoration: InputDecoration(
                             hintText: 'Senha (somente números)',
@@ -256,6 +270,11 @@ class _LoginScreenState extends State<LoginScreen> {
                               return 'A senha deve conter apenas números';
                             }
                             return null;
+                          },
+                          onTap: () {
+                            if (!_passwordFocusNode.hasFocus) {
+                              _passwordFocusNode.requestFocus();
+                            }
                           },
                         ),
                         const SizedBox(height: 16),
@@ -335,15 +354,176 @@ class _LoginScreenState extends State<LoginScreen> {
           ),
         ),
       ),
-      bottomNavigationBar: const Padding(
-        padding: EdgeInsets.all(16.0),
-        child: Text(
-          'Todos os direitos reservados à @2SCapital @2026\nPolítica de Privacidade',
-          textAlign: TextAlign.center,
-          style: TextStyle(
-            fontSize: 12,
-            color: AppColors.textSecondary,
+          // Custom numeric keypad
+          if (_passwordHasFocus)
+            Positioned(
+              left: 0,
+              right: 0,
+              bottom: 0,
+              child: SafeArea(
+                top: false,
+                child: Container(
+                  color: const Color(0xFFD2D5DB),
+                  padding: const EdgeInsets.fromLTRB(3, 8, 3, 4),
+                  child: BlocBuilder<AuthBloc, AuthState>(
+                    builder: (context, state) {
+                      final isLoading = state.status == AuthStatus.authenticating;
+                      return Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          // Row 1: 1, 2, 3
+                          _buildKeyRow(['1', '2', '3'], isLoading),
+                          const SizedBox(height: 6),
+                          // Row 2: 4, 5, 6
+                          _buildKeyRow(['4', '5', '6'], isLoading),
+                          const SizedBox(height: 6),
+                          // Row 3: 7, 8, 9
+                          _buildKeyRow(['7', '8', '9'], isLoading),
+                          const SizedBox(height: 6),
+                          // Row 4: ⌫ (backspace), 0, ✓ (submit)
+                          Row(
+                            children: [
+                              _buildSpecialKey(
+                                child: const Icon(Icons.backspace_outlined, size: 22, color: Colors.black87),
+                                onTap: () {
+                                  final text = _passwordController.text;
+                                  final sel = _passwordController.selection;
+                                  if (text.isNotEmpty && sel.baseOffset > 0) {
+                                    final newText = text.substring(0, sel.baseOffset - 1) + text.substring(sel.extentOffset);
+                                    _passwordController.text = newText;
+                                    _passwordController.selection = TextSelection.collapsed(offset: sel.baseOffset - 1);
+                                  }
+                                },
+                                color: const Color(0xFFADB3BC),
+                              ),
+                              _buildNumKey('0'),
+                              _buildSpecialKey(
+                                child: isLoading
+                                    ? const SizedBox(
+                                        width: 20,
+                                        height: 20,
+                                        child: CircularProgressIndicator(
+                                          strokeWidth: 2.5,
+                                          color: Colors.white,
+                                        ),
+                                      )
+                                    : const Icon(Icons.check_circle, size: 28, color: Colors.white),
+                                onTap: isLoading
+                                    ? null
+                                    : () {
+                                        _passwordFocusNode.unfocus();
+                                        _submitLogin();
+                                      },
+                                color: AppColors.primary,
+                              ),
+                            ],
+                          ),
+                        ],
+                      );
+                    },
+                  ),
+                ),
+              ),
+            ),
+        ],
+      ),
+      bottomNavigationBar: Padding(
+        padding: const EdgeInsets.all(16.0),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Text(
+              'Todos os direitos reservados à @2SCapital @2026',
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                fontSize: 12,
+                color: AppColors.textSecondary,
+              ),
+            ),
+            GestureDetector(
+              onTap: () => launchUrl(Uri.parse('https://condomeet.app.br/privacidade'), mode: LaunchMode.externalApplication),
+              child: const Text(
+                'Política de Privacidade',
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  fontSize: 12,
+                  color: AppColors.primary,
+                  decoration: TextDecoration.underline,
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  // --- Custom Keyboard Helpers ---
+
+  Widget _buildKeyRow(List<String> keys, bool isLoading) {
+    return Row(
+      children: keys.map((key) => _buildNumKey(key)).toList(),
+    );
+  }
+
+  Widget _buildNumKey(String digit) {
+    return Expanded(
+      child: GestureDetector(
+        onTap: () {
+          final text = _passwordController.text;
+          final sel = _passwordController.selection;
+          final newText = text.substring(0, sel.baseOffset) + digit + text.substring(sel.extentOffset);
+          _passwordController.text = newText;
+          _passwordController.selection = TextSelection.collapsed(offset: sel.baseOffset + 1);
+        },
+        child: Container(
+          height: 46,
+          margin: const EdgeInsets.symmetric(horizontal: 3),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(5),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withValues(alpha: 0.2),
+                offset: const Offset(0, 1),
+                blurRadius: 0,
+              ),
+            ],
           ),
+          child: Center(
+            child: Text(
+              digit,
+              style: const TextStyle(fontSize: 24, fontWeight: FontWeight.w400, color: Colors.black),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildSpecialKey({
+    required Widget child,
+    required VoidCallback? onTap,
+    required Color color,
+  }) {
+    return Expanded(
+      child: GestureDetector(
+        onTap: onTap,
+        child: Container(
+          height: 46,
+          margin: const EdgeInsets.symmetric(horizontal: 3),
+          decoration: BoxDecoration(
+            color: color,
+            borderRadius: BorderRadius.circular(5),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withValues(alpha: 0.2),
+                offset: const Offset(0, 1),
+                blurRadius: 0,
+              ),
+            ],
+          ),
+          child: Center(child: child),
         ),
       ),
     );
