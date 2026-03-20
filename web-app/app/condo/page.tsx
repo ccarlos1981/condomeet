@@ -57,6 +57,7 @@ export default async function CondoDashboard() {
     .eq('condominio_id', profile?.condominio_id ?? '')
     .gte('created_at', startOfMonth.toISOString())
 
+
   const quickActions = isPorter ? [
     { label: 'Liberar Visitante', sub: `${pendingCount} aguardando`, icon: UserCheck, href: '/condo/liberar-visitante', iconColor: 'text-orange-500', iconBg: 'bg-orange-500/10' },
     { label: 'Registrar Encomenda', sub: 'Novo pacote recebido', icon: Package, href: '/condo/registrar-encomenda', iconColor: 'text-blue-500', iconBg: 'bg-blue-500/10' },
@@ -98,7 +99,7 @@ export default async function CondoDashboard() {
   return (
     <div className="p-6 lg:p-8 max-w-5xl">
       {/* Header */}
-      <div className="mb-8">
+      <div className="mb-5">
         <p className="text-sm text-gray-500 font-medium uppercase tracking-wider">Bem-vindo de volta</p>
         <h1 className="text-3xl font-bold text-gray-900">{firstName} 👋</h1>
         {profile?.bloco_txt && (
@@ -109,9 +110,9 @@ export default async function CondoDashboard() {
       </div>
 
       {/* Quick Actions */}
-      <section className="mb-5">
-        <h2 className="text-lg font-semibold text-gray-800 mb-4">Ações Rápidas</h2>
-        <div className="grid grid-cols-2 grid-rows-2 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+      <section className="mb-1">
+        <h2 className="text-lg font-semibold text-gray-800 mb-3">Ações Rápidas</h2>
+        <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-4 gap-3">
           {quickActions.map(action => (
             <Link key={action.href} href={action.href}>
               <div className="bg-white rounded-2xl p-4 sm:p-5 border border-gray-100 shadow-sm hover:shadow-md hover:-translate-y-0.5 transition-all duration-200 cursor-pointer group flex flex-col h-full">
@@ -130,7 +131,7 @@ export default async function CondoDashboard() {
       </section>
 
       {/* Summary Stats Strip */}
-      <section className="mb-5">
+      <section className="mb-3">
         <div className="grid grid-cols-3 gap-3">
           {statsItems.map(stat => (
             <div

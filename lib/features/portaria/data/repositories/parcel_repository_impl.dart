@@ -193,17 +193,22 @@ class ParcelRepositoryImpl implements ParcelRepository {
     String? pickupProofUrl,
     String? pickedUpById,
     String? pickedUpByName,
+    bool silentDischarge = false,
+    String? dischargedBy,
   }) async {
     try {
       // Use Supabase directly — the porter device does not have cross-user
       // PowerSync records for parcels registered by other residents.
-      await _supabase.from('encomendas').update({
+      final updateData = <String, dynamic>{
         'status': 'delivered',
         // delivery_time is set server-side by DB trigger (fn_set_delivery_time)
         'pickup_proof_url': pickupProofUrl,
         'picked_up_by_id': pickedUpById,
         'picked_up_by_name': pickedUpByName,
-      }).eq('id', parcelId);
+      };
+      if (silentDischarge) updateData['silent_discharge'] = true;
+      if (dischargedBy != null) updateData['discharged_by'] = dischargedBy;
+      await _supabase.from('encomendas').update(updateData).eq('id', parcelId);
       return const Success(null);
     } catch (e) {
       return Failure('Erro ao marcar como entregue: $e');

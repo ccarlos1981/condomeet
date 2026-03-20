@@ -562,21 +562,40 @@ class _PendingDeliveriesScreenState extends State<PendingDeliveriesScreen> {
                         style: const TextStyle(fontSize: 12, color: Colors.green, fontWeight: FontWeight.w600)),
                   ]),
                 if (isPending) ...[
-                  // Dar Baixa button
-                  SizedBox(
-                    width: double.infinity,
-                    child: ElevatedButton.icon(
-                      onPressed: () => _showDarBaixaModal(parcel),
-                      icon: const Icon(Icons.check_circle_outline, size: 16),
-                      label: const Text('Dar Baixa', style: TextStyle(fontSize: 13)),
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: AppColors.primary,
-                        foregroundColor: Colors.white,
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-                        padding: const EdgeInsets.symmetric(vertical: 10),
+                  // Buttons stacked vertically (same width)
+                  Column(children: [
+                    // Normal Dar Baixa button (green)
+                    SizedBox(
+                      width: double.infinity,
+                      child: ElevatedButton.icon(
+                        onPressed: () => _showDarBaixaModal(parcel),
+                        icon: const Icon(Icons.check_circle_outline, size: 16),
+                        label: const Text('Dar Baixa', style: TextStyle(fontSize: 13)),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: Colors.green.shade600,
+                          foregroundColor: Colors.white,
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                          padding: const EdgeInsets.symmetric(vertical: 10),
+                        ),
                       ),
                     ),
-                  ),
+                    const SizedBox(height: 6),
+                    // Silent discharge button (amber/yellow)
+                    SizedBox(
+                      width: double.infinity,
+                      child: ElevatedButton.icon(
+                        onPressed: () => _showSilentDischargeSheet(parcel),
+                        icon: const Icon(Icons.check, size: 16),
+                        label: const Text('Baixa Silenciosa', style: TextStyle(fontSize: 13)),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: Colors.amber.shade600,
+                          foregroundColor: Colors.white,
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                          padding: const EdgeInsets.symmetric(vertical: 10),
+                        ),
+                      ),
+                    ),
+                  ]),
                 ],
               ]),
             ),
@@ -660,6 +679,108 @@ class _PendingDeliveriesScreenState extends State<PendingDeliveriesScreen> {
       builder: (ctx) => _DarBaixaSheet(
         parcel: parcel,
         onConfirmed: _fetchParcels,
+      ),
+    );
+  }
+
+  void _showSilentDischargeSheet(Parcel parcel) {
+    final userId = context.read<AuthBloc>().state.userId;
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.transparent,
+      builder: (ctx) => Container(
+        decoration: const BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+        ),
+        padding: const EdgeInsets.fromLTRB(24, 20, 24, 24),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            // Handle
+            Container(
+              width: 40, height: 4,
+              decoration: BoxDecoration(
+                color: Colors.grey.shade300,
+                borderRadius: BorderRadius.circular(2),
+              ),
+            ),
+            const SizedBox(height: 20),
+            // Title
+            Row(children: [
+              Icon(Icons.warning_amber_rounded, color: Colors.amber.shade700, size: 24),
+              const SizedBox(width: 10),
+              Text('Baixa Silenciosa', style: AppTypography.h2),
+            ]),
+            const SizedBox(height: 16),
+            // Parcel info
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: Colors.grey.shade50,
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Text(
+                '${parcel.block} / ${getAptoLabel(context.read<AuthBloc>().state.tipoEstrutura)} ${parcel.unitNumber}\n${parcel.residentName}',
+                style: AppTypography.bodyMedium,
+              ),
+            ),
+            const SizedBox(height: 16),
+            // Warning
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.all(14),
+              decoration: BoxDecoration(
+                color: Colors.amber.shade50,
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: Colors.amber.shade200),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Tem certeza que quer dar baixa nessa encomenda?',
+                    style: TextStyle(fontWeight: FontWeight.bold, color: Colors.amber.shade800, fontSize: 14),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    'Não iremos disparar mensagem e Push para o morador.',
+                    style: TextStyle(color: Colors.amber.shade700, fontSize: 12),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 24),
+            // Buttons
+            Row(children: [
+              Expanded(
+                child: OutlinedButton(
+                  onPressed: () => Navigator.of(ctx).pop(),
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: Colors.grey.shade700,
+                    side: BorderSide(color: Colors.grey.shade300),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                    padding: const EdgeInsets.symmetric(vertical: 14),
+                  ),
+                  child: const Text('Cancelar', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600)),
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: _SilentDischargeButton(
+                  parcel: parcel,
+                  userId: userId,
+                  onConfirmed: () {
+                    Navigator.of(ctx).pop();
+                    _fetchParcels();
+                  },
+                ),
+              ),
+            ]),
+            SizedBox(height: MediaQuery.of(ctx).viewPadding.bottom),
+          ],
+        ),
       ),
     );
   }
@@ -762,11 +883,13 @@ class _DarBaixaSheetState extends State<_DarBaixaSheet> {
     final signatureUrl = await _uploadSignature();
 
     final repo = sl<ParcelRepository>();
+    final userId = context.read<AuthBloc>().state.userId;
     final result = await repo.markAsDelivered(
       widget.parcel.id,
       pickupProofUrl: signatureUrl,
       pickedUpById: _isThirdParty ? null : _selectedResidentId,
       pickedUpByName: _isThirdParty ? _thirdPartyCtrl.text.trim() : _selectedResidentName,
+      dischargedBy: userId,
     );
 
     if (mounted) {
@@ -943,6 +1066,76 @@ class _DarBaixaSheetState extends State<_DarBaixaSheet> {
           ],
         ]),
       ),
+    );
+  }
+}
+
+// ─────────────────────────────────────────────
+// Silent Discharge Button (Stateful for loading state)
+// ─────────────────────────────────────────────
+
+class _SilentDischargeButton extends StatefulWidget {
+  final Parcel parcel;
+  final String? userId;
+  final VoidCallback onConfirmed;
+
+  const _SilentDischargeButton({
+    required this.parcel,
+    required this.userId,
+    required this.onConfirmed,
+  });
+
+  @override
+  State<_SilentDischargeButton> createState() => _SilentDischargeButtonState();
+}
+
+class _SilentDischargeButtonState extends State<_SilentDischargeButton> {
+  bool _isLoading = false;
+
+  Future<void> _handlePress() async {
+    setState(() => _isLoading = true);
+    HapticFeedback.mediumImpact();
+
+    final repo = sl<ParcelRepository>();
+    final result = await repo.markAsDelivered(
+      widget.parcel.id,
+      silentDischarge: true,
+      dischargedBy: widget.userId,
+    );
+
+    if (mounted) {
+      if (result is Success) {
+        widget.onConfirmed();
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+          content: Text('✅ Baixa silenciosa confirmada!'),
+          backgroundColor: Colors.green,
+          behavior: SnackBarBehavior.floating,
+        ));
+      } else {
+        setState(() => _isLoading = false);
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          content: Text((result as Failure).message),
+          backgroundColor: AppColors.error,
+        ));
+      }
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return ElevatedButton.icon(
+      onPressed: _isLoading ? null : _handlePress,
+      style: ElevatedButton.styleFrom(
+        backgroundColor: Colors.grey.shade700,
+        foregroundColor: Colors.white,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        padding: const EdgeInsets.symmetric(vertical: 14),
+      ),
+      icon: _isLoading
+          ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
+          : const Icon(Icons.check, size: 18),
+      label: Text(_isLoading ? 'Processando...' : 'Dar Baixa',
+          style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600)),
     );
   }
 }

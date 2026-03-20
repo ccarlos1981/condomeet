@@ -5,7 +5,7 @@ import { createClient } from '@/lib/supabase/client'
 import {
   Package, CheckCircle2, Clock, Eye, X, Loader2,
   Box, Mail, ShoppingBag, FileText, ChevronDown, UserCheck, RefreshCw,
-  Camera, PenTool
+  Camera, PenTool, PackageCheck, AlertTriangle
 } from 'lucide-react'
 import { getBlocoLabel, getAptoLabel } from '@/lib/labels'
 
@@ -242,9 +242,93 @@ function DeliveryModal({ parcel, condoId, tipoEstrutura, onClose, onConfirm }: D
   )
 }
 
+// ── Silent Discharge Confirmation Modal ───────────────────────────────────────
+
+interface SilentDischargeModalProps {
+  parcel: Parcel
+  tipoEstrutura?: string
+  onClose: () => void
+  onConfirm: (parcel: Parcel) => Promise<void>
+}
+
+function SilentDischargeModal({ parcel, tipoEstrutura, onClose, onConfirm }: SilentDischargeModalProps) {
+  const [confirming, setConfirming] = useState(false)
+  const tipoInfo = TIPO_LABELS[parcel.tipo ?? ''] ?? TIPO_LABELS['pacote']
+  const TipoIcon = tipoInfo.icon
+  const bloco = parcel.bloco ?? parcel.perfil?.bloco_txt ?? '?'
+  const apto  = parcel.apto ?? parcel.perfil?.apto_txt  ?? '?'
+
+  async function handleConfirm() {
+    setConfirming(true)
+    await onConfirm(parcel)
+  }
+
+  return (
+    <div className="fixed inset-0 bg-black/50 z-50 flex items-end sm:items-center justify-center" onClick={onClose}>
+      <div
+        className="bg-white rounded-t-2xl sm:rounded-2xl shadow-2xl w-full max-w-sm overflow-hidden animate-slide-up"
+        onClick={e => e.stopPropagation()}
+      >
+        {/* Header */}
+        <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100">
+          <h2 className="font-bold text-gray-900 text-base">Baixa Silenciosa</h2>
+          <button onClick={onClose} title="Fechar" className="p-1.5 hover:bg-gray-100 rounded-lg transition-colors">
+            <X size={18} className="text-gray-500" />
+          </button>
+        </div>
+
+        <div className="px-6 py-5 space-y-4">
+          {/* Parcel info */}
+          <div className="flex items-center gap-3 bg-gray-50 rounded-xl p-3">
+            <div className={`w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0 ${tipoInfo.color}`}>
+              <TipoIcon size={18} />
+            </div>
+            <div className="min-w-0">
+              <p className="font-semibold text-gray-900 text-sm">
+                {getBlocoLabel(tipoEstrutura)} {bloco} / {getAptoLabel(tipoEstrutura)} {apto}
+              </p>
+              <p className="text-xs text-gray-500">{parcel.perfil?.nome_completo ?? 'Sem morador'}</p>
+            </div>
+          </div>
+
+          {/* Warning */}
+          <div className="flex items-start gap-3 bg-amber-50 border border-amber-200 rounded-xl p-4">
+            <AlertTriangle size={20} className="text-amber-500 flex-shrink-0 mt-0.5" />
+            <div>
+              <p className="font-semibold text-amber-800 text-sm">Tem certeza que quer dar baixa nessa encomenda?</p>
+              <p className="text-xs text-amber-600 mt-1">Não iremos disparar mensagem e Push para o morador.</p>
+            </div>
+          </div>
+        </div>
+
+        {/* Footer */}
+        <div className="flex gap-3 px-6 pb-6">
+          <button
+            onClick={onClose}
+            className="flex-1 px-4 py-3 border border-gray-200 rounded-xl text-sm font-semibold text-gray-600 hover:bg-gray-50 transition-colors"
+          >
+            Cancelar
+          </button>
+          <button
+            onClick={handleConfirm}
+            disabled={confirming}
+            className="flex-1 flex items-center justify-center gap-2 px-4 py-3 bg-gray-700 text-white rounded-xl text-sm font-semibold hover:bg-gray-800 disabled:opacity-50 transition-colors shadow-sm"
+          >
+            {confirming ? (
+              <><Loader2 size={14} className="animate-spin" /> Processando...</>
+            ) : (
+              <><PackageCheck size={16} /> Dar Baixa</>
+            )}
+          </button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
 // ── Main List ─────────────────────────────────────────────────────────────────
 
-export default function ParcelList({ initialParcels, isPorter, condoId, tipoEstrutura, allBlocos, allAptosMap }: Props) {
+export default function ParcelList({ initialParcels, isPorter, userId, condoId, tipoEstrutura, allBlocos, allAptosMap }: Props) {
   const supabase = createClient()
 
   const [parcels, setParcels] = useState<Parcel[]>(initialParcels)
@@ -254,6 +338,7 @@ export default function ParcelList({ initialParcels, isPorter, condoId, tipoEstr
   const [page, setPage] = useState(1)
   const [photoModal, setPhotoModal] = useState<string | null>(null)
   const [deliveryModal, setDeliveryModal] = useState<Parcel | null>(null)
+  const [silentDischargeModal, setSilentDischargeModal] = useState<Parcel | null>(null)
   const [mounted, setMounted] = useState(false)
 
   // Server-side fetch state (porter/admin mode)
@@ -420,6 +505,7 @@ export default function ParcelList({ initialParcels, isPorter, condoId, tipoEstr
         status: 'delivered',
         picked_up_by_id: pickedById,
         picked_up_by_name: pickedByName || null,
+        discharged_by: userId,
       })
       .eq('id', parcel.id)
 
@@ -437,6 +523,37 @@ export default function ParcelList({ initialParcels, isPorter, condoId, tipoEstr
     setDeliveryModal(null)
 
     // Refresh stats from server in porter mode
+    if (isPorter) {
+      fetchParcels(statusFilter, blocoFilter, aptoFilter, page)
+    }
+  }
+
+  // ── Silent Discharge (Baixa Silenciosa) ─────────────────────────────────────
+
+  async function handleSilentDischarge(parcel: Parcel) {
+    const now = new Date().toISOString()
+    const { error } = await supabase
+      .from('encomendas')
+      .update({
+        status: 'delivered',
+        silent_discharge: true,
+        discharged_by: userId,
+      })
+      .eq('id', parcel.id)
+
+    if (error) {
+      alert('Erro ao dar baixa silenciosa: ' + error.message)
+      return
+    }
+
+    // Optimistic update
+    setParcels(prev => prev.map(p =>
+      p.id === parcel.id
+        ? { ...p, status: 'delivered', delivery_time: now }
+        : p
+    ))
+    setSilentDischargeModal(null)
+
     if (isPorter) {
       fetchParcels(statusFilter, blocoFilter, aptoFilter, page)
     }
@@ -465,6 +582,16 @@ export default function ParcelList({ initialParcels, isPorter, condoId, tipoEstr
           tipoEstrutura={tipoEstrutura}
           onClose={() => setDeliveryModal(null)}
           onConfirm={handleDeliveryConfirm}
+        />
+      )}
+
+      {/* Silent discharge confirmation modal */}
+      {silentDischargeModal && (
+        <SilentDischargeModal
+          parcel={silentDischargeModal}
+          tipoEstrutura={tipoEstrutura}
+          onClose={() => setSilentDischargeModal(null)}
+          onConfirm={handleSilentDischarge}
         />
       )}
 
@@ -584,55 +711,34 @@ export default function ParcelList({ initialParcels, isPorter, condoId, tipoEstr
 
                 {/* Card body */}
                 <div className="px-5 py-4">
-                  <div className="grid grid-cols-2 gap-x-6 gap-y-2 text-sm mb-3">
-                    <div>
-                      <p className="text-xs text-gray-400 mb-0.5">Chegada</p>
-                      <p suppressHydrationWarning className="font-medium text-gray-700">{mounted ? fmt(p.arrival_time) : '—'}</p>
-                    </div>
-                    {p.tracking_code && (
+                  {/* Top row: info on left, photos on right */}
+                  <div className="flex gap-4">
+                    {/* Left: arrival info, tracking, obs */}
+                    <div className="flex-1 grid grid-cols-2 gap-x-6 gap-y-2 text-sm">
                       <div>
-                        <p className="text-xs text-gray-400 mb-0.5">Rastreio</p>
-                        <p className="font-mono text-gray-700 text-xs">{p.tracking_code}</p>
+                        <p className="text-xs text-gray-400 mb-0.5">Chegada</p>
+                        <p suppressHydrationWarning className="font-medium text-gray-700">{mounted ? fmt(p.arrival_time) : '—'}</p>
                       </div>
-                    )}
-                    {p.observacao && (
-                      <div className="col-span-2">
-                        <p className="text-xs text-gray-400 mb-0.5">Observação</p>
-                        <p className="text-gray-700">{p.observacao}</p>
-                      </div>
-                    )}
-                  </div>
-
-                  {/* Status row */}
-                  <div className="flex items-end justify-between gap-3 mt-1">
-                    <div className="flex-1">
-                      {isDelivered ? (
-                        <div className="space-y-1.5">
-                          <div className="flex items-center gap-1.5 text-green-600 text-sm font-medium">
-                            <CheckCircle2 size={15} />
-                            <span suppressHydrationWarning>Retirado {mounted && p.delivery_time ? fmt(p.delivery_time) : ''}</span>
-                          </div>
-                          {(p.picked_up_by_name) && (
-                            <div className="inline-flex items-center gap-1.5 bg-green-50 border border-green-200 rounded-lg px-2.5 py-1">
-                              <UserCheck size={13} className="text-green-600 flex-shrink-0" />
-                              <span className="text-xs font-semibold text-green-700">{p.picked_up_by_name}</span>
-                            </div>
-                          )}
+                      {p.tracking_code && (
+                        <div>
+                          <p className="text-xs text-gray-400 mb-0.5">Rastreio</p>
+                          <p className="font-mono text-gray-700 text-xs">{p.tracking_code}</p>
                         </div>
-                      ) : (
-                        <div className="flex items-center gap-1.5 text-[#FC5931] text-sm font-medium">
-                          <Clock size={15} />
-                          <span>Aguardando retirada</span>
+                      )}
+                      {p.observacao && (
+                        <div className="col-span-2">
+                          <p className="text-xs text-gray-400 mb-0.5">Observação</p>
+                          <p className="text-gray-700">{p.observacao}</p>
                         </div>
                       )}
                     </div>
 
-                    {/* Right side: photo + signature thumbnails + dar baixa */}
-                    <div className="flex items-center gap-2 flex-shrink-0">
+                    {/* Right: photo + signature thumbnails stacked */}
+                    <div className="flex flex-col gap-1.5 shrink-0">
                       {/* Photo thumbnail */}
                       <button
                         onClick={() => p.photo_url ? setPhotoModal(p.photo_url) : null}
-                        className={`w-14 h-14 rounded-xl overflow-hidden border-2 transition-colors shadow-sm flex-shrink-0 flex items-center justify-center ${
+                        className={`w-14 h-14 rounded-xl overflow-hidden border-2 transition-colors shadow-sm flex items-center justify-center ${
                           p.photo_url ? 'border-gray-200 hover:border-[#FC5931]' : 'border-dashed border-gray-200 bg-gray-50'
                         }`}
                         title={p.photo_url ? 'Ver foto da encomenda' : 'Sem foto'}
@@ -649,7 +755,7 @@ export default function ParcelList({ initialParcels, isPorter, condoId, tipoEstr
                       {isDelivered && (
                         <button
                           onClick={() => p.pickup_proof_url ? setPhotoModal(p.pickup_proof_url) : null}
-                          className={`w-14 h-14 rounded-xl overflow-hidden border-2 transition-colors shadow-sm flex-shrink-0 flex items-center justify-center ${
+                          className={`w-14 h-14 rounded-xl overflow-hidden border-2 transition-colors shadow-sm flex items-center justify-center ${
                             p.pickup_proof_url ? 'border-green-200 hover:border-green-500' : 'border-dashed border-gray-200 bg-gray-50'
                           }`}
                           title={p.pickup_proof_url ? 'Ver assinatura' : 'Sem assinatura'}
@@ -662,17 +768,53 @@ export default function ParcelList({ initialParcels, isPorter, condoId, tipoEstr
                           )}
                         </button>
                       )}
+                    </div>
+                  </div>
 
-                      {!isDelivered && isPorter && (
+                  {/* Bottom row: status + buttons */}
+                  <div className="flex items-end justify-between gap-3 mt-3">
+                    <div className="flex-1">
+                      {isDelivered ? (
+                        <div className="space-y-1.5">
+                          <div className="flex items-center gap-1.5 text-green-600 text-sm font-medium">
+                            <CheckCircle2 size={15} />
+                            <span suppressHydrationWarning>Retirado {mounted && p.delivery_time ? fmt(p.delivery_time) : ''}</span>
+                          </div>
+                          {(p.picked_up_by_name) && (
+                            <div className="inline-flex items-center gap-1.5 bg-green-50 border border-green-200 rounded-lg px-2.5 py-1">
+                              <UserCheck size={13} className="text-green-600 shrink-0" />
+                              <span className="text-xs font-semibold text-green-700">{p.picked_up_by_name}</span>
+                            </div>
+                          )}
+                        </div>
+                      ) : (
+                        <div className="flex items-center gap-1.5 text-[#FC5931] text-sm font-medium">
+                          <Clock size={15} />
+                          <span>Aguardando retirada</span>
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Buttons stacked vertically (same width) */}
+                    {!isDelivered && isPorter && (
+                      <div className="flex flex-col gap-1.5 shrink-0" style={{ minWidth: '140px' }}>
                         <button
                           onClick={() => setDeliveryModal(p)}
-                          className="flex items-center gap-1.5 bg-green-600 hover:bg-green-700 text-white text-xs font-semibold px-4 py-2 rounded-xl transition-colors shadow-sm"
+                          className="flex items-center justify-center gap-1.5 bg-green-600 hover:bg-green-700 text-white text-xs font-semibold w-full py-2 rounded-xl transition-colors shadow-sm"
                         >
                           <UserCheck size={14} />
                           Dar Baixa
                         </button>
-                      )}
-                    </div>
+                        <button
+                          onClick={() => setSilentDischargeModal(p)}
+                          title="Baixa silenciosa (sem notificar morador)"
+                          className="flex items-center justify-center gap-1.5 bg-amber-500 hover:bg-amber-600 text-white text-xs font-semibold w-full py-2 rounded-xl transition-colors shadow-sm"
+                        >
+                          <PackageCheck size={14} />
+                          Baixa Silenciosa
+                        </button>
+                      </div>
+                    )}
                   </div>
                 </div>
               </div>

@@ -22,6 +22,8 @@ abstract class ParcelRepository {
     String? pickupProofUrl,
     String? pickedUpById,
     String? pickedUpByName,
+    bool silentDischarge = false,
+    String? dischargedBy,
   });
 
   /// Fetches parcel history for the unit. If residentId is provided, resolves unit from profile.
