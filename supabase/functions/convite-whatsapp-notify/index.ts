@@ -275,18 +275,18 @@ async function handleCreated(
   // ── Fetch resident data ──────────────────────────────────────────
   const { data: perfil } = await supabase
     .from("perfil")
-    .select("nome_completo, botconversa_id, bloco_txt, apto_txt")
+    .select("nome_completo, botconversa_id, bloco_txt, apto_txt, notificacoes_whatsapp")
     .eq("id", resident_id)
     .single()
 
-  if (!perfil?.botconversa_id) {
+  if (!perfil?.botconversa_id || perfil.notificacoes_whatsapp === false) {
     console.warn(
-      `No botconversa_id for resident ${resident_id}, skipping WhatsApp`
+      `No botconversa_id or whatsapp opt-out for resident ${resident_id}, skipping WhatsApp`
     )
     return jsonResponse({
       sent_resident: false,
       sent_visitor: false,
-      reason: "Resident has no botconversa_id",
+      reason: perfil?.notificacoes_whatsapp === false ? "Resident opted out" : "Resident has no botconversa_id",
     })
   }
 
@@ -498,11 +498,11 @@ async function handlePortariaCreated(
   if (resident_id && resident_id.trim() !== "") {
     const { data: perfil } = await supabase
       .from("perfil")
-      .select("nome_completo, botconversa_id")
+      .select("nome_completo, botconversa_id, notificacoes_whatsapp")
       .eq("id", resident_id)
       .single()
 
-    if (perfil?.botconversa_id) {
+    if (perfil?.botconversa_id && perfil.notificacoes_whatsapp !== false) {
       const residentName = perfil.nome_completo?.split(" ")[0] || "Morador"
 
       const msg1 =
@@ -537,6 +537,7 @@ async function handlePortariaCreated(
       .eq("condominio_id", condominio_id)
       .eq("bloco_txt", bloco_destino)
       .eq("apto_txt", apto_destino)
+      .eq("notificacoes_whatsapp", true)
       .not("botconversa_id", "is", null)
 
     const codInterno2 = genCodInterno()
@@ -723,19 +724,19 @@ async function handleEntryReleased(
   // ── Fetch resident data (include fcm_token for push) ─────────────
   const { data: perfil } = await supabase
     .from("perfil")
-    .select("nome_completo, botconversa_id, fcm_token")
+    .select("nome_completo, botconversa_id, fcm_token, notificacoes_whatsapp")
     .eq("id", resident_id)
     .single()
 
-  if (!perfil?.botconversa_id) {
+  if (!perfil?.botconversa_id || perfil.notificacoes_whatsapp === false) {
     console.warn(
-      `No botconversa_id for resident ${resident_id}, skipping entry_released WhatsApp`
+      `No botconversa_id or whatsapp opt-out for resident ${resident_id}, skipping entry_released WhatsApp`
     )
     return jsonResponse({
       action: "entry_released",
       sent_resident: false,
       sent_visitor: false,
-      reason: "Resident has no botconversa_id",
+      reason: perfil?.notificacoes_whatsapp === false ? "Resident opted out" : "Resident has no botconversa_id",
     })
   }
 

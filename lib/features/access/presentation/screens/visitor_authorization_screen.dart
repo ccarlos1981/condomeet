@@ -280,7 +280,7 @@ class _VisitorAuthorizationScreenState extends State<VisitorAuthorizationScreen>
             TextFormField(
               controller: _nameController,
               decoration: _inputDecoration('Nome do visitante'),
-              validator: (v) => v!.isEmpty ? 'Campo obrigatório' : null,
+              // Nome do visitante is optional
             ),
             const SizedBox(height: 12),
             

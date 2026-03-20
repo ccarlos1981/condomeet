@@ -64,6 +64,7 @@ serve(async (req) => {
         .eq('apto_txt', apto)
         .eq('status_aprovacao', 'aprovado')
         .eq('bloqueado', false)
+        .eq('notificacoes_whatsapp', true)
         .not('botconversa_id', 'is', null)
 
       if (!error && profiles) {

@@ -95,6 +95,7 @@ async function resolveRecipients(
     query
       .eq("status_aprovacao", "aprovado")
       .eq("bloqueado", false)
+      .eq("notificacoes_whatsapp", true)
       .not("botconversa_id", "is", null)
 
   let query: any

@@ -1,6 +1,6 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2"
-import { create, getNumericDate } from "https://deno.land/x/djwt@v2.9.1/mod.ts"
+import { create } from "https://deno.land/x/djwt@v2.9.1/mod.ts"
 
 // ── Dynamic structure labels ────────────────────────────────────────────────
 function getBlocoLabel(tipo?: string): string {
@@ -16,20 +16,21 @@ function getAptoLabel(tipo?: string): string {
 
 // ── FCM HTTP v1 send ───────────────────────────────────────────────────────
 
+function pemToBinary(pem: string): ArrayBuffer {
+  const b64 = pem
+    .replace(/-----BEGIN PRIVATE KEY-----/, "")
+    .replace(/-----END PRIVATE KEY-----/, "")
+    .replace(/\n/g, "")
+  const binary = atob(b64)
+  const bytes = new Uint8Array(binary.length)
+  for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i)
+  return bytes.buffer
+}
+
 async function getAccessToken(serviceAccount: any): Promise<string> {
   const now = Math.floor(Date.now() / 1000)
-  const header = { alg: "RS256" as const, typ: "JWT" }
-  const payload = {
-    iss: serviceAccount.client_email,
-    scope: "https://www.googleapis.com/auth/firebase.messaging",
-    aud: "https://oauth2.googleapis.com/token",
-    iat: now,
-    exp: getNumericDate(3600),
-  }
 
-  // Import the RSA private key
-  const pemKey = serviceAccount.private_key
-  const binaryDer = pemToBinary(pemKey)
+  const binaryDer = pemToBinary(serviceAccount.private_key)
   const cryptoKey = await crypto.subtle.importKey(
     "pkcs8",
     binaryDer,
@@ -38,9 +39,19 @@ async function getAccessToken(serviceAccount: any): Promise<string> {
     ["sign"]
   )
 
-  const jwt = await create(header, payload, cryptoKey)
+  const jwt = await create(
+    { alg: "RS256", typ: "JWT" },
+    {
+      iss: serviceAccount.client_email,
+      sub: serviceAccount.client_email,
+      aud: "https://oauth2.googleapis.com/token",
+      iat: now,
+      exp: now + 3600,
+      scope: "https://www.googleapis.com/auth/firebase.messaging",
+    },
+    cryptoKey
+  )
 
-  // Exchange JWT for access token
   const tokenRes = await fetch("https://oauth2.googleapis.com/token", {
     method: "POST",
     headers: { "Content-Type": "application/x-www-form-urlencoded" },
@@ -55,17 +66,6 @@ async function getAccessToken(serviceAccount: any): Promise<string> {
     throw new Error(`Failed to get access token: ${JSON.stringify(tokenData)}`)
   }
   return tokenData.access_token
-}
-
-function pemToBinary(pem: string): ArrayBuffer {
-  const b64 = pem
-    .replace(/-----BEGIN PRIVATE KEY-----/, "")
-    .replace(/-----END PRIVATE KEY-----/, "")
-    .replace(/\n/g, "")
-  const binary = atob(b64)
-  const bytes = new Uint8Array(binary.length)
-  for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i)
-  return bytes.buffer
 }
 
 async function sendFcmMessage(

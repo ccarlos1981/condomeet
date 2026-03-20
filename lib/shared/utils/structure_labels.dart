@@ -4,6 +4,7 @@
 ///   'predio'      → Bloco / Apto
 ///   'casa_rua'    → Rua / Número
 ///   'casa_quadra' → Quadra / Lote
+library;
 
 String getBlocoLabel(String? tipo) {
   if (tipo == 'casa_rua') return 'Rua';

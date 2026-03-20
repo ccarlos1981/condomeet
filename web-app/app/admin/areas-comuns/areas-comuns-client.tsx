@@ -158,7 +158,7 @@ export default function AreasComunsClient({ condominioId, initialAreas }: Props)
         <div className="text-center py-16 bg-white rounded-2xl border border-gray-100">
           <Building2 size={40} className="mx-auto mb-3 text-gray-200" />
           <p className="text-gray-400 text-sm">Nenhuma área comum cadastrada ainda.</p>
-          <p className="text-gray-300 text-xs mt-1">Clique em "Nova Área" para começar.</p>
+          <p className="text-gray-300 text-xs mt-1">Clique em &quot;Nova Área&quot; para começar.</p>
         </div>
       ) : (
         <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">

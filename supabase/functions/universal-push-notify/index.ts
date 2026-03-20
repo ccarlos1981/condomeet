@@ -14,18 +14,10 @@ const corsHeaders = {
 
 async function getAccessToken(serviceAccount: Record<string, string>): Promise<string> {
   const now = Math.floor(Date.now() / 1000)
-  const payload = {
-    iss: serviceAccount.client_email,
-    sub: serviceAccount.client_email,
-    aud: 'https://oauth2.googleapis.com/token',
-    iat: now,
-    exp: now + 3600,
-    scope: 'https://www.googleapis.com/auth/firebase.messaging',
-  }
 
   const pemHeader = '-----BEGIN PRIVATE KEY-----'
   const pemFooter = '-----END PRIVATE KEY-----'
-  const pem = serviceAccount.private_key.replace(/\\n/g, '\n')
+  const pem = serviceAccount.private_key
   const pemContents = pem.substring(
     pem.indexOf(pemHeader) + pemHeader.length,
     pem.indexOf(pemFooter),
@@ -40,7 +32,18 @@ async function getAccessToken(serviceAccount: Record<string, string>): Promise<s
     ['sign'],
   )
 
-  const jwt = await create({ alg: 'RS256', typ: 'JWT' }, payload, privateKey)
+  const jwt = await create(
+    { alg: 'RS256', typ: 'JWT' },
+    {
+      iss: serviceAccount.client_email,
+      sub: serviceAccount.client_email,
+      aud: 'https://oauth2.googleapis.com/token',
+      iat: now,
+      exp: now + 3600,
+      scope: 'https://www.googleapis.com/auth/firebase.messaging',
+    },
+    privateKey,
+  )
 
   const tokenResponse = await fetch('https://oauth2.googleapis.com/token', {
     method: 'POST',
@@ -51,6 +54,9 @@ async function getAccessToken(serviceAccount: Record<string, string>): Promise<s
     }),
   })
   const tokenData = await tokenResponse.json()
+  if (!tokenData.access_token) {
+    throw new Error(`Failed to get access token: ${JSON.stringify(tokenData)}`)
+  }
   return tokenData.access_token
 }
 

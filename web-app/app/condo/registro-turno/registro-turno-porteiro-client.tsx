@@ -4,7 +4,7 @@ import { useState, useMemo } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import {
   CheckCircle, XCircle, ClipboardList, Save, Loader2, History, PlusCircle,
-  ChevronDown, ChevronUp, ArrowLeft
+  ChevronDown
 } from 'lucide-react'
 
 // ─── Types ───────────────────────────────────────────────────
@@ -63,17 +63,15 @@ export default function RegistroTurnoPorteiroClient({
   inventario,
   registros: initialRegistros,
   porteiros,
+  nomesHistoricos,
   condoId,
-  currentUserId,
-  currentUserName,
   registrosComDivergencia: initialDivergencias,
 }: {
   inventario: InventarioItem[]
   registros: Registro[]
   porteiros: Porteiro[]
+  nomesHistoricos: string[]
   condoId: string
-  currentUserId: string
-  currentUserName: string
   registrosComDivergencia: string[]
 }) {
   const [tab, setTab] = useState<'historico' | 'adicionar'>('historico')
@@ -82,12 +80,21 @@ export default function RegistroTurnoPorteiroClient({
 
   // ─── Detail view state ─────────────────────────────────────
   const [expandedId, setExpandedId] = useState<string | null>(null)
+  const [currentPage, setCurrentPage] = useState(1)
+  const ITEMS_PER_PAGE = 10
   const [detailItems, setDetailItems] = useState<RegistroItem[]>([])
   const [loadingDetail, setLoadingDetail] = useState(false)
 
   // ─── Adicionar state ────────────────────────────────────────
-  const [selectedPorteiro, setSelectedPorteiro] = useState(currentUserId)
-  const [porteiroNome, setPorteiroNome] = useState(currentUserName)
+  const [selectedPorteiro, setSelectedPorteiro] = useState('')
+  const [porteiroNome, setPorteiroNome] = useState('')
+
+  // Merged dropdown names: profiles + historical, no duplicates
+  const dropdownNomes = useMemo(() => {
+    const perfNomes = porteiros.map(p => p.nome_completo)
+    const all = [...perfNomes, ...nomesHistoricos]
+    return [...new Set(all)].sort()
+  }, [porteiros, nomesHistoricos])
   const [observacao, setObservacao] = useState('')
   const [saving, setSaving] = useState(false)
   const [savedMsg, setSavedMsg] = useState('')
@@ -153,19 +160,21 @@ export default function RegistroTurnoPorteiroClient({
   }
 
   async function handleSave() {
-    if (!selectedPorteiro) return
+    if (!porteiroNome.trim()) return
     setSaving(true)
     setSavedMsg('')
     const supabase = createClient()
-    const p = porteiros.find(pt => pt.id === selectedPorteiro)
+    const nameToSave = porteiroNome.trim()
+    if (!nameToSave) return
+    const p = porteiros.find(pt => pt.nome_completo === nameToSave)
 
     // 1. Create registro
     const { data: registro, error } = await supabase
       .from('turno_registros')
       .insert({
         condominio_id: condoId,
-        porteiro_id: selectedPorteiro,
-        porteiro_nome: p?.nome_completo ?? porteiroNome,
+        porteiro_id: p?.id || null,
+        porteiro_nome: nameToSave,
         observacao: observacao.trim() || null,
       })
       .select()
@@ -177,14 +186,16 @@ export default function RegistroTurnoPorteiroClient({
       return
     }
 
-    // 2. Insert item checks
-    const itensPayload = Object.values(checks).map(c => ({
-      registro_id: registro.id,
-      inventario_id: c.inventario_id,
-      confere: c.confere,
-      qtd_informada: c.confere ? null : c.qtd_informada,
-      comentario: c.confere ? null : c.comentario || null,
-    }))
+    // 2. Insert ONLY divergent items (confere === false)
+    const itensPayload = Object.values(checks)
+      .filter(c => !c.confere)
+      .map(c => ({
+        registro_id: registro.id,
+        inventario_id: c.inventario_id,
+        confere: false,
+        qtd_informada: c.qtd_informada,
+        comentario: c.comentario || null,
+      }))
 
     if (itensPayload.length > 0) {
       await supabase.from('turno_registro_itens').insert(itensPayload)
@@ -260,117 +271,157 @@ export default function RegistroTurnoPorteiroClient({
             </div>
           ) : (
             <div>
-              {/* Detail view */}
-              {expandedId && (() => {
-                const r = registros.find(r => r.id === expandedId)
-                if (!r) return null
+              {/* Header row */}
+              <div className="grid grid-cols-[1fr_1fr_1fr_40px] border-b border-gray-200 bg-gray-50 px-5 py-3">
+                <span className="font-semibold text-sm text-gray-600">Data do registro</span>
+                <span className="font-semibold text-sm text-gray-600 text-center">Dia da semana</span>
+                <span className="font-semibold text-sm text-gray-600 text-right">Nome porteiro</span>
+                <span></span>
+              </div>
+
+              {/* Accordion rows — paginated */}
+              {registros.slice((currentPage - 1) * ITEMS_PER_PAGE, currentPage * ITEMS_PER_PAGE).map(r => {
                 const { data, dia } = formatDate(r.created_at)
-                const discrepancies = detailItems.filter(i => !i.confere)
+                const isExpanded = expandedId === r.id
+                const hasDivergencia = divergenciaIds.has(r.id)
+                const discrepancies = isExpanded ? detailItems.filter(i => !i.confere) : []
+
                 return (
-                  <div className="p-6">
-                    {/* Back button */}
-                    <button
-                      onClick={() => setExpandedId(null)}
-                      className="flex items-center gap-2 text-[#FC5931] hover:text-[#D42F1D] font-medium text-sm mb-4 transition-colors"
+                  <div key={r.id}>
+                    {/* Row */}
+                    <div
+                      onClick={() => toggleDetail(r.id)}
+                      className={`grid grid-cols-[1fr_1fr_1fr_40px] items-center px-5 py-3 cursor-pointer transition-colors border-b ${
+                        isExpanded
+                          ? 'bg-[#FC5931]/10 border-b-[#FC5931]/20'
+                          : hasDivergencia
+                            ? 'bg-red-50 border-b-red-100 hover:bg-red-100/60'
+                            : 'border-b-gray-100 hover:bg-gray-50'
+                      }`}
                     >
-                      <ArrowLeft size={18} /> Voltar ao histórico
-                    </button>
-
-                    {/* Porter report */}
-                    <div className="text-center mb-4">
-                      <h2 className="text-lg font-bold text-gray-800">Relato do Porteiro: {r.porteiro_nome}</h2>
-                      <p className="text-sm text-gray-500">Data da criação: {data} — {dia}</p>
-                      <p className="text-xs text-gray-400 mt-1">O que o Porteiro relatou...</p>
+                      <span className={`text-sm ${hasDivergencia ? 'text-red-700 font-medium' : 'text-gray-700'}`}>{data}</span>
+                      <span className={`text-sm text-center ${hasDivergencia ? 'text-red-700' : 'text-gray-700'}`}>{dia}</span>
+                      <span className={`text-sm text-right font-medium ${hasDivergencia ? 'text-red-800' : 'text-gray-800'}`}>{r.porteiro_nome}</span>
+                      <span className="flex justify-center">
+                        <ChevronDown
+                          size={18}
+                          className={`transition-transform duration-200 ${
+                            isExpanded ? 'rotate-180 text-[#FC5931]' : 'text-gray-400'
+                          }`}
+                        />
+                      </span>
                     </div>
 
-                    {/* Observation text */}
-                    <div className="bg-gray-50 rounded-xl border border-gray-100 p-5 mb-6 min-h-[100px]">
-                      <p className="text-sm text-gray-700 whitespace-pre-wrap">
-                        {r.observacao || 'Nenhuma observação registrada.'}
-                      </p>
-                    </div>
+                    {/* Expanded detail — opens BELOW the row */}
+                    {isExpanded && (
+                      <div className="border-b-2 border-[#FC5931]/20 bg-white px-6 py-5">
+                        {loadingDetail ? (
+                          <div className="text-center py-4">
+                            <Loader2 size={20} className="animate-spin mx-auto text-gray-400" />
+                          </div>
+                        ) : (
+                          <div className="space-y-5">
+                            {/* Header */}
+                            <div className="text-center">
+                              <h3 className="text-base font-bold text-gray-800">Relato do Porteiro: {r.porteiro_nome}</h3>
+                              <p className="text-xs text-gray-500 mt-0.5">Data da criação: {data} — {dia}</p>
+                            </div>
 
-                    {/* Inventory discrepancies */}
-                    {loadingDetail ? (
-                      <div className="text-center py-4">
-                        <Loader2 size={20} className="animate-spin mx-auto text-gray-400" />
-                      </div>
-                    ) : discrepancies.length > 0 && (
-                      <div className="mb-6">
-                        <h3 className="text-sm font-bold text-red-600 mb-3">⚠️ Divergências no inventário</h3>
-                        <div className="space-y-2">
-                          {discrepancies.map(item => {
-                            const invItem = inventario.find(i => i.id === item.inventario_id)
-                            return (
-                              <div
-                                key={item.id}
-                                className="flex items-start gap-3 bg-red-50 border border-red-200 rounded-xl px-4 py-3"
-                              >
-                                <XCircle size={18} className="text-red-500 mt-0.5 flex-shrink-0" />
-                                <div>
-                                  <p className="font-semibold text-sm text-red-800">
-                                    {invItem?.nome ?? 'Item desconhecido'}
-                                    {item.qtd_informada !== null && (
-                                      <span className="font-normal text-red-600 ml-2">
-                                        (esperado: {invItem?.quantidade} → informado: {item.qtd_informada})
-                                      </span>
-                                    )}
+                            {/* Divergências — tabela estilo antigo */}
+                            {discrepancies.length > 0 ? (
+                              <div>
+                                {discrepancies.map(item => {
+                                  const invItem = inventario.find(i => i.id === item.inventario_id)
+                                  return (
+                                    <div key={item.id} className="mb-4 border border-gray-200 rounded-lg overflow-hidden">
+                                      {/* Cabeçalho tabela */}
+                                      <div className="grid grid-cols-3 bg-gray-50 border-b border-gray-200 px-4 py-2">
+                                        <span className="text-xs font-bold text-gray-600">Material</span>
+                                        <span className="text-xs font-bold text-gray-600 text-center">QTD</span>
+                                        <span className="text-xs font-bold text-gray-600 text-right">Tipo</span>
+                                      </div>
+                                      {/* Material info */}
+                                      <div className="grid grid-cols-3 px-4 py-3 border-b border-gray-100">
+                                        <span className="text-sm font-semibold text-gray-800">{invItem?.nome ?? 'Item'}</span>
+                                        <span className="text-sm text-gray-700 text-center">{invItem?.quantidade ?? '-'}</span>
+                                        <span className="text-sm text-gray-700 text-right">{invItem?.unidade ?? '-'}</span>
+                                      </div>
+                                      {/* Quantidade divergente */}
+                                      <div className="px-4 py-3 bg-red-50 border-2 border-dashed border-red-300">
+                                        <div className="flex items-center justify-between mb-2">
+                                          <span className="text-xs text-red-700 font-medium">Quantidade de: {invItem?.nome}</span>
+                                          <span className="bg-white border border-red-300 rounded px-3 py-1 text-sm font-bold text-red-700 min-w-[50px] text-center">
+                                            {item.qtd_informada ?? '-'}
+                                          </span>
+                                        </div>
+                                        {item.comentario && (
+                                          <div className="bg-white border border-red-200 rounded px-3 py-2 mt-1">
+                                            <p className="text-xs text-red-700">{item.comentario}</p>
+                                          </div>
+                                        )}
+                                      </div>
+                                    </div>
+                                  )
+                                })}
+                              </div>
+                            ) : (
+                              <p className="text-center text-sm text-green-600 font-medium">✅ Nenhuma divergência no inventário</p>
+                            )}
+
+                            {/* O que o Porteiro relatou */}
+                            <div>
+                              <p className="text-center text-xs text-gray-500 font-medium mb-2">O que o Porteiro relatou...</p>
+                              <div className="border border-gray-200 rounded-lg">
+                                <div className="px-4 py-1.5 bg-gray-50 border-b border-gray-200">
+                                  <span className="text-xs font-bold text-gray-600">Oobs gerais:</span>
+                                </div>
+                                <div className="px-4 py-3 min-h-[60px]">
+                                  <p className="text-sm text-gray-700 whitespace-pre-wrap">
+                                    {r.observacao || ''}
                                   </p>
-                                  {item.comentario && (
-                                    <p className="text-xs text-red-600 mt-1">{item.comentario}</p>
-                                  )}
                                 </div>
                               </div>
-                            )
-                          })}
-                        </div>
+                            </div>
+                          </div>
+                        )}
                       </div>
                     )}
                   </div>
                 )
-              })()}
+              })}
 
-              {/* Table — always visible below detail or as standalone */}
-              <table className="w-full text-sm">
-                <thead>
-                  <tr className="border-b border-gray-100 bg-gray-50">
-                    <th className="px-5 py-3 text-left font-semibold text-gray-600">Data do registro</th>
-                    <th className="px-5 py-3 text-left font-semibold text-gray-600">Dia da semana</th>
-                    <th className="px-5 py-3 text-left font-semibold text-gray-600">Nome porteiro</th>
-                    <th className="w-10"></th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {registros.map(r => {
-                    const { data, dia } = formatDate(r.created_at)
-                    const isExpanded = expandedId === r.id
-                    const hasDivergencia = divergenciaIds.has(r.id)
-                    return (
-                      <tr
-                        key={r.id}
-                        onClick={() => toggleDetail(r.id)}
-                        className={`border-b cursor-pointer transition-colors ${
-                          isExpanded
-                            ? 'bg-[#FC5931]/10 border-l-4 border-l-[#FC5931] border-b-[#FC5931]/20'
-                            : hasDivergencia
-                              ? 'bg-red-50 border-b-red-100 hover:bg-red-100/60'
-                              : 'border-b-gray-50 hover:bg-gray-50'
-                        }`}
-                      >
-                        <td className={`px-5 py-3 ${hasDivergencia ? 'text-red-700 font-medium' : 'text-gray-700'}`}>{data}</td>
-                        <td className={`px-5 py-3 ${hasDivergencia ? 'text-red-700' : 'text-gray-700'}`}>{dia}</td>
-                        <td className={`px-5 py-3 font-medium ${hasDivergencia ? 'text-red-800' : 'text-gray-800'}`}>{r.porteiro_nome}</td>
-                        <td className="px-3 py-3">
-                          {isExpanded
-                            ? <ChevronUp size={16} className="text-[#FC5931]" />
-                            : <ChevronDown size={16} className="text-gray-400" />
-                          }
-                        </td>
-                      </tr>
-                    )
-                  })}
-                </tbody>
-              </table>
+              {/* Pagination */}
+              {registros.length > ITEMS_PER_PAGE && (
+                <div className="flex items-center justify-center gap-2 py-4 border-t border-gray-100">
+                  <button
+                    onClick={() => { setCurrentPage(p => Math.max(1, p - 1)); setExpandedId(null) }}
+                    disabled={currentPage === 1}
+                    className="px-3 py-1.5 text-sm rounded-lg border border-gray-200 hover:bg-gray-50 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+                  >
+                    ← Anterior
+                  </button>
+                  {Array.from({ length: Math.ceil(registros.length / ITEMS_PER_PAGE) }, (_, i) => i + 1).map(pg => (
+                    <button
+                      key={pg}
+                      onClick={() => { setCurrentPage(pg); setExpandedId(null) }}
+                      className={`w-8 h-8 text-sm rounded-lg transition-colors ${
+                        pg === currentPage
+                          ? 'bg-[#FC5931] text-white font-bold'
+                          : 'border border-gray-200 hover:bg-gray-50 text-gray-600'
+                      }`}
+                    >
+                      {pg}
+                    </button>
+                  ))}
+                  <button
+                    onClick={() => { setCurrentPage(p => Math.min(Math.ceil(registros.length / ITEMS_PER_PAGE), p + 1)); setExpandedId(null) }}
+                    disabled={currentPage === Math.ceil(registros.length / ITEMS_PER_PAGE)}
+                    className="px-3 py-1.5 text-sm rounded-lg border border-gray-200 hover:bg-gray-50 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+                  >
+                    Próximo →
+                  </button>
+                </div>
+              )}
             </div>
           )}
         </div>
@@ -461,16 +512,16 @@ export default function RegistroTurnoPorteiroClient({
                 <select
                   value={selectedPorteiro}
                   onChange={e => {
-                    setSelectedPorteiro(e.target.value)
-                    const p = porteiros.find(pt => pt.id === e.target.value)
-                    setPorteiroNome(p?.nome_completo ?? '')
+                    const nome = e.target.value
+                    setSelectedPorteiro(nome)
+                    setPorteiroNome(nome)
                   }}
                   className="w-full border border-gray-200 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#FC5931]/30 focus:border-[#FC5931]"
                   title="Selecione o porteiro"
                 >
                   <option value="">Selecione...</option>
-                  {porteiros.map(p => (
-                    <option key={p.id} value={p.id}>{p.nome_completo}</option>
+                  {dropdownNomes.map(nome => (
+                    <option key={nome} value={nome}>{nome}</option>
                   ))}
                 </select>
               </div>
@@ -478,8 +529,9 @@ export default function RegistroTurnoPorteiroClient({
                 <label className="text-xs font-medium text-gray-500 mb-1 block">Seu nome</label>
                 <input
                   value={porteiroNome}
-                  readOnly
-                  className="w-full border border-gray-100 bg-gray-50 rounded-xl px-4 py-2.5 text-sm text-gray-600"
+                  onChange={e => setPorteiroNome(e.target.value)}
+                  placeholder="Escolha seu nome ou escreva seu nome aqui"
+                  className="w-full border border-gray-200 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#FC5931]/30 focus:border-[#FC5931]"
                 />
               </div>
             </div>

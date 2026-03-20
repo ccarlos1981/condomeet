@@ -24,6 +24,7 @@ const ALL_FUNCTIONS = [
   { id: 'registro_turno',   label: 'Registro de Turno',       icon: 'assignment',    emoji: '📝', route: '/registro-turno',             defaultRoles: ['portaria'] },
   { id: 'visitor_register', label: 'Registrar Visitante',     icon: 'badge',         emoji: '🪪', route: '/registrar-visitante',       defaultRoles: ['portaria'] },
   { id: 'portaria_authorize', label: 'Autorização Visitante (Portaria)', icon: 'how_to_reg', emoji: '🛂', route: '/autorizar-visitante-portaria', defaultRoles: ['portaria', 'sindico', 'sub_sindico'] },
+  { id: 'reservas_portaria', label: 'Reservas (Portaria)', icon: 'calendar_month', emoji: '📅', route: '/reservas-portaria', defaultRoles: ['portaria', 'sindico', 'sub_sindico'] },
 ]
 
 // Normalize role name → key: "Porteiro (a)" → "portaria"

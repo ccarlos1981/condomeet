@@ -35,6 +35,7 @@ const FN_TO_NAV: Record<string, { label: string; href: string; icon: React.React
   enquetes:           { label: 'Enquetes',                 href: '/condo/enquetes',              icon: <BarChart3 size={18} /> },
   enquete_admin:      { label: 'Enquetes',                 href: '/condo/enquetes',              icon: <BarChart3 size={18} /> },
   portaria_authorize: { label: 'Autorização Visitante (Portaria)', href: '/condo/autorizar-visitante-portaria', icon: <UserCheck size={18} /> },
+  reservas_portaria: { label: 'Reservas (Portaria)', href: '/condo/reservas-portaria', icon: <CalendarDays size={18} /> },
 }
 
 function normalizeRoleKey(role: string): string {
@@ -84,6 +85,7 @@ const PORTER_NAV: NavItem[] = [
   { label: 'Reservas', href: '/condo/reservas', icon: <CalendarDays size={18} /> },
   { label: 'Registro de Turno', href: '/condo/registro-turno', icon: <ClipboardList size={18} /> },
   { label: 'Autorização Visitante (Portaria)', href: '/condo/autorizar-visitante-portaria', icon: <UserCheck size={18} /> },
+  { label: 'Reservas (Portaria)', href: '/condo/reservas-portaria', icon: <CalendarDays size={18} /> },
 ]
 
 const ADMIN_NAV: NavItem[] = [
@@ -101,6 +103,7 @@ const ADMIN_NAV: NavItem[] = [
   { label: 'Visitante c/ Autorização', href: '/condo/liberar-visitante', icon: <QrCode size={18} /> },
   { label: 'Registro de Turno', href: '/condo/registro-turno', icon: <ClipboardList size={18} /> },
   { label: 'Autorização Visitante (Portaria)', href: '/condo/autorizar-visitante-portaria', icon: <UserCheck size={18} /> },
+  { label: 'Reservas (Portaria)', href: '/condo/reservas-portaria', icon: <CalendarDays size={18} /> },
   { label: 'Painel Admin', href: '/admin', icon: <Shield size={18} /> },
 ]
 

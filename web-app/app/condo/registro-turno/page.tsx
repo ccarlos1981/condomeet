@@ -32,12 +32,20 @@ export default async function RegistroTurnoPage() {
     .order('created_at', { ascending: false })
     .limit(50)
 
-  // Load porters for dropdown
+  // Load porters for dropdown (profiles + historical names)
   const { data: porteiros } = await supabase
     .from('perfil')
     .select('id, nome_completo')
     .eq('condominio_id', condoId)
     .in('papel_sistema', ['Portaria', 'Porteiro', 'portaria', 'porteiro'])
+
+  // Load distinct historical porter names
+  const { data: historicoNomes } = await supabase
+    .from('turno_registros')
+    .select('porteiro_nome')
+    .eq('condominio_id', condoId)
+
+  const nomesHistoricos = [...new Set((historicoNomes ?? []).map(h => h.porteiro_nome))].filter(Boolean)
 
   // Load registro IDs that have discrepancies
   const { data: divergencias } = await supabase
@@ -53,9 +61,8 @@ export default async function RegistroTurnoPage() {
         inventario={inventario ?? []}
         registros={registros ?? []}
         porteiros={porteiros ?? []}
+        nomesHistoricos={nomesHistoricos}
         condoId={condoId}
-        currentUserId={user.id}
-        currentUserName={profile?.nome_completo ?? ''}
         registrosComDivergencia={registrosComDivergencia}
       />
     </div>

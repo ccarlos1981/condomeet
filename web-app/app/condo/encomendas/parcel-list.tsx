@@ -733,8 +733,8 @@ export default function ParcelList({ initialParcels, isPorter, userId, condoId, 
                       )}
                     </div>
 
-                    {/* Right: photo + signature thumbnails stacked */}
-                    <div className="flex flex-col gap-1.5 shrink-0">
+                    {/* Right: photo + signature thumbnails – stacked on mobile, side by side on ≥860px */}
+                    <div className="flex flex-col min-[860px]:flex-row gap-1.5 shrink-0">
                       {/* Photo thumbnail */}
                       <button
                         onClick={() => p.photo_url ? setPhotoModal(p.photo_url) : null}
