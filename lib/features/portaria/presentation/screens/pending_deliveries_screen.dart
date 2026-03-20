@@ -562,15 +562,14 @@ class _PendingDeliveriesScreenState extends State<PendingDeliveriesScreen> {
                         style: const TextStyle(fontSize: 12, color: Colors.green, fontWeight: FontWeight.w600)),
                   ]),
                 if (isPending) ...[
-                  // Buttons stacked vertically (same width)
-                  Column(children: [
+                  // Buttons side by side
+                  Row(children: [
                     // Normal Dar Baixa button (green)
-                    SizedBox(
-                      width: double.infinity,
+                    Expanded(
                       child: ElevatedButton.icon(
                         onPressed: () => _showDarBaixaModal(parcel),
                         icon: const Icon(Icons.check_circle_outline, size: 16),
-                        label: const Text('Dar Baixa', style: TextStyle(fontSize: 13)),
+                        label: const Text('Dar Baixa', style: TextStyle(fontSize: 12)),
                         style: ElevatedButton.styleFrom(
                           backgroundColor: Colors.green.shade600,
                           foregroundColor: Colors.white,
@@ -579,14 +578,13 @@ class _PendingDeliveriesScreenState extends State<PendingDeliveriesScreen> {
                         ),
                       ),
                     ),
-                    const SizedBox(height: 6),
+                    const SizedBox(width: 8),
                     // Silent discharge button (amber/yellow)
-                    SizedBox(
-                      width: double.infinity,
+                    Expanded(
                       child: ElevatedButton.icon(
                         onPressed: () => _showSilentDischargeSheet(parcel),
                         icon: const Icon(Icons.check, size: 16),
-                        label: const Text('Baixa Silenciosa', style: TextStyle(fontSize: 13)),
+                        label: const Text('Silenciosa', style: TextStyle(fontSize: 12)),
                         style: ElevatedButton.styleFrom(
                           backgroundColor: Colors.amber.shade600,
                           foregroundColor: Colors.white,
