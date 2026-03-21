@@ -45,3 +45,9 @@ app.*.map.json
 /android/app/release
 .jdk21/
 .vercel
+
+# Backups
+*.tar.gz
+*.zip
+*.bak
+

@@ -134,10 +134,7 @@ function buildNavFromConfig(role: string, config: any): NavItem[] | null {
 
     const navEntry = FN_TO_NAV[fn.id]
     if (navEntry) {
-      // Avoid duplicates by href
-      if (!items.some(i => i.href === navEntry.href)) {
-        items.push({ ...navEntry, fnId: fn.id })
-      }
+      items.push({ ...navEntry, fnId: fn.id })
     }
   }
 
