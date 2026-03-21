@@ -3,6 +3,7 @@ import 'package:url_launcher/url_launcher.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:get_it/get_it.dart';
 import 'package:condomeet/core/design_system/app_colors.dart';
+import 'package:condomeet/core/services/security_service.dart';
 import '../../domain/repositories/auth_repository.dart';
 import '../bloc/auth_bloc.dart';
 import '../bloc/auth_event.dart';
@@ -32,6 +33,17 @@ class _LoginScreenState extends State<LoginScreen> {
     _passwordFocusNode.addListener(() {
       setState(() => _passwordHasFocus = _passwordFocusNode.hasFocus);
     });
+    _loadSavedCredentials();
+  }
+
+  Future<void> _loadSavedCredentials() async {
+    final creds = await GetIt.instance<SecurityService>().getCredentials();
+    if (creds != null && mounted) {
+      setState(() {
+        _emailController.text = creds['email'] ?? '';
+        _passwordController.text = creds['password'] ?? '';
+      });
+    }
   }
 
   @override
@@ -48,6 +60,7 @@ class _LoginScreenState extends State<LoginScreen> {
         AuthLoginSubmitted(
           email: _emailController.text.trim().toLowerCase(),
           password: _passwordController.text.trim(),
+          rememberMe: _rememberMe,
         ),
       );
     }

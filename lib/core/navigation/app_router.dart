@@ -27,6 +27,7 @@ import 'package:condomeet/features/community/presentation/screens/contracts_scre
 import 'package:condomeet/features/community/presentation/screens/admin_documentos_screen.dart';
 import 'package:condomeet/features/community/presentation/screens/admin_contratos_screen.dart';
 import 'package:condomeet/features/community/presentation/screens/area_picker_screen.dart';
+import 'package:condomeet/features/community/presentation/screens/portaria_booking_screen.dart';
 import 'package:condomeet/features/community/presentation/screens/areas_comuns_admin_screen.dart';
 import 'package:condomeet/features/community/presentation/screens/admin_horarios_screen.dart';
 import 'package:condomeet/features/security/presentation/screens/chat_screen.dart';
@@ -115,6 +116,7 @@ class AppRouter {
             isBlocked: state.isUnitBlocked,
             child: const AreaPickerScreen(),
           ),
+      '/reservas-portaria': (context) => const PortariaBookingScreen(),
       '/document-center': (context) => BlockedAccessOverlay(
             isBlocked: state.isUnitBlocked,
             child: const DocumentsScreen(),

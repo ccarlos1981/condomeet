@@ -29,6 +29,12 @@ android {
         jvmTarget = JavaVersion.VERSION_17.toString()
     }
 
+    packaging {
+        jniLibs {
+            keepDebugSymbols += listOf("**/*.so")
+        }
+    }
+
     signingConfigs {
         create("release") {
             keyAlias = keystoreProperties["keyAlias"] as String?

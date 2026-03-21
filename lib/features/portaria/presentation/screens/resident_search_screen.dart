@@ -7,6 +7,7 @@ import 'package:condomeet/core/errors/result.dart';
 import 'package:condomeet/features/auth/presentation/bloc/auth_bloc.dart';
 import 'package:condomeet/features/portaria/domain/repositories/resident_repository.dart';
 import 'package:condomeet/core/utils/structure_helper.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 class ResidentSearchScreen extends StatefulWidget {
   const ResidentSearchScreen({super.key});
@@ -154,13 +155,115 @@ class _ResidentSearchScreenState extends State<ResidentSearchScreen> {
       title: Text(resident.fullName, style: AppTypography.bodyLarge.copyWith(fontWeight: FontWeight.w600)),
       subtitle: Text(StructureHelper.getFullUnitName(context.read<AuthBloc>().state.tipoEstrutura, resident.block ?? '?', resident.unitNumber ?? '?'), style: AppTypography.bodyMedium.copyWith(color: AppColors.textSecondary)),
       trailing: const Icon(Icons.chevron_right, color: AppColors.border),
-      onTap: () {
-        Navigator.of(context).pushNamed(
-          '/parcel-registration',
-          arguments: resident,
-        );
-      },
+      onTap: () => _showResidentDetail(resident),
     );
+  }
+
+  void _showResidentDetail(Resident resident) {
+    final tipoEstrutura = context.read<AuthBloc>().state.tipoEstrutura;
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (_) => Container(
+        decoration: const BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+        ),
+        padding: const EdgeInsets.fromLTRB(20, 12, 20, 32),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            // Drag handle
+            Container(width: 40, height: 4, decoration: BoxDecoration(color: Colors.grey.shade300, borderRadius: BorderRadius.circular(2))),
+            const SizedBox(height: 16),
+            // Avatar + name
+            CircleAvatar(
+              radius: 32,
+              backgroundColor: AppColors.primary.withValues(alpha: 0.1),
+              child: Text(resident.fullName[0].toUpperCase(),
+                style: const TextStyle(color: AppColors.primary, fontSize: 24, fontWeight: FontWeight.bold)),
+            ),
+            const SizedBox(height: 10),
+            Text(resident.fullName, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: AppColors.textMain)),
+            const SizedBox(height: 4),
+            Text(
+              StructureHelper.getFullUnitName(tipoEstrutura, resident.block ?? '—', resident.unitNumber ?? '—'),
+              style: TextStyle(fontSize: 13, color: Colors.grey.shade500),
+            ),
+            if (resident.tipoMorador != null) ...[
+              const SizedBox(height: 2),
+              Text(resident.tipoMorador!, style: TextStyle(fontSize: 11, color: Colors.grey.shade400)),
+            ],
+            const SizedBox(height: 16),
+            const Divider(height: 1),
+            const SizedBox(height: 12),
+            // Info rows
+            if (resident.phoneNumber != null && resident.phoneNumber!.isNotEmpty)
+              _detailRow(Icons.phone, 'Telefone', resident.phoneNumber!),
+            if (resident.email != null && resident.email!.isNotEmpty)
+              _detailRow(Icons.email_outlined, 'Email', resident.email!),
+            _detailRow(Icons.badge_outlined, 'Perfil', resident.papelSistema ?? 'morador'),
+            const SizedBox(height: 16),
+            // Action buttons
+            Row(
+              children: [
+                if (resident.phoneNumber != null && resident.phoneNumber!.isNotEmpty) ...[
+                  Expanded(
+                    child: OutlinedButton.icon(
+                      onPressed: () => _launchUrl('tel:${resident.phoneNumber}'),
+                      icon: const Icon(Icons.phone, size: 16),
+                      label: const Text('Ligar', style: TextStyle(fontSize: 12)),
+                      style: OutlinedButton.styleFrom(
+                        foregroundColor: AppColors.primary,
+                        side: const BorderSide(color: AppColors.primary),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                        padding: const EdgeInsets.symmetric(vertical: 10),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: ElevatedButton.icon(
+                      onPressed: () => _launchUrl('https://wa.me/55${resident.phoneNumber!.replaceAll(RegExp(r'[^0-9]'), '')}'),
+                      icon: const Icon(Icons.chat, size: 16),
+                      label: const Text('WhatsApp', style: TextStyle(fontSize: 12)),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: const Color(0xFF25D366),
+                        foregroundColor: Colors.white,
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                        padding: const EdgeInsets.symmetric(vertical: 10),
+                      ),
+                    ),
+                  ),
+                ],
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _detailRow(IconData icon, String label, String value) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 4),
+      child: Row(
+        children: [
+          Icon(icon, size: 16, color: Colors.grey.shade400),
+          const SizedBox(width: 10),
+          Text('$label: ', style: TextStyle(fontSize: 12, color: Colors.grey.shade500)),
+          Expanded(child: Text(value, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: AppColors.textMain))),
+        ],
+      ),
+    );
+  }
+
+  void _launchUrl(String url) async {
+    final uri = Uri.parse(url);
+    if (await canLaunchUrl(uri)) {
+      await launchUrl(uri, mode: LaunchMode.externalApplication);
+    }
   }
 
   Widget _buildEmptyState() {

@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:condomeet/core/design_system/app_colors.dart';
 import 'package:condomeet/core/di/injection_container.dart';
+import 'package:condomeet/core/utils/structure_helper.dart';
 
 const _meses = ['Janeiro','Fevereiro','Março','Abril','Maio','Junho',
   'Julho','Agosto','Setembro','Outubro','Novembro','Dezembro'];
@@ -12,7 +13,13 @@ const _diasSemanaDb = ['Dom','Seg','Ter','Qua','Qui','Sex','Sab'];
 
 class BookingFormScreen extends StatefulWidget {
   final Map<String, dynamic> area;
-  const BookingFormScreen({super.key, required this.area});
+  final bool portariaMode;
+
+  const BookingFormScreen({
+    super.key,
+    required this.area,
+    this.portariaMode = false,
+  });
 
   @override
   State<BookingFormScreen> createState() => _BookingFormScreenState();
@@ -40,6 +47,16 @@ class _BookingFormScreenState extends State<BookingFormScreen> {
   // already booked dates (for this area)
   Set<String> _bookedDates = {};
 
+  // ─── Portaria mode state ───
+  String? _tipoEstrutura;
+  List<String> _blocos = [];
+  Map<String, List<String>> _aptosMap = {};
+  Map<String, List<Map<String, String>>> _residentsPerUnit = {};
+  String? _selectedBloco;
+  String? _selectedApto;
+  String? _selectedResidentId;
+  bool _loadingPortaria = false;
+
   @override
   void initState() {
     super.initState();
@@ -48,6 +65,69 @@ class _BookingFormScreenState extends State<BookingFormScreen> {
     _viewMonth = now.month;
     _nomeCtrl = TextEditingController(text: widget.area['tipo_agenda'] ?? '');
     _loadBookedDates();
+    if (widget.portariaMode) _loadPortariaData();
+  }
+
+  Future<void> _loadPortariaData() async {
+    setState(() => _loadingPortaria = true);
+    final user = _supabase.auth.currentUser;
+    if (user == null) return;
+
+    final profile = await _supabase
+        .from('perfil').select('condominio_id').eq('id', user.id).maybeSingle();
+    final condoId = profile?['condominio_id'] as String?;
+    if (condoId == null) return;
+
+    final condo = await _supabase
+        .from('condominios').select('tipo_estrutura').eq('id', condoId).maybeSingle();
+    _tipoEstrutura = condo?['tipo_estrutura'] as String? ?? 'predio';
+
+    final structData = await _supabase
+        .from('blocos')
+        .select('nome_ou_numero, unidades ( apartamentos ( numero ) )')
+        .eq('condominio_id', condoId)
+        .order('nome_ou_numero');
+
+    final blocosSet = <String>{};
+    final aptosPerBloco = <String, Set<String>>{};
+    for (final blk in (structData as List)) {
+      final blocoName = blk['nome_ou_numero'] as String?;
+      if (blocoName == null) continue;
+      blocosSet.add(blocoName);
+      aptosPerBloco[blocoName] ??= {};
+      final units = blk['unidades'] as List? ?? [];
+      for (final u in units) {
+        final apto = (u['apartamentos'] as Map?)?['numero'] as String?;
+        if (apto != null) aptosPerBloco[blocoName]!.add(apto);
+      }
+    }
+
+    final moradores = await _supabase
+        .from('perfil')
+        .select('id, nome_completo, bloco_txt, apto_txt')
+        .eq('condominio_id', condoId)
+        .not('bloco_txt', 'is', null)
+        .or('status_aprovacao.is.null,status_aprovacao.eq.aprovado');
+
+    final resPerUnit = <String, List<Map<String, String>>>{};
+    for (final m in (moradores as List)) {
+      final b = m['bloco_txt'] as String?;
+      final a = m['apto_txt'] as String?;
+      if (b != null && a != null) {
+        final key = '${b}__$a';
+        resPerUnit[key] ??= [];
+        resPerUnit[key]!.add({'id': m['id'] as String, 'nome': m['nome_completo'] as String? ?? 'Morador'});
+      }
+    }
+
+    if (mounted) {
+      setState(() {
+        _blocos = blocosSet.toList()..sort();
+        _aptosMap = { for (final b in _blocos) b: (aptosPerBloco[b] ?? {}).toList()..sort() };
+        _residentsPerUnit = resPerUnit;
+        _loadingPortaria = false;
+      });
+    }
   }
 
   @override
@@ -146,6 +226,9 @@ class _BookingFormScreenState extends State<BookingFormScreen> {
   }
 
   Future<void> _agendar() async {
+    if (widget.portariaMode && (_selectedBloco == null || _selectedApto == null)) {
+      setState(() => _error = 'Selecione Bloco e Apto'); return;
+    }
     if (_selectedDate == null) { setState(() => _error = 'Selecione uma data'); return; }
     if (_bookedDates.contains(_selectedDate)) { setState(() => _error = 'Esta data já está reservada'); return; }
     final tipo = widget.area['tipo_reserva'] as String? ?? 'por_dia';
@@ -166,15 +249,26 @@ class _BookingFormScreenState extends State<BookingFormScreen> {
 
       final aprovAuto = widget.area['aprovacao_automatica'] == true;
 
-      await _supabase.from('reservas').insert({
+      final insertData = <String, dynamic>{
         'area_id': widget.area['id'],
         'horario_id': _selectedSlotId,
-        'user_id': user.id,
         'condominio_id': condoId,
         'data_reserva': _selectedDate,
         'nome_evento': _nomeCtrl.text.trim().isEmpty ? widget.area['tipo_agenda'] : _nomeCtrl.text.trim(),
         'status': aprovAuto ? 'aprovado' : 'pendente',
-      });
+      };
+
+      if (widget.portariaMode) {
+        insertData['user_id'] = _selectedResidentId;
+        insertData['criado_por_portaria'] = true;
+        insertData['bloco_destino'] = _selectedBloco;
+        insertData['apto_destino'] = _selectedApto;
+        insertData['criado_por'] = user.id;
+      } else {
+        insertData['user_id'] = user.id;
+      }
+
+      await _supabase.from('reservas').insert(insertData);
 
       if (mounted) {
         Navigator.of(context).pop(true); // signal success
@@ -185,6 +279,115 @@ class _BookingFormScreenState extends State<BookingFormScreen> {
   }
 
   String _fmtHora(String h) => h.length >= 5 ? h.substring(0, 5) : h;
+
+  // ─── Portaria unit selector widget ───
+  Widget _buildPortariaUnitSelector() {
+    final blocoLabel = _tipoEstrutura != null ? StructureHelper.getNivel1Label(_tipoEstrutura) : 'Bloco';
+    final aptoLabel = _tipoEstrutura != null ? StructureHelper.getNivel2Label(_tipoEstrutura) : 'Apto';
+    final availAptos = _selectedBloco != null ? (_aptosMap[_selectedBloco] ?? <String>[]) : <String>[];
+    final unitKey = '${_selectedBloco ?? ''}__${_selectedApto ?? ''}';
+    final unitResidents = _residentsPerUnit[unitKey] ?? [];
+
+    if (_loadingPortaria) {
+      return Container(
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: AppColors.primary.withValues(alpha: 0.04),
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(color: AppColors.primary.withValues(alpha: 0.2)),
+        ),
+        child: const Center(child: SizedBox(width: 20, height: 20,
+          child: CircularProgressIndicator(strokeWidth: 2, color: AppColors.primary))),
+      );
+    }
+
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: AppColors.primary.withValues(alpha: 0.04),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: AppColors.primary.withValues(alpha: 0.2)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(children: [
+            const Icon(Icons.apartment_rounded, size: 16, color: AppColors.primary),
+            const SizedBox(width: 6),
+            Text('Reserva em nome do morador',
+              style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: AppColors.primary)),
+          ]),
+          const SizedBox(height: 10),
+          Row(children: [
+            Expanded(child: _buildPortariaDropdown(
+              label: blocoLabel,
+              value: _selectedBloco,
+              items: _blocos,
+              onChanged: (v) => setState(() {
+                _selectedBloco = v;
+                _selectedApto = null;
+                _selectedResidentId = null;
+              }),
+            )),
+            const SizedBox(width: 10),
+            Expanded(child: _buildPortariaDropdown(
+              label: aptoLabel,
+              value: _selectedApto,
+              items: availAptos,
+              enabled: _selectedBloco != null,
+              onChanged: (v) => setState(() {
+                _selectedApto = v;
+                _selectedResidentId = null;
+              }),
+            )),
+          ]),
+          if (_selectedBloco != null && _selectedApto != null && unitResidents.isNotEmpty) ...[
+            const SizedBox(height: 10),
+            _buildPortariaDropdown(
+              label: 'Morador (opcional)',
+              value: _selectedResidentId,
+              items: unitResidents.map((r) => r['id']!).toList(),
+              displayItems: unitResidents.map((r) => r['nome']!).toList(),
+              onChanged: (v) => setState(() => _selectedResidentId = v),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+
+  Widget _buildPortariaDropdown({
+    required String label,
+    required String? value,
+    required List<String> items,
+    List<String>? displayItems,
+    bool enabled = true,
+    required ValueChanged<String?> onChanged,
+  }) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: enabled ? AppColors.border : Colors.grey.shade200),
+      ),
+      child: DropdownButtonHideUnderline(
+        child: DropdownButton<String>(
+          value: value,
+          isExpanded: true,
+          hint: Text(label, style: TextStyle(fontSize: 12, color: Colors.grey.shade400)),
+          icon: Icon(Icons.keyboard_arrow_down, size: 18,
+            color: enabled ? AppColors.primary : Colors.grey.shade300),
+          style: const TextStyle(fontSize: 12, color: AppColors.textMain),
+          items: items.asMap().entries.map((e) {
+            final display = displayItems != null ? displayItems[e.key] : e.value;
+            return DropdownMenuItem(value: e.value, child: Text(display));
+          }).toList(),
+          onChanged: enabled ? onChanged : null,
+        ),
+      ),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -222,6 +425,11 @@ class _BookingFormScreenState extends State<BookingFormScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
+            // ─── Portaria: bloco/apto selector ───
+            if (widget.portariaMode) ...[
+              _buildPortariaUnitSelector(),
+              const SizedBox(height: 16),
+            ],
             // Calendar header
             Row(children: [
               GestureDetector(

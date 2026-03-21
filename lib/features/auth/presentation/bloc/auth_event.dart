@@ -49,10 +49,11 @@ class AuthPinUnlocked extends AuthEvent {
 class AuthLoginSubmitted extends AuthEvent {
   final String email;
   final String password;
-  const AuthLoginSubmitted({required this.email, required this.password});
+  final bool rememberMe;
+  const AuthLoginSubmitted({required this.email, required this.password, this.rememberMe = true});
 
   @override
-  List<Object> get props => [email, password];
+  List<Object> get props => [email, password, rememberMe];
 }
 
 class AuthResidentRegistrationSubmitted extends AuthEvent {

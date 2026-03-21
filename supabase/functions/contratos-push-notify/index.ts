@@ -113,10 +113,10 @@ serve(async (req) => {
           },
           android: {
             priority: 'high',
-            notification: { channel_id: 'contratos' },
+            notification: { channel_id: 'avisos', sound: 'condomeet' },
           },
           apns: {
-            payload: { aps: { sound: 'default', badge: 1 } },
+            payload: { aps: { sound: 'condomeet.aiff', badge: 1 } },
           },
         },
       }

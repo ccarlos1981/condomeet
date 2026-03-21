@@ -89,12 +89,15 @@ export default function RegistroTurnoPorteiroClient({
   const [selectedPorteiro, setSelectedPorteiro] = useState('')
   const [porteiroNome, setPorteiroNome] = useState('')
 
+  // Historical names as state so we can update after saving
+  const [historicalNames, setHistoricalNames] = useState(nomesHistoricos)
+
   // Merged dropdown names: profiles + historical, no duplicates
   const dropdownNomes = useMemo(() => {
     const perfNomes = porteiros.map(p => p.nome_completo)
-    const all = [...perfNomes, ...nomesHistoricos]
+    const all = [...perfNomes, ...historicalNames]
     return [...new Set(all)].sort()
-  }, [porteiros, nomesHistoricos])
+  }, [porteiros, historicalNames])
   const [observacao, setObservacao] = useState('')
   const [saving, setSaving] = useState(false)
   const [savedMsg, setSavedMsg] = useState('')
@@ -209,6 +212,8 @@ export default function RegistroTurnoPorteiroClient({
       setDivergenciaIds(prev => new Set([...prev, registro.id]))
     }
     setSavedMsg('✅ Registro salvo com sucesso!')
+    // Add the new name to historical names so it appears in the dropdown
+    setHistoricalNames(prev => prev.includes(nameToSave) ? prev : [...prev, nameToSave])
     setObservacao('')
     // Reset checks
     const resetMap: Record<string, ItemCheck> = {}
@@ -573,7 +578,7 @@ export default function RegistroTurnoPorteiroClient({
             <div className="flex items-center gap-4">
               <button
                 onClick={handleSave}
-                disabled={saving || !selectedPorteiro}
+                disabled={saving || !porteiroNome.trim()}
                 className="flex items-center gap-2 bg-[#FC5931] text-white px-8 py-3 rounded-xl font-semibold text-sm hover:bg-[#D42F1D] transition-colors disabled:opacity-40 shadow-sm shadow-[#FC5931]/20"
               >
                 {saving ? <Loader2 size={16} className="animate-spin" /> : <Save size={16} />}

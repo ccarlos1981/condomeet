@@ -82,10 +82,10 @@ async function sendFcmMessage(
       token: fcmToken,
       notification: { title, body },
       data,
-      android: { priority: "high" },
+      android: { priority: "high", notification: { channel_id: "avisos", sound: "condomeet" } },
       apns: {
         headers: { "apns-priority": "10" },
-        payload: { aps: { sound: "default", badge: 1 } },
+        payload: { aps: { sound: "condomeet.aiff", badge: 1 } },
       },
     },
   }
@@ -127,6 +127,16 @@ serve(async (req) => {
 
     if (!parcel_id || !event || !condominio_id) {
       return new Response(JSON.stringify({ error: "Missing required fields" }), { status: 400 })
+    }
+
+    // Guard: both bloco and apto must be present to target notifications.
+    // Without them the query would match ALL residents in the condomínio.
+    if (!bloco && !apto) {
+      console.warn(`Skipping push: bloco and apto are empty for parcel ${parcel_id}`)
+      return new Response(
+        JSON.stringify({ sent: 0, message: "Skipped — no bloco/apto to target" }),
+        { status: 200, headers: { "Content-Type": "application/json" } }
+      )
     }
 
     // 1. Load Firebase service account from Supabase secrets

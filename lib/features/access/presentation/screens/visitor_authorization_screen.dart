@@ -150,9 +150,17 @@ class _VisitorAuthorizationScreenState extends State<VisitorAuthorizationScreen>
             icon: const Icon(Icons.arrow_back_ios, color: Colors.black, size: 20),
             onPressed: () => Navigator.pop(context),
           ),
-          title: Text(
-            'Autorizar visitante',
-            style: AppTypography.h2.copyWith(color: Colors.black87),
+          title: Column(
+            children: [
+              Text(
+                'Autorizar visitante',
+                style: AppTypography.h2.copyWith(color: Colors.black87),
+              ),
+              Text(
+                authState.userName ?? 'Morador',
+                style: TextStyle(fontSize: 16, color: Colors.grey.shade500, fontWeight: FontWeight.normal),
+              ),
+            ],
           ),
           centerTitle: true,
         ),
@@ -190,11 +198,6 @@ class _VisitorAuthorizationScreenState extends State<VisitorAuthorizationScreen>
         key: _formKey,
         child: Column(
           children: [
-            Text(
-              'Autorizado por ${authState.userName ?? 'Morador'}',
-              style: AppTypography.h3.copyWith(color: Colors.grey.shade700),
-            ),
-            const SizedBox(height: 16),
             
             // Dropdown Tipo - using custom dialog to avoid DropdownButtonFormField
             // semantics assertion bug (parentDataDirty freeze)

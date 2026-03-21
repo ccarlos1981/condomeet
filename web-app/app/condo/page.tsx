@@ -43,9 +43,9 @@ export default async function CondoDashboard() {
     .from('encomendas')
     .select('*', { count: 'exact', head: true })
     .eq('condominio_id', profile?.condominio_id ?? '')
-    .eq('bloco_txt', profile?.bloco_txt ?? '')
-    .eq('apto_txt', profile?.apto_txt ?? '')
-    .is('data_retirada', null)
+    .eq('bloco', profile?.bloco_txt ?? '')
+    .eq('apto', profile?.apto_txt ?? '')
+    .eq('status', 'pending')
 
   // Fetch invitations this month count
   const startOfMonth = new Date()

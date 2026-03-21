@@ -46,25 +46,25 @@ $$ LANGUAGE plpgsql SECURITY DEFINER;
 
 -- ============================================================
 -- Trigger: ARRIVED — AFTER INSERT on encomendas
+-- Uses bloco/apto directly from the encomenda record.
+-- Skips notification when bloco AND apto are both empty.
 -- ============================================================
 CREATE OR REPLACE FUNCTION public.tr_fn_encomenda_arrived()
 RETURNS TRIGGER AS $$
-DECLARE
-  v_bloco TEXT;
-  v_apto  TEXT;
 BEGIN
-  -- Resolve bloco/apto from the resident's perfil
-  SELECT bloco_txt, apto_txt INTO v_bloco, v_apto
-  FROM public.perfil
-  WHERE id = NEW.resident_id
-  LIMIT 1;
+  -- Use bloco/apto directly from the encomenda record (not from perfil)
+  -- Skip notification if both bloco and apto are empty/null
+  IF COALESCE(NEW.bloco, '') = '' AND COALESCE(NEW.apto, '') = '' THEN
+    RAISE WARNING 'tr_fn_encomenda_arrived: skipping push — no bloco/apto on encomenda %', NEW.id;
+    RETURN NEW;
+  END IF;
 
   PERFORM public.push_notify_parcel(
     p_parcel_id  := NEW.id,
     p_event      := 'arrived',
     p_condominio := NEW.condominio_id,
-    p_bloco      := COALESCE(v_bloco, ''),
-    p_apto       := COALESCE(v_apto, ''),
+    p_bloco      := COALESCE(NEW.bloco, ''),
+    p_apto       := COALESCE(NEW.apto, ''),
     p_tipo       := COALESCE(NEW.tipo, 'pacote')
   );
 
@@ -80,29 +80,35 @@ CREATE TRIGGER tr_encomenda_arrived
 
 -- ============================================================
 -- Trigger: DELIVERED — AFTER UPDATE WHEN status → 'delivered'
+-- Uses bloco/apto directly from the encomenda record.
+-- Skips on silent_discharge or empty bloco+apto.
 -- ============================================================
 CREATE OR REPLACE FUNCTION public.tr_fn_encomenda_delivered()
 RETURNS TRIGGER AS $$
-DECLARE
-  v_bloco TEXT;
-  v_apto  TEXT;
 BEGIN
   -- Only fire when transitioning to delivered
   IF NEW.status <> 'delivered' OR OLD.status = 'delivered' THEN
     RETURN NEW;
   END IF;
 
-  SELECT bloco_txt, apto_txt INTO v_bloco, v_apto
-  FROM public.perfil
-  WHERE id = NEW.resident_id
-  LIMIT 1;
+  -- Skip if silent discharge
+  IF COALESCE(NEW.silent_discharge, false) THEN
+    RETURN NEW;
+  END IF;
+
+  -- Use bloco/apto directly from the encomenda record (not from perfil)
+  -- Skip notification if both bloco and apto are empty/null
+  IF COALESCE(NEW.bloco, '') = '' AND COALESCE(NEW.apto, '') = '' THEN
+    RAISE WARNING 'tr_fn_encomenda_delivered: skipping push — no bloco/apto on encomenda %', NEW.id;
+    RETURN NEW;
+  END IF;
 
   PERFORM public.push_notify_parcel(
     p_parcel_id  := NEW.id,
     p_event      := 'delivered',
     p_condominio := NEW.condominio_id,
-    p_bloco      := COALESCE(v_bloco, ''),
-    p_apto       := COALESCE(v_apto, ''),
+    p_bloco      := COALESCE(NEW.bloco, ''),
+    p_apto       := COALESCE(NEW.apto, ''),
     p_tipo       := COALESCE(NEW.tipo, 'pacote'),
     p_picked_by  := NEW.picked_up_by_name
   );

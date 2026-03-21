@@ -542,7 +542,9 @@ async function handlePortariaCreated(
 
     const codInterno2 = genCodInterno()
     const msg2 =
-      `🏙 Autorização enviada!\n` +
+      `🏙  ${condoNome}\n` +
+      `\n` +
+      `Autorização enviada sem identificação!\n` +
       `\n` +
       `Olá morador(a), parece que alguém do seu apto pediu a portaria um registro de visitante, porém, não se identificou.\n` +
       `\n` +
@@ -558,15 +560,21 @@ async function handlePortariaCreated(
       `📒 Observação\n` +
       `${obsText}\n` +
       `\n` +
-      `A pessoa que solicitou, não se identificou.\n` +
+      `A pessoa que solicitou, não se identificou\n` +
       `\n` +
-      `🚨Atenção, caso não tenha sido ninguém do apto, favor procurar a direção do condomínio.\n` +
+      `🚨Atenção, caso não tenha sido ninguém do apto, favor procurar a direção do condomínio\n` +
       `\n` +
       `Condomeet agradece!\n` +
-      `Cod int ${codInterno2}`
+      `Cód interno: ${codInterno2}`
 
-    for (const r of unitResidents ?? []) {
+    for (let i = 0; i < (unitResidents ?? []).length; i++) {
+      const r = unitResidents![i]
       if (r.botconversa_id) {
+        // Random delay 5-15s between messages to avoid Meta anti-spam
+        if (i > 0) {
+          const delay = Math.floor(Math.random() * 10000) + 5000 // 5000-15000ms
+          await new Promise((resolve) => setTimeout(resolve, delay))
+        }
         const sent = await sendMessage(apiKey, r.botconversa_id, msg2)
         results.push(`Msg2 resident ${r.id}: ${sent ? "✅" : "❌"}`)
       }

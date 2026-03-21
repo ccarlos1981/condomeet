@@ -496,18 +496,7 @@ class _HomeScreenState extends State<HomeScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Padding(
-            padding: EdgeInsets.only(right: 16),
-            child: Text(
-              'Menu completo',
-              style: TextStyle(
-                fontSize: 14,
-                fontWeight: FontWeight.normal,
-                color: AppColors.textSecondary,
-              ),
-            ),
-          ),
-          const SizedBox(height: 12),
+
           SizedBox(
             height: sectionHeight,
             child: GridView.builder(
@@ -751,7 +740,7 @@ class _HomeScreenState extends State<HomeScreen> {
                             ),
                           ] else
                             const Text(
-                              'Nenhuma foi registrada nos últimos dias.\nAvisaremos no seu WhatsApp quando chegar.',
+                              'Avisaremos no seu WhatsApp quando chegar.',
                               style: TextStyle(
                                 fontSize: 11,
                                 color: AppColors.textSecondary,

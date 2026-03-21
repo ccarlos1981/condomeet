@@ -3,10 +3,9 @@ import 'package:flutter/services.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:condomeet/core/design_system/design_system.dart';
 import 'package:condomeet/core/di/injection_container.dart';
-import 'package:condomeet/features/auth/presentation/bloc/auth_bloc.dart';
-import 'package:condomeet/features/community/presentation/screens/areas_comuns_admin_screen.dart';
+
 import 'package:condomeet/features/community/presentation/screens/booking_form_screen.dart';
-import 'package:flutter_bloc/flutter_bloc.dart';
+
 
 // Simple resident-facing area picker — no PowerSync dependency
 class AreaPickerScreen extends StatefulWidget {
@@ -29,24 +28,6 @@ class _AreaPickerScreenState extends State<AreaPickerScreen>
   void initState() {
     super.initState();
     _tabController = TabController(length: 2, vsync: this);
-
-    final authState = context.read<AuthBloc>().state;
-
-    // Route admins/síndicos to the management screen
-    final role = (authState.role ?? '').toLowerCase();
-    final isAdmin = role.contains('admin') || role.contains('sindico') ||
-        role.contains('síndico') || role.contains('portaria') ||
-        role.contains('zelador') || role.contains('funcionário');
-
-    if (isAdmin) {
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        Navigator.of(context).pushReplacement(
-          MaterialPageRoute(builder: (_) => const AreasComunsAdminScreen()),
-        );
-      });
-      return;
-    }
-
     _load();
     _loadReservas();
   }

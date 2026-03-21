@@ -1,6 +1,6 @@
 'use client'
 
-import React, { useState, useCallback, useEffect, useRef, useMemo } from 'react'
+import React, { useState, useCallback, useEffect, useRef } from 'react'
 import {
   Users, Clock, X, ChevronLeft, ChevronRight,
   CheckCircle2, Calendar, BookOpen
@@ -135,14 +135,19 @@ function MiniCalendar({
 // Booking Modal (portaria version)
 // ──────────────────────────────────────────────────────────────────────────────
 function BookingModal({
-  area, unitInfo, tipoEstrutura, onClose, onBooked
+  area, tipoEstrutura, blocos, aptosMap, residentsPerUnit, onClose, onBooked
 }: {
   area: AreaComum
-  unitInfo: { bloco: string; apto: string; moradorNome: string; moradorId: string | null }
   tipoEstrutura?: string
+  blocos: string[]
+  aptosMap: Record<string, string[]>
+  residentsPerUnit: Record<string, { id: string; nome_completo: string }[]>
   onClose: () => void
   onBooked: () => void
 }) {
+  const [bloco, setBloco] = useState('')
+  const [apto, setApto] = useState('')
+  const [selectedResident, setSelectedResident] = useState('')
   const [selectedDate, setSelectedDate] = useState<string | null>(null)
   const [horarios, setHorarios] = useState<HorarioSlot[]>([])
   const [selectedHorario, setSelectedHorario] = useState<string | null>(null)
@@ -185,6 +190,7 @@ function BookingModal({
   }, [area])
 
   async function handleAgendar() {
+    if (!bloco || !apto) { setError('Selecione Bloco e Apto'); return }
     if (!selectedDate) { setError('Selecione uma data'); return }
     if (area.tipo_reserva === 'por_hora' && !selectedHorario) { setError('Selecione um horário'); return }
     if (!ciente) { setError('Confirme que leu o regimento'); return }
@@ -198,9 +204,9 @@ function BookingModal({
         horario_id: selectedHorario ?? null,
         data_reserva: selectedDate,
         nome_evento: nomeEvento || area.tipo_agenda,
-        bloco: unitInfo.bloco,
-        apto: unitInfo.apto,
-        morador_id: unitInfo.moradorId,
+        bloco,
+        apto,
+        morador_id: selectedResident || null,
       }),
     })
 
@@ -217,11 +223,9 @@ function BookingModal({
       >
         {/* Header */}
         <div className="flex items-start justify-between p-5 border-b border-gray-100">
-          <div className="grid grid-cols-3 gap-x-4 gap-y-1 text-xs flex-1">
-            <div><span className="text-gray-400">{getBlocoLabel(tipoEstrutura)}:</span><br /><span className="font-semibold text-gray-800">{unitInfo.bloco}</span></div>
-            <div><span className="text-gray-400">{getAptoLabel(tipoEstrutura)}:</span><br /><span className="font-semibold text-gray-800">{unitInfo.apto}</span></div>
-            <div><span className="text-gray-400">Morador:</span><br /><span className="font-semibold text-gray-800">{unitInfo.moradorNome || '—'}</span></div>
-            <div className="col-span-3"><span className="text-gray-400">Área comum:</span><br /><span className="font-semibold text-gray-800">{area.tipo_agenda}</span></div>
+          <div className="flex-1">
+            <h3 className="font-bold text-gray-900">{area.tipo_agenda}</h3>
+            <p className="text-xs text-gray-400">{labelLocal(area)} · {area.tipo_reserva === 'por_hora' ? 'Por hora' : 'Por dia'}</p>
           </div>
           <button onClick={onClose} aria-label="Fechar" title="Fechar" className="ml-2 text-gray-400 hover:text-gray-700 transition-colors">
             <X size={20} />
@@ -229,6 +233,59 @@ function BookingModal({
         </div>
 
         <div className="p-5 space-y-5">
+          {/* Unit selector */}
+          <div className="bg-orange-50/50 rounded-xl border border-orange-100 p-4">
+            <p className="text-xs font-semibold text-[#FC5931] mb-3 flex items-center gap-1.5">
+              <Users size={14} />
+              Reserva em nome do morador
+            </p>
+            <div className="grid grid-cols-2 gap-3 mb-3">
+              <div>
+                <label className="block text-xs font-semibold text-gray-600 mb-1">{getBlocoLabel(tipoEstrutura)} *</label>
+                <select
+                  value={bloco}
+                  onChange={e => { setBloco(e.target.value); setApto(''); setSelectedResident('') }}
+                  title={getBlocoLabel(tipoEstrutura)}
+                  className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-[#FC5931] focus:ring-1 focus:ring-[#FC5931]/30 bg-white"
+                >
+                  <option value="">{getBlocoLabel(tipoEstrutura)}</option>
+                  {blocos.map(b => <option key={b} value={b}>{b}</option>)}
+                </select>
+              </div>
+              <div>
+                <label className="block text-xs font-semibold text-gray-600 mb-1">{getAptoLabel(tipoEstrutura)} *</label>
+                <select
+                  value={apto}
+                  onChange={e => { setApto(e.target.value); setSelectedResident('') }}
+                  disabled={!bloco}
+                  title={getAptoLabel(tipoEstrutura)}
+                  className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-[#FC5931] focus:ring-1 focus:ring-[#FC5931]/30 bg-white disabled:bg-gray-50 disabled:text-gray-400"
+                >
+                  <option value="">{getAptoLabel(tipoEstrutura)}</option>
+                  {(bloco ? (aptosMap[bloco] ?? []) : []).map(a => <option key={a} value={a}>{a}</option>)}
+                </select>
+              </div>
+            </div>
+            {bloco && apto && (() => {
+              const unitKey = `${bloco}__${apto}`
+              const unitRes = residentsPerUnit[unitKey] ?? []
+              if (unitRes.length === 0) return null
+              return (
+                <div>
+                  <label className="block text-xs font-semibold text-gray-600 mb-1">Morador (opcional)</label>
+                  <select
+                    value={selectedResident}
+                    onChange={e => setSelectedResident(e.target.value)}
+                    title="Selecione o morador"
+                    className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-[#FC5931] focus:ring-1 focus:ring-[#FC5931]/30 bg-white"
+                  >
+                    <option value="">Selecione o morador (opcional)</option>
+                    {unitRes.map(r => <option key={r.id} value={r.id}>{r.nome_completo}</option>)}
+                  </select>
+                </div>
+              )
+            })()}
+          </div>
           {/* Calendar */}
           <MiniCalendar
             selected={selectedDate}
@@ -304,12 +361,14 @@ function BookingModal({
 
           {(() => {
             const dateBooked = !!selectedDate && bookedDates.has(selectedDate)
-            const canBook = !!selectedDate &&
+            const unitOk = !!bloco && !!apto
+            const canBook = unitOk && !!selectedDate &&
               !dateBooked &&
               (area.tipo_reserva !== 'por_hora' || !!selectedHorario) &&
               ciente &&
               !saving
             const label = saving ? 'Agendando...'
+              : !unitOk ? 'Selecione Bloco e Apto'
               : !selectedDate ? 'Selecione uma data'
               : dateBooked ? 'Data já reservada'
               : area.tipo_reserva === 'por_hora' && !selectedHorario ? 'Selecione um horário'
@@ -402,26 +461,11 @@ function AreaCard({ area, onOpen }: { area: AreaComum; onOpen: () => void }) {
 // Main Component
 // ──────────────────────────────────────────────────────────────────────────────
 export default function ReservasPortariaClient({
-  areas, tipoEstrutura, currentUserName,
+  areas, tipoEstrutura,
   blocos, aptosMap, residentsPerUnit
 }: Props) {
-  const [bloco, setBloco] = useState('')
-  const [apto, setApto] = useState('')
-  const [selectedResident, setSelectedResident] = useState('')
   const [modalArea, setModalArea] = useState<AreaComum | null>(null)
   const [booked, setBooked] = useState(false)
-
-  const availableAptos = bloco ? (aptosMap[bloco] ?? []) : []
-  const unitKey = bloco && apto ? `${bloco}__${apto}` : ''
-  const unitResidents = useMemo(() => unitKey ? (residentsPerUnit[unitKey] ?? []) : [], [unitKey, residentsPerUnit])
-
-  const unitSelected = !!bloco && !!apto
-
-  const selectedResidentName = useMemo(() => {
-    if (!selectedResident) return ''
-    const resident = unitResidents.find(r => r.id === selectedResident)
-    return resident?.nome_completo ?? ''
-  }, [selectedResident, unitResidents])
 
   function handleBooked() {
     setModalArea(null)
@@ -431,73 +475,6 @@ export default function ReservasPortariaClient({
 
   return (
     <div>
-      {/* Unit selector */}
-      <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5 mb-6">
-        <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-3">
-          Selecione a unidade do morador — por {currentUserName}
-        </p>
-
-        <div className="grid grid-cols-2 gap-4 mb-4">
-          <div>
-            <label className="block text-sm font-semibold text-gray-700 mb-1">{getBlocoLabel(tipoEstrutura)} *</label>
-            <select
-              value={bloco}
-              onChange={e => { setBloco(e.target.value); setApto(''); setSelectedResident('') }}
-              title="Selecione o bloco"
-              className="w-full border border-gray-200 rounded-lg px-4 py-2.5 text-sm focus:outline-none focus:border-[#FC5931] focus:ring-1 focus:ring-[#FC5931]/30 bg-white"
-            >
-              <option value="">{getBlocoLabel(tipoEstrutura)}</option>
-              {blocos.map(b => (
-                <option key={b} value={b}>{b}</option>
-              ))}
-            </select>
-          </div>
-          <div>
-            <label className="block text-sm font-semibold text-gray-700 mb-1">{getAptoLabel(tipoEstrutura)} *</label>
-            <select
-              value={apto}
-              onChange={e => { setApto(e.target.value); setSelectedResident('') }}
-              disabled={!bloco}
-              title="Selecione o apartamento"
-              className="w-full border border-gray-200 rounded-lg px-4 py-2.5 text-sm focus:outline-none focus:border-[#FC5931] focus:ring-1 focus:ring-[#FC5931]/30 bg-white disabled:bg-gray-50 disabled:text-gray-400"
-            >
-              <option value="">{getAptoLabel(tipoEstrutura)}</option>
-              {availableAptos.map(a => (
-                <option key={a} value={a}>{a}</option>
-              ))}
-            </select>
-          </div>
-        </div>
-
-        {/* Resident selector */}
-        {unitSelected && (
-          <div>
-            {unitResidents.length > 0 ? (
-              <>
-                <label className="block text-sm font-semibold text-gray-700 mb-1">
-                  Morador (opcional)
-                </label>
-                <select
-                  value={selectedResident}
-                  onChange={e => setSelectedResident(e.target.value)}
-                  title="Quem solicitou a reserva"
-                  className="w-full border border-gray-200 rounded-lg px-4 py-2.5 text-sm focus:outline-none focus:border-[#FC5931] focus:ring-1 focus:ring-[#FC5931]/30 bg-white"
-                >
-                  <option value="">Selecione o morador (opcional)</option>
-                  {unitResidents.map(r => (
-                    <option key={r.id} value={r.id}>{r.nome_completo}</option>
-                  ))}
-                </select>
-              </>
-            ) : (
-              <p className="text-xs text-amber-600 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">
-                ⚠️ Nenhum morador cadastrado nesta unidade.
-              </p>
-            )}
-          </div>
-        )}
-      </div>
-
       {/* Success banner */}
       {booked && (
         <div className="flex items-center gap-2 bg-green-50 border border-green-200 text-green-700 rounded-xl px-4 py-3 mb-5 text-sm font-medium">
@@ -506,38 +483,31 @@ export default function ReservasPortariaClient({
         </div>
       )}
 
-      {/* Area cards — only show after unit is selected */}
-      {!unitSelected ? (
-        <div className="text-center py-16 bg-white rounded-2xl border border-gray-100">
-          <BookOpen size={36} className="mx-auto mb-3 text-gray-200" />
-          <p className="text-gray-400 text-sm">Selecione o bloco e o apartamento acima para ver as áreas disponíveis.</p>
-        </div>
-      ) : (
-        <div className="space-y-4">
-          {areas.length === 0 ? (
-            <div className="text-center py-16 bg-white rounded-2xl border border-gray-100">
-              <BookOpen size={36} className="mx-auto mb-3 text-gray-200" />
-              <p className="text-gray-400 text-sm">Nenhuma área disponível para reserva.</p>
-            </div>
-          ) : (
-            areas.map(area => (
-              <AreaCard key={area.id} area={area} onOpen={() => setModalArea(area)} />
-            ))
-          )}
-        </div>
-      )}
+      {/* Subtitle */}
+      <p className="text-xs text-gray-400 mb-4">Selecione o espaço para reservar em nome do morador</p>
+
+      {/* Area cards — show immediately */}
+      <div className="space-y-4">
+        {areas.length === 0 ? (
+          <div className="text-center py-16 bg-white rounded-2xl border border-gray-100">
+            <BookOpen size={36} className="mx-auto mb-3 text-gray-200" />
+            <p className="text-gray-400 text-sm">Nenhuma área disponível para reserva.</p>
+          </div>
+        ) : (
+          areas.map(area => (
+            <AreaCard key={area.id} area={area} onOpen={() => setModalArea(area)} />
+          ))
+        )}
+      </div>
 
       {/* Booking Modal */}
-      {modalArea && unitSelected && (
+      {modalArea && (
         <BookingModal
           area={modalArea}
-          unitInfo={{
-            bloco,
-            apto,
-            moradorNome: selectedResidentName,
-            moradorId: selectedResident || null,
-          }}
           tipoEstrutura={tipoEstrutura}
+          blocos={blocos}
+          aptosMap={aptosMap}
+          residentsPerUnit={residentsPerUnit}
           onClose={() => setModalArea(null)}
           onBooked={handleBooked}
         />

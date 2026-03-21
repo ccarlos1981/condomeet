@@ -17,6 +17,32 @@ class SecurityService {
 
   static const String _pinKey = 'user_pin_hash';
   static const String _biometricsEnabledKey = 'biometrics_enabled';
+  static const String _savedEmailKey = 'saved_email';
+  static const String _savedPasswordKey = 'saved_password';
+
+  // --- Saved Credentials (Auto-Login) ---
+
+  /// Saves email and password securely for auto-login.
+  Future<void> saveCredentials(String email, String password) async {
+    await _safeWrite(_savedEmailKey, email);
+    await _safeWrite(_savedPasswordKey, password);
+  }
+
+  /// Returns saved credentials or null if not available.
+  Future<Map<String, String>?> getCredentials() async {
+    final email = await _safeRead(_savedEmailKey);
+    final password = await _safeRead(_savedPasswordKey);
+    if (email != null && password != null) {
+      return {'email': email, 'password': password};
+    }
+    return null;
+  }
+
+  /// Clears saved credentials (called on logout).
+  Future<void> clearCredentials() async {
+    await _safeDelete(_savedEmailKey);
+    await _safeDelete(_savedPasswordKey);
+  }
 
   // --- Safe storage wrappers with SharedPreferences fallback ---
 

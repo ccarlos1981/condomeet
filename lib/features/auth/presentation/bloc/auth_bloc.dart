@@ -40,11 +40,28 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
   bool _isSessionUnlocked = false;
 
   Future<void> _onAuthCheckRequested(AuthCheckRequested event, Emitter<AuthState> emit) async {
-    final session = _authRepository.currentSession;
+    var session = _authRepository.currentSession;
     if (session == null) {
-      print('🔐 AuthCheckRequested: No session found.');
-      emit(const AuthState.unauthenticated());
-      return;
+      print('🔐 AuthCheckRequested: No session found. Checking saved credentials...');
+      // Try auto-login with saved credentials
+      final creds = await _securityService.getCredentials();
+      if (creds != null) {
+        try {
+          print('🔑 Auto-login attempt with saved credentials for ${creds['email']}');
+          await _authRepository.signInWithEmail(creds['email']!, creds['password']!);
+          session = _authRepository.currentSession;
+          print('✅ Auto-login successful');
+        } catch (e) {
+          print('❌ Auto-login failed: $e — clearing saved credentials');
+          await _securityService.clearCredentials();
+          emit(const AuthState.unauthenticated());
+          return;
+        }
+      }
+      if (session == null) {
+        emit(const AuthState.unauthenticated());
+        return;
+      }
     }
 
     try {
@@ -190,6 +207,14 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
     try {
       await _authRepository.signInWithEmail(event.email, event.password);
       print('✅ signInWithEmail successful');
+      // Save credentials if rememberMe is checked
+      if (event.rememberMe) {
+        await _securityService.saveCredentials(event.email, event.password);
+        print('💾 Credentials saved for auto-login');
+      } else {
+        await _securityService.clearCredentials();
+        print('🗑️ Credentials cleared (rememberMe unchecked)');
+      }
       final session = _authRepository.currentSession;
       if (session != null) {
         print('👤 Session found for user ${session.user.id}. Fetching profile...');
@@ -445,6 +470,7 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
   }
 
   Future<void> _onAuthLogoutRequested(AuthLogoutRequested event, Emitter<AuthState> emit) async {
+    await _securityService.clearCredentials();
     await _authRepository.signOut();
     emit(const AuthState.unauthenticated());
   }
