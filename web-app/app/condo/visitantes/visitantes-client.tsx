@@ -153,7 +153,7 @@ export default function VisitantesResidentClient({
       .insert({
         resident_id: cu?.id ?? userId,
         condominio_id: condoId,
-        guest_name: form.guest_name.trim() || null,
+        guest_name: form.guest_name.trim() || '',
         visitor_type: form.visitor_type,
         validity_date: form.validity_date,
         qr_data: code,
@@ -313,7 +313,7 @@ export default function VisitantesResidentClient({
 
               <div>
                 <label className="text-xs font-semibold text-gray-500 uppercase tracking-wider block mb-2">
-                  Nome do visitante
+                  Nome do visitante (Opcional)
                 </label>
                 <input
                   value={form.guest_name}

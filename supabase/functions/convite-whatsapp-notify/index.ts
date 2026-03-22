@@ -63,6 +63,18 @@ function genCodInterno(): string {
   return Array.from({ length: 5 }, () => chars[Math.floor(Math.random() * chars.length)]).join('')
 }
 
+/** Extract short 3-char code from qr_data (handles legacy format like condomeet_inv_xxx_TEG) */
+function extractShortCode(qrData: string | null | undefined): string {
+  if (!qrData) return '---'
+  // If it contains underscores (legacy format), take the last segment
+  if (qrData.includes('_')) {
+    const parts = qrData.split('_')
+    return parts[parts.length - 1].toUpperCase()
+  }
+  // Already a short code (3 chars)
+  return qrData.toUpperCase()
+}
+
 // ── FCM Push Notification helpers ─────────────────────────────────────────
 
 function pemToBinary(pem: string): ArrayBuffer {
@@ -219,7 +231,7 @@ async function handleCreated(
   // ── Fetch resident data ──────────────────────────────────────────
   const { data: perfil } = await supabase
     .from("perfil")
-    .select("nome_completo, whatsapp, bloco_txt, apto_txt, notificacoes_whatsapp")
+    .select("nome_completo, whatsapp, fcm_token, bloco_txt, apto_txt, notificacoes_whatsapp")
     .eq("id", resident_id)
     .single()
 
@@ -243,7 +255,7 @@ async function handleCreated(
   const condoNome = condo?.nome || "Condomínio"
 
   // ── Extract short code from qr_data ──────────────────────────────
-  const shortCode = qr_data || "---"
+  const shortCode = extractShortCode(qr_data)
 
   const visitDate = formatDateBR(validity_date)
   const residentFirstName =
@@ -372,10 +384,49 @@ async function handleCreated(
     )
   }
 
+  // ── PUSH NOTIFICATION — FCM to requesting resident ──────────────
+  let pushSent = false
+  const fcmToken = perfil?.fcm_token
+  if (fcmToken && fcmToken.length > 10 && !fcmToken.startsWith("dummy")) {
+    try {
+      const serviceAccountJson = Deno.env.get("FIREBASE_SERVICE_ACCOUNT_JSON")
+      if (serviceAccountJson) {
+        const serviceAccount = JSON.parse(serviceAccountJson)
+        const fcmAccessToken = await getFcmAccessToken(serviceAccount)
+        const pushResult = await sendFcmPush(
+          fcmAccessToken,
+          serviceAccount.project_id,
+          fcmToken,
+          "🚪 Autorização de visitante criada",
+          `${guest_name || 'Visitante'} — Data: ${formatDateBR(validity_date)}`,
+          {
+            type: "convite",
+            event: "created",
+            convite_id: convite_id || "",
+          }
+        )
+        pushSent = pushResult.success
+        if (!pushResult.success) {
+          console.warn(`Push FCM failed for resident ${resident_id}: ${pushResult.error}`)
+        } else {
+          console.log(`✅ Push FCM sent to resident ${resident_id}`)
+        }
+      } else {
+        console.warn("FIREBASE_SERVICE_ACCOUNT_JSON not set, skipping push")
+      }
+    } catch (pushErr: unknown) {
+      const msg = pushErr instanceof Error ? pushErr.message : String(pushErr)
+      console.error(`Push notification error: ${msg}`)
+    }
+  } else {
+    console.log(`No valid FCM token for resident ${resident_id}, skipping push`)
+  }
+
   return jsonResponse({
     action: "created",
     sent_resident: sentResident,
     sent_visitor: sentVisitor,
+    push_sent: pushSent,
     convite_id,
   })
 }
