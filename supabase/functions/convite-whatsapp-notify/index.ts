@@ -2,12 +2,13 @@
 // Called by DB triggers when:
 //   1. A convite (visitor invitation) is created  (action: 'created' / default)
 //   2. Porteiro releases visitor entry             (action: 'entry_released')
-// Sends WhatsApp notification to resident + visitor (if phone provided).
+// Sends WhatsApp notification to resident + visitor (if phone provided) via UazAPI.
 // Also sends FCM push notification to resident on entry_released.
 // Also upserts visitor contact to contatos_visitantes (agenda).
 
 import { createClient } from "npm:@supabase/supabase-js@2"
 import { create, getNumericDate } from "https://deno.land/x/djwt@v2.9.1/mod.ts"
+import { sendTextMessage } from "../_shared/uazapi.ts"
 
 // ── Dynamic structure labels ────────────────────────────────────────────────
 function getBlocoLabel(tipo?: string): string {
@@ -21,8 +22,6 @@ function getAptoLabel(tipo?: string): string {
   return 'Apto'
 }
 
-const BOTCONVERSA_BASE_URL =
-  "https://backend.botconversa.com.br/api/v1/webhook"
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -187,72 +186,15 @@ function cleanPhone(raw: string): string {
   return phone
 }
 
-// ── BotConversa: create/get subscriber ────────────────────────────────────
-async function resolveSubscriber(
-  apiKey: string,
+// ── UazAPI: send WhatsApp message ────────────────────────────────────────
+async function sendWhatsApp(
+  uazapiUrl: string,
+  uazapiToken: string,
   phone: string,
-  fullName: string
-): Promise<string | null> {
-  try {
-    const nameParts = (fullName || "Visitante").split(" ")
-    const firstName = nameParts[0] || "Visitante"
-    const lastName = nameParts.length > 1 ? nameParts.slice(1).join(" ") : "."
-
-    const res = await fetch(`${BOTCONVERSA_BASE_URL}/subscriber/`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "API-KEY": apiKey,
-      },
-      body: JSON.stringify({ phone, first_name: firstName, last_name: lastName }),
-    })
-
-    const text = await res.text()
-    console.log(
-      `BotConversa resolve subscriber (${phone}): ${res.status} ${text}`
-    )
-
-    if (!res.ok) return null
-
-    const data = JSON.parse(text)
-    return String(data.id || data.subscriber_id || "")
-  } catch (err) {
-    console.error("resolveSubscriber error:", err)
-    return null
-  }
-}
-
-// ── BotConversa: send message ─────────────────────────────────────────────
-async function sendMessage(
-  apiKey: string,
-  subscriberId: string,
   message: string
 ): Promise<boolean> {
-  try {
-    const res = await fetch(
-      `${BOTCONVERSA_BASE_URL}/subscriber/${encodeURIComponent(subscriberId)}/send_message/`,
-      {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "API-KEY": apiKey,
-        },
-        body: JSON.stringify({ type: "text", value: message }),
-      }
-    )
-
-    if (!res.ok) {
-      const errText = await res.text()
-      console.error(
-        `BotConversa send error (${subscriberId}): ${res.status} ${errText}`
-      )
-      return false
-    }
-    return true
-  } catch (err) {
-    console.error(`BotConversa send error (${subscriberId}):`, err)
-    return false
-  }
+  const result = await sendTextMessage(uazapiUrl, uazapiToken, phone, message)
+  return result.success
 }
 
 // ══════════════════════════════════════════════════════════════════════════
@@ -261,7 +203,8 @@ async function sendMessage(
 async function handleCreated(
   payload: Record<string, unknown>,
   supabase: ReturnType<typeof createClient>,
-  apiKey: string
+  uazapiUrl: string,
+  uazapiToken: string
 ): Promise<Response> {
   const {
     convite_id,
@@ -276,18 +219,18 @@ async function handleCreated(
   // ── Fetch resident data ──────────────────────────────────────────
   const { data: perfil } = await supabase
     .from("perfil")
-    .select("nome_completo, botconversa_id, bloco_txt, apto_txt, notificacoes_whatsapp")
+    .select("nome_completo, whatsapp, bloco_txt, apto_txt, notificacoes_whatsapp")
     .eq("id", resident_id)
     .single()
 
-  if (!perfil?.botconversa_id || perfil.notificacoes_whatsapp === false) {
+  if (!perfil?.whatsapp || perfil.notificacoes_whatsapp === false) {
     console.warn(
-      `No botconversa_id or whatsapp opt-out for resident ${resident_id}, skipping WhatsApp`
+      `No whatsapp or opt-out for resident ${resident_id}, skipping WhatsApp`
     )
     return jsonResponse({
       sent_resident: false,
       sent_visitor: false,
-      reason: perfil?.notificacoes_whatsapp === false ? "Resident opted out" : "Resident has no botconversa_id",
+      reason: perfil?.notificacoes_whatsapp === false ? "Resident opted out" : "Resident has no whatsapp",
     })
   }
 
@@ -355,9 +298,10 @@ async function handleCreated(
       `cód interno: ${codInterno}`
   }
 
-  const sentResident = await sendMessage(
-    apiKey,
-    perfil.botconversa_id,
+  const sentResident = await sendWhatsApp(
+    uazapiUrl,
+    uazapiToken,
+    cleanPhone(perfil.whatsapp),
     msg1
   )
   console.log(
@@ -367,86 +311,71 @@ async function handleCreated(
   // ── MSG 2 — VISITANTE (only if phone provided) ───────────────────
 
   let sentVisitor = false
-  let visitorBotconversaId: string | null = null
 
   if (hasVisitorPhone) {
     const phone = cleanPhone(visitor_phone)
     console.log(
-      `Resolving visitor subscriber: ${phone} (${guest_name})`
+      `Sending visitor notification: ${phone} (${guest_name})`
     )
 
-    visitorBotconversaId = await resolveSubscriber(
-      apiKey,
-      phone,
-      guest_name || "Visitante"
-    )
-
-    if (visitorBotconversaId) {
-      const { error: upsertError } = await supabase
-        .from("contatos_visitantes")
-        .upsert(
-          {
-            user_id: resident_id,
-            condominio_id,
-            nome: guest_name || "Visitante",
-            celular: phone,
-            botconversa_id: visitorBotconversaId,
-            updated_at: new Date().toISOString(),
-          },
-          { onConflict: "user_id,celular" }
-        )
-
-      if (upsertError) {
-        console.error("Upsert contatos_visitantes error:", upsertError)
-      } else {
-        console.log(
-          `✅ Contact saved: ${guest_name} (${phone}) → agenda of ${resident_id}`
-        )
-      }
-
-      await new Promise((resolve) => setTimeout(resolve, 10_000))
-
-      const codInterno2 = genCodInterno()
-      const visitorFirstName =
-        (guest_name || "Visitante").split(" ")[0]
-
-      const msg2 =
-        `🚪\n` +
-        `${condoNome}\n` +
-        `\n` +
-        `Olá, ${visitorFirstName}! 👋\n` +
-        `\n` +
-        `O(a) morador(a) ${perfil.nome_completo || residentFirstName} acabou de autorizar a sua entrada no condomínio.\n` +
-        `\n` +
-        `📅 Data da visita: ${visitDate}\n` +
-        `\n` +
-        `🔑 Código de autorização: ${shortCode}\n` +
-        `\n` +
-        `👉 Ao chegar na portaria, informe seu nome e o código acima para liberar a entrada.\n` +
-        `\n` +
-        `Condomeet agradece sua colaboração.\n` +
-        `cód interno: ${codInterno2}`
-
-      sentVisitor = await sendMessage(
-        apiKey,
-        visitorBotconversaId,
-        msg2
+    // Upsert visitor contact
+    const { error: upsertError } = await supabase
+      .from("contatos_visitantes")
+      .upsert(
+        {
+          user_id: resident_id,
+          condominio_id,
+          nome: guest_name || "Visitante",
+          celular: phone,
+          updated_at: new Date().toISOString(),
+        },
+        { onConflict: "user_id,celular" }
       )
-      console.log(
-        `Msg2 (visitor ${guest_name}): ${sentVisitor ? "✅" : "❌"}`
-      )
+
+    if (upsertError) {
+      console.error("Upsert contatos_visitantes error:", upsertError)
     } else {
-      console.warn(
-        `Could not resolve subscriber for phone ${phone}`
+      console.log(
+        `✅ Contact saved: ${guest_name} (${phone}) → agenda of ${resident_id}`
       )
     }
+
+    const codInterno2 = genCodInterno()
+    const visitorFirstName =
+      (guest_name || "Visitante").split(" ")[0]
+
+    const msg2 =
+      `🚪\n` +
+      `${condoNome}\n` +
+      `\n` +
+      `Olá, ${visitorFirstName}! 👋\n` +
+      `\n` +
+      `O(a) morador(a) ${perfil.nome_completo || residentFirstName} acabou de autorizar a sua entrada no condomínio.\n` +
+      `\n` +
+      `📅 Data da visita: ${visitDate}\n` +
+      `\n` +
+      `🔑 Código de autorização: ${shortCode}\n` +
+      `\n` +
+      `👉 Ao chegar na portaria, informe seu nome e o código acima para liberar a entrada.\n` +
+      `\n` +
+      `Condomeet agradece sua colaboração.\n` +
+      `cód interno: ${codInterno2}`
+
+    sentVisitor = await sendWhatsApp(
+      uazapiUrl,
+      uazapiToken,
+      phone,
+      msg2
+    )
+    console.log(
+      `Msg2 (visitor ${guest_name}): ${sentVisitor ? "✅" : "❌"}`
+    )
   }
 
   return jsonResponse({
     action: "created",
     sent_resident: sentResident,
     sent_visitor: sentVisitor,
-    visitor_botconversa_id: visitorBotconversaId,
     convite_id,
   })
 }
@@ -457,7 +386,8 @@ async function handleCreated(
 async function handlePortariaCreated(
   payload: Record<string, unknown>,
   supabase: ReturnType<typeof createClient>,
-  apiKey: string
+  uazapiUrl: string,
+  uazapiToken: string
 ): Promise<Response> {
   const {
     convite_id,
@@ -497,11 +427,11 @@ async function handlePortariaCreated(
   if (resident_id && resident_id.trim() !== "") {
     const { data: perfil } = await supabase
       .from("perfil")
-      .select("nome_completo, botconversa_id, notificacoes_whatsapp")
+      .select("nome_completo, whatsapp, notificacoes_whatsapp")
       .eq("id", resident_id)
       .single()
 
-    if (perfil?.botconversa_id && perfil.notificacoes_whatsapp !== false) {
+    if (perfil?.whatsapp && perfil.notificacoes_whatsapp !== false) {
       const residentName = perfil.nome_completo?.split(" ")[0] || "Morador"
 
       const msg1 =
@@ -522,22 +452,22 @@ async function handlePortariaCreated(
         `Condomeet agradece!\n` +
         `Cod. int: ${codInterno}`
 
-      const sent = await sendMessage(apiKey, perfil.botconversa_id, msg1)
+      const sent = await sendWhatsApp(uazapiUrl, uazapiToken, cleanPhone(perfil.whatsapp), msg1)
       results.push(`Msg1 resident ${resident_id}: ${sent ? "✅" : "❌"}`)
     } else {
-      results.push(`Msg1 skipped: no botconversa_id for ${resident_id}`)
+      results.push(`Msg1 skipped: no whatsapp for ${resident_id}`)
     }
   }
   // ── CASE 2: Resident NOT identified → notify ALL unit residents ───
   else {
     const { data: unitResidents } = await supabase
       .from("perfil")
-      .select("id, nome_completo, botconversa_id")
+      .select("id, nome_completo, whatsapp")
       .eq("condominio_id", condominio_id)
       .eq("bloco_txt", bloco_destino)
       .eq("apto_txt", apto_destino)
       .eq("notificacoes_whatsapp", true)
-      .not("botconversa_id", "is", null)
+      .not("whatsapp", "is", null)
 
     const codInterno2 = genCodInterno()
     const msg2 =
@@ -568,18 +498,18 @@ async function handlePortariaCreated(
 
     for (let i = 0; i < (unitResidents ?? []).length; i++) {
       const r = unitResidents![i]
-      if (r.botconversa_id) {
+      if (r.whatsapp) {
         // Random delay 5-15s between messages to avoid Meta anti-spam
         if (i > 0) {
           const delay = Math.floor(Math.random() * 10000) + 5000 // 5000-15000ms
           await new Promise((resolve) => setTimeout(resolve, delay))
         }
-        const sent = await sendMessage(apiKey, r.botconversa_id, msg2)
+        const sent = await sendWhatsApp(uazapiUrl, uazapiToken, cleanPhone(r.whatsapp), msg2)
         results.push(`Msg2 resident ${r.id}: ${sent ? "✅" : "❌"}`)
       }
     }
     if (!unitResidents || unitResidents.length === 0) {
-      results.push(`Msg2 skipped: no residents with botconversa_id in ${bloco_destino}/${apto_destino}`)
+      results.push(`Msg2 skipped: no residents with whatsapp in ${bloco_destino}/${apto_destino}`)
     }
   }
 
@@ -601,46 +531,38 @@ async function handlePortariaCreated(
       moradorNome = rp?.nome_completo || moradorNome
     }
 
-    const visitorBcId = await resolveSubscriber(apiKey, phone, guest_name || "Visitante")
+    const codInterno3 = genCodInterno()
+    const visitorFirstName = (guest_name || "Visitante").split(" ")[0]
 
-    if (visitorBcId) {
-      await new Promise((resolve) => setTimeout(resolve, 10_000))
+    const msg3 =
+      `🏢 ${condoNome}\n` +
+      `\n` +
+      `✔ Ei ${visitorFirstName}\n` +
+      `\n` +
+      `O(A) morador(a) ${moradorNome} do condomínio\n` +
+      `${condoNome}\n` +
+      `\n` +
+      `🗓️ Acabou de autorizar a sua entrada para o dia:\n` +
+      `${visitDate}\n` +
+      `\n` +
+      `Tipo do visitante:\n` +
+      `${tipoVisitante}\n` +
+      `\n` +
+      `Unidade\n` +
+      `${blocoLabel}: ${bloco_destino}\n` +
+      `${aptoLabel}: ${apto_destino}\n` +
+      `\n` +
+      `📝 Diga que tem a autorização informando o Código:\n` +
+      `${shortCode}\n` +
+      `.\n` +
+      `📒 Observação:\n` +
+      `${obsText}\n` +
+      `\n` +
+      `Condomeet agradece!\n` +
+      `Cod int ${codInterno3}`
 
-      const codInterno3 = genCodInterno()
-      const visitorFirstName = (guest_name || "Visitante").split(" ")[0]
-
-      const msg3 =
-        `🏢 ${condoNome}\n` +
-        `\n` +
-        `✔ Ei ${visitorFirstName}\n` +
-        `\n` +
-        `O(A) morador(a) ${moradorNome} do condomínio\n` +
-        `${condoNome}\n` +
-        `\n` +
-        `🗓️ Acabou de autorizar a sua entrada para o dia:\n` +
-        `${visitDate}\n` +
-        `\n` +
-        `Tipo do visitante:\n` +
-        `${tipoVisitante}\n` +
-        `\n` +
-        `Unidade\n` +
-        `${blocoLabel}: ${bloco_destino}\n` +
-        `${aptoLabel}: ${apto_destino}\n` +
-        `\n` +
-        `📝 Diga que tem a autorização informando o Código:\n` +
-        `${shortCode}\n` +
-        `.\n` +
-        `📒 Observação:\n` +
-        `${obsText}\n` +
-        `\n` +
-        `Condomeet agradece!\n` +
-        `Cod int ${codInterno3}`
-
-      sentVisitor = await sendMessage(apiKey, visitorBcId, msg3)
-      results.push(`Msg3 visitor ${guest_name}: ${sentVisitor ? "✅" : "❌"}`)
-    } else {
-      results.push(`Msg3 skipped: could not resolve subscriber for ${phone}`)
-    }
+    sentVisitor = await sendWhatsApp(uazapiUrl, uazapiToken, phone, msg3)
+    results.push(`Msg3 visitor ${guest_name}: ${sentVisitor ? "✅" : "❌"}`)
   }
 
   console.log(`handlePortariaCreated results:`, results)
@@ -713,7 +635,8 @@ async function handlePortariaCreated(
 async function handleEntryReleased(
   payload: Record<string, unknown>,
   supabase: ReturnType<typeof createClient>,
-  apiKey: string
+  uazapiUrl: string,
+  uazapiToken: string
 ): Promise<Response> {
   const {
     convite_id,
@@ -731,19 +654,19 @@ async function handleEntryReleased(
   // ── Fetch resident data (include fcm_token for push) ─────────────
   const { data: perfil } = await supabase
     .from("perfil")
-    .select("nome_completo, botconversa_id, fcm_token, notificacoes_whatsapp")
+    .select("nome_completo, whatsapp, fcm_token, notificacoes_whatsapp")
     .eq("id", resident_id)
     .single()
 
-  if (!perfil?.botconversa_id || perfil.notificacoes_whatsapp === false) {
+  if (!perfil?.whatsapp || perfil.notificacoes_whatsapp === false) {
     console.warn(
-      `No botconversa_id or whatsapp opt-out for resident ${resident_id}, skipping entry_released WhatsApp`
+      `No whatsapp or opt-out for resident ${resident_id}, skipping entry_released WhatsApp`
     )
     return jsonResponse({
       action: "entry_released",
       sent_resident: false,
       sent_visitor: false,
-      reason: perfil?.notificacoes_whatsapp === false ? "Resident opted out" : "Resident has no botconversa_id",
+      reason: perfil?.notificacoes_whatsapp === false ? "Resident opted out" : "Resident has no whatsapp",
     })
   }
 
@@ -795,9 +718,10 @@ async function handleEntryReleased(
     `Condomeet agradece sua colaboração.\n` +
     `Cód interno: ${codInterno1}`
 
-  const sentResident = await sendMessage(
-    apiKey,
-    perfil.botconversa_id,
+  const sentResident = await sendWhatsApp(
+    uazapiUrl,
+    uazapiToken,
+    cleanPhone(perfil.whatsapp),
     msgResident
   )
   console.log(
@@ -806,69 +730,40 @@ async function handleEntryReleased(
 
   // ── MSG VISITANTE — só se tiver celular ───────────────────────────
   let sentVisitor = false
-  let visitorBotconversaId: string | null = null
 
   if (hasVisitorPhone) {
     const phone = cleanPhone(visitor_phone)
     console.log(
-      `entry_released: Resolving visitor subscriber: ${phone} (${guest_name})`
+      `entry_released: Sending visitor notification: ${phone} (${guest_name})`
     )
 
-    // Try to find existing botconversa_id in contatos_visitantes first
-    const { data: existingContact } = await supabase
-      .from("contatos_visitantes")
-      .select("botconversa_id")
-      .eq("celular", phone)
-      .not("botconversa_id", "is", null)
-      .limit(1)
-      .maybeSingle()
+    const codInterno2 = genCodInterno()
+    const visitorFirstName =
+      (guest_name || "Visitante").split(" ")[0]
 
-    visitorBotconversaId = existingContact?.botconversa_id || null
+    const msgVisitor =
+      `🚪 Ei, ${visitorFirstName}, o(a) morador(a) ${residentFirstName} do: \n` +
+      `${condoNome}\n` +
+      `\n` +
+      `Acabou de autorizar a sua entrada para o dia:\n` +
+      ` ${visitDate}.\n` +
+      `\n` +
+      `Seu nome estará na portaria, diga que tem a autorização informando o Código:\n` +
+      `\n` +
+      `${shortCode}.\n` +
+      `\n` +
+      `Condomeet agradece.\n` +
+      `Cód interno ${codInterno2}`
 
-    // If not found, resolve via BotConversa API
-    if (!visitorBotconversaId) {
-      visitorBotconversaId = await resolveSubscriber(
-        apiKey,
-        phone,
-        guest_name || "Visitante"
-      )
-    }
-
-    if (visitorBotconversaId) {
-      // Wait 10s before sending visitor message (anti-ban)
-      await new Promise((resolve) => setTimeout(resolve, 10_000))
-
-      const codInterno2 = genCodInterno()
-      const visitorFirstName =
-        (guest_name || "Visitante").split(" ")[0]
-
-      const msgVisitor =
-        `🚪 Ei, ${visitorFirstName}, o(a) morador(a) ${residentFirstName} do: \n` +
-        `${condoNome}\n` +
-        `\n` +
-        `Acabou de autorizar a sua entrada para o dia:\n` +
-        ` ${visitDate}.\n` +
-        `\n` +
-        `Seu nome estará na portaria, diga que tem a autorização informando o Código:\n` +
-        `\n` +
-        `${shortCode}.\n` +
-        `\n` +
-        `Condomeet agradece.\n` +
-        `Cód interno ${codInterno2}`
-
-      sentVisitor = await sendMessage(
-        apiKey,
-        visitorBotconversaId,
-        msgVisitor
-      )
-      console.log(
-        `entry_released Msg (visitor ${guest_name}): ${sentVisitor ? "✅" : "❌"}`
-      )
-    } else {
-      console.warn(
-        `entry_released: Could not resolve subscriber for phone ${phone}`
-      )
-    }
+    sentVisitor = await sendWhatsApp(
+      uazapiUrl,
+      uazapiToken,
+      phone,
+      msgVisitor
+    )
+    console.log(
+      `entry_released Msg (visitor ${guest_name}): ${sentVisitor ? "✅" : "❌"}`
+    )
   }
 
   // ── PUSH NOTIFICATION — FCM to requesting resident ──────────────
@@ -914,7 +809,6 @@ async function handleEntryReleased(
     sent_resident: sentResident,
     sent_visitor: sentVisitor,
     push_sent: pushSent,
-    visitor_botconversa_id: visitorBotconversaId,
     convite_id,
   })
 }
@@ -944,6 +838,7 @@ Deno.serve(async (req) => {
 
     const payload = await req.json()
     const { resident_id, condominio_id, action } = payload
+    console.log(`[convite-notify] action=${action}, resident=${resident_id}, condo=${condominio_id}`)
 
     // For portaria_created, resident_id can be empty (unidentified)
     if (action !== "portaria_created" && (!resident_id || !condominio_id)) {
@@ -959,10 +854,11 @@ Deno.serve(async (req) => {
       )
     }
 
-    const BOTCONVERSA_API_KEY = Deno.env.get("BOTCONVERSA_API_KEY")
-    if (!BOTCONVERSA_API_KEY) {
+    const UAZAPI_URL = Deno.env.get("UAZAPI_URL")
+    const UAZAPI_TOKEN = Deno.env.get("UAZAPI_TOKEN")
+    if (!UAZAPI_URL || !UAZAPI_TOKEN) {
       return jsonResponse(
-        { error: "BOTCONVERSA_API_KEY not configured" },
+        { error: "UAZAPI_URL or UAZAPI_TOKEN not configured" },
         500
       )
     }
@@ -974,15 +870,15 @@ Deno.serve(async (req) => {
 
     // ── Route by action ────────────────────────────────────────────
     if (action === "portaria_created") {
-      return await handlePortariaCreated(payload, supabase, BOTCONVERSA_API_KEY)
+      return await handlePortariaCreated(payload, supabase, UAZAPI_URL, UAZAPI_TOKEN)
     }
 
     if (action === "entry_released") {
-      return await handleEntryReleased(payload, supabase, BOTCONVERSA_API_KEY)
+      return await handleEntryReleased(payload, supabase, UAZAPI_URL, UAZAPI_TOKEN)
     }
 
     // Default: 'created' (backward compatible — no action field from old trigger)
-    return await handleCreated(payload, supabase, BOTCONVERSA_API_KEY)
+    return await handleCreated(payload, supabase, UAZAPI_URL, UAZAPI_TOKEN)
 
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : String(err)

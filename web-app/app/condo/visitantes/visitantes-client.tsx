@@ -158,7 +158,7 @@ export default function VisitantesResidentClient({
         validity_date: form.validity_date,
         qr_data: code,
         visitante_compareceu: false,
-        status: 'pending',
+        status: 'active',
         created_at: now,
         whatsapp: form.whatsapp.trim() || null,
         observacao: form.observacao.trim() || null,

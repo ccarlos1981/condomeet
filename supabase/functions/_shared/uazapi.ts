@@ -13,6 +13,7 @@ export interface IncomingMessage {
   messageId: string   // unique message ID
   messageType: string // "text", "image", "audio", etc.
   isGroup: boolean    // whether the message is from a group
+  fromMe: boolean     // whether the message was sent BY our number (outgoing)
   raw: Record<string, unknown> // raw webhook payload
 }
 
@@ -20,69 +21,75 @@ export interface IncomingMessage {
 
 export function parseWebhook(body: Record<string, unknown>): IncomingMessage | null {
   try {
-    // UazAPI webhook format: the message can come in various structures
-    // Most common: { event: "messages.upsert", data: { ... } }
-    // or direct message object
+    // UazAPI webhook format:
+    // { BaseUrl, EventType, chat, chatSource, instanceName, message, owner, token }
+    // message: { chatid, sender_pn, sender, fromMe, isGroup, messageType, content, messageid, ... }
+    // chatid = "553192707070@s.whatsapp.net" (the user's phone)
+    // sender_pn = "553192707070@s.whatsapp.net" (alternative phone field)
+    // sender = "261653987909653@lid" (WhatsApp LID — NOT a phone number!)
+    // content = "text message" or { text: "..." } for extended messages
+    // fromMe = true/false
 
-    const event = body.event as string || ""
-    const data = (body.data || body.message || body) as Record<string, unknown>
+    const eventType = body.EventType as string || body.event as string || ""
 
-    // Only process incoming messages
-    if (event && !event.includes("messages") && !event.includes("message")) {
-      console.log(`[UazAPI] Ignoring event: ${event}`)
+    // Only process message events
+    if (eventType && !eventType.includes("messages") && !eventType.includes("message")) {
+      console.log(`[UazAPI] Ignoring event: ${eventType}`)
       return null
     }
 
-    // Extract phone number - try multiple possible field names
-    const phone = String(
-      data.from ||
-      data.sender ||
-      data.phone ||
-      data.remoteJid ||
-      (data.key as any)?.remoteJid ||
-      ""
-    ).replace(/[@s.whatsapp.net]/g, "").replace(/\D/g, "")
+    // UazAPI puts message data in body.message
+    const msg = (body.message || body.data || body) as Record<string, unknown>
+
+    // Extract fromMe
+    const fromMe = Boolean(msg.fromMe ?? false)
+
+    // Extract isGroup
+    const isGroup = Boolean(msg.isGroup ?? false)
+
+    // Extract phone number — prefer chatid or sender_pn (NOT sender which is a LID)
+    const chatid = String(msg.chatid || "")
+    const senderPn = String(msg.sender_pn || "")
+    
+    // Extract phone from chatid or sender_pn (format: "553192707070@s.whatsapp.net")
+    let phone = ""
+    if (chatid.includes("@s.whatsapp.net")) {
+      phone = chatid.replace("@s.whatsapp.net", "").replace(/\D/g, "")
+    } else if (senderPn.includes("@s.whatsapp.net")) {
+      phone = senderPn.replace("@s.whatsapp.net", "").replace(/\D/g, "")
+    } else {
+      // Fallback: try other fields but avoid LIDs (@lid)
+      const rawPhone = String(msg.from || msg.phone || msg.remoteJid || "")
+      if (!rawPhone.includes("@lid")) {
+        phone = rawPhone.replace(/@.*/, "").replace(/\D/g, "")
+      }
+    }
 
     if (!phone || phone.length < 10) {
-      console.log("[UazAPI] No valid phone in webhook payload")
+      console.log(`[UazAPI] No valid phone in webhook payload. chatid=${chatid}, sender_pn=${senderPn}`)
       return null
     }
 
-    // Check if group message
-    const remoteJid = String(
-      data.remoteJid ||
-      (data.key as any)?.remoteJid ||
-      data.from ||
-      ""
-    )
-    const isGroup = remoteJid.includes("@g.us")
-
     // Extract message type
-    const messageType = String(
-      data.messageType ||
-      data.type ||
-      (data.message as any)?.conversation !== undefined ? "text" :
-      (data.message as any)?.imageMessage !== undefined ? "image" :
-      (data.message as any)?.audioMessage !== undefined ? "audio" :
-      "unknown"
-    )
+    const messageType = String(msg.messageType || msg.type || "unknown")
 
-    // Extract text content - try multiple paths
-    const text = String(
-      data.body ||
-      data.text ||
-      (data.message as any)?.conversation ||
-      (data.message as any)?.extendedTextMessage?.text ||
-      ""
-    ).trim()
+    // Extract text content
+    // UazAPI content can be a string or an object { text: "..." } or { description: "..." }
+    let text = ""
+    const content = msg.content
+    if (typeof content === "string") {
+      text = content.trim()
+    } else if (content && typeof content === "object") {
+      const contentObj = content as Record<string, unknown>
+      text = String(contentObj.text || contentObj.description || "").trim()
+    }
+    // Fallback to msg.text or msg.body
+    if (!text) {
+      text = String(msg.text || msg.body || "").trim()
+    }
 
     // Extract message ID
-    const messageId = String(
-      data.messageId ||
-      data.id ||
-      (data.key as any)?.id ||
-      ""
-    )
+    const messageId = String(msg.messageid || msg.messageId || msg.id || "")
 
     return {
       phone,
@@ -90,6 +97,7 @@ export function parseWebhook(body: Record<string, unknown>): IncomingMessage | n
       messageId,
       messageType,
       isGroup,
+      fromMe,
       raw: body,
     }
   } catch (err) {

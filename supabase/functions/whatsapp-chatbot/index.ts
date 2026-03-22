@@ -10,7 +10,7 @@ import { executeActions } from "./actions.ts"
 
 // ── Constants ─────────────────────────────────────────────────────────────
 
-const GEMINI_MODEL = "gemini-2.0-flash"
+const GEMINI_MODEL = "gemini-2.5-flash"
 const GEMINI_API_URL = "https://generativelanguage.googleapis.com/v1beta/models"
 const MAX_HISTORY = 10 // last N messages for context
 const HISTORY_TTL_HOURS = 24 // only load messages from last 24h
@@ -75,7 +75,6 @@ async function callGemini(
     generationConfig: {
       temperature: 0.7,
       maxOutputTokens: 1024,
-      responseMimeType: "application/json",
     },
   }
 
@@ -90,7 +89,11 @@ async function callGemini(
 
     if (res.ok) {
       const data = await res.json()
-      return data?.candidates?.[0]?.content?.parts?.[0]?.text || ""
+      // For thinking models (2.5+), the actual response is in the LAST part
+      // Earlier parts contain thinking tokens
+      const parts = data?.candidates?.[0]?.content?.parts || []
+      const responsePart = parts.filter((p: Record<string, unknown>) => !p.thought).pop()
+      return responsePart?.text || parts[parts.length - 1]?.text || ""
     }
 
     const errText = await res.text()
@@ -103,8 +106,8 @@ async function callGemini(
       continue
     }
 
-    console.error(`[Gemini] Error ${res.status}: ${errText.substring(0, 200)}`)
-    throw new Error(`Gemini API error: ${res.status}`)
+    console.error(`[Gemini] Error ${res.status} URL=${url.split('?')[0]}: ${errText.substring(0, 500)}`)
+    throw new Error(`Gemini API error: ${res.status} - ${errText.substring(0, 200)}`)
   }
 
   throw new Error("Gemini API: max retries exceeded")
@@ -118,37 +121,52 @@ interface GeminiResponse {
 }
 
 function parseGeminiResponse(raw: string): GeminiResponse {
-  try {
-    // Try to parse as JSON directly
-    const parsed = JSON.parse(raw)
-    return {
-      message: parsed.message || parsed.text || raw,
-      actions: Array.isArray(parsed.actions) ? parsed.actions : [],
-    }
-  } catch {
-    // If not valid JSON, try to extract JSON from markdown code block
-    const jsonMatch = raw.match(/```json\s*([\s\S]*?)\s*```/)
-    if (jsonMatch) {
-      try {
-        const parsed = JSON.parse(jsonMatch[1])
+  // Helper to try parsing JSON from a string
+  function tryParseJson(str: string): GeminiResponse | null {
+    try {
+      const parsed = JSON.parse(str)
+      if (parsed.message || parsed.text) {
         return {
-          message: parsed.message || parsed.text || raw,
+          message: (parsed.message || parsed.text || "").replace(/\\n/g, "\n"),
           actions: Array.isArray(parsed.actions) ? parsed.actions : [],
         }
-      } catch { /* fall through */ }
-    }
-
-    // Fallback: treat as plain text response
-    console.warn("[Gemini] Could not parse JSON response, using raw text")
-    return { message: raw, actions: [] }
+      }
+    } catch { /* not valid JSON */ }
+    return null
   }
+
+  // 1. Try to parse raw as JSON directly
+  const direct = tryParseJson(raw)
+  if (direct) return direct
+
+  // 2. Try to extract JSON from markdown code block ```json ... ```
+  const jsonMatch = raw.match(/```(?:json)?\s*([\s\S]*?)\s*```/)
+  if (jsonMatch) {
+    const fromBlock = tryParseJson(jsonMatch[1])
+    if (fromBlock) return fromBlock
+  }
+
+  // 3. Try to find JSON object anywhere in the text (for thinking models)
+  const braceMatch = raw.match(/\{[\s\S]*"message"\s*:\s*"[\s\S]*?\}/)
+  if (braceMatch) {
+    const fromBrace = tryParseJson(braceMatch[0])
+    if (fromBrace) return fromBrace
+  }
+
+  // 4. Fallback: treat as plain text response
+  console.warn("[Gemini] Could not parse JSON response, using raw text")
+  return { message: raw, actions: [] }
 }
 
 // ── Check if message should be ignored ────────────────────────────────────
 
 function shouldIgnoreMessage(text: string, messageType: string): boolean {
-  // Ignore non-text messages
-  if (messageType !== "text" && messageType !== "unknown") return true
+  // Accept known text message types from UazAPI
+  const textTypes = ["text", "unknown", "conversation", "extendedtextmessage", "buttonsresponsemessage", "listresponsemessage"]
+  const normalizedType = messageType.toLowerCase()
+  
+  // Ignore non-text messages (images, audio, video, stickers, etc.)
+  if (!textTypes.includes(normalizedType)) return true
 
   // Ignore empty messages
   if (!text || text.trim().length === 0) return true
@@ -190,13 +208,21 @@ Deno.serve(async (req) => {
       return jsonResponse({ skipped: true, reason: "Could not parse webhook" })
     }
 
+
     // Ignore group messages
     if (incoming.isGroup) {
       return jsonResponse({ skipped: true, reason: "Group message ignored" })
     }
 
+    // ★ Ignore outgoing messages (sent by our own number) — prevents self-reply loop
+    if (incoming.fromMe) {
+      console.log(`[Webhook] Ignoring outgoing message (fromMe=true) to: ${incoming.phone}`)
+      return jsonResponse({ skipped: true, reason: "Outgoing message (fromMe) ignored" })
+    }
+
     // Ignore non-text / emoji-only messages
     if (shouldIgnoreMessage(incoming.text, incoming.messageType)) {
+      console.log(`[Webhook] Ignoring message: type=${incoming.messageType}, text="${incoming.text.substring(0, 50)}"`)
       return jsonResponse({ skipped: true, reason: "Non-text or emoji ignored" })
     }
 
