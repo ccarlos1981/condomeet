@@ -17,6 +17,7 @@ interface Props {
   tipoEstrutura?: string
   allBlocos?: string[]
   allAptos?: string[]
+  redirectTo?: string
 }
 
 type TipoEncomenda = 'caixa' | 'envelope' | 'pacote' | 'notif_judicial'
@@ -28,7 +29,7 @@ const TIPOS: { value: TipoEncomenda; label: string; icon: React.ElementType }[] 
   { value: 'notif_judicial', label: 'Notif. Judicial', icon: FileText },
 ]
 
-export default function ParcelRegisterForm({ condoId, registeredById, units, tipoEstrutura, allBlocos, allAptos }: Props) {
+export default function ParcelRegisterForm({ condoId, registeredById, units, tipoEstrutura, allBlocos, allAptos, redirectTo }: Props) {
   const router = useRouter()
   const supabase = createClient()
 
@@ -182,7 +183,7 @@ export default function ParcelRegisterForm({ condoId, registeredById, units, tip
 
       if (photoWarning) setWarning(photoWarning)
       setSuccess(true)
-      setTimeout(() => router.push('/condo/encomendas-admin'), 3500)
+      setTimeout(() => router.push(redirectTo || '/condo/encomendas-admin'), 3500)
     } catch (err: any) {
       setError(err.message ?? 'Erro inesperado.')
       setSubmitting(false)
