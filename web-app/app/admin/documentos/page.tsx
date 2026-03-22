@@ -17,9 +17,10 @@ export default async function DocumentosPage() {
 
   const condoId = profile?.condominio_id ?? ''
 
-  const [{ data: pastas }, { data: docs }] = await Promise.all([
+  const [{ data: pastas }, { data: docs }, { data: categorias }] = await Promise.all([
     supabase.from('doc_pastas').select('*').eq('condominio_id', condoId).order('nome'),
     supabase.from('documentos').select('*').eq('condominio_id', condoId).order('titulo'),
+    supabase.from('documentos_categorias').select('nome').eq('condominio_id', condoId).order('nome'),
   ])
 
   return (
@@ -36,6 +37,7 @@ export default async function DocumentosPage() {
         tabelaDocs="documentos"
         storageBucket="documentos"
         titulo="Documento"
+        initialCategorias={(categorias ?? []).map((c: { nome: string }) => c.nome)}
       />
     </div>
   )

@@ -108,6 +108,30 @@ async function sendFcmMessage(
   }
 }
 
+// ── WhatsApp via UazAPI ──────────────────────────────────────────────────────
+async function sendWhatsApp(url: string, token: string, phone: string, msg: string): Promise<boolean> {
+  try {
+    const cleanedPhone = phone.replace(/\D/g, "")
+    if (cleanedPhone.length < 10) return false
+    const res = await fetch(`${url}/send/text`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "Accept": "application/json", "token": token },
+      body: JSON.stringify({ number: cleanedPhone, text: msg }),
+    })
+    console.log(`WhatsApp → ${cleanedPhone}: ${res.ok ? "✅" : "❌"}`)
+    return res.ok
+  } catch (e: unknown) {
+    console.error(`WhatsApp error:`, e instanceof Error ? e.message : String(e))
+    return false
+  }
+}
+
+function genCodInterno() {
+  return Array.from({ length: 4 }, () =>
+    "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789"[Math.floor(Math.random() * 62)]
+  ).join("")
+}
+
 // ── Main handler ──────────────────────────────────────────────────────────
 
 serve(async (req) => {
@@ -134,6 +158,9 @@ serve(async (req) => {
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? ""
     )
 
+    const UAZAPI_URL = Deno.env.get("UAZAPI_URL")
+    const UAZAPI_TOKEN = Deno.env.get("UAZAPI_TOKEN")
+
     // 3. Get resident name and unit info
     const { data: resident, error: resError } = await supabase
       .from("perfil")
@@ -146,13 +173,14 @@ serve(async (req) => {
       return new Response(JSON.stringify({ error: "Resident not found" }), { status: 404 })
     }
 
-    // Fetch tipo_estrutura for dynamic labels
+    // Fetch condo info
     const { data: condoData } = await supabase
       .from("condominios")
-      .select("tipo_estrutura")
+      .select("nome, tipo_estrutura")
       .eq("id", condominium_id)
       .single()
     const tipoEstrutura = condoData?.tipo_estrutura ?? 'predio'
+    const condoNome = condoData?.nome ?? 'Condomínio'
 
     const residentName = resident.nome_completo ?? "Morador"
     const unitLabel =
@@ -162,30 +190,23 @@ serve(async (req) => {
           ? `${getAptoLabel(tipoEstrutura)} ${resident.apto_txt}`
           : "Sem unidade"
 
-    // 4. Get FCM tokens of síndicos, subsíndicos, and admins in the same condo
+    // 4. Get síndicos/admins
     const { data: staff, error: staffError } = await supabase
       .from("perfil")
-      .select("id, nome_completo, fcm_token")
+      .select("id, nome_completo, fcm_token, whatsapp, notificacoes_whatsapp")
       .eq("condominio_id", condominium_id)
-      .in("role", ["sindico", "subsindico", "admin"])
-      .not("fcm_token", "is", null)
+      .in("tipo_morador", ["Síndico"])
 
     if (staffError) {
       console.error("Error fetching staff:", staffError)
       return new Response(JSON.stringify({ error: staffError.message }), { status: 500 })
     }
 
-    const validStaff = (staff ?? []).filter((s: any) => s.fcm_token && s.fcm_token.length > 10)
+    const allResults: string[] = []
 
-    if (validStaff.length === 0) {
-      console.log("No FCM tokens found for síndicos/admins in condo:", condominium_id)
-      return new Response(JSON.stringify({ sent: 0, message: "No staff tokens found" }), { status: 200 })
-    }
-
-    // 5. Build notification
+    // 5. Build notification content
     const title = "🚨 SOS - Emergência!"
     const body = `${residentName} (${unitLabel}) está precisando de ajuda!`
-
     const notifData: Record<string, string> = {
       type: "sos",
       sos_id: String(sos_id),
@@ -193,19 +214,81 @@ serve(async (req) => {
       condominium_id: String(condominium_id),
     }
 
-    // 6. Get FCM access token and send
-    const accessToken = await getAccessToken(serviceAccount)
-
-    const results = await Promise.all(
-      validStaff.map((s: any) =>
-        sendFcmMessage(accessToken, projectId, s.fcm_token, title, body, notifData)
+    // 6. Push notifications to staff
+    const validStaffFcm = (staff ?? []).filter((s: any) => s.fcm_token && s.fcm_token.length > 10)
+    if (validStaffFcm.length > 0) {
+      const accessToken = await getAccessToken(serviceAccount)
+      const pushResults = await Promise.all(
+        validStaffFcm.map((s: any) =>
+          sendFcmMessage(accessToken, projectId, s.fcm_token, title, body, notifData)
+        )
       )
-    )
+      const pushSuccess = pushResults.filter((r: any) => r.success).length
+      allResults.push(`Push síndicos: ${pushSuccess}/${pushResults.length}`)
+    }
 
-    const successCount = results.filter((r: any) => r.success).length
-    console.log(`SOS push sent ${successCount}/${results.length} to staff for SOS: ${sos_id}`)
+    // 7. WhatsApp to síndicos
+    if (UAZAPI_URL && UAZAPI_TOKEN) {
+      const codSos = genCodInterno()
+      const whatsappMsg =
+        `🚨 SOS - Emergência!\n` +
+        `\n` +
+        `${condoNome}\n` +
+        `\n` +
+        `${residentName} (${unitLabel}) está precisando de ajuda!\n` +
+        `\n` +
+        `Verifique imediatamente!\n` +
+        `\n` +
+        `Condomeet\n` +
+        `Cód interno: ${codSos}`
 
-    return new Response(JSON.stringify({ sent: successCount, total: results.length, results }), {
+      let sindicoWaCount = 0
+      for (const s of (staff ?? [])) {
+        const sData = s as Record<string, unknown>
+        const sWhatsapp = sData.whatsapp as string | undefined
+        if (sWhatsapp && sWhatsapp.trim() !== "" && sData.notificacoes_whatsapp !== false) {
+          const sent = await sendWhatsApp(UAZAPI_URL, UAZAPI_TOKEN, sWhatsapp, whatsappMsg)
+          if (sent) sindicoWaCount++
+        }
+      }
+      allResults.push(`WhatsApp síndicos: ${sindicoWaCount}`)
+
+      // 8. WhatsApp to SOS emergency contacts
+      const { data: sosContatos } = await supabase
+        .from("sos_contatos")
+        .select("contato1_nome, contato1_whatsapp, contato2_nome, contato2_whatsapp")
+        .eq("user_id", resident_id)
+        .single()
+
+      if (sosContatos) {
+        const contacts = [
+          { nome: sosContatos.contato1_nome, whatsapp: sosContatos.contato1_whatsapp },
+          { nome: sosContatos.contato2_nome, whatsapp: sosContatos.contato2_whatsapp },
+        ].filter(c => c.whatsapp && c.whatsapp.trim() !== "")
+
+        for (const c of contacts) {
+          const codContact = genCodInterno()
+          const contactMsg =
+            `🚨 SOS - Emergência!\n` +
+            `\n` +
+            `Olá ${c.nome || "Contato"},\n` +
+            `\n` +
+            `${residentName} (${unitLabel}) no ${condoNome} acionou o botão de emergência.\n` +
+            `\n` +
+            `Por favor, entre em contato imediatamente!\n` +
+            `\n` +
+            `Condomeet\n` +
+            `Cód interno: ${codContact}`
+
+          const sent = await sendWhatsApp(UAZAPI_URL, UAZAPI_TOKEN, c.whatsapp!, contactMsg)
+          allResults.push(`WhatsApp contato ${c.nome}: ${sent ? "✅" : "❌"}`)
+        }
+      }
+    }
+
+    console.log(`SOS notify results:`, allResults)
+
+    return new Response(JSON.stringify({ ok: true, results: allResults }), {
       status: 200,
       headers: { "Content-Type": "application/json" },
     })

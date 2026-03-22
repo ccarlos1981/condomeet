@@ -51,6 +51,7 @@ import 'package:condomeet/features/security/presentation/screens/fale_sindico_sc
 import 'package:condomeet/features/security/presentation/screens/fale_conosco_admin_screen.dart';
 import 'package:condomeet/features/auth/presentation/screens/splash_screen.dart';
 import 'package:condomeet/features/admin/presentation/screens/universal_push_screen.dart';
+import 'package:condomeet/features/admin/presentation/screens/avisos_admin_screen.dart';
 
 
 class AppRouter {
@@ -156,6 +157,7 @@ class AppRouter {
             child: const FaleSindicoScreen(),
           ),
       '/fale-conosco-admin': (context) => const FaleConoscoAdminScreen(),
+      '/admin-avisos': (context) => const AvisosAdminScreen(),
       '/universal-push': (context) => const UniversalPushScreen(),
     };
   }

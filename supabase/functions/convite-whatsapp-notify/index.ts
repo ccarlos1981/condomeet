@@ -139,10 +139,9 @@ async function sendFcmPush(
       token: fcmToken,
       notification: { title, body },
       data,
-      android: { priority: "high" },
+      android: { priority: "high", notification: { channel_id: "avisos", sound: "condomeet" } },
       apns: {
-        headers: { "apns-priority": "10" },
-        payload: { aps: { sound: "default", badge: 1 } },
+        payload: { aps: { sound: "condomeet.aiff", badge: 1 } },
       },
     },
   }
@@ -700,26 +699,12 @@ async function handleEntryReleased(
     qr_data,
     created_at,
     liberado_em,
+    criado_por_portaria,
+    bloco_destino,
+    apto_destino,
   } = payload as Record<string, string>
 
-  // ── Fetch resident data (include fcm_token for push) ─────────────
-  const { data: perfil } = await supabase
-    .from("perfil")
-    .select("nome_completo, whatsapp, fcm_token, notificacoes_whatsapp")
-    .eq("id", resident_id)
-    .single()
-
-  if (!perfil?.whatsapp || perfil.notificacoes_whatsapp === false) {
-    console.warn(
-      `No whatsapp or opt-out for resident ${resident_id}, skipping entry_released WhatsApp`
-    )
-    return jsonResponse({
-      action: "entry_released",
-      sent_resident: false,
-      sent_visitor: false,
-      reason: perfil?.notificacoes_whatsapp === false ? "Resident opted out" : "Resident has no whatsapp",
-    })
-  }
+  const isPortariaSemId = String(criado_por_portaria) === "true" && (!resident_id || resident_id.trim() === "")
 
   // ── Fetch condominium name ───────────────────────────────────────
   const { data: condo } = await supabase
@@ -731,69 +716,98 @@ async function handleEntryReleased(
 
   // ── Derived values ────────────────────────────────────────────────
   const shortCode = qr_data || "---"
-
-  const residentFirstName =
-    perfil.nome_completo?.split(" ")[0] || "Morador"
   const guestDisplayName = guest_name || "Nome não preenchido"
   const visitorTypeDisplay = visitor_type || "Visitante"
   const solicitadoEm = formatDateBR(created_at)
   const dataEntrada = formatDateBR(liberado_em)
   const visitDate = formatDateBR(validity_date)
+  const hasVisitorPhone = visitor_phone && visitor_phone.replace(/\D/g, "").length >= 10
 
-  const hasVisitorPhone =
-    visitor_phone && visitor_phone.replace(/\D/g, "").length >= 10
+  const results: string[] = []
 
-  // ── MSG MORADOR — Notificação de entrada liberada ─────────────────
-  const codInterno1 = genCodInterno()
-  const msgResident =
-    `🔔 ${condoNome}\n` +
-    ` \n` +
-    `Notificação de entrada liberada\n` +
-    `\n` +
-    `Olá, ${residentFirstName}: 👋\n` +
-    `\n` +
-    `A portaria acabou de liberar a entrada do seu visitante.\n` +
-    `\n` +
-    `👤 Visitante: ${guestDisplayName}\n` +
-    `\n` +
-    `🚗 Tipo: ${visitorTypeDisplay}\n` +
-    `\n` +
-    `📅 Solicitado em: ${solicitadoEm}\n` +
-    `\n` +
-    `📅 Data da entrada: ${dataEntrada}\n` +
-    `\n` +
-    `🔑 Código da solicitação: ${shortCode}\n` +
-    `\n` +
-    `Tudo certo por aqui! ✅\n` +
-    `\n` +
-    `Condomeet agradece sua colaboração.\n` +
-    `Cód interno: ${codInterno1}`
+  // ── Resolve recipients ─────────────────────────────────────────────
+  let recipients: { id: string; nome_completo: string; whatsapp: string; fcm_token: string | null }[] = []
 
-  const sentResident = await sendWhatsApp(
-    uazapiUrl,
-    uazapiToken,
-    cleanPhone(perfil.whatsapp),
-    msgResident
-  )
-  console.log(
-    `entry_released Msg (resident ${resident_id}): ${sentResident ? "✅" : "❌"}`
-  )
+  if (isPortariaSemId) {
+    // Portaria without identification → notify ALL unit residents
+    const { data: unitResidents } = await supabase
+      .from("perfil")
+      .select("id, nome_completo, whatsapp, fcm_token")
+      .eq("condominio_id", condominio_id)
+      .eq("bloco_txt", bloco_destino)
+      .eq("apto_txt", apto_destino)
+      .eq("notificacoes_whatsapp", true)
+      .not("whatsapp", "is", null)
+    recipients = (unitResidents ?? []).filter((r: any) => r.whatsapp && r.whatsapp.trim() !== "")
+    console.log(`entry_released (portaria sem ID): ${recipients.length} recipients in ${bloco_destino}/${apto_destino}`)
+  } else {
+    // Identified resident
+    const { data: perfil } = await supabase
+      .from("perfil")
+      .select("id, nome_completo, whatsapp, fcm_token, notificacoes_whatsapp")
+      .eq("id", resident_id)
+      .single()
+
+    if (!perfil?.whatsapp || perfil.notificacoes_whatsapp === false) {
+      console.warn(`No whatsapp or opt-out for resident ${resident_id}`)
+      return jsonResponse({ action: "entry_released", sent: 0, reason: "no whatsapp or opt-out" })
+    }
+    recipients = [perfil as any]
+  }
+
+  if (recipients.length === 0) {
+    return jsonResponse({ action: "entry_released", sent: 0, reason: "no recipients" })
+  }
+
+  // ── Send WhatsApp to each recipient ────────────────────────────────
+  for (let i = 0; i < recipients.length; i++) {
+    const r = recipients[i]
+    const firstName = r.nome_completo?.split(" ")[0] || "Morador"
+    const codInterno = genCodInterno()
+
+    // Delay between messages to avoid rate limiting
+    if (i > 0) {
+      const delay = Math.floor(Math.random() * 10000) + 5000
+      await new Promise((resolve) => setTimeout(resolve, delay))
+    }
+
+    const msg =
+      `🔔 ${condoNome}\n` +
+      ` \n` +
+      `Notificação de entrada liberada\n` +
+      `\n` +
+      `Olá, ${firstName}: 👋\n` +
+      `\n` +
+      `A portaria acabou de liberar a entrada do seu visitante.\n` +
+      `\n` +
+      `👤 Visitante: ${guestDisplayName}\n` +
+      `\n` +
+      `🚗 Tipo: ${visitorTypeDisplay}\n` +
+      `\n` +
+      `📅 Solicitado em: ${solicitadoEm}\n` +
+      `\n` +
+      `📅 Data da entrada: ${dataEntrada}\n` +
+      `\n` +
+      `🔑 Código da solicitação: ${shortCode}\n` +
+      `\n` +
+      `Tudo certo por aqui! ✅\n` +
+      `\n` +
+      `Condomeet agradece sua colaboração.\n` +
+      `Cód interno: ${codInterno}`
+
+    const sent = await sendWhatsApp(uazapiUrl, uazapiToken, cleanPhone(r.whatsapp), msg)
+    results.push(`WhatsApp ${r.id}: ${sent ? "✅" : "❌"}`)
+  }
 
   // ── MSG VISITANTE — só se tiver celular ───────────────────────────
-  let sentVisitor = false
-
   if (hasVisitorPhone) {
     const phone = cleanPhone(visitor_phone)
-    console.log(
-      `entry_released: Sending visitor notification: ${phone} (${guest_name})`
-    )
-
+    const residentName = recipients[0]?.nome_completo?.split(" ")[0] || "Morador"
     const codInterno2 = genCodInterno()
-    const visitorFirstName =
-      (guest_name || "Visitante").split(" ")[0]
+    const visitorFirstName = (guest_name || "Visitante").split(" ")[0]
 
     const msgVisitor =
-      `🚪 Ei, ${visitorFirstName}, o(a) morador(a) ${residentFirstName} do: \n` +
+      `🚪 Ei, ${visitorFirstName}, o(a) morador(a) ${residentName} do: \n` +
       `${condoNome}\n` +
       `\n` +
       `Acabou de autorizar a sua entrada para o dia:\n` +
@@ -806,60 +820,43 @@ async function handleEntryReleased(
       `Condomeet agradece.\n` +
       `Cód interno ${codInterno2}`
 
-    sentVisitor = await sendWhatsApp(
-      uazapiUrl,
-      uazapiToken,
-      phone,
-      msgVisitor
-    )
-    console.log(
-      `entry_released Msg (visitor ${guest_name}): ${sentVisitor ? "✅" : "❌"}`
-    )
+    const sentVisitor = await sendWhatsApp(uazapiUrl, uazapiToken, phone, msgVisitor)
+    results.push(`WhatsApp visitor: ${sentVisitor ? "✅" : "❌"}`)
   }
 
-  // ── PUSH NOTIFICATION — FCM to requesting resident ──────────────
-  let pushSent = false
-  const fcmToken = perfil?.fcm_token
-  if (fcmToken && fcmToken.length > 10 && !fcmToken.startsWith("dummy")) {
-    try {
-      const serviceAccountJson = Deno.env.get("FIREBASE_SERVICE_ACCOUNT_JSON")
-      if (serviceAccountJson) {
-        const serviceAccount = JSON.parse(serviceAccountJson)
-        const fcmAccessToken = await getFcmAccessToken(serviceAccount)
-        const pushResult = await sendFcmPush(
-          fcmAccessToken,
-          serviceAccount.project_id,
-          fcmToken,
-          "🚪 Visitante chegou!",
-          `${guestDisplayName} — entrada liberada pela portaria.`,
-          {
-            type: "visitor_entry",
-            convite_id: convite_id || "",
-            guest_name: guestDisplayName,
-          }
-        )
-        pushSent = pushResult.success
-        if (!pushResult.success) {
-          console.warn(`Push FCM failed for resident ${resident_id}: ${pushResult.error}`)
-        } else {
-          console.log(`✅ Push FCM sent to resident ${resident_id}`)
+  // ── PUSH NOTIFICATION — FCM to all recipients ──────────────────────
+  try {
+    const serviceAccountJson = Deno.env.get("FIREBASE_SERVICE_ACCOUNT_JSON")
+    if (serviceAccountJson) {
+      const serviceAccount = JSON.parse(serviceAccountJson)
+      const fcmAccessToken = await getFcmAccessToken(serviceAccount)
+      const projectId = serviceAccount.project_id
+
+      for (const r of recipients) {
+        if (r.fcm_token && r.fcm_token.length > 10 && !r.fcm_token.startsWith("dummy")) {
+          const pushResult = await sendFcmPush(
+            fcmAccessToken,
+            projectId,
+            r.fcm_token,
+            "🚪 Visitante chegou!",
+            `${guestDisplayName} — entrada liberada pela portaria.`,
+            { type: "visitor_entry", convite_id: convite_id || "", guest_name: guestDisplayName }
+          )
+          results.push(`FCM ${r.id}: ${pushResult.success ? "✅" : "❌"}`)
         }
-      } else {
-        console.warn("FIREBASE_SERVICE_ACCOUNT_JSON not set, skipping push")
       }
-    } catch (pushErr: unknown) {
-      const msg = pushErr instanceof Error ? pushErr.message : String(pushErr)
-      console.error(`Push notification error: ${msg}`)
     }
-  } else {
-    console.log(`No valid FCM token for resident ${resident_id}, skipping push`)
+  } catch (pushErr: unknown) {
+    const msg = pushErr instanceof Error ? pushErr.message : String(pushErr)
+    console.error(`Push notification error: ${msg}`)
+    results.push(`FCM error: ${msg}`)
   }
+
+  console.log(`entry_released results:`, results)
 
   return jsonResponse({
     action: "entry_released",
-    sent_resident: sentResident,
-    sent_visitor: sentVisitor,
-    push_sent: pushSent,
+    results,
     convite_id,
   })
 }
@@ -891,8 +888,8 @@ Deno.serve(async (req) => {
     const { resident_id, condominio_id, action } = payload
     console.log(`[convite-notify] action=${action}, resident=${resident_id}, condo=${condominio_id}`)
 
-    // For portaria_created, resident_id can be empty (unidentified)
-    if (action !== "portaria_created" && (!resident_id || !condominio_id)) {
+    // For portaria_created and entry_released (portaria), resident_id can be empty
+    if (action !== "portaria_created" && action !== "entry_released" && (!resident_id || !condominio_id)) {
       return jsonResponse(
         { error: "resident_id and condominio_id are required" },
         400

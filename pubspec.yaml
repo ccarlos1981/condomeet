@@ -72,6 +72,7 @@ dependencies:
   intl: ^0.20.0
   mask_text_input_formatter: ^2.9.0
   bloc_concurrency: ^0.3.0
+  flutter_local_notifications: ^21.0.0
 
 dev_dependencies:
   flutter_test:

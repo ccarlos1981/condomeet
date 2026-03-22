@@ -4,7 +4,7 @@ import { useState, useRef } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import {
   FolderOpen, FolderPlus, FilePlus, Download, Pencil, Trash2,
-  Eye, Search, ChevronDown, ChevronRight, X, Upload, Loader2, FileText
+  Eye, Search, ChevronDown, ChevronRight, X, Upload, Loader2, FileText, Plus
 } from 'lucide-react'
 
 // ─── Types ───────────────────────────────────────────────────────────────────
@@ -35,7 +35,7 @@ export type Documento = {
   updated_at: string
 }
 
-const CATEGORIAS = ['Atas', 'Gerador', 'Bombeiro', 'Elevador', 'Financeiro', 'Jurídico', 'Outros']
+const CATEGORIAS_PADRAO = ['Atas', 'Gerador', 'Bombeiro', 'Elevador', 'Financeiro', 'Jurídico', 'Outros']
 const TIPOS = [
   { value: 'obrigatorio', label: 'Obrigatório' },
   { value: 'manutencao',  label: 'Manutenção' },
@@ -55,12 +55,14 @@ function PastaModal({
   pasta,
   onClose,
   onSaved,
+  titulo = 'Documento',
 }: {
   tabelaPastas: string
   condoId: string
   pasta?: Pasta
   onClose: () => void
   onSaved: (p: Pasta) => void
+  titulo?: string
 }) {
   const [nome, setNome] = useState(pasta?.nome ?? '')
   const [obs, setObs] = useState(pasta?.observacao ?? '')
@@ -88,7 +90,7 @@ function PastaModal({
           <div className="flex items-center gap-2">
             <FileText size={18} className="text-[#FC5931]" />
             <h2 className="text-lg font-bold text-gray-900">
-              {pasta ? 'Editar Pasta' : 'Nome da pasta de documento'}
+              {pasta ? 'Editar Pasta' : `Nome da pasta de ${titulo.toLowerCase()}`}
             </h2>
           </div>
           <button onClick={onClose} className="p-1 rounded-lg hover:bg-gray-100 text-gray-400"><X size={18} /></button>
@@ -137,6 +139,8 @@ function DocumentoForm({
   onClose,
   onSaved,
   tituloLabel = 'Documento',
+  categorias,
+  onAddCategoria,
 }: {
   tabelaDocs: string
   tabelaPastas: string
@@ -147,7 +151,11 @@ function DocumentoForm({
   onClose: () => void
   onSaved: (d: Documento) => void
   tituloLabel?: string
+  categorias: string[]
+  onAddCategoria: (c: string) => void
 }) {
+  const [showAddCat, setShowAddCat] = useState(false)
+  const [newCat, setNewCat] = useState('')
   const [tipo, setTipo] = useState(doc?.tipo ?? 'obrigatorio')
   const [titulo, setTitulo] = useState(doc?.titulo ?? '')
   const [categoria, setCategoria] = useState(doc?.categoria ?? '')
@@ -243,7 +251,7 @@ function DocumentoForm({
       <div className="px-6 py-5 space-y-4">
         {/* Tipo */}
         <div>
-          <label className="text-sm font-semibold text-gray-700 block mb-2">Tipo de Documento:</label>
+          <label className="text-sm font-semibold text-gray-700 block mb-2">Tipo de {tituloLabel}:</label>
           <div className="flex gap-4">
             {TIPOS.map(t => (
               <label key={t.value} className="flex items-center gap-1.5 cursor-pointer text-sm">
@@ -257,35 +265,86 @@ function DocumentoForm({
         {/* Título + Categoria */}
         <div className="grid grid-cols-2 gap-4">
           <div>
-            <label className="text-xs font-semibold text-gray-500 uppercase tracking-wide block mb-1.5">Título do documento</label>
+            <label className="text-xs font-semibold text-gray-500 uppercase tracking-wide block mb-1.5">Título do {tituloLabel.toLowerCase()}</label>
             <input value={titulo} onChange={e => setTitulo(e.target.value)} placeholder="Opcional"
               className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#FC5931]/30 focus:border-[#FC5931]" />
           </div>
           <div>
-            <label className="text-xs font-semibold text-gray-500 uppercase tracking-wide block mb-1.5">Categoria do documento</label>
-            <select value={categoria} onChange={e => setCategoria(e.target.value)}
-              className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#FC5931]/30 focus:border-[#FC5931] bg-white">
-              <option value="">Selecione</option>
-              {CATEGORIAS.map(c => <option key={c} value={c}>{c}</option>)}
-            </select>
+            <label className="text-xs font-semibold text-gray-500 uppercase tracking-wide block mb-1.5">Categoria do {tituloLabel.toLowerCase()}</label>
+            <div className="flex gap-2">
+              <select value={categoria} onChange={e => setCategoria(e.target.value)}
+                className="flex-1 border border-gray-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#FC5931]/30 focus:border-[#FC5931] bg-white">
+                <option value="">Selecione</option>
+                {categorias.map(c => <option key={c} value={c}>{c}</option>)}
+              </select>
+              <button type="button" onClick={() => setShowAddCat(true)}
+                title="Adicionar categoria"
+                className="flex items-center justify-center w-10 h-10 border border-gray-200 rounded-xl hover:border-[#FC5931] hover:text-[#FC5931] text-gray-400 transition">
+                <Plus size={18} />
+              </button>
+            </div>
+            {showAddCat && (
+              <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
+                <div className="bg-white rounded-2xl shadow-2xl w-full max-w-sm p-6">
+                  <div className="flex items-center justify-between mb-4">
+                    <h3 className="text-lg font-bold text-gray-900">Nova Categoria</h3>
+                    <button onClick={() => { setShowAddCat(false); setNewCat('') }} className="p-1 rounded-lg hover:bg-gray-100 text-gray-400"><X size={18} /></button>
+                  </div>
+                  <input
+                    value={newCat}
+                    onChange={e => setNewCat(e.target.value)}
+                    placeholder="Nome da nova categoria"
+                    className="w-full border border-gray-200 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#FC5931]/30 focus:border-[#FC5931] mb-4"
+                    autoFocus
+                    onKeyDown={e => {
+                      if (e.key === 'Enter' && newCat.trim()) {
+                        onAddCategoria(newCat.trim())
+                        setCategoria(newCat.trim())
+                        setShowAddCat(false)
+                        setNewCat('')
+                      }
+                    }}
+                  />
+                  <div className="flex gap-3">
+                    <button
+                      onClick={() => {
+                        if (newCat.trim()) {
+                          onAddCategoria(newCat.trim())
+                          setCategoria(newCat.trim())
+                          setShowAddCat(false)
+                          setNewCat('')
+                        }
+                      }}
+                      disabled={!newCat.trim()}
+                      className="flex-1 bg-[#FC5931] text-white rounded-xl py-2.5 text-sm font-semibold hover:bg-[#D42F1D] transition disabled:opacity-40">
+                      Adicionar
+                    </button>
+                    <button onClick={() => { setShowAddCat(false); setNewCat('') }}
+                      className="flex-1 border border-[#FC5931] text-[#FC5931] rounded-xl py-2.5 text-sm font-semibold hover:bg-orange-50 transition">
+                      Cancelar
+                    </button>
+                  </div>
+                </div>
+              </div>
+            )}
           </div>
         </div>
 
         {/* Arquivo */}
         <div>
-          <label className="text-xs font-semibold text-gray-500 uppercase tracking-wide block mb-1.5">Arquivo do Documento</label>
+          <label className="text-xs font-semibold text-gray-500 uppercase tracking-wide block mb-1.5">Arquivo do {tituloLabel}</label>
           <input ref={fileRef} type="file" accept=".pdf,.doc,.docx,.xls,.xlsx,.jpg,.png" className="hidden"
             onChange={e => setArquivo(e.target.files?.[0] ?? null)} />
           <button onClick={() => fileRef.current?.click()}
             className="w-full border-2 border-dashed border-gray-200 rounded-xl px-4 py-3 text-sm text-gray-400 hover:border-[#FC5931] hover:text-[#FC5931] transition flex items-center gap-2 justify-center">
             <Upload size={16} />
-            {arquivo ? arquivo.name : arquivoNomeAtual || 'Clique para importar o Documento'}
+            {arquivo ? arquivo.name : arquivoNomeAtual || `Clique para importar o ${tituloLabel}`}
           </button>
         </div>
 
         {/* Pasta */}
         <div>
-          <label className="text-xs font-semibold text-gray-500 uppercase tracking-wide block mb-1.5">Pasta de documento</label>
+          <label className="text-xs font-semibold text-gray-500 uppercase tracking-wide block mb-1.5">Pasta de {tituloLabel.toLowerCase()}</label>
           <select value={pastaId} onChange={e => setPastaId(e.target.value)}
             className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#FC5931]/30 focus:border-[#FC5931] bg-white">
             <option value="">Escolha Pasta</option>
@@ -352,6 +411,7 @@ export default function DocumentosClient({
   tabelaDocs,
   storageBucket,
   titulo,
+  initialCategorias = [],
 }: {
   initialPastas: Pasta[]
   initialDocs: Documento[]
@@ -360,6 +420,7 @@ export default function DocumentosClient({
   tabelaDocs: string
   storageBucket: string
   titulo: string
+  initialCategorias?: string[]
 }) {
   const [pastas, setPastas] = useState<Pasta[]>(initialPastas)
   const [docs, setDocs] = useState<Documento[]>(initialDocs)
@@ -372,6 +433,14 @@ export default function DocumentosClient({
   const [editDoc, setEditDoc] = useState<Documento | undefined>()
   const [deletingPasta, setDeletingPasta] = useState<string | null>(null)
   const [deletingDoc, setDeletingDoc] = useState<string | null>(null)
+  const [customCategorias, setCustomCategorias] = useState<string[]>(initialCategorias)
+
+  // Merge default + custom + categories from existing docs
+  const allCategorias = Array.from(new Set([
+    ...CATEGORIAS_PADRAO,
+    ...customCategorias,
+    ...docs.map(d => d.categoria).filter((c): c is string => !!c),
+  ])).sort()
 
   const supabase = createClient()
 
@@ -388,7 +457,7 @@ export default function DocumentosClient({
   }
 
   async function deletePasta(id: string) {
-    if (!confirm('Deletar pasta? Os documentos dentro serão desvinculados.')) return
+    if (!confirm(`Deletar pasta? Os ${titulo.toLowerCase()}s dentro serão desvinculados.`)) return
     setDeletingPasta(id)
     await supabase.from(tabelaPastas).delete().eq('id', id)
     setPastas(prev => prev.filter(p => p.id !== id))
@@ -396,7 +465,7 @@ export default function DocumentosClient({
   }
 
   async function deleteDoc(id: string) {
-    if (!confirm('Deletar documento?')) return
+    if (!confirm(`Deletar ${titulo.toLowerCase()}?`)) return
     setDeletingDoc(id)
     await supabase.from(tabelaDocs).delete().eq('id', id)
     setDocs(prev => prev.filter(d => d.id !== id))
@@ -414,6 +483,15 @@ export default function DocumentosClient({
           pastas={pastas}
           doc={editDoc}
           tituloLabel={titulo}
+          categorias={allCategorias}
+          onAddCategoria={async (c) => {
+            setCustomCategorias(prev => prev.includes(c) ? prev : [...prev, c])
+            // Persist to DB
+            await supabase.from('documentos_categorias').upsert(
+              { condominio_id: condoId, nome: c },
+              { onConflict: 'condominio_id,nome' }
+            )
+          }}
           onClose={() => { setShowDocForm(false); setEditDoc(undefined) }}
           onSaved={d => {
             setDocs(prev => editDoc ? prev.map(x => x.id === d.id ? d : x) : [d, ...prev])
@@ -451,7 +529,7 @@ export default function DocumentosClient({
         <select value={filterCat} onChange={e => setFilterCat(e.target.value)}
           className="border border-gray-200 rounded-xl px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-[#FC5931]/30 focus:border-[#FC5931]">
           <option value="">Categoria</option>
-          {CATEGORIAS.map(c => <option key={c} value={c}>{c}</option>)}
+          {allCategorias.map(c => <option key={c} value={c}>{c}</option>)}
         </select>
       </div>
 
@@ -460,7 +538,7 @@ export default function DocumentosClient({
         <div className="text-center py-20 text-gray-400">
           <FolderPlus size={40} className="mx-auto mb-3 opacity-30" />
           <p className="font-medium text-gray-500">Nenhuma pasta criada</p>
-          <p className="text-sm">Clique em "Criar pasta" para organizar seus documentos</p>
+          <p className="text-sm">{`Clique em "Criar pasta" para organizar seus ${titulo.toLowerCase()}s`}</p>
         </div>
       ) : (
         <div className="grid grid-cols-2 gap-3">
@@ -503,12 +581,12 @@ export default function DocumentosClient({
                 {expanded && (
                   <div className="border-t border-gray-50">
                     {docsDaPasta.length === 0 ? (
-                      <p className="text-center py-8 text-sm text-gray-400">Nenhum documento nesta pasta</p>
+                      <p className="text-center py-8 text-sm text-gray-400">{`Nenhum ${titulo.toLowerCase()} nesta pasta`}</p>
                     ) : (
                       <table className="w-full text-sm">
                         <thead>
                           <tr className="bg-gray-50 text-xs font-semibold text-gray-500 uppercase tracking-wide">
-                            <th className="px-5 py-3 text-left">Nome do documento</th>
+                            <th className="px-5 py-3 text-left">{`Nome do ${titulo.toLowerCase()}`}</th>
                             <th className="px-3 py-3 text-left">Pasta</th>
                             <th className="px-3 py-3 text-left">Categoria</th>
                             <th className="px-3 py-3 text-left">Vencimento</th>
@@ -586,6 +664,7 @@ export default function DocumentosClient({
           tabelaPastas={tabelaPastas}
           condoId={condoId}
           pasta={editPasta}
+          titulo={titulo}
           onClose={() => { setShowPastaModal(false); setEditPasta(undefined) }}
           onSaved={p => {
             setPastas(prev => editPasta ? prev.map(x => x.id === p.id ? p : x) : [...prev, p])

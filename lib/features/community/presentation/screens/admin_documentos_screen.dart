@@ -425,6 +425,17 @@ class _ActionButton extends StatelessWidget {
   }
 }
 
+// ─── Categorias padrão ───────────────────────────────────────────────────────
+
+const _defaultCategorias = [
+  'Obrigatório',
+  'Manutenção',
+  'Regulamento',
+  'Ata',
+  'Contrato',
+  'Outros',
+];
+
 // ─── Tela de formulário do documento ─────────────────────────────────────────
 
 class _DocFormScreen extends StatefulWidget {
@@ -440,9 +451,10 @@ class _DocFormScreen extends StatefulWidget {
 
 class _DocFormScreenState extends State<_DocFormScreen> {
   late final TextEditingController _tituloCtrl;
-  late final TextEditingController _categoriaCtrl;
   late final TextEditingController _dataValCtrl;
   String? _pastaId;
+  String? _categoria;
+  List<String> _categorias = [];
   bool _mostrarMoradores = false;
   bool _avisarMoradores = false;
   bool _lembrar30 = false;
@@ -457,17 +469,74 @@ class _DocFormScreenState extends State<_DocFormScreen> {
     super.initState();
     final doc = widget.doc;
     _tituloCtrl    = TextEditingController(text: doc?.titulo ?? '');
-    _categoriaCtrl = TextEditingController(text: doc?.categoria ?? '');
     _dataValCtrl   = TextEditingController(text: doc?.dataValidade ?? '');
     _pastaId       = doc?.pastaId;
+    _categoria     = doc?.categoria;
     _mostrarMoradores = doc?.mostrarMoradores ?? false;
     _avisarMoradores  = doc?.avisarMoradores  ?? false;
+    _loadCategorias();
+  }
+
+  Future<void> _loadCategorias() async {
+    try {
+      final sb = Supabase.instance.client;
+      final res = await sb
+          .from('documentos_categorias')
+          .select('nome')
+          .eq('condominio_id', widget.condoId);
+      final custom = (res as List).map((r) => r['nome'] as String).toList();
+      final all = <String>{..._defaultCategorias, ...custom};
+      if (mounted) {
+        setState(() => _categorias = all.toList()..sort());
+      }
+    } catch (_) {
+      setState(() => _categorias = List.from(_defaultCategorias));
+    }
+  }
+
+  Future<void> _addCategoria() async {
+    final ctrl = TextEditingController();
+    final result = await showDialog<String>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: const Text('Nova Categoria'),
+        content: TextField(
+          controller: ctrl,
+          autofocus: true,
+          decoration: const InputDecoration(hintText: 'Nome da nova categoria'),
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancelar')),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(backgroundColor: AppColors.primary),
+            onPressed: () => Navigator.pop(ctx, ctrl.text.trim()),
+            child: const Text('Adicionar', style: TextStyle(color: Colors.white)),
+          ),
+        ],
+      ),
+    );
+    if (result == null || result.isEmpty) return;
+    // Persist to database
+    try {
+      final sb = Supabase.instance.client;
+      await sb.from('documentos_categorias').upsert(
+        {'condominio_id': widget.condoId, 'nome': result},
+        onConflict: 'condominio_id,nome',
+      );
+    } catch (_) {}
+    setState(() {
+      if (!_categorias.contains(result)) {
+        _categorias.add(result);
+        _categorias.sort();
+      }
+      _categoria = result;
+    });
   }
 
   @override
   void dispose() {
     _tituloCtrl.dispose();
-    _categoriaCtrl.dispose();
     _dataValCtrl.dispose();
     super.dispose();
   }
@@ -510,7 +579,7 @@ class _DocFormScreenState extends State<_DocFormScreen> {
       'condominio_id':    widget.condoId,
       'pasta_id':         _pastaId,
       'titulo':           _tituloCtrl.text.trim(),
-      'categoria':        _categoriaCtrl.text.trim().isEmpty ? null : _categoriaCtrl.text.trim(),
+      'categoria':        _categoria,
       'data_validade':    _dataValCtrl.text.trim().isEmpty ? null : _dataValCtrl.text.trim(),
       'arquivo_url':      arquivoUrl,
       'arquivo_nome':     arquivoNome,
@@ -550,14 +619,45 @@ class _DocFormScreenState extends State<_DocFormScreen> {
           children: [
             _field('Título *', _tituloCtrl, hint: 'Ex: Regulamento Interno'),
             const SizedBox(height: 16),
-            _field('Categoria', _categoriaCtrl, hint: 'Ex: Regulamento, Ata, Contrato...'),
+
+            // ── Categoria dropdown + botão "+" ──
+            const Text('Categoria', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13)),
+            const SizedBox(height: 6),
+            Row(
+              children: [
+                Expanded(
+                  child: DropdownButtonFormField<String>(
+                    value: _categoria,
+                    decoration: InputDecoration(
+                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                      contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+                    ),
+                    hint: const Text('Selecione'),
+                    items: _categorias.map((c) => DropdownMenuItem(value: c, child: Text(c))).toList(),
+                    onChanged: (v) => setState(() => _categoria = v),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Container(
+                  decoration: BoxDecoration(
+                    border: Border.all(color: Colors.grey.shade300),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: IconButton(
+                    icon: const Icon(Icons.add, color: AppColors.primary),
+                    onPressed: _addCategoria,
+                    tooltip: 'Adicionar categoria',
+                  ),
+                ),
+              ],
+            ),
             const SizedBox(height: 16),
 
             // Pasta
             const Text('Pasta', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13)),
             const SizedBox(height: 6),
             DropdownButtonFormField<String>(
-              initialValue: _pastaId,
+              value: _pastaId,
               decoration: InputDecoration(
                 border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
                 contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),

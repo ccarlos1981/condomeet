@@ -76,9 +76,9 @@ class _AdminScreenState extends State<AdminScreen> {
             _buildSectionTitle('Fale com morador (a)'),
             _buildAdminItem(
               context: context,
-              icon: Icons.phone_outlined,
+              icon: Icons.campaign_outlined,
               label: 'Enviar Aviso',
-              onTap: () {},
+              onTap: () => Navigator.of(context).pushNamed('/admin-avisos'),
             ),
             _buildAdminItem(
               context: context,

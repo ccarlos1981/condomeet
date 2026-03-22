@@ -1,4 +1,5 @@
 import 'package:firebase_messaging/firebase_messaging.dart';
+import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:condomeet/core/services/notification_service.dart';
 import 'package:logger/logger.dart';
 import 'package:flutter/foundation.dart';
@@ -12,7 +13,19 @@ class FcmNotificationService implements NotificationService {
       throw Exception('Firebase Messaging not initialized: $e');
     }
   }
+
   final Logger _logger = Logger();
+  final FlutterLocalNotificationsPlugin _localNotifications =
+      FlutterLocalNotificationsPlugin();
+
+  /// Android notification channel matching the FCM channel_id "avisos"
+  static const AndroidNotificationChannel _channel = AndroidNotificationChannel(
+    'avisos', // Must match the channel_id sent from the server
+    'Avisos',
+    description: 'Notificações do Condomeet',
+    importance: Importance.high,
+    playSound: true,
+  );
 
   @override
   Future<void> initialize() async {
@@ -29,11 +42,23 @@ class FcmNotificationService implements NotificationService {
 
       if (settings.authorizationStatus == AuthorizationStatus.authorized) {
         _logger.i('User granted notification permission');
-      } else if (settings.authorizationStatus == AuthorizationStatus.provisional) {
+      } else if (settings.authorizationStatus ==
+          AuthorizationStatus.provisional) {
         _logger.i('User granted provisional notification permission');
       } else {
-        _logger.w('User declined or has not accepted notification permission');
+        _logger.w(
+            'User declined or has not accepted notification permission');
       }
+
+      // ── iOS: show notification banners even when app is in foreground ──
+      await _fcm.setForegroundNotificationPresentationOptions(
+        alert: true,
+        badge: true,
+        sound: true,
+      );
+
+      // ── Android: create the notification channel + init local plugin ──
+      await _initLocalNotifications();
 
       setupHandlers();
     } catch (e) {
@@ -41,10 +66,32 @@ class FcmNotificationService implements NotificationService {
     }
   }
 
+  Future<void> _initLocalNotifications() async {
+    const androidSettings =
+        AndroidInitializationSettings('@mipmap/ic_launcher');
+    const iosSettings = DarwinInitializationSettings(
+      requestAlertPermission: false,
+      requestBadgePermission: false,
+      requestSoundPermission: false,
+    );
+    const initSettings = InitializationSettings(
+      android: androidSettings,
+      iOS: iosSettings,
+    );
+
+    await _localNotifications.initialize(settings: initSettings);
+
+    // Create the Android channel (idempotent)
+    final androidPlugin =
+        _localNotifications.resolvePlatformSpecificImplementation<
+            AndroidFlutterLocalNotificationsPlugin>();
+    if (androidPlugin != null) {
+      await androidPlugin.createNotificationChannel(_channel);
+    }
+  }
+
   @override
   Future<String?> getToken() async {
-    // Em dispositivo físico real, sempre tenta o token Firebase diretamente
-    // O dummy token só é fornecido no Simulator (onde APNS não funciona)
     try {
       final token = await _fcm.getToken();
       if (token != null) {
@@ -65,20 +112,59 @@ class FcmNotificationService implements NotificationService {
 
   @override
   void setupHandlers() {
-    // Foreground messages
+    // ── Foreground messages → show as local notification ──
     FirebaseMessaging.onMessage.listen((RemoteMessage message) {
-      _logger.i('🔔 Foreground message received: ${message.notification?.title}');
-      print('🔥 FCM MESSAGE DATA: ${message.data}');
-      if (message.notification != null) {
-        print('🔥 FCM NOTIFICATION: ${message.notification!.title} - ${message.notification!.body}');
+      _logger.i(
+          '🔔 Foreground message received: ${message.notification?.title}');
+
+      final notification = message.notification;
+      if (notification != null) {
+        _showLocalNotification(
+          title: notification.title ?? '',
+          body: notification.body ?? '',
+          data: message.data,
+        );
       }
-      // Handle foreground notification (e.g., show a snackbar or update UI)
     });
 
     // Handle interaction when app is in background but not terminated
     FirebaseMessaging.onMessageOpenedApp.listen((RemoteMessage message) {
       _logger.i('App opened via notification: ${message.data}');
     });
+  }
+
+  /// Show a local notification (used for foreground FCM messages on Android)
+  Future<void> _showLocalNotification({
+    required String title,
+    required String body,
+    Map<String, dynamic>? data,
+  }) async {
+    final androidDetails = AndroidNotificationDetails(
+      _channel.id,
+      _channel.name,
+      channelDescription: _channel.description,
+      importance: Importance.high,
+      priority: Priority.high,
+      playSound: true,
+      icon: '@mipmap/ic_launcher',
+    );
+
+    final notificationDetails = NotificationDetails(
+      android: androidDetails,
+      iOS: const DarwinNotificationDetails(
+        presentAlert: true,
+        presentBadge: true,
+        presentSound: true,
+      ),
+    );
+
+    await _localNotifications.show(
+      id: DateTime.now().millisecondsSinceEpoch ~/ 1000,
+      title: title,
+      body: body,
+      notificationDetails: notificationDetails,
+      payload: data?.toString(),
+    );
   }
 
   @override

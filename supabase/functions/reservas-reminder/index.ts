@@ -106,9 +106,9 @@ Deno.serve(async (req) => {
       const { data: reservas } = await supabase
         .from('reservas')
         .select(`
-          id, nome_evento, user_id, data_reserva,
-          areas_comuns!inner(tipo_agenda, tipo_reserva),
-          perfil:perfil!reservas_user_id_fkey(nome, telefone, whatsapp, fcm_token)
+          id, nome_evento, user_id, data_reserva, bloco_destino, apto_destino, condominio_id,
+          areas_comuns!inner(tipo_agenda, tipo_reserva, local),
+          perfil:perfil!reservas_user_id_fkey(nome_completo, telefone, whatsapp, fcm_token)
         `)
         .eq('areas_comuns.tipo_reserva', 'por_dia')
         .eq('data_reserva', date)
@@ -128,10 +128,9 @@ Deno.serve(async (req) => {
       for (const reserva of reservas) {
         if (jaEnviadosSet.has(reserva.id)) continue
 
-        const perfil = Array.isArray(reserva.perfil) ? reserva.perfil[0] : reserva.perfil
-        const area = (Array.isArray(reserva.areas_comuns) ? reserva.areas_comuns[0] : reserva.areas_comuns) as { tipo_agenda: string }
+        const area = (Array.isArray(reserva.areas_comuns) ? reserva.areas_comuns[0] : reserva.areas_comuns) as { tipo_agenda: string; local?: string }
         const nomeEvento = reserva.nome_evento || area?.tipo_agenda || 'evento'
-        const nomeArea = area?.tipo_agenda || 'área comum'
+        const nomeArea = area?.local || area?.tipo_agenda || 'área comum'
         const dataFmt = new Date(date + 'T12:00:00Z').toLocaleDateString('pt-BR')
         const title = `📅 Lembrete: ${nomeEvento}`
         const body = tipo === '7_dias'
@@ -140,17 +139,41 @@ Deno.serve(async (req) => {
 
         let canal: 'whatsapp' | 'push' | 'falha' = 'falha'
 
-        // 1. Tentar WhatsApp via UazAPI (use whatsapp field, fallback to telefone)
-        const whatsappNumber = perfil?.whatsapp || perfil?.telefone
-        if (whatsappNumber) {
-          const waSent = await sendWhatsApp(whatsappNumber, perfil.nome ?? '', nomeArea, dataFmt)
-          if (waSent) canal = 'whatsapp'
-        }
+        // Determine who to notify
+        const hasSpecificUser = reserva.user_id && reserva.user_id !== ''
+        
+        if (hasSpecificUser) {
+          // Notify specific user
+          const perfil = Array.isArray(reserva.perfil) ? reserva.perfil[0] : reserva.perfil
+          const whatsappNumber = perfil?.whatsapp || perfil?.telefone
+          if (whatsappNumber) {
+            const waSent = await sendWhatsApp(whatsappNumber, perfil.nome_completo ?? '', nomeArea, dataFmt)
+            if (waSent) canal = 'whatsapp'
+          }
+          if (canal === 'falha' && perfil?.fcm_token && fcmAccessToken && projectId) {
+            const pushSent = await sendFcmPush(perfil.fcm_token, title, body, projectId, fcmAccessToken)
+            if (pushSent) canal = 'push'
+          }
+        } else if (reserva.bloco_destino && reserva.apto_destino) {
+          // No specific user → notify ALL residents of the unit
+          const { data: unitResidents } = await supabase
+            .from('perfil')
+            .select('id, nome_completo, whatsapp, telefone, fcm_token, notificacoes_whatsapp')
+            .eq('condominio_id', reserva.condominio_id)
+            .eq('bloco_txt', reserva.bloco_destino)
+            .eq('apto_txt', reserva.apto_destino)
 
-        // 2. Fallback: FCM push
-        if (canal === 'falha' && perfil?.fcm_token && fcmAccessToken && projectId) {
-          const pushSent = await sendFcmPush(perfil.fcm_token, title, body, projectId, fcmAccessToken)
-          if (pushSent) canal = 'push'
+          for (const r of (unitResidents ?? [])) {
+            const rPhone = r.whatsapp || r.telefone
+            if (rPhone && r.notificacoes_whatsapp !== false) {
+              const waSent = await sendWhatsApp(rPhone, r.nome_completo ?? '', nomeArea, dataFmt)
+              if (waSent) canal = 'whatsapp'
+            }
+            if (r.fcm_token && fcmAccessToken && projectId) {
+              const pushSent = await sendFcmPush(r.fcm_token, title, body, projectId, fcmAccessToken)
+              if (pushSent && canal === 'falha') canal = 'push'
+            }
+          }
         }
 
         // Registrar tentativa
