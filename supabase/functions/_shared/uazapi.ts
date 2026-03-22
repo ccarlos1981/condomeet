@@ -170,13 +170,8 @@ export async function sendImageMessage(
   caption?: string
 ): Promise<UazapiSendResult> {
   try {
-    const url = `${baseUrl}/send/image`
-
-    const body: Record<string, unknown> = {
-      number: phone,
-      url: imageUrl,
-    }
-    if (caption) body.caption = caption
+    // UazAPI uses /send/media for media messages
+    const url = `${baseUrl}/send/media`
 
     const res = await fetch(url, {
       method: "POST",
@@ -185,7 +180,12 @@ export async function sendImageMessage(
         "Accept": "application/json",
         "token": token,
       },
-      body: JSON.stringify(body),
+      body: JSON.stringify({
+        number: phone,
+        type: "image",
+        file: imageUrl,
+        text: caption || "",
+      }),
     })
 
     const resultText = await res.text()
