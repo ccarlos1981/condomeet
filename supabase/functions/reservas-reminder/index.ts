@@ -1,12 +1,12 @@
-import { serve } from 'https://deno.land/std@0.168.0/http/server.ts'
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
-import { create, getNumericDate } from 'https://deno.land/x/djwt@v2.9.1/mod.ts'
+import { create } from 'https://deno.land/x/djwt@v2.9.1/mod.ts'
+import { sendTextMessage, normalizePhone } from '../_shared/uazapi.ts'
 
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
 const FIREBASE_SERVICE_ACCOUNT_JSON = Deno.env.get('FIREBASE_SERVICE_ACCOUNT_JSON')!
-const BOTCONVERSA_API_KEY = Deno.env.get('BOTCONVERSA_API_KEY')
-const BOTCONVERSA_FLOW_ID_RESERVA = Deno.env.get('BOTCONVERSA_FLOW_ID_RESERVA')
+const UAZAPI_URL = Deno.env.get('UAZAPI_URL')
+const UAZAPI_TOKEN = Deno.env.get('UAZAPI_TOKEN')
 
 // ─── FCM helpers ──────────────────────────────────────────────────────────────
 async function getFcmAccessToken(serviceAccount: Record<string, string>): Promise<string> {
@@ -56,30 +56,26 @@ async function sendFcmPush(fcmToken: string, title: string, body: string, projec
   return res.ok
 }
 
-// ─── WhatsApp (BotConversa) ───────────────────────────────────────────────────
+// ─── WhatsApp (UazAPI) ────────────────────────────────────────────────────────
 async function sendWhatsApp(phone: string, nome: string, area: string, data: string): Promise<boolean> {
-  if (!BOTCONVERSA_API_KEY) return false
-  let cleanPhone = phone.replace(/\D/g, '')
-  if (!cleanPhone.startsWith('55')) cleanPhone = '55' + cleanPhone
+  if (!UAZAPI_URL || !UAZAPI_TOKEN) return false
+  const normalizedPhone = normalizePhone(phone)
 
-  const res = await fetch('https://backend.botconversa.com.br/api/v1/webhook/subscriber/', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json', 'API-KEY': BOTCONVERSA_API_KEY },
-    body: JSON.stringify({
-      phone: cleanPhone,
-      first_name: nome.split(' ')[0],
-      variables: [
-        { key: 'nome_area', value: area },
-        { key: 'data_evento', value: data },
-      ],
-      flow_id: BOTCONVERSA_FLOW_ID_RESERVA ? parseInt(BOTCONVERSA_FLOW_ID_RESERVA) : null,
-    }),
-  })
-  return res.ok
+  const codInterno = Math.random().toString(36).substring(2, 7).toUpperCase()
+  const msg =
+    `📅 Lembrete de Reserva\n\n` +
+    `Olá, ${nome.split(' ')[0]}! 😊\n\n` +
+    `Você tem uma reserva na *${area}* no dia *${data}*.\n\n` +
+    `Não se esqueça! 🎉\n\n` +
+    `Condomeet agradece!\n` +
+    `Cód interno: ${codInterno}`
+
+  const result = await sendTextMessage(UAZAPI_URL, UAZAPI_TOKEN, normalizedPhone, msg)
+  return result.success
 }
 
 // ─── Main handler ─────────────────────────────────────────────────────────────
-serve(async (req) => {
+Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: { 'Access-Control-Allow-Origin': '*' } })
 
   try {
@@ -106,13 +102,13 @@ serve(async (req) => {
     const log: unknown[] = []
 
     for (const { date, tipo, label } of targets) {
-      // Busca reservas por_dia para a data alvo, que ainda não receberam este lembrete
+      // Busca reservas por_dia para a data alvo
       const { data: reservas } = await supabase
         .from('reservas')
         .select(`
           id, nome_evento, user_id, data_reserva,
           areas_comuns!inner(tipo_agenda, tipo_reserva),
-          perfil:perfil!reservas_user_id_fkey(nome, telefone, fcm_token)
+          perfil:perfil!reservas_user_id_fkey(nome, telefone, whatsapp, fcm_token)
         `)
         .eq('areas_comuns.tipo_reserva', 'por_dia')
         .eq('data_reserva', date)
@@ -144,9 +140,10 @@ serve(async (req) => {
 
         let canal: 'whatsapp' | 'push' | 'falha' = 'falha'
 
-        // 1. Tentar WhatsApp
-        if (perfil?.telefone) {
-          const waSent = await sendWhatsApp(perfil.telefone, perfil.nome ?? '', nomeArea, dataFmt)
+        // 1. Tentar WhatsApp via UazAPI (use whatsapp field, fallback to telefone)
+        const whatsappNumber = perfil?.whatsapp || perfil?.telefone
+        if (whatsappNumber) {
+          const waSent = await sendWhatsApp(whatsappNumber, perfil.nome ?? '', nomeArea, dataFmt)
           if (waSent) canal = 'whatsapp'
         }
 
@@ -156,7 +153,7 @@ serve(async (req) => {
           if (pushSent) canal = 'push'
         }
 
-        // Registrar tentativa (mesmo falha) para não retentar
+        // Registrar tentativa
         await supabase.from('reserva_notificacoes').upsert({
           reserva_id: reserva.id,
           tipo,

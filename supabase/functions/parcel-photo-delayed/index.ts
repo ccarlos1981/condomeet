@@ -1,9 +1,9 @@
 // parcel-photo-delayed — Supabase Edge Function
-// Waits 10-20 seconds (random), then sends parcel photo via botconversa-send
+// Waits 10-20 seconds (random), then sends parcel photo via UazAPI
 // Called by the tr_fn_encomenda_arrived trigger when photo_url is present
 
-import { createAdminClient } from "../_shared/auth.ts"
-import { sendMessage, ensureJpegUrl } from "../_shared/botconversa.ts"
+import { createClient } from "npm:@supabase/supabase-js@2"
+import { sendImageMessage, normalizePhone } from "../_shared/uazapi.ts"
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -18,6 +18,14 @@ function jsonResponse(body: unknown, status = 200): Response {
   })
 }
 
+function ensureJpegUrl(url: string): string {
+  // If Supabase Storage URL, ensure it returns a proper image content type
+  if (url.includes('supabase') && !url.includes('?')) {
+    return url
+  }
+  return url
+}
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response("ok", { headers: corsHeaders })
@@ -30,53 +38,61 @@ Deno.serve(async (req) => {
       return jsonResponse({ skipped: true, reason: "No photo_url provided" })
     }
 
-    const BOTCONVERSA_API_KEY = Deno.env.get("BOTCONVERSA_API_KEY")
-    if (!BOTCONVERSA_API_KEY) {
-      return jsonResponse({ error: "BOTCONVERSA_API_KEY não configurada" }, 500)
+    const UAZAPI_URL = Deno.env.get("UAZAPI_URL")
+    const UAZAPI_TOKEN = Deno.env.get("UAZAPI_TOKEN")
+    if (!UAZAPI_URL || !UAZAPI_TOKEN) {
+      return jsonResponse({ error: "UAZAPI_URL or UAZAPI_TOKEN not configured" }, 500)
     }
 
     // 1. Random delay: 10-20 seconds
-    const delayMs = Math.floor(Math.random() * 10_000) + 10_000 // 10000-20000ms
+    const delayMs = Math.floor(Math.random() * 10_000) + 10_000
     console.log(`⏳ Waiting ${delayMs}ms before sending parcel photo...`)
     await new Promise((resolve) => setTimeout(resolve, delayMs))
 
-    // 2. Resolve recipients (same logic as botconversa-send por_apto)
-    const supabase = createAdminClient()
+    // 2. Resolve recipients
+    const supabase = createClient(
+      Deno.env.get("SUPABASE_URL")!,
+      Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
+    )
 
     const { data: recipients, error } = await supabase
       .from("perfil")
-      .select("id, nome_completo, botconversa_id")
+      .select("id, nome_completo, whatsapp")
       .eq("condominio_id", condominio_id)
       .eq("bloco_txt", bloco)
       .eq("apto_txt", apto)
       .eq("status_aprovacao", "aprovado")
       .eq("bloqueado", false)
-      .not("botconversa_id", "is", null)
+      .eq("notificacoes_whatsapp", true)
+      .not("whatsapp", "is", null)
 
     if (error || !recipients || recipients.length === 0) {
       console.log("No recipients found for photo delivery")
       return jsonResponse({ skipped: true, reason: "No recipients found" })
     }
 
-    // Deduplicate by botconversa_id
+    // Deduplicate by whatsapp
     const seen = new Set<string>()
-    const unique = recipients.filter((r: any) => {
-      if (!r.botconversa_id || seen.has(r.botconversa_id)) return false
-      seen.add(r.botconversa_id)
+    const unique = recipients.filter((r: Record<string, unknown>) => {
+      const wpp = (r.whatsapp as string)?.trim()
+      if (!wpp || seen.has(wpp)) return false
+      seen.add(wpp)
       return true
     })
 
     console.log(`📸 Sending parcel photo to ${unique.length} recipient(s)`)
 
-    // 3. Send photo as file to each recipient
+    // 3. Send photo as image to each recipient
     const results = []
     for (let i = 0; i < unique.length; i++) {
-      const r = unique[i] as any
-      const result = await sendMessage(
-        BOTCONVERSA_API_KEY,
-        r.botconversa_id,
-        "file",
-        ensureJpegUrl(photo_url)
+      const r = unique[i] as Record<string, unknown>
+      const phone = normalizePhone(r.whatsapp as string)
+      const result = await sendImageMessage(
+        UAZAPI_URL,
+        UAZAPI_TOKEN,
+        phone,
+        ensureJpegUrl(photo_url),
+        "📸 Foto da encomenda"
       )
       results.push({ ...result, nome: r.nome_completo })
 

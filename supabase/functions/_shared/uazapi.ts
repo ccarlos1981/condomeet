@@ -159,3 +159,47 @@ export function normalizePhone(raw: string): string {
 
   return phone
 }
+
+// ── Send image message via UazAPI ─────────────────────────────────────────
+
+export async function sendImageMessage(
+  baseUrl: string,
+  token: string,
+  phone: string,
+  imageUrl: string,
+  caption?: string
+): Promise<UazapiSendResult> {
+  try {
+    const url = `${baseUrl}/send/image`
+
+    const body: Record<string, unknown> = {
+      number: phone,
+      url: imageUrl,
+    }
+    if (caption) body.caption = caption
+
+    const res = await fetch(url, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "Accept": "application/json",
+        "token": token,
+      },
+      body: JSON.stringify(body),
+    })
+
+    const resultText = await res.text()
+
+    if (!res.ok) {
+      console.error(`[UazAPI] Send image error (${phone}): ${res.status} ${resultText}`)
+      return { success: false, phone, error: `${res.status}: ${resultText}` }
+    }
+
+    console.log(`[UazAPI] Image sent to ${phone}: ${res.status}`)
+    return { success: true, phone }
+  } catch (err: unknown) {
+    const message_ = err instanceof Error ? err.message : String(err)
+    console.error(`[UazAPI] Image fetch error (${phone}):`, message_)
+    return { success: false, phone, error: message_ }
+  }
+}

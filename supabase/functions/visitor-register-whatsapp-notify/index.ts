@@ -1,11 +1,9 @@
 // visitor-register-whatsapp-notify — Supabase Edge Function
 // Called from the web app after registering a visitor (visitante_registros).
-// Sends WhatsApp notification to all residents of the target unit.
+// Sends WhatsApp notification to all residents of the target unit via UazAPI.
 
 import { createClient } from "npm:@supabase/supabase-js@2"
-
-const BOTCONVERSA_BASE_URL =
-  "https://backend.botconversa.com.br/api/v1/webhook"
+import { sendTextMessage, normalizePhone } from "../_shared/uazapi.ts"
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -39,70 +37,6 @@ function formatDateBR(dateStr: string): string {
   }
 }
 
-// ── BotConversa: create/get subscriber ────────────────────────────────────
-async function resolveSubscriber(
-  apiKey: string,
-  phone: string,
-  fullName: string
-): Promise<string | null> {
-  try {
-    const nameParts = (fullName || "Visitante").split(" ")
-    const firstName = nameParts[0] || "Visitante"
-    const lastName = nameParts.length > 1 ? nameParts.slice(1).join(" ") : "."
-
-    const res = await fetch(`${BOTCONVERSA_BASE_URL}/subscriber/`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "API-KEY": apiKey,
-      },
-      body: JSON.stringify({ phone, first_name: firstName, last_name: lastName }),
-    })
-
-    const text = await res.text()
-    console.log(`BotConversa resolve subscriber (${phone}): ${res.status} ${text}`)
-
-    if (!res.ok) return null
-
-    const data = JSON.parse(text)
-    return String(data.id || data.subscriber_id || "")
-  } catch (err) {
-    console.error("resolveSubscriber error:", err)
-    return null
-  }
-}
-
-// ── BotConversa: send message ─────────────────────────────────────────────
-async function sendMessage(
-  apiKey: string,
-  subscriberId: string,
-  message: string
-): Promise<boolean> {
-  try {
-    const res = await fetch(
-      `${BOTCONVERSA_BASE_URL}/subscriber/${encodeURIComponent(subscriberId)}/send_message/`,
-      {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "API-KEY": apiKey,
-        },
-        body: JSON.stringify({ type: "text", value: message }),
-      }
-    )
-
-    if (!res.ok) {
-      const errText = await res.text()
-      console.error(`BotConversa send error (${subscriberId}): ${res.status} ${errText}`)
-      return false
-    }
-    return true
-  } catch (err) {
-    console.error(`BotConversa send error (${subscriberId}):`, err)
-    return false
-  }
-}
-
 // ══════════════════════════════════════════════════════════════════════════
 //  MAIN HANDLER
 // ══════════════════════════════════════════════════════════════════════════
@@ -128,15 +62,17 @@ Deno.serve(async (req: Request) => {
     console.log(`[visitor-register-notify] Visitor registered: ${nome} at ${bloco}/${apto}`)
 
     // ── Init Supabase ─────────────────────────────────────────────────
-    const supabaseUrl = Deno.env.get("SUPABASE_URL")!
-    const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
-    const supabase = createClient(supabaseUrl, supabaseServiceKey)
+    const supabase = createClient(
+      Deno.env.get("SUPABASE_URL")!,
+      Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
+    )
 
-    // ── BotConversa API key ───────────────────────────────────────────
-    const apiKey = Deno.env.get("BOTCONVERSA_API_KEY")
-    if (!apiKey) {
-      console.error("BOTCONVERSA_API_KEY not configured")
-      return jsonResponse({ error: "BotConversa not configured" }, 500)
+    // ── UazAPI credentials ────────────────────────────────────────────
+    const UAZAPI_URL = Deno.env.get("UAZAPI_URL")
+    const UAZAPI_TOKEN = Deno.env.get("UAZAPI_TOKEN")
+    if (!UAZAPI_URL || !UAZAPI_TOKEN) {
+      console.error("UAZAPI_URL or UAZAPI_TOKEN not configured")
+      return jsonResponse({ error: "UazAPI not configured" }, 500)
     }
 
     // ── Fetch condominium name ────────────────────────────────────────
@@ -153,19 +89,19 @@ Deno.serve(async (req: Request) => {
     const whatsappDisplay = whatsapp && whatsapp.trim() ? whatsapp.trim() : "Não informado"
     const empresaDisplay = empresa && empresa.trim() ? empresa.trim() : "Não informada"
 
-    // ── Fetch ALL residents of the unit ────────────────────────────────
+    // ── Fetch ALL residents of the unit with whatsapp ──────────────────
     const { data: unitResidents } = await supabase
       .from("perfil")
-      .select("id, nome_completo, botconversa_id, notificacoes_whatsapp")
+      .select("id, nome_completo, whatsapp, notificacoes_whatsapp")
       .eq("condominio_id", condominio_id)
       .eq("bloco_txt", bloco)
       .eq("apto_txt", apto)
-      .not("botconversa_id", "is", null)
+      .not("whatsapp", "is", null)
 
     const results: string[] = []
 
     if (!unitResidents || unitResidents.length === 0) {
-      console.log(`No residents with botconversa_id in ${bloco}/${apto}`)
+      console.log(`No residents with whatsapp in ${bloco}/${apto}`)
       return jsonResponse({ sent: false, reason: "No residents with WhatsApp configured" })
     }
 
@@ -179,12 +115,12 @@ Deno.serve(async (req: Request) => {
         continue
       }
 
-      // Anti-spam delay between messages
-      if (i > 0) {
-        const delay = Math.floor(Math.random() * 10000) + 5000
-        await new Promise((resolve) => setTimeout(resolve, delay))
+      if (!r.whatsapp || r.whatsapp.trim() === "") {
+        results.push(`Skipped ${r.id}: no whatsapp`)
+        continue
       }
 
+      const phone = normalizePhone(r.whatsapp)
       const codInterno = genCodInterno()
 
       const msg =
@@ -207,9 +143,9 @@ Deno.serve(async (req: Request) => {
         `Condomeet agradece!\n` +
         `Cód interno: ${codInterno}`
 
-      const sent = await sendMessage(apiKey, r.botconversa_id, msg)
-      results.push(`Resident ${r.id}: ${sent ? "✅" : "❌"}`)
-      console.log(`WhatsApp to ${r.nome_completo}: ${sent ? "✅" : "❌"}`)
+      const sendResult = await sendTextMessage(UAZAPI_URL, UAZAPI_TOKEN, phone, msg)
+      results.push(`Resident ${r.id}: ${sendResult.success ? "✅" : "❌"}`)
+      console.log(`WhatsApp to ${r.nome_completo}: ${sendResult.success ? "✅" : "❌"}`)
     }
 
     console.log(`[visitor-register-notify] Results:`, results)
