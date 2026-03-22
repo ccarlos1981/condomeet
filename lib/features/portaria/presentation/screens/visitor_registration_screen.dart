@@ -23,7 +23,8 @@ const _tipoVisitanteOptions = [
 ];
 
 class VisitorRegistrationScreen extends StatefulWidget {
-  const VisitorRegistrationScreen({super.key});
+  final int initialTab;
+  const VisitorRegistrationScreen({super.key, this.initialTab = 0});
 
   @override
   State<VisitorRegistrationScreen> createState() =>
@@ -72,7 +73,7 @@ class _VisitorRegistrationScreenState extends State<VisitorRegistrationScreen>
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 2, vsync: this);
+    _tabController = TabController(length: 2, vsync: this, initialIndex: widget.initialTab);
     _loadBlocos();
     _loadVisitantes();
   }
@@ -436,6 +437,29 @@ class _VisitorRegistrationScreenState extends State<VisitorRegistrationScreen>
         'registrado_por': authState.userId,
       });
 
+      // Fire-and-forget: WhatsApp notification to unit residents
+      try {
+        unawaited(
+          _supabase.functions.invoke(
+            'visitor-register-whatsapp-notify',
+            body: {
+              'condominio_id': condoId,
+              'nome': _nomeCtrl.text.trim(),
+              'whatsapp': _wpCtrl.text.trim().isEmpty ? null : _wpCtrl.text.trim(),
+              'tipo_visitante': _selectedTipo,
+              'empresa': _empresaCtrl.text.trim().isEmpty ? null : _empresaCtrl.text.trim(),
+              'bloco': blocoTxt.isEmpty ? null : blocoTxt,
+              'apto': aptoTxt.isEmpty ? null : aptoTxt,
+              'data_visita': DateTime.now().toUtc().toIso8601String(),
+            },
+          ).then((_) {}).catchError((e) {
+            debugPrint('WhatsApp notify error: $e');
+          }),
+        );
+      } catch (e) {
+        debugPrint('WhatsApp notify error: $e');
+      }
+
       if (mounted) _showSuccess();
     } catch (e) {
       if (mounted) {
@@ -477,7 +501,7 @@ class _VisitorRegistrationScreenState extends State<VisitorRegistrationScreen>
     return Scaffold(
       backgroundColor: AppColors.surface,
       appBar: AppBar(
-        title: const Text('Autorizar Visitante'),
+        title: const Text('Autorizar Visitante (Portaria)'),
         backgroundColor: Colors.white,
         foregroundColor: AppColors.primary,
         elevation: 0,

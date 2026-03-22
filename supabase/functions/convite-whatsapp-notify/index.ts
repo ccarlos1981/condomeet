@@ -60,7 +60,8 @@ function isSecretKey(token: string): boolean {
 }
 
 function genCodInterno(): string {
-  return Math.random().toString(36).substring(2, 7).toUpperCase()
+  const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789'
+  return Array.from({ length: 5 }, () => chars[Math.floor(Math.random() * chars.length)]).join('')
 }
 
 // ── FCM Push Notification helpers ─────────────────────────────────────────
@@ -299,9 +300,7 @@ async function handleCreated(
   const condoNome = condo?.nome || "Condomínio"
 
   // ── Extract short code from qr_data ──────────────────────────────
-  const shortCode = qr_data
-    ? qr_data.split("_").pop() || "---"
-    : "---"
+  const shortCode = qr_data || "---"
 
   const visitDate = formatDateBR(validity_date)
   const residentFirstName =
@@ -757,9 +756,7 @@ async function handleEntryReleased(
   const condoNome = condo?.nome || "Condomínio"
 
   // ── Derived values ────────────────────────────────────────────────
-  const shortCode = qr_data
-    ? qr_data.split("_").pop() || "---"
-    : "---"
+  const shortCode = qr_data || "---"
 
   const residentFirstName =
     perfil.nome_completo?.split(" ")[0] || "Morador"

@@ -177,7 +177,7 @@ class InvitationRepositoryImpl implements InvitationRepository {
       final shortCode = String.fromCharCodes(
         Iterable.generate(3, (_) => chars.codeUnitAt(rng.nextInt(chars.length))),
       );
-      final qrData = 'condomeet_inv_${id.substring(0, 8)}_$shortCode';
+      final qrData = shortCode;
       final now = DateTime.now();
 
       final invitation = Invitation(

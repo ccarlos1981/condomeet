@@ -82,7 +82,8 @@ async function createVisitorAuth(
   }
 
   // Generate QR code data
-  const shortCode = Math.random().toString(36).substring(2, 7).toUpperCase()
+  const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789'
+  const shortCode = Array.from({ length: 3 }, () => chars[Math.floor(Math.random() * chars.length)]).join('')
 
   const { error } = await ctx.supabase.from("convites").insert({
     resident_id: ctx.perfilId,

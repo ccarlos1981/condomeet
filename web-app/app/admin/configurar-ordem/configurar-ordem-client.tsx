@@ -13,7 +13,7 @@ const FUNCTION_CATALOG: Record<string, { label: string; emoji: string }> = {
   documents:          { label: 'Documentos',               emoji: '📄' },
   contracts:          { label: 'Contratos',                emoji: '📋' },
   parcel_history:     { label: 'Histórico Encomendas',     emoji: '🕓' },
-  visitor_approval:   { label: 'Liberar Visitante',        emoji: '✅' },
+  visitor_approval:   { label: 'Liberar Visitante Cadastrado', emoji: '✅' },
   parcel_reg:         { label: 'Registrar Encomenda',      emoji: '➕' },
   pending_del:        { label: 'Encomendas',               emoji: '🚚' },
   approvals:          { label: 'Aprovações',               emoji: '✔️' },

@@ -16,16 +16,16 @@ type NavItem = { label: string; href: string; icon: React.ReactNode; fnId?: stri
 const FN_TO_NAV: Record<string, { label: string; href: string; icon: React.ReactNode }> = {
   authorize_visitor:  { label: 'Autorizar Visitante',     href: '/condo/visitantes',           icon: <UserCheck size={18} /> },
   parcels:            { label: 'Minhas Encomendas',        href: '/condo/encomendas',            icon: <Package size={18} /> },
-  guest_checkin:      { label: 'Visitante c/ Autorização', href: '/condo/liberar-visitante',               icon: <QrCode size={18} /> },
+  guest_checkin:      { label: 'Visitante c/ Autorização', href: '/condo/visitante-checkin',     icon: <QrCode size={18} /> },
   occurrences:        { label: 'Ocorrências',              href: '/condo/ocorrencias',           icon: <AlertCircle size={18} /> },
   bookings:           { label: 'Reservas',                 href: '/condo/reservas',              icon: <CalendarDays size={18} /> },
   documents:          { label: 'Documentos',               href: '/condo/documentos',            icon: <FileText size={18} /> },
   contracts:          { label: 'Contratos',                href: '/condo/contratos',             icon: <FileText size={18} /> },
-  visitor_approval:   { label: 'Liberar Visitante',        href: '/condo/liberar-visitante',     icon: <UserCheck size={18} /> },
+  visitor_approval:   { label: 'Liberar Visitante\nCadastrado', href: '/condo/liberar-visitante', icon: <UserCheck size={18} /> },
   pending_del:        { label: 'Encomendas do Cond.',       href: '/condo/encomendas-admin',      icon: <Package size={18} /> },
   approvals:          { label: 'Aprovações',               href: '/condo/aprovacoes',            icon: <Users size={18} /> },
   resident_search:    { label: 'Busca Moradores',          href: '/condo/moradores',             icon: <Users size={18} /> },
-  condo_structure:    { label: 'Estrutura do Condomínio',  href: '/admin/estrutura',             icon: <Building2 size={18} /> },
+  condo_structure:    { label: 'Estrutura do Condomínio',  href: '/condo/estrutura',             icon: <Building2 size={18} /> },
   assemblies:         { label: 'Assembleias',              href: '/admin/assembleias',           icon: <Users size={18} /> },
   // Extras
   avisos:             { label: 'Avisos',                   href: '/condo/avisos',                icon: <Bell size={18} /> },
@@ -34,7 +34,7 @@ const FN_TO_NAV: Record<string, { label: string; href: string; icon: React.React
   visitor_register:   { label: 'Registrar Visitante',      href: '/condo/registrar-visitante',   icon: <BadgeCheck size={18} /> },
   enquetes:           { label: 'Enquetes',                 href: '/condo/enquetes',              icon: <BarChart3 size={18} /> },
   enquete_admin:      { label: 'Enquetes',                 href: '/condo/enquetes',              icon: <BarChart3 size={18} /> },
-  portaria_authorize: { label: 'Autorização Visitante (Portaria)', href: '/condo/autorizar-visitante-portaria', icon: <UserCheck size={18} /> },
+  portaria_authorize: { label: 'Autorização Visitante\n(Portaria)', href: '/condo/autorizar-visitante-portaria', icon: <UserCheck size={18} /> },
   reservas_portaria: { label: 'Reservas (Portaria)', href: '/condo/reservas-portaria', icon: <CalendarDays size={18} /> },
 }
 
@@ -75,7 +75,7 @@ const RESIDENT_NAV: NavItem[] = [
   { label: 'Contratos', href: '/condo/contratos', icon: <FileText size={18} /> },
   { label: 'Avisos', href: '/condo/avisos', icon: <Bell size={18} /> },
   { label: 'Enquetes', href: '/condo/enquetes', icon: <BarChart3 size={18} /> },
-  { label: 'Visitante c/ Autorização', href: '/condo/liberar-visitante', icon: <QrCode size={18} /> },
+  { label: 'Visitante c/ Autorização', href: '/condo/visitante-checkin', icon: <QrCode size={18} /> },
 ]
 
 const PORTER_NAV: NavItem[] = [
@@ -100,7 +100,7 @@ const ADMIN_NAV: NavItem[] = [
   { label: 'Contratos', href: '/condo/contratos', icon: <FileText size={18} /> },
   { label: 'Avisos', href: '/condo/avisos', icon: <Bell size={18} /> },
   { label: 'Enquetes', href: '/condo/enquetes', icon: <BarChart3 size={18} /> },
-  { label: 'Visitante c/ Autorização', href: '/condo/liberar-visitante', icon: <QrCode size={18} /> },
+  { label: 'Visitante c/ Autorização', href: '/condo/visitante-checkin', icon: <QrCode size={18} /> },
   { label: 'Registro de Turno', href: '/condo/registro-turno', icon: <ClipboardList size={18} /> },
   { label: 'Autorização Visitante (Portaria)', href: '/condo/autorizar-visitante-portaria', icon: <UserCheck size={18} /> },
   { label: 'Reservas (Portaria)', href: '/condo/reservas-portaria', icon: <CalendarDays size={18} /> },
@@ -212,7 +212,7 @@ export default function Sidebar({ role, userName, condoName, unidade, featuresCo
           const isActive = pathname === item.href
           return (
             <Link
-              key={item.href}
+              key={item.fnId || item.href}
               href={item.href}
               onClick={() => setMobileOpen(false)}
               className={`flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all duration-150 ${
@@ -222,7 +222,16 @@ export default function Sidebar({ role, userName, condoName, unidade, featuresCo
               }`}
             >
               <span className="flex-shrink-0">{item.icon}</span>
-              {!collapsed && <span className="truncate">{item.label}</span>}
+              {!collapsed && (
+                <span className="truncate leading-tight">
+                  {item.label.includes('\n') ? (
+                    <>
+                      {item.label.split('\n')[0]}
+                      <span className="block text-[13px] opacity-70">{item.label.split('\n')[1]}</span>
+                    </>
+                  ) : item.label}
+                </span>
+              )}
             </Link>
           )
         })}

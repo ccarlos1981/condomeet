@@ -260,6 +260,33 @@ export default function RegistrarVisitanteClient({
 
       if (insertError) { setError('Erro ao salvar: ' + insertError.message); return }
 
+      // Fire-and-forget: send WhatsApp notification to unit residents
+      try {
+        const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
+        const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+        if (supabaseUrl && supabaseAnonKey) {
+          fetch(`${supabaseUrl}/functions/v1/visitor-register-whatsapp-notify`, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${supabaseAnonKey}`,
+            },
+            body: JSON.stringify({
+              condominio_id: condoId,
+              nome: nome.trim(),
+              whatsapp: whatsapp.trim() || null,
+              tipo_visitante: tipoVisitante,
+              empresa: empresa.trim() || null,
+              bloco: bloco.trim() || null,
+              apto: apto.trim() || null,
+              data_visita: new Date().toISOString(),
+            }),
+          }).catch(err => console.error('WhatsApp notify error:', err))
+        }
+      } catch (e) {
+        console.error('WhatsApp notify error:', e)
+      }
+
       // Add to local state immediately so sidebar updates
       if (newVisitor) {
         setVisitantes(prev => [newVisitor, ...prev])

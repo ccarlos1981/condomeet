@@ -44,11 +44,13 @@ class Invitation extends Equatable {
 
   factory Invitation.fromMap(Map<String, dynamic> map) {
     return Invitation(
-      id: map['id'] as String,
-      residentId: map['resident_id'] as String,
-      condominiumId: map['condominio_id'] as String,
+      id: map['id'] as String? ?? '',
+      residentId: map['resident_id'] as String? ?? '',
+      condominiumId: map['condominio_id'] as String? ?? '',
       guestName: map['guest_name'] as String? ?? '',
-      validityDate: DateTime.parse(map['validity_date'] as String),
+      validityDate: map['validity_date'] != null
+          ? DateTime.tryParse(map['validity_date'] as String) ?? DateTime.now()
+          : DateTime.now(),
       qrData: map['qr_data'] as String? ?? '',
       visitorType: map['visitor_type'] as String?,
       visitorPhone: map['visitor_phone'] as String?,
@@ -58,13 +60,17 @@ class Invitation extends Equatable {
           map['visitante_compareceu'] == true,
       liberadoPor: map['liberado_por'] as String?,
       liberadoEm: map['liberado_em'] != null
-          ? DateTime.parse(map['liberado_em'] as String)
+          ? DateTime.tryParse(map['liberado_em'] as String)
           : null,
       residentName: map['resident_name'] as String?,
       blocoTxt: map['bloco_txt'] as String?,
       aptoTxt: map['apto_txt'] as String?,
-      createdAt: DateTime.parse(map['created_at'] as String),
-      updatedAt: DateTime.parse(map['updated_at'] as String),
+      createdAt: map['created_at'] != null
+          ? DateTime.tryParse(map['created_at'] as String) ?? DateTime.now()
+          : DateTime.now(),
+      updatedAt: map['updated_at'] != null
+          ? DateTime.tryParse(map['updated_at'] as String) ?? DateTime.now()
+          : DateTime.now(),
     );
   }
 

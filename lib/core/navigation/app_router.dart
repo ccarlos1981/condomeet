@@ -74,6 +74,7 @@ class AppRouter {
       '/pending-deliveries': (context) => const PendingDeliveriesScreen(),
       '/visitor-registration': (context) => const VisitorRegistrationScreen(),
       '/registrar-visitante': (context) => const VisitorRegistrationScreen(), // alias for stale DB configs
+      '/liberar-visitante-cadastrado': (context) => const VisitorRegistrationScreen(initialTab: 1),
       '/enquete-admin': (context) => const EnqueteAdminScreen(),
       '/enquetes': (context) => const EnqueteVotingScreen(),
       '/parcel-history': (context) {
@@ -144,7 +145,7 @@ class AppRouter {
       '/home': (context) => const HomeScreen(),
       '/admin': (context) => const AdminScreen(),
       '/condo-structure': (context) => const CondominiumStructureScreen(),
-      '/portaria-visitor-approval': (context) => const PortariaVisitorAuthorizationFormScreen(),
+      '/portaria-visitor-approval': (context) => const VisitorRegistrationScreen(initialTab: 1),
       '/autorizar-visitante-portaria': (context) => const PortariaVisitorAuthorizationFormScreen(),
       '/configure-menu': (context) => const ConfigureMenuScreen(),
       '/sos': (context) => const SosScreen(),

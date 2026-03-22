@@ -40,7 +40,7 @@ class Condominium extends Equatable {
         { 'id': 'avisos', 'icon': 'campaign', 'label': 'Avisos', 'route': '/avisos', 'visible': true, 'order': 9 }
       ],
       'porter_menu': [
-        { 'id': 'visitor_approval', 'icon': 'how_to_reg', 'label': 'Visitante c/ Autorização', 'route': '/portaria-visitor-approval', 'visible': true, 'order': 1 },
+        { 'id': 'visitor_approval', 'icon': 'how_to_reg', 'label': 'Liberar Visitante Cadastrado', 'route': '/liberar-visitante-cadastrado', 'visible': true, 'order': 1 },
         { 'id': 'parcel_reg', 'icon': 'add_box', 'label': 'Registrar Encomenda', 'route': '/parcel-registration', 'visible': true, 'order': 2 },
         { 'id': 'pending_del', 'icon': 'local_shipping', 'label': 'Entregas Pendentes', 'route': '/pending-deliveries', 'visible': true, 'order': 3 },
         { 'id': 'visitor_reg', 'icon': 'person_add', 'label': 'Registrar Visitante', 'route': '/visitor-registration', 'visible': true, 'order': 4 }
@@ -100,7 +100,7 @@ class Condominium extends Equatable {
           { 'id': 'enquete_admin', 'icon': 'bar_chart', 'label': 'Enquetes', 'route': '/enquete-admin', 'visible': true, 'order': 10 }
         ],
         'porter_menu': [
-          { 'id': 'visitor_approval', 'icon': 'how_to_reg', 'label': 'Visitante c/ Autorização', 'route': '/portaria-visitor-approval', 'visible': true, 'order': 1 },
+          { 'id': 'visitor_approval', 'icon': 'how_to_reg', 'label': 'Liberar Visitante Cadastrado', 'route': '/liberar-visitante-cadastrado', 'visible': true, 'order': 1 },
           { 'id': 'parcel_reg', 'icon': 'add_box', 'label': 'Registrar Encomenda', 'route': '/parcel-registration', 'visible': true, 'order': 2 },
           { 'id': 'pending_del', 'icon': 'local_shipping', 'label': 'Entregas Pendentes', 'route': '/pending-deliveries', 'visible': true, 'order': 3 },
           { 'id': 'visitor_reg', 'icon': 'person_add', 'label': 'Registrar Visitante', 'route': '/visitor-registration', 'visible': true, 'order': 4 }

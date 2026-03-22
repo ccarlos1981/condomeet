@@ -1,5 +1,5 @@
 'use client'
-import { useState, useEffect, useTransition } from 'react'
+import { useState, useEffect, useCallback, useTransition } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { useRouter } from 'next/navigation'
 import { RefreshCw, Filter, ChevronLeft, ChevronRight, CheckCircle2 } from 'lucide-react'
@@ -31,22 +31,20 @@ interface Invitation {
 
 interface Props {
   initialInvitations: Invitation[]
+  initialTotal: number
   condoId: string
   userId: string
   tipoEstrutura?: string
-  initialLimit?: number
 }
 
-const PAGE_SIZE = 5
+const PAGE_SIZE = 10
 
-export default function VisitorList({ initialInvitations, condoId, userId, tipoEstrutura, initialLimit }: Props) {
+export default function VisitorList({ initialInvitations, initialTotal, condoId, userId, tipoEstrutura }: Props) {
   const [invitations, setInvitations] = useState<Invitation[]>(initialInvitations)
-  const [filtered, setFiltered] = useState<Invitation[]>(initialInvitations)
+  const [total, setTotal] = useState(initialTotal)
   const [approving, setApproving] = useState<string | null>(null)
   const [isPending, startTransition] = useTransition()
   const [loading, setLoading] = useState(false)
-  const [loadedAll, setLoadedAll] = useState(!initialLimit)
-  const [loadingMore, setLoadingMore] = useState(false)
   const router = useRouter()
   const supabase = createClient()
 
@@ -59,26 +57,103 @@ export default function VisitorList({ initialInvitations, condoId, userId, tipoE
 
   // Pagination
   const [page, setPage] = useState(1)
-  const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE))
-  const paginated = filtered.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE)
+  const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE))
 
-  // Apply filters locally
+  // Fetch from database with filters and pagination
+  const fetchData = useCallback(async (currentPage: number) => {
+    setLoading(true)
+    try {
+      // Build count query first
+      let countQuery = supabase
+        .from('convites')
+        .select('id', { count: 'exact', head: true })
+        .eq('condominio_id', condoId)
+
+      // Build data query
+      let dataQuery = supabase
+        .from('convites')
+        .select('id, qr_data, guest_name, visitor_type, visitante_compareceu, validity_date, created_at, liberado_em, resident_id, status, criado_por_portaria, bloco_destino, apto_destino, morador_nome_manual')
+        .eq('condominio_id', condoId)
+        .order('created_at', { ascending: false })
+        .range((currentPage - 1) * PAGE_SIZE, currentPage * PAGE_SIZE - 1)
+
+      // Apply filters
+      if (fCode) {
+        countQuery = countQuery.ilike('qr_data', `%${fCode}%`)
+        dataQuery = dataQuery.ilike('qr_data', `%${fCode}%`)
+      }
+      if (fDate) {
+        countQuery = countQuery.gte('validity_date', `${fDate}T00:00:00`).lte('validity_date', `${fDate}T23:59:59`)
+        dataQuery = dataQuery.gte('validity_date', `${fDate}T00:00:00`).lte('validity_date', `${fDate}T23:59:59`)
+      }
+      if (fStatus !== null) {
+        countQuery = countQuery.eq('visitante_compareceu', fStatus)
+        dataQuery = dataQuery.eq('visitante_compareceu', fStatus)
+      }
+
+      // Note: bloco/apto filters need special handling since they can be in perfil or bloco_destino
+      // We filter by bloco_destino/apto_destino for portaria-created, and join for resident-created
+      if (fBloco) {
+        countQuery = countQuery.or(`bloco_destino.ilike.%${fBloco}%`)
+        dataQuery = dataQuery.or(`bloco_destino.ilike.%${fBloco}%`)
+      }
+      if (fApto) {
+        countQuery = countQuery.or(`apto_destino.ilike.%${fApto}%`)
+        dataQuery = dataQuery.or(`apto_destino.ilike.%${fApto}%`)
+      }
+
+      const [{ count }, { data: convites }] = await Promise.all([countQuery, dataQuery])
+
+      if (convites) {
+        // Fetch perfil for residents
+        const residentIds = [...new Set(convites.map((c: any) => c.resident_id).filter(Boolean))]
+        let perfilMap: Record<string, PerfilJoin> = {}
+        if (residentIds.length > 0) {
+          const { data: perfis } = await supabase
+            .from('perfil')
+            .select('id, nome_completo, bloco_txt, apto_txt')
+            .in('id', residentIds)
+          ;(perfis ?? []).forEach((p: any) => { perfilMap[p.id] = p })
+        }
+        const merged = convites.map((c: any) => ({ ...c, perfil: perfilMap[c.resident_id] ?? null }))
+
+        // Client-side filter by bloco/apto from perfil for non-portaria convites
+        let finalResults = merged
+        if (fBloco) {
+          finalResults = finalResults.filter((i: Invitation) => {
+            const b = i.criado_por_portaria ? i.bloco_destino : i.perfil?.bloco_txt
+            return b?.toLowerCase().includes(fBloco.toLowerCase())
+          })
+        }
+        if (fApto) {
+          finalResults = finalResults.filter((i: Invitation) => {
+            const a = i.criado_por_portaria ? i.apto_destino : i.perfil?.apto_txt
+            return a?.toLowerCase().includes(fApto.toLowerCase())
+          })
+        }
+
+        setInvitations(finalResults)
+        setTotal(count ?? finalResults.length)
+      }
+    } catch (err) {
+      console.error('Fetch error:', err)
+    } finally {
+      setLoading(false)
+    }
+  }, [condoId, fCode, fBloco, fApto, fDate, fStatus, supabase])
+
+  // Debounced fetch on filter/page change
   useEffect(() => {
-    let result = invitations
-    if (fCode) result = result.filter(i => i.qr_data?.toLowerCase().includes(fCode.toLowerCase()))
-    if (fBloco) result = result.filter(i => {
-      const b = i.criado_por_portaria ? i.bloco_destino : i.perfil?.bloco_txt
-      return b?.toLowerCase().includes(fBloco.toLowerCase())
-    })
-    if (fApto) result = result.filter(i => {
-      const a = i.criado_por_portaria ? i.apto_destino : i.perfil?.apto_txt
-      return a?.toLowerCase().includes(fApto.toLowerCase())
-    })
-    if (fDate) result = result.filter(i => i.validity_date?.startsWith(fDate))
-    if (fStatus !== null) result = result.filter(i => Boolean(i.visitante_compareceu) === fStatus)
-    setFiltered(result)
+    const timer = setTimeout(() => {
+      fetchData(page)
+    }, 300)
+    return () => clearTimeout(timer)
+  }, [page, fCode, fBloco, fApto, fDate, fStatus])
+
+  // Reset page when filters change
+  useEffect(() => {
     setPage(1)
-  }, [invitations, fCode, fBloco, fApto, fDate, fStatus])
+  }, [fCode, fBloco, fApto, fDate, fStatus])
 
   async function handleApprove(inv: Invitation) {
     if (Boolean(inv.visitante_compareceu)) return
@@ -91,8 +166,6 @@ export default function VisitorList({ initialInvitations, condoId, userId, tipoE
         liberado_em: new Date().toISOString(),
       })
       .eq('id', inv.id)
-    // Refresh via router (re-fetches server component data)
-    startTransition(() => router.refresh())
     // Optimistic update local state
     setInvitations(prev =>
       prev.map(i => i.id === inv.id ? { ...i, visitante_compareceu: 1, liberado_em: new Date().toISOString() } : i)
@@ -101,11 +174,7 @@ export default function VisitorList({ initialInvitations, condoId, userId, tipoE
   }
 
   const handleRefresh = () => {
-    setLoading(true)
-    startTransition(() => {
-      router.refresh()
-      setLoading(false)
-    })
+    fetchData(page)
   }
 
   const isLiberado = (inv: Invitation) => Boolean(inv.visitante_compareceu)
@@ -117,36 +186,11 @@ export default function VisitorList({ initialInvitations, condoId, userId, tipoE
   const hasFilters = fCode || fBloco || fApto || fDate || fStatus !== null
   const clearFilters = () => { setFCode(''); setFBloco(''); setFApto(''); setFDate(''); setFStatus(null) }
 
-  async function handleLoadAll() {
-    setLoadingMore(true)
-    const { data: allConvites } = await supabase
-      .from('convites')
-      .select('id, qr_data, guest_name, visitor_type, visitante_compareceu, validity_date, created_at, liberado_em, resident_id, status, criado_por_portaria, bloco_destino, apto_destino, morador_nome_manual')
-      .eq('condominio_id', condoId)
-      .order('created_at', { ascending: false })
-
-    if (allConvites) {
-      // Fetch perfil for all residents
-      const residentIds = [...new Set(allConvites.map((c: any) => c.resident_id).filter(Boolean))]
-      let perfilMap: Record<string, PerfilJoin> = {}
-      if (residentIds.length > 0) {
-        const { data: perfis } = await supabase
-          .from('perfil')
-          .select('id, nome_completo, bloco_txt, apto_txt')
-          .in('id', residentIds)
-        ;(perfis ?? []).forEach((p: any) => { perfilMap[p.id] = p })
-      }
-      const merged = allConvites.map((c: any) => ({ ...c, perfil: perfilMap[c.resident_id] ?? null }))
-      setInvitations(merged)
-    }
-    setLoadedAll(true)
-    setLoadingMore(false)
-  }
-
   return (
     <>
       <p className="text-gray-500 text-sm mb-4">
-        {filtered.length} autorização{filtered.length !== 1 ? 'ões' : ''} encontrada{filtered.length !== 1 ? 's' : ''}
+        {total} autorização{total !== 1 ? 'ões' : ''} encontrada{total !== 1 ? 's' : ''}
+        {loading && <RefreshCw size={12} className="inline-block ml-2 animate-spin text-[#FC5931]" />}
       </p>
 
       {/* Filter bar */}
@@ -206,17 +250,17 @@ export default function VisitorList({ initialInvitations, condoId, userId, tipoE
           </div>
           <button
             onClick={handleRefresh}
-            disabled={isPending || loading}
+            disabled={loading}
             className="p-2 text-[#FC5931] hover:bg-[#FC5931]/10 rounded-lg transition-colors"
             title="Atualizar"
           >
-            <RefreshCw size={16} className={isPending || loading ? 'animate-spin' : ''} />
+            <RefreshCw size={16} className={loading ? 'animate-spin' : ''} />
           </button>
         </div>
       </div>
 
       {/* Cards */}
-      {paginated.length === 0 ? (
+      {invitations.length === 0 && !loading ? (
         <div className="bg-white rounded-2xl border border-gray-100 shadow-sm py-16 text-center">
           <Filter size={32} className="mx-auto text-gray-300 mb-3" />
           <p className="text-gray-500 font-medium">Nenhuma autorização encontrada</p>
@@ -228,7 +272,7 @@ export default function VisitorList({ initialInvitations, condoId, userId, tipoE
         </div>
       ) : (
         <div className="space-y-4">
-          {paginated.map(inv => {
+          {invitations.map(inv => {
             const liberado = isLiberado(inv)
             const isPortaria = inv.criado_por_portaria === true
             const bloco = isPortaria ? (inv.bloco_destino ?? '—') : (inv.perfil?.bloco_txt ?? '—')
@@ -332,29 +376,12 @@ export default function VisitorList({ initialInvitations, condoId, userId, tipoE
         </div>
       )}
 
-      {/* Load more / Pagination */}
-      {!loadedAll && !hasFilters && (
-        <div className="flex justify-center mt-6">
-          <button
-            onClick={handleLoadAll}
-            disabled={loadingMore}
-            className="flex items-center gap-2 px-5 py-2.5 text-sm font-semibold text-[#FC5931] bg-[#FC5931]/10 rounded-xl hover:bg-[#FC5931]/20 transition-colors disabled:opacity-50"
-          >
-            {loadingMore ? (
-              <RefreshCw size={14} className="animate-spin" />
-            ) : (
-              <ChevronRight size={14} />
-            )}
-            {loadingMore ? 'Carregando...' : 'Ver mais autorizações'}
-          </button>
-        </div>
-      )}
-
+      {/* Pagination */}
       {totalPages > 1 && (
         <div className="flex items-center justify-center gap-4 mt-6">
           <button
             onClick={() => setPage(p => Math.max(1, p - 1))}
-            disabled={page === 1}
+            disabled={page === 1 || loading}
             aria-label="Página anterior"
             title="Página anterior"
             className="p-2 rounded-xl border border-gray-200 text-gray-500 hover:bg-gray-50 disabled:opacity-40 transition-colors"
@@ -364,7 +391,7 @@ export default function VisitorList({ initialInvitations, condoId, userId, tipoE
           <span className="text-sm text-gray-600 font-medium">{page} de {totalPages}</span>
           <button
             onClick={() => setPage(p => Math.min(totalPages, p + 1))}
-            disabled={page === totalPages}
+            disabled={page === totalPages || loading}
             aria-label="Próxima página"
             title="Próxima página"
             className="p-2 rounded-xl border border-gray-200 text-gray-500 hover:bg-gray-50 disabled:opacity-40 transition-colors"

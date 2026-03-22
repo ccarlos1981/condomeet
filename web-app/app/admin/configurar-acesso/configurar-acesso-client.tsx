@@ -14,7 +14,7 @@ const ALL_FUNCTIONS = [
   { id: 'contracts',         label: 'Contratos',               icon: 'description',   emoji: '📋', route: '/contratos',                    defaultRoles: ['morador'] },
   { id: 'avisos',            label: 'Avisos',                  icon: 'campaign',      emoji: '📢', route: '/avisos',                      defaultRoles: ['morador'] },
   { id: 'enquetes',          label: 'Enquetes',                icon: 'bar_chart',     emoji: '📊', route: '/enquetes',                    defaultRoles: ['morador'] },
-  { id: 'visitor_approval',  label: 'Liberar Visitante',       icon: 'check_circle',  emoji: '✅', route: '/portaria-visitor-approval',   defaultRoles: ['portaria'] },
+  { id: 'visitor_approval',  label: 'Liberar Visitante Cadastrado', icon: 'check_circle',  emoji: '✅', route: '/portaria-visitor-approval',   defaultRoles: ['portaria'] },
   { id: 'pending_del',       label: 'Encomendas do Cond.',      icon: 'local_shipping',emoji: '🚚', route: '/pending-deliveries',          defaultRoles: ['portaria', 'sindico'] },
   { id: 'approvals',         label: 'Aprovações',              icon: 'check_circle',  emoji: '✔️', route: '/manager-approval',            defaultRoles: ['sindico'] },
   { id: 'resident_search',   label: 'Busca Moradores',         icon: 'person_search', emoji: '🔍', route: '/resident-search',             defaultRoles: ['sindico'] },
