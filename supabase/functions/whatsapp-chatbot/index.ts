@@ -15,6 +15,9 @@ const GEMINI_API_URL = "https://generativelanguage.googleapis.com/v1beta/models"
 const MAX_HISTORY = 10 // last N messages for context
 const HISTORY_TTL_HOURS = 24 // only load messages from last 24h
 
+// ── Admin phone numbers that can control the bot ──────────────────────────
+const ADMIN_PHONES = ["5531992707070", "5531994707070", "31992707070", "31994707070"]
+
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, token",
@@ -240,6 +243,48 @@ Deno.serve(async (req) => {
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? ""
     )
 
+    // ── MAGIC WORD: admin can pause/resume bot ────────────────────────────
+    const isAdmin = ADMIN_PHONES.some(p => incoming.phone.replace(/\D/g, '').endsWith(p.replace(/\D/g, '')))
+    if (isAdmin) {
+      const cmd = incoming.text.trim().toUpperCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "")
+      const UAZAPI_URL_tmp = Deno.env.get("UAZAPI_URL") ?? ""
+      const UAZAPI_TOKEN_tmp = Deno.env.get("UAZAPI_TOKEN") ?? ""
+
+      if (cmd === "DESATIVAR" || cmd === "PAUSAR") {
+        await supabase.from("bot_config").update({
+          ativo: false,
+          desativado_por: incoming.phone,
+          desativado_em: new Date().toISOString(),
+        }).eq("id", 1)
+        await sendTextMessage(UAZAPI_URL_tmp, UAZAPI_TOKEN_tmp, incoming.phone,
+          "🔴 Bot DESATIVADO. Atenda os moradores normalmente. Quando terminar, envie ATIVAR.")
+        return jsonResponse({ ok: true, action: "bot_desativado" })
+      }
+
+      if (cmd === "ATIVAR" || cmd === "REATIVAR") {
+        await supabase.from("bot_config").update({
+          ativo: true,
+          reativado_em: new Date().toISOString(),
+        }).eq("id", 1)
+        await sendTextMessage(UAZAPI_URL_tmp, UAZAPI_TOKEN_tmp, incoming.phone,
+          "🟢 Bot ATIVADO. Voltei a atender os moradores automaticamente!")
+        return jsonResponse({ ok: true, action: "bot_ativado" })
+      }
+
+      if (cmd === "STATUS") {
+        const { data: cfg } = await supabase.from("bot_config").select("ativo, desativado_em, reativado_em").eq("id", 1).single()
+        const statusMsg = cfg?.ativo
+          ? `🟢 Bot está ATIVO.${cfg.reativado_em ? ` Reativado em: ${new Date(cfg.reativado_em).toLocaleString("pt-BR")}` : ""}`
+          : `🔴 Bot está DESATIVADO.${cfg?.desativado_em ? ` Desde: ${new Date(cfg.desativado_em).toLocaleString("pt-BR")}` : ""}`
+        await sendTextMessage(UAZAPI_URL_tmp, UAZAPI_TOKEN_tmp, incoming.phone, statusMsg)
+        return jsonResponse({ ok: true, action: "status_enviado" })
+      }
+
+      // Admin sent something else — let it fall through normally (or skip)
+      return jsonResponse({ skipped: true, reason: "Admin message, not a command" })
+    }
+    // ─────────────────────────────────────────────────────────────────────
+
     // 3. Get API keys
     const UAZAPI_URL = Deno.env.get("UAZAPI_URL")
     const UAZAPI_TOKEN = Deno.env.get("UAZAPI_TOKEN")
@@ -253,6 +298,14 @@ Deno.serve(async (req) => {
       console.error("GEMINI_API_KEY not configured")
       return jsonResponse({ error: "Gemini API not configured" }, 500)
     }
+
+    // ── Check if bot is active ────────────────────────────────────────────
+    const { data: botCfg } = await supabase.from("bot_config").select("ativo").eq("id", 1).single()
+    if (botCfg && !botCfg.ativo) {
+      console.log("[Bot] Bot is DISABLED — skipping response")
+      return jsonResponse({ skipped: true, reason: "Bot desativado pelo admin" })
+    }
+    // ─────────────────────────────────────────────────────────────────────
 
     // 4. Identify resident by phone number
     // Try matching with and without DDI prefix
