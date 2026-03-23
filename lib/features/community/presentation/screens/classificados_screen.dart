@@ -48,7 +48,7 @@ class _ClassificadosScreenState extends State<ClassificadosScreen> {
   String? _expandedAdminId;
 
   bool get _isAdmin =>
-      _role == 'admin' || _role == 'syndic' || _role == 'Síndico';
+      _role == 'Síndico' || _role == 'Síndico (a)' || _role == 'syndic' || _role == 'admin';
 
   @override
   void initState() {
@@ -79,20 +79,40 @@ class _ClassificadosScreenState extends State<ClassificadosScreen> {
     setState(() => _loading = true);
 
     try {
-      // Classificados do condomínio
+      // 1. Classificados do condomínio (sem FK join)
       final data = await _supabase
           .from('classificados')
-          .select('*, perfil:criado_por (nome_completo, bloco_txt, apto_txt, whatsapp)')
+          .select('*')
           .eq('condominio_id', _condoId)
           .order('created_at', ascending: false);
 
-      // Favoritos do usuário
+      final classificadosList = List<Map<String, dynamic>>.from(data);
+
+      // 2. Busca perfis dos criadores separadamente
+      final creatorIds = classificadosList
+          .map((c) => c['criado_por'] as String?)
+          .whereType<String>()
+          .toSet()
+          .toList();
+
+      Map<String, Map<String, dynamic>> perfilMap = {};
+      if (creatorIds.isNotEmpty) {
+        final perfis = await _supabase
+            .from('perfil')
+            .select('id, nome_completo, bloco_txt, apto_txt, whatsapp')
+            .inFilter('id', creatorIds);
+        for (final p in List<Map<String, dynamic>>.from(perfis)) {
+          perfilMap[p['id'] as String] = p;
+        }
+      }
+
+      // 3. Favoritos do usuário
       final favs = await _supabase
           .from('classificados_favoritos')
           .select('classificado_id')
           .eq('usuario_id', _userId);
 
-      // Tipo estrutura
+      // 4. Tipo estrutura
       final condo = await _supabase
           .from('condominios')
           .select('tipo_estrutura')
@@ -101,11 +121,9 @@ class _ClassificadosScreenState extends State<ClassificadosScreen> {
 
       if (mounted) {
         setState(() {
-          _classificados = List<Map<String, dynamic>>.from(data).map((c) {
-            final p = c['perfil'];
-            if (p is List && p.isNotEmpty) {
-              c['perfil'] = p[0];
-            }
+          _classificados = classificadosList.map((c) {
+            final criadorId = c['criado_por'] as String?;
+            c['perfil'] = criadorId != null ? perfilMap[criadorId] : null;
             return c;
           }).toList();
           _favoritosIds = Set<String>.from(
