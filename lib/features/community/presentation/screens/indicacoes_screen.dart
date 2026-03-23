@@ -27,6 +27,46 @@ const _especialidadeEmoji = {
   'Serralheiro': '⛓️', 'TI / Informática': '💻', 'Outros': '🌟',
 };
 
+// ── UF & Cidades ──────────────────────────────────────────────────────────────
+
+/// All Brazilian states sorted alphabetically by abbreviation
+const _kUFs = [
+  'AC', 'AL', 'AM', 'AP', 'BA', 'CE', 'DF', 'ES', 'GO',
+  'MA', 'MG', 'MS', 'MT', 'PA', 'PB', 'PE', 'PI', 'PR',
+  'RJ', 'RN', 'RO', 'RR', 'RS', 'SC', 'SE', 'SP', 'TO',
+];
+
+/// Cities per UF sorted from most populous to least populous (top-20 per state)
+const _kCidadesPorUF = <String, List<String>>{
+  'AC': ['Rio Branco', 'Cruzeiro do Sul', 'Sena Madureira', 'Tarauacá', 'Feijó', 'Brasileia', 'Epitaciolândia', 'Mâncio Lima', 'Rodrigues Alves', 'Placas'],
+  'AL': ['Maceió', 'Arapiraca', 'Palmeira dos Índios', 'Rio Largo', 'Penedo', 'União dos Palmares', 'São Miguel dos Campos', 'Santana do Ipanema', 'Marechal Deodoro', 'Coruripe'],
+  'AM': ['Manaus', 'Parintins', 'Itacoatiara', 'Manacapuru', 'Coari', 'Tefé', 'Maués', 'Tabatinga', 'Santarém (Tefé)', 'Iranduba'],
+  'AP': ['Macapá', 'Santana', 'Laranjal do Jari', 'Oiapoque', 'Mazagão', 'Porto Grande', 'Tartarugalzinho', 'Amapá', 'Pedra Branca do Amapari', 'Calçoene'],
+  'BA': ['Salvador', 'Feira de Santana', 'Vitória da Conquista', 'Camaçari', 'Juazeiro', 'Itabuna', 'Ilhéus', 'Lauro de Freitas', 'Jequié', 'Barreiras', 'Alagoinhas', 'Porto Seguro', 'Simões Filho', 'Paulo Afonso', 'Eunápolis', 'Santo Antônio de Jesus', 'Teixeira de Freitas', 'Jacobina', 'Senhor do Bonfim', 'Serrinha'],
+  'CE': ['Fortaleza', 'Caucaia', 'Juazeiro do Norte', 'Maracanaú', 'Sobral', 'Crato', 'Itapipoca', 'Maranguape', 'Iguatu', 'Quixadá', 'Pacatuba', 'Crateús', 'Canindé', 'Russas', 'Cascavel', 'Aquiraz', 'Horizonte', 'Tianguá', 'Camocim', 'Limoeiro do Norte'],
+  'DF': ['Brasília', 'Ceilândia', 'Taguatinga', 'Samambaia', 'Planaltina', 'Águas Claras', 'Gama', 'Sobradinho', 'Guará', 'Recanto das Emas'],
+  'ES': ['Vitória', 'Serra', 'Cariacica', 'Vila Velha', 'Cachoeiro de Itapemirim', 'Linhares', 'São Mateus', 'Colatina', 'Guarapari', 'Aracruz'],
+  'GO': ['Goiânia', 'Aparecida de Goiânia', 'Anápolis', 'Rio Verde', 'Luziânia', 'Águas Lindas de Goiás', 'Valparaíso de Goiás', 'Trindade', 'Formosa', 'Novo Gama', 'Catalão', 'Jataí', 'Senador Canedo', 'Itumbiara', 'Caldas Novas'],
+  'MA': ['São Luís', 'Imperatriz', 'Timon', 'Caxias', 'Codó', 'Paço do Lumiar', 'Açailândia', 'Bacabal', 'Balsas', 'Santa Inês'],
+  'MG': ['Belo Horizonte', 'Uberlândia', 'Contagem', 'Juiz de Fora', 'Betim', 'Montes Claros', 'Ribeirão das Neves', 'Uberaba', 'Governador Valadares', 'Ipatinga', 'Sete Lagoas', 'Divinópolis', 'Santa Luzia', 'Poços de Caldas', 'Patos de Minas', 'Coronel Fabriciano', 'Ubá', 'Varginha', 'Itabira', 'Conselheiro Lafaiete'],
+  'MS': ['Campo Grande', 'Dourados', 'Três Lagoas', 'Corumbá', 'Ponta Porã', 'Naviraí', 'Nova Andradina', 'Aquidauana', 'Sidrolândia', 'Paranaíba'],
+  'MT': ['Cuiabá', 'Várzea Grande', 'Rondonópolis', 'Sinop', 'Tangará da Serra', 'Cáceres', 'Sorriso', 'Lucas do Rio Verde', 'Primavera do Leste', 'Barra do Garças'],
+  'PA': ['Belém', 'Ananindeua', 'Santarém', 'Marabá', 'Parauapebas', 'Castanhal', 'Abaetetuba', 'Cametá', 'Bragança', 'Altamira', 'Marituba', 'Tailândia', 'Redenção', 'Tucuruí', 'Capanema'],
+  'PB': ['João Pessoa', 'Campina Grande', 'Santa Rita', 'Patos', 'Bayeux', 'Sousa', 'Cajazeiras', 'Cabedelo', 'Guarabira', 'Mamanguape'],
+  'PE': ['Recife', 'Caruaru', 'Olinda', 'Petrolina', 'Paulista', 'Cabo de Santo Agostinho', 'Camaçari', 'Jaboatão dos Guararapes', 'Santa Cruz do Capibaribe', 'Vitória de Santo Antão', 'Garanhuns', 'Ipojuca', 'Igarassu', 'Araripina', 'São Lourenço da Mata'],
+  'PI': ['Teresina', 'Parnaíba', 'Picos', 'Piripiri', 'Floriano', 'Campo Maior', 'Barras', 'Caxias (divisa)', 'União', 'Altos'],
+  'PR': ['Curitiba', 'Londrina', 'Maringá', 'Ponta Grossa', 'Cascavel', 'São José dos Pinhais', 'Foz do Iguaçu', 'Colombo', 'Guarapuava', 'Paranaguá', 'Araucária', 'Toledo', 'Apucarana', 'Pinhais', 'Campo Largo', 'Almirante Tamandaré', 'Umuarama', 'Piraquara', 'Sarandi', 'Fazenda Rio Grande'],
+  'RJ': ['Rio de Janeiro', 'São Gonçalo', 'Duque de Caxias', 'Nova Iguaçu', 'Belford Roxo', 'Niterói', 'São João de Meriti', 'Campos dos Goytacazes', 'Petrópolis', 'Volta Redonda', 'Magé', 'Mesquita', 'Itaboraí', 'Nova Friburgo', 'Barra Mansa', 'Angra dos Reis', 'Nilópolis', 'Macaé', 'Cabo Frio', 'Queimados'],
+  'RN': ['Natal', 'Mossoró', 'Parnamirim', 'São Gonçalo do Amarante', 'Macaíba', 'Ceará-Mirim', 'Caicó', 'Currais Novos', 'Açu', 'Santa Cruz'],
+  'RO': ['Porto Velho', 'Ji-Paraná', 'Ariquemes', 'Vilhena', 'Cacoal', 'Rolim de Moura', 'Guajará-Mirim', 'Jaru', 'Ouro Preto do Oeste', 'Buritis'],
+  'RR': ['Boa Vista', 'Rorainópolis', 'Caracaraí', 'Alto Alegre', 'Mucajaí', 'Cantá', 'Bonfim', 'Pacaraima', 'Amajari', 'Iracema'],
+  'RS': ['Porto Alegre', 'Caxias do Sul', 'Pelotas', 'Canoas', 'Santa Maria', 'Gravataí', 'Viamão', 'Novo Hamburgo', 'São Leopoldo', 'Rio Grande', 'Alvorada', 'Passo Fundo', 'Sapucaia do Sul', 'Uruguaiana', 'Santa Cruz do Sul', 'Cachoeirinha', 'Bagé', 'Bento Gonçalves', 'Erechim', 'Sapiranga'],
+  'SC': ['Joinville', 'Florianópolis', 'Blumenau', 'São José', 'Criciúma', 'Chapecó', 'Itajaí', 'Lages', 'Jaraguá do Sul', 'Palhoça', 'Balneário Camboriú', 'Brusque', 'Tubarão', 'São Bento do Sul', 'Caçador'],
+  'SE': ['Aracaju', 'Nossa Senhora do Socorro', 'Lagarto', 'Itabaiana', 'São Cristóvão', 'Estância', 'Nossa Senhora da Glória', 'Tobias Barreto', 'Simão Dias', 'Itabaianinha'],
+  'SP': ['São Paulo', 'Guarulhos', 'Campinas', 'São Bernardo do Campo', 'Santo André', 'São José dos Campos', 'Ribeirão Preto', 'Osasco', 'Sorocaba', 'Mauá', 'São José do Rio Preto', 'Mogi das Cruzes', 'Santos', 'Diadema', 'Jundiaí', 'Piracicaba', 'Carapicuíba', 'Bauru', 'Itaquaquecetuba', 'São Vicente', 'Franca', 'Guarujá', 'Taubaté', 'Limeira', 'Suzano', 'Taboão da Serra', 'Praia Grande', 'Barueri', 'Sumaré', 'Caçapava'],
+  'TO': ['Palmas', 'Araguaína', 'Gurupi', 'Porto Nacional', 'Paraíso do Tocantins', 'Colinas do Tocantins', 'Guaraí', 'Tocantinópolis', 'Miracema do Tocantins', 'Dianópolis'],
+};
+
 // ── Screen ────────────────────────────────────────────────────────────────────
 
 class IndicacoesScreen extends StatefulWidget {
@@ -64,11 +104,23 @@ class _IndicacoesScreenState extends State<IndicacoesScreen> {
 
     final indRes = await _supabase
         .from('indicacoes_servico')
-        .select('*, criador:perfil!criado_por(nome_completo)')
+        .select('*')
         .eq('condominio_id', _condoId)
         .order('created_at', ascending: false);
 
-    final ids = (indRes as List).map((i) => i['id'] as String).toList();
+    // Fetch creator names separately
+    final ids2 = (indRes as List).map((i) => i['criado_por'] as String).toSet().toList();
+    Map<String, String> criadorMap = {};
+    if (ids2.isNotEmpty) {
+      final criRes = await _supabase.from('perfil').select('id, nome_completo').inFilter('id', ids2);
+      criadorMap = { for (final c in (criRes as List)) c['id'] as String: c['nome_completo'] as String? ?? 'Morador' };
+    }
+    final indResWithCriador = (indRes).map((i) => {
+      ...Map<String, dynamic>.from(i as Map),
+      'criador': {'nome_completo': criadorMap[i['criado_por']] ?? 'Morador'},
+    }).toList();
+
+    final ids = indResWithCriador.map((i) => i['id'] as String).toList();
     List<Map<String, dynamic>> avs = [];
     if (ids.isNotEmpty) {
       final avsRes = await _supabase
@@ -80,7 +132,7 @@ class _IndicacoesScreenState extends State<IndicacoesScreen> {
 
     if (mounted) {
       setState(() {
-        _indicacoes = List<Map<String, dynamic>>.from(indRes);
+        _indicacoes = List<Map<String, dynamic>>.from(indResWithCriador);
         _avaliacoes = avs;
         _loading = false;
       });
@@ -247,6 +299,8 @@ class _IndicacoesScreenState extends State<IndicacoesScreen> {
 
   void _openNewIndicacao() {
     String nome = '', whatsapp = '', uf = '', cidade = '', obs = '', esp = '';
+    String? selectedUf;
+    String? selectedCidade;
     String espSearch = '';
     File? fotoFile;
     String? fotoPreview;
@@ -342,18 +396,85 @@ class _IndicacoesScreenState extends State<IndicacoesScreen> {
                   ),
                   const SizedBox(height: 12),
 
-                  // UF + Cidade
+                  // UF + Cidade (cascading dropdowns)
                   Row(
+                    crossAxisAlignment: CrossAxisAlignment.end,
                     children: [
                       SizedBox(
-                        width: 70,
-                        child: _buildField('UF', hint: 'SP', maxLength: 2,
-                          onChanged: (v) => uf = v.toUpperCase()),
+                        width: 88,
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const Text('UF', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13)),
+                            const SizedBox(height: 6),
+                            DropdownButtonFormField<String>(
+                              value: selectedUf,
+                              isDense: true,
+                              isExpanded: true,
+                              hint: const Text('UF', style: TextStyle(fontSize: 13)),
+                              decoration: InputDecoration(
+                                contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 11),
+                                border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                                enabledBorder: OutlineInputBorder(
+                                  borderRadius: BorderRadius.circular(12),
+                                  borderSide: BorderSide(color: Colors.grey.shade200),
+                                ),
+                                focusedBorder: OutlineInputBorder(
+                                  borderRadius: BorderRadius.circular(12),
+                                  borderSide: const BorderSide(color: AppColors.primary),
+                                ),
+                                isDense: true,
+                              ),
+                              items: _kUFs.map((u) => DropdownMenuItem(value: u, child: Text(u, style: const TextStyle(fontSize: 13)))).toList(),
+                              onChanged: (v) => setModalState(() {
+                                selectedUf = v;
+                                uf = v ?? '';
+                                selectedCidade = null;
+                                cidade = '';
+                              }),
+                            ),
+                          ],
+                        ),
                       ),
-                      const SizedBox(width: 12),
+                      const SizedBox(width: 10),
                       Expanded(
-                        child: _buildField('Cidade', hint: 'São Paulo',
-                          onChanged: (v) => cidade = v),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const Text('Cidade', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13)),
+                            const SizedBox(height: 6),
+                            DropdownButtonFormField<String>(
+                              value: selectedCidade,
+                              isDense: true,
+                              isExpanded: true,
+                              hint: Text(
+                                selectedUf == null ? 'Selecione UF' : 'Cidade',
+                                style: const TextStyle(fontSize: 13),
+                              ),
+                              decoration: InputDecoration(
+                                contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 11),
+                                border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                                enabledBorder: OutlineInputBorder(
+                                  borderRadius: BorderRadius.circular(12),
+                                  borderSide: BorderSide(color: Colors.grey.shade200),
+                                ),
+                                focusedBorder: OutlineInputBorder(
+                                  borderRadius: BorderRadius.circular(12),
+                                  borderSide: const BorderSide(color: AppColors.primary),
+                                ),
+                                isDense: true,
+                              ),
+                              items: selectedUf == null
+                                  ? []
+                                  : (_kCidadesPorUF[selectedUf] ?? []).map((c) =>
+                                      DropdownMenuItem(value: c, child: Text(c, style: const TextStyle(fontSize: 13)))).toList(),
+                              onChanged: selectedUf == null ? null : (v) => setModalState(() {
+                                selectedCidade = v;
+                                cidade = v ?? '';
+                              }),
+                            ),
+                          ],
+                        ),
                       ),
                     ],
                   ),
