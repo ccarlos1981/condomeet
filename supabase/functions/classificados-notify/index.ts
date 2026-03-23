@@ -1,7 +1,7 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2"
 import { create } from "https://deno.land/x/djwt@v2.9.1/mod.ts"
-import { sendMessage, sendToRecipients } from "../_shared/botconversa.ts"
+import { sendTextMessage, normalizePhone } from "../_shared/uazapi.ts"
 
 // ── Dynamic structure labels ────────────────────────────────────────────────
 function getBlocoLabel(tipo?: string): string {
@@ -158,7 +158,8 @@ serve(async (req) => {
     const aptoLabel = getAptoLabel(tipoEstrutura)
 
     const accessToken = await getAccessToken(serviceAccount)
-    const botconversaKey = Deno.env.get("BOTCONVERSA_API_KEY") ?? ""
+    const UAZAPI_URL = Deno.env.get("UAZAPI_URL") ?? ""
+    const UAZAPI_TOKEN = Deno.env.get("UAZAPI_TOKEN") ?? ""
 
     let pushResults: any[] = []
     let whatsappResults: any[] = []
@@ -167,10 +168,10 @@ serve(async (req) => {
     // ACTION: novo — Notify síndicos (Push + WhatsApp)
     // ══════════════════════════════════════════════════════════
     if (action === "novo") {
-      // Fetch síndicos with FCM tokens (use ilike for accent-safe matching)
+      // Fetch síndicos (use ilike for accent-safe matching)
       const { data: sindicos, error: sindicosError } = await supabase
         .from("perfil")
-        .select("id, nome_completo, fcm_token, botconversa_id")
+        .select("id, nome_completo, fcm_token, whatsapp")
         .eq("condominio_id", condominio_id)
         .or("papel_sistema.ilike.%síndico%,papel_sistema.ilike.%sindico%,papel_sistema.ilike.%subsíndico%,papel_sistema.ilike.%subsindico%,papel_sistema.eq.admin,papel_sistema.eq.ADMIN")
 
@@ -191,30 +192,27 @@ serve(async (req) => {
         )
       )
 
-      // WhatsApp to síndicos
-      const whatsappMsg = `📦 Condomeet informa
+      // WhatsApp to síndicos via UazAPI
+      const codInterno = classificado.cod_interno || Math.random().toString(36).substring(2, 7).toUpperCase()
+      const whatsappMsg = `📦 Condomeet informa\n\nTem um novo anúncio do morador do:\nNome: ${criador?.nome_completo ?? "Morador"}\n\n${blocoLabel}: ${criador?.bloco_txt ?? "?"}\n${aptoLabel}: ${criador?.apto_txt ?? "?"}\n\nAnúncio: ${classificado.titulo}\n\nO anúncio está pronto para você avaliar e se estiver dentro do regimento do condomínio, aprovar.\n\nCondomeet agradece!\nCod. interno: ${codInterno}`
 
-Tem um novo anúncio do morador do:
-Nome: ${criador?.nome_completo ?? "Morador"}
+      const whatsappRecipients = (sindicos ?? []).filter((s: any) => s.whatsapp && s.whatsapp.length > 8)
+      console.log(`[classificados-notify] WA recipients: ${whatsappRecipients.length}, UAZAPI_URL set: ${!!UAZAPI_URL}`)
 
-${blocoLabel}: ${criador?.bloco_txt ?? "?"}
-${aptoLabel}: ${criador?.apto_txt ?? "?"}
-
-Anúncio: ${classificado.titulo}
-
-O anúncio está pronto para você avaliar e se estiver dentro do regimento do condomínio, aprovar.
-
-Condomeet agradece!
-Cod. interno: ${classificado.cod_interno}`
-
-      const whatsappRecipients = (sindicos ?? []).filter((s: any) => s.botconversa_id)
-      if (whatsappRecipients.length > 0 && botconversaKey) {
-        whatsappResults = await sendToRecipients(
-          botconversaKey,
-          whatsappRecipients,
-          whatsappMsg,
-          "text"
-        )
+      if (whatsappRecipients.length > 0 && UAZAPI_URL && UAZAPI_TOKEN) {
+        for (const recipient of whatsappRecipients) {
+          const phone = normalizePhone(recipient.whatsapp)
+          console.log(`[classificados-notify] Sending WA to ${recipient.nome_completo} (${phone})...`)
+          const result = await sendTextMessage(UAZAPI_URL, UAZAPI_TOKEN, phone, whatsappMsg)
+          console.log(`[classificados-notify] WA result: ${result.success ? '✅' : '❌'} ${result.error || ''}`)
+          whatsappResults.push({ success: result.success, subscriberId: phone, error: result.error })
+          // Rate limit between sends
+          if (whatsappRecipients.indexOf(recipient) < whatsappRecipients.length - 1) {
+            await new Promise(r => setTimeout(r, 1000))
+          }
+        }
+      } else {
+        console.log(`[classificados-notify] SKIPPING WA: recipients=${whatsappRecipients.length} uazapi=${!!UAZAPI_URL}`)
       }
     }
 
