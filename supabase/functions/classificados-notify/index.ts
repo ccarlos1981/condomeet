@@ -141,7 +141,7 @@ serve(async (req) => {
     // 4. Fetch creator profile
     const { data: criador } = await supabase
       .from("perfil")
-      .select("nome_completo, bloco_txt, apto_txt, whatsapp, fcm_token, botconversa_id")
+      .select("nome_completo, bloco_txt, apto_txt, whatsapp, fcm_token")
       .eq("id", classificado.criado_por)
       .single()
 
@@ -257,6 +257,17 @@ serve(async (req) => {
         )
       )
       pushResults.push(...moradoresResults)
+
+      // WhatsApp to creator via UazAPI
+      if (criador?.whatsapp && criador.whatsapp.length > 8 && UAZAPI_URL && UAZAPI_TOKEN) {
+        const codInterno = classificado.cod_interno || Math.random().toString(36).substring(2, 7).toUpperCase()
+        const waMsg = `📰 ${condoNome}\n\nSeu anúncio foi aprovado pelo Condomínio!\n\nAnúncio: ${classificado.titulo}\n\nLembre-se que o anúncio terá validade de 60 dias.\nData: ${dataFormatada}\n\nCondomeet agradece!\nCod. interno: ${codInterno}`
+        const phone = normalizePhone(criador.whatsapp)
+        console.log(`[classificados-notify] Sending approval WA to creator ${criador.nome_completo} (${phone})`)
+        const waResult = await sendTextMessage(UAZAPI_URL, UAZAPI_TOKEN, phone, waMsg)
+        console.log(`[classificados-notify] WA approval result: ${waResult.success ? '✅' : '❌'} ${waResult.error || ''}`)
+        whatsappResults.push({ success: waResult.success, subscriberId: phone, error: waResult.error })
+      }
     }
 
     // ══════════════════════════════════════════════════════════
