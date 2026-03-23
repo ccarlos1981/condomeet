@@ -37,11 +37,15 @@ export default async function AlbumFotosCondoPage() {
     autor_nome: (a.perfil as unknown as { nome_completo: string })?.nome_completo ?? 'Administrador',
     imagens: (a.album_fotos_imagens ?? []).sort((x: { ordem: number }, y: { ordem: number }) => x.ordem - y.ordem),
     reacoes: a.album_fotos_reacoes ?? [],
-    comentarios: (a.album_fotos_comentarios ?? []).sort(
-      (x: { created_at: string }, y: { created_at: string }) => new Date(x.created_at).getTime() - new Date(y.created_at).getTime()
+    comentarios: (a.album_fotos_comentarios ?? []).map((c: Record<string, unknown>) => ({
+      ...c,
+      perfil: Array.isArray(c.perfil) ? c.perfil[0] : c.perfil,
+    })).sort(
+      (x: Record<string, unknown>, y: Record<string, unknown>) => new Date(x.created_at as string).getTime() - new Date(y.created_at as string).getTime()
     ),
     visualizacoes_count: (a.album_fotos_visualizacoes as unknown as { count: number }[])?.[0]?.count ?? 0,
-  }))
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  })) as any
 
   return (
     <AlbumFotosCondoClient
