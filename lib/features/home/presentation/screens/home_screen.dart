@@ -1073,31 +1073,32 @@ class _HomeScreenState extends State<HomeScreen> {
           ),
         ],
       ),
-      child: Stack(
-        alignment: Alignment.center,
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          if (icon != null)
-            Icon(icon, color: iconColor, size: 32),
-          Positioned(
-            bottom: 8,
-            left: 4,
-            right: 4,
-            child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
-              decoration: BoxDecoration(
-                color: Colors.black.withValues(alpha: 0.25),
-                borderRadius: BorderRadius.circular(8),
-              ),
-              child: const Text(
-                'sua marca aqui',
-                textAlign: TextAlign.center,
-                style: TextStyle(
-                  color: Colors.white,
-                  fontSize: 7.5,
-                  fontWeight: FontWeight.w600,
-                  letterSpacing: 0.2,
-                ),
-              ),
+          Container(
+            width: 34,
+            height: 34,
+            decoration: BoxDecoration(
+              color: Colors.white.withValues(alpha: 0.2),
+              shape: BoxShape.circle,
+            ),
+            child: Icon(
+              icon ?? Icons.storefront_rounded,
+              color: iconColor,
+              size: 20,
+            ),
+          ),
+          const SizedBox(height: 6),
+          const Text(
+            'sua marca\naqui',
+            textAlign: TextAlign.center,
+            style: TextStyle(
+              color: Colors.white,
+              fontSize: 9.5,
+              fontWeight: FontWeight.w700,
+              height: 1.25,
+              letterSpacing: 0.1,
             ),
           ),
         ],
