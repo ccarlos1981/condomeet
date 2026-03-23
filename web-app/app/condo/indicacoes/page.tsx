@@ -17,15 +17,36 @@ export default async function IndicacoesPage() {
 
   const condoId = profile?.condominio_id ?? ''
 
-  // Fetch indicações with creator info
+  // 1. Fetch indicações (sem join FK — mais seguro)
   const { data: indicacoes } = await supabase
     .from('indicacoes_servico')
-    .select('*, criador:perfil!criado_por(nome_completo)')
+    .select('*')
     .eq('condominio_id', condoId)
     .order('created_at', { ascending: false })
 
-  // Fetch all ratings for this condo's indicações
-  const indicacaoIds = (indicacoes ?? []).map((i: any) => i.id)
+  const indicacoesList = indicacoes ?? []
+
+  // 2. Fetch names of creators in one go
+  const creatorIds = [...new Set(indicacoesList.map((i: { criado_por: string }) => i.criado_por))]
+  const { data: criadores } = creatorIds.length > 0
+    ? await supabase
+        .from('perfil')
+        .select('id, nome_completo')
+        .in('id', creatorIds)
+    : { data: [] }
+
+  const criadorMap = Object.fromEntries(
+    (criadores ?? []).map((c: { id: string; nome_completo: string }) => [c.id, c.nome_completo])
+  )
+
+  // 3. Merge creator names into indicações
+  const indicacoesComCriador = indicacoesList.map((i: { criado_por: string }) => ({
+    ...i,
+    criador: { nome_completo: criadorMap[i.criado_por] ?? 'Morador' },
+  }))
+
+  // 4. Fetch all ratings for this condo's indicações
+  const indicacaoIds = indicacoesList.map((i: { id: string }) => i.id)
   const { data: avaliacoes } = indicacaoIds.length > 0
     ? await supabase
         .from('indicacoes_avaliacoes')
@@ -36,7 +57,7 @@ export default async function IndicacoesPage() {
   return (
     <div className="p-6">
       <IndicacoesClient
-        indicacoes={indicacoes ?? []}
+        indicacoes={indicacoesComCriador}
         avaliacoes={avaliacoes ?? []}
         condoId={condoId}
         currentUserId={user.id}
