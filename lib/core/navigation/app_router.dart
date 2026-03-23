@@ -158,6 +158,7 @@ class AppRouter {
       '/avisos': (context) => const AvisosScreen(),
       '/album-fotos': (context) => const AlbumFotosScreen(),
       '/classificados': (context) => const ClassificadosScreen(),
+      '/admin-classificados': (context) => const ClassificadosScreen(adminMode: true),
       '/indicacoes': (context) => const IndicacoesScreen(),
       '/fale-sindico': (context) => BlockedAccessOverlay(
             isBlocked: state.isUnitBlocked,

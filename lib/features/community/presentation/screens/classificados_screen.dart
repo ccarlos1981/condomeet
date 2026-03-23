@@ -20,7 +20,8 @@ const _categorias = <String, String>{
 };
 
 class ClassificadosScreen extends StatefulWidget {
-  const ClassificadosScreen({super.key});
+  final bool adminMode;
+  const ClassificadosScreen({super.key, this.adminMode = false});
 
   @override
   State<ClassificadosScreen> createState() => _ClassificadosScreenState();
@@ -35,7 +36,6 @@ class _ClassificadosScreenState extends State<ClassificadosScreen> {
   String _userId = '';
   String _condoId = '';
   String _tipoEstrutura = 'predio';
-  String _role = '';
 
   // Filters (morador)
   String _tab = 'aprovados'; // 'aprovados' | 'pendentes'
@@ -47,8 +47,7 @@ class _ClassificadosScreenState extends State<ClassificadosScreen> {
   String _adminTab = 'pendente'; // 'pendente' | 'aprovado' | 'rejeitado' | 'todos'
   String? _expandedAdminId;
 
-  bool get _isAdmin =>
-      _role == 'Síndico' || _role == 'Síndico (a)' || _role == 'syndic' || _role == 'admin';
+
 
   @override
   void initState() {
@@ -73,7 +72,6 @@ class _ClassificadosScreenState extends State<ClassificadosScreen> {
     final authState = context.read<AuthBloc>().state;
     _condoId = authState.condominiumId ?? '';
     _userId = authState.userId ?? '';
-    _role = authState.role ?? '';
     if (_condoId.isEmpty) return;
 
     setState(() => _loading = true);
@@ -465,7 +463,7 @@ class _ClassificadosScreenState extends State<ClassificadosScreen> {
 
   @override
   Widget build(BuildContext context) {
-    if (_isAdmin) return _buildAdminView();
+    if (widget.adminMode) return _buildAdminView();
     return _buildResidentView();
   }
 

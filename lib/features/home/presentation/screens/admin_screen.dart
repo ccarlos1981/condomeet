@@ -70,7 +70,7 @@ class _AdminScreenState extends State<AdminScreen> {
               icon: Icons.newspaper_outlined,
               label: 'Classificados',
               badgeCount: 0,
-              onTap: () => Navigator.of(context).pushNamed('/classificados'),
+              onTap: () => Navigator.of(context).pushNamed('/admin-classificados'),
             ),
             const SizedBox(height: 24),
             _buildSectionTitle('Fale com morador (a)'),
