@@ -27,6 +27,7 @@ const ALL_FUNCTIONS = [
   { id: 'reservas_portaria', label: 'Reservas (Portaria)', icon: 'calendar_month', emoji: '📅', route: '/reservas-portaria', defaultRoles: ['portaria', 'sindico', 'sub_sindico'] },
   { id: 'album_fotos',       label: 'Álbum de Fotos',     icon: 'photo_camera',   emoji: '📸', route: '/album-fotos',       defaultRoles: ['morador'] },
   { id: 'visita_proprietario', label: 'Visita Proprietário', icon: 'door_front', emoji: '🚪', route: '/visita-proprietario', defaultRoles: ['portaria'] },
+  { id: 'classificados', label: 'Classificados', icon: 'newspaper', emoji: '🛒', route: '/classificados', defaultRoles: ['morador'] },
 ]
 
 // Normalize role name → key: "Porteiro (a)" → "portaria"

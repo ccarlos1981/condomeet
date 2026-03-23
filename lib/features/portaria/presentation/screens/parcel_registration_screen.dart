@@ -76,8 +76,14 @@ class _ParcelRegistrationScreenState extends State<ParcelRegistrationScreen> {
           .eq('condominio_id', condoId)
           .neq('nome_ou_numero', '0')
           .order('nome_ou_numero');
+      final list = List<Map<String, dynamic>>.from(data);
+      list.sort((a, b) {
+        final na = int.tryParse(a['nome_ou_numero'].toString()) ?? 0;
+        final nb = int.tryParse(b['nome_ou_numero'].toString()) ?? 0;
+        return na != 0 && nb != 0 ? na.compareTo(nb) : a['nome_ou_numero'].toString().compareTo(b['nome_ou_numero'].toString());
+      });
       setState(() {
-        _blocos = List<Map<String, dynamic>>.from(data);
+        _blocos = list;
         _loadingBlocos = false;
       });
     } catch (e) {
@@ -111,6 +117,11 @@ class _ParcelRegistrationScreenState extends State<ParcelRegistrationScreen> {
           'numero': apto is Map ? apto['numero'] : (apto is List && apto.isNotEmpty ? apto[0]['numero'] : '?'),
         };
       }).where((e) => e['numero'] != '0').toList();
+      aptos.sort((a, b) {
+        final na = int.tryParse(a['numero'].toString()) ?? 0;
+        final nb = int.tryParse(b['numero'].toString()) ?? 0;
+        return na != 0 && nb != 0 ? na.compareTo(nb) : a['numero'].toString().compareTo(b['numero'].toString());
+      });
 
       setState(() {
         _aptos = aptos;
@@ -413,7 +424,7 @@ class _ParcelRegistrationScreenState extends State<ParcelRegistrationScreen> {
                     value: b,
                     child: Padding(
                       padding: const EdgeInsets.symmetric(horizontal: 12),
-                      child: Text('$label ${b['nome_ou_numero']}'),
+                       child: Text('${b['nome_ou_numero']}'),
                     ),
                   )).toList(),
                   onChanged: _onBlocoSelected,
@@ -451,7 +462,7 @@ class _ParcelRegistrationScreenState extends State<ParcelRegistrationScreen> {
                     value: a,
                     child: Padding(
                       padding: const EdgeInsets.symmetric(horizontal: 12),
-                      child: Text('$label ${a['numero']}'),
+                       child: Text('${a['numero']}'),
                     ),
                   )).toList(),
                   onChanged: _selectedBloco == null ? null : _onAptoSelected,

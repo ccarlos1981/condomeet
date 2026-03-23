@@ -261,7 +261,7 @@ class _LoginScreenState extends State<LoginScreen> {
                         TextFormField(
                           controller: _passwordController,
                           focusNode: _passwordFocusNode,
-                          readOnly: true, // Suppress native keyboard
+                          keyboardType: TextInputType.none, // Hide native keyboard but allow physical input
                           showCursor: true,
                           obscureText: _obscurePassword,
                           decoration: InputDecoration(
@@ -401,10 +401,12 @@ class _LoginScreenState extends State<LoginScreen> {
                                 onTap: () {
                                   final text = _passwordController.text;
                                   final sel = _passwordController.selection;
-                                  if (text.isNotEmpty && sel.baseOffset > 0) {
-                                    final newText = text.substring(0, sel.baseOffset - 1) + text.substring(sel.extentOffset);
+                                  final base = (sel.baseOffset < 0 || sel.baseOffset > text.length) ? text.length : sel.baseOffset;
+                                  final extent = (sel.extentOffset < 0 || sel.extentOffset > text.length) ? text.length : sel.extentOffset;
+                                  if (text.isNotEmpty && base > 0) {
+                                    final newText = text.substring(0, base - 1) + text.substring(extent);
                                     _passwordController.text = newText;
-                                    _passwordController.selection = TextSelection.collapsed(offset: sel.baseOffset - 1);
+                                    _passwordController.selection = TextSelection.collapsed(offset: base - 1);
                                   }
                                 },
                                 color: const Color(0xFFADB3BC),
@@ -482,12 +484,15 @@ class _LoginScreenState extends State<LoginScreen> {
   Widget _buildNumKey(String digit) {
     return Expanded(
       child: GestureDetector(
+        behavior: HitTestBehavior.opaque,
         onTap: () {
           final text = _passwordController.text;
           final sel = _passwordController.selection;
-          final newText = text.substring(0, sel.baseOffset) + digit + text.substring(sel.extentOffset);
+          final base = (sel.baseOffset < 0 || sel.baseOffset > text.length) ? text.length : sel.baseOffset;
+          final extent = (sel.extentOffset < 0 || sel.extentOffset > text.length) ? text.length : sel.extentOffset;
+          final newText = text.substring(0, base) + digit + text.substring(extent);
           _passwordController.text = newText;
-          _passwordController.selection = TextSelection.collapsed(offset: sel.baseOffset + 1);
+          _passwordController.selection = TextSelection.collapsed(offset: base + 1);
         },
         child: Container(
           height: 46,
@@ -521,6 +526,7 @@ class _LoginScreenState extends State<LoginScreen> {
   }) {
     return Expanded(
       child: GestureDetector(
+        behavior: HitTestBehavior.opaque,
         onTap: onTap,
         child: Container(
           height: 46,

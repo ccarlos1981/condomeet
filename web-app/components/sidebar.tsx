@@ -7,7 +7,7 @@ import { useRouter } from 'next/navigation'
 import {
   Home, UserCheck, Package, QrCode, Bell, LogOut,
   Building2, ChevronLeft, ChevronRight, Menu, X,
-  Shield, ClipboardList, Users, CalendarDays, AlertCircle, MessageSquare, FileText, UserCog, BadgeCheck, BarChart3, Camera, DoorOpen
+  Shield, ClipboardList, Users, CalendarDays, AlertCircle, MessageSquare, FileText, UserCog, BadgeCheck, BarChart3, Camera, DoorOpen, ShoppingBag
 } from 'lucide-react'
 
 type NavItem = { label: string; href: string; icon: React.ReactNode; fnId?: string }
@@ -38,6 +38,7 @@ const FN_TO_NAV: Record<string, { label: string; href: string; icon: React.React
   reservas_portaria: { label: 'Reservas (Portaria)', href: '/condo/reservas-portaria', icon: <CalendarDays size={18} /> },
   album_fotos:        { label: 'Álbum de Fotos',            href: '/condo/album-fotos',           icon: <Camera size={18} /> },
   visita_proprietario: { label: 'Visita Proprietário',       href: '/condo/visita-proprietario',   icon: <DoorOpen size={18} /> },
+  classificados:       { label: 'Classificados',             href: '/condo/classificados',         icon: <ShoppingBag size={18} /> },
 }
 
 function normalizeRoleKey(role: string): string {
@@ -78,6 +79,7 @@ const RESIDENT_NAV: NavItem[] = [
   { label: 'Avisos', href: '/condo/avisos', icon: <Bell size={18} /> },
   { label: 'Enquetes', href: '/condo/enquetes', icon: <BarChart3 size={18} /> },
   { label: 'Álbum de Fotos', href: '/condo/album-fotos', icon: <Camera size={18} /> },
+  { label: 'Classificados', href: '/condo/classificados', icon: <ShoppingBag size={18} /> },
   { label: 'Visitante c/ Autorização', href: '/condo/visitante-checkin', icon: <QrCode size={18} /> },
 ]
 
@@ -105,6 +107,7 @@ const ADMIN_NAV: NavItem[] = [
   { label: 'Avisos', href: '/condo/avisos', icon: <Bell size={18} /> },
   { label: 'Enquetes', href: '/condo/enquetes', icon: <BarChart3 size={18} /> },
   { label: 'Álbum de Fotos', href: '/condo/album-fotos', icon: <Camera size={18} /> },
+  { label: 'Classificados', href: '/condo/classificados', icon: <ShoppingBag size={18} /> },
   { label: 'Visitante c/ Autorização', href: '/condo/visitante-checkin', icon: <QrCode size={18} /> },
   { label: 'Registro de Turno', href: '/condo/registro-turno', icon: <ClipboardList size={18} /> },
   { label: 'Autorização Visitante (Portaria)', href: '/condo/autorizar-visitante-portaria', icon: <UserCheck size={18} /> },
