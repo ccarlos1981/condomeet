@@ -47,9 +47,12 @@ export default async function AlbumFotosCondoPage() {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   })) as any
 
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const albumsForClient = mapped as any[]
+
   return (
     <AlbumFotosCondoClient
-      albums={mapped}
+      albums={albumsForClient}
       userId={user.id}
       userName={profile?.nome_completo ?? ''}
     />
