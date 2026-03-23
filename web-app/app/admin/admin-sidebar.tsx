@@ -75,7 +75,7 @@ export default function AdminSidebar({
         ...(isSuperAdmin
           ? [
               { label: 'Push Universal', href: '/admin/push-universal', icon: <Megaphone size={18} /> },
-              { label: 'Propaganda', href: '/super-admin/propaganda', icon: <ShoppingBag size={18} /> },
+              { label: 'Propaganda', href: '/admin/propaganda', icon: <ShoppingBag size={18} /> },
             ]
           : []),
       ],
