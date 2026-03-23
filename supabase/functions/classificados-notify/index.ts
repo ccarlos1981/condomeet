@@ -233,17 +233,25 @@ serve(async (req) => {
           { type: "classificado_aprovado", classificado_id }
         )
         pushResults.push(creatorResult)
+        console.log(`[classificados-notify] Creator push: ${creatorResult.success ? '✅' : '❌'} ${creatorResult.error || ''}`)
       }
 
-      // Push to all moradores
-      const { data: moradores } = await supabase
+      // Push to all moradores (active, non-blocked, excluding creator)
+      const { data: moradores, error: moradoresError } = await supabase
         .from("perfil")
         .select("id, fcm_token")
         .eq("condominio_id", condominio_id)
+        .eq("status_aprovacao", "active")
+        .eq("bloqueado", false)
         .not("fcm_token", "is", null)
         .neq("id", classificado.criado_por)
 
+      if (moradoresError) {
+        console.error(`[classificados-notify] Error fetching moradores: ${moradoresError.message}`)
+      }
+
       const validMoradores = (moradores ?? []).filter((m: any) => m.fcm_token && m.fcm_token.length > 10)
+      console.log(`[classificados-notify] Moradores com token válido: ${validMoradores.length} (total buscados: ${moradores?.length ?? 0})`)
 
       const allTitle = `🛒 Novo classificado no ${condoNome}`
       const allBody = `${classificado.titulo}${classificado.preco ? ` — R$ ${Number(classificado.preco).toFixed(2)}` : ""}`
@@ -256,6 +264,8 @@ serve(async (req) => {
           })
         )
       )
+      const moradoresSucesso = moradoresResults.filter((r: any) => r.success).length
+      console.log(`[classificados-notify] Moradores push: ${moradoresSucesso}/${moradoresResults.length}`)
       pushResults.push(...moradoresResults)
 
       // WhatsApp to creator via UazAPI

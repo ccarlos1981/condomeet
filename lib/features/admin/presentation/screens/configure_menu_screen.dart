@@ -51,7 +51,10 @@ const _kAllFunctions = [
   _FunctionDef(id: 'visitor_register',    icon: 'badge',         label: 'Registrar Visitante',     route: '/registrar-visitante',        defaultRoles: {'portaria'}),
   _FunctionDef(id: 'portaria_authorize',  icon: 'how_to_reg',    label: 'Autorização Visitante (Portaria)', route: '/autorizar-visitante-portaria', defaultRoles: {'portaria'}),
   _FunctionDef(id: 'registro_turno',      icon: 'assignment',    label: 'Registro de Turno',       route: '/registro-turno',             defaultRoles: {'portaria'}),
-  _FunctionDef(id: 'contracts',           icon: 'description',   label: 'Contratos',               route: '/contratos',                  defaultRoles: {'sindico', 'sub_sindico'}),
+  _FunctionDef(id: 'album_fotos',      icon: 'photo',         label: 'Álbum de Fotos',         route: '/album-fotos',                defaultRoles: {'morador'}),
+  _FunctionDef(id: 'classificados',    icon: 'sell',          label: 'Classificados',           route: '/classificados',              defaultRoles: {'morador'}),
+  _FunctionDef(id: 'indicacoes',       icon: 'favorite',      label: 'Indicações de Serviço', route: '/indicacoes',                 defaultRoles: {'morador'}),
+  _FunctionDef(id: 'contracts',        icon: 'description',   label: 'Contratos',               route: '/contratos',                  defaultRoles: {'sindico', 'sub_sindico'}),
 ];
 
 /// Normalize papal_sistema → internal key: "Porteiro (a)" → "portaria"
@@ -597,6 +600,9 @@ class _ConfigureMenuScreenState extends State<ConfigureMenuScreen>
       'bar_chart': Icons.bar_chart,
       'send': Icons.send,
       'book': Icons.book,
+      'photo': Icons.photo,
+      'sell': Icons.sell,
+      'favorite': Icons.favorite_border,
     };
     return map[name] ?? Icons.widgets;
   }

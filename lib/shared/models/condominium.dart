@@ -26,7 +26,8 @@ class Condominium extends Equatable {
         { 'id': 'bookings', 'icon': 'calendar_month', 'label': 'Reservas', 'route': '/area-booking', 'visible': false, 'order': 6 },
         { 'id': 'documents', 'icon': 'file_copy', 'label': 'Documentos', 'route': '/document-center', 'visible': false, 'order': 7 },
         { 'id': 'parcel_history', 'icon': 'history', 'label': 'Histórico Encomendas', 'route': '/parcel-history', 'visible': false, 'order': 8 },
-        { 'id': 'fale_sindico', 'icon': 'forum', 'label': 'Fale com o Síndico', 'route': '/official-chat', 'visible': true, 'order': 9 }
+        { 'id': 'fale_sindico', 'icon': 'forum', 'label': 'Fale com o Síndico', 'route': '/official-chat', 'visible': true, 'order': 9 },
+        { 'id': 'indicacoes', 'icon': 'favorite', 'label': 'Indicações de Serviço', 'route': '/indicacoes', 'visible': false, 'order': 10 }
       ],
       'admin_menu': [
         { 'id': 'approvals', 'icon': 'check_circle', 'label': 'Aprovações', 'route': '/manager-approval', 'visible': true, 'order': 1 },
@@ -85,7 +86,8 @@ class Condominium extends Equatable {
           { 'id': 'guest_checkin', 'icon': 'qr_code', 'label': 'Visitante com autorização', 'route': '/guest-checkin', 'visible': true, 'order': 7 },
           { 'id': 'parcel_history', 'icon': 'history', 'label': 'Histórico Encomendas', 'route': '/parcel-history', 'visible': true, 'order': 8 },
           { 'id': 'fale_sindico', 'icon': 'forum', 'label': 'Fale com o Síndico', 'route': '/official-chat', 'visible': true, 'order': 9 },
-          { 'id': 'enquetes', 'icon': 'bar_chart', 'label': 'Enquetes', 'route': '/enquetes', 'visible': true, 'order': 10 }
+          { 'id': 'enquetes', 'icon': 'bar_chart', 'label': 'Enquetes', 'route': '/enquetes', 'visible': true, 'order': 10 },
+          { 'id': 'indicacoes', 'icon': 'favorite', 'label': 'Indicações de Serviço', 'route': '/indicacoes', 'visible': false, 'order': 11 }
         ],
         'admin_menu': [
           { 'id': 'approvals', 'icon': 'check_circle', 'label': 'Aprovações', 'route': '/manager-approval', 'visible': true, 'order': 1 },

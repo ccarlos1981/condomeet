@@ -28,6 +28,7 @@ import 'package:condomeet/features/community/presentation/screens/admin_document
 import 'package:condomeet/features/community/presentation/screens/admin_contratos_screen.dart';
 import 'package:condomeet/features/community/presentation/screens/album_fotos_screen.dart';
 import 'package:condomeet/features/community/presentation/screens/classificados_screen.dart';
+import 'package:condomeet/features/community/presentation/screens/indicacoes_screen.dart';
 import 'package:condomeet/features/community/presentation/screens/area_picker_screen.dart';
 import 'package:condomeet/features/community/presentation/screens/portaria_booking_screen.dart';
 import 'package:condomeet/features/community/presentation/screens/areas_comuns_admin_screen.dart';
@@ -157,6 +158,7 @@ class AppRouter {
       '/avisos': (context) => const AvisosScreen(),
       '/album-fotos': (context) => const AlbumFotosScreen(),
       '/classificados': (context) => const ClassificadosScreen(),
+      '/indicacoes': (context) => const IndicacoesScreen(),
       '/fale-sindico': (context) => BlockedAccessOverlay(
             isBlocked: state.isUnitBlocked,
             child: const FaleSindicoScreen(),

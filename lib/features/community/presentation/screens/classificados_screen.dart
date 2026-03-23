@@ -35,12 +35,20 @@ class _ClassificadosScreenState extends State<ClassificadosScreen> {
   String _userId = '';
   String _condoId = '';
   String _tipoEstrutura = 'predio';
+  String _role = '';
 
-  // Filters
+  // Filters (morador)
   String _tab = 'aprovados'; // 'aprovados' | 'pendentes'
   String _search = '';
   String _catFilter = '';
   bool _showFavs = false;
+
+  // Filters (admin)
+  String _adminTab = 'pendente'; // 'pendente' | 'aprovado' | 'rejeitado' | 'todos'
+  String? _expandedAdminId;
+
+  bool get _isAdmin =>
+      _role == 'admin' || _role == 'syndic' || _role == 'Síndico';
 
   @override
   void initState() {
@@ -65,6 +73,7 @@ class _ClassificadosScreenState extends State<ClassificadosScreen> {
     final authState = context.read<AuthBloc>().state;
     _condoId = authState.condominiumId ?? '';
     _userId = authState.userId ?? '';
+    _role = authState.role ?? '';
     if (_condoId.isEmpty) return;
 
     setState(() => _loading = true);
@@ -112,7 +121,7 @@ class _ClassificadosScreenState extends State<ClassificadosScreen> {
     }
   }
 
-  // ── Filtered list ──────────────────────────────────────────
+  // ── Filtered list (morador) ────────────────────────────────
   List<Map<String, dynamic>> get _filtered {
     var result = _classificados.toList();
     if (_tab == 'pendentes') {
@@ -139,9 +148,18 @@ class _ClassificadosScreenState extends State<ClassificadosScreen> {
     return result;
   }
 
+  // ── Filtered list (admin) ─────────────────────────────────
+  List<Map<String, dynamic>> get _filteredAdmin {
+    if (_adminTab == 'todos') return _classificados.toList();
+    return _classificados.where((c) => c['status'] == _adminTab).toList();
+  }
+
   int get _myPendingCount => _classificados.where((c) =>
       c['criado_por'] == _userId &&
       (c['status'] == 'pendente' || c['status'] == 'rejeitado')).length;
+
+  int _adminTabCount(String status) =>
+      _classificados.where((c) => c['status'] == status).length;
 
   // ── Toggle Favorite ────────────────────────────────────────
   Future<void> _toggleFavorite(String id) async {
@@ -192,6 +210,36 @@ class _ClassificadosScreenState extends State<ClassificadosScreen> {
       final i = _classificados.indexWhere((c) => c['id'] == id);
       if (i >= 0) _classificados[i]['status'] = 'vendido';
     });
+  }
+
+  // ── Admin: Approve / Reject ────────────────────────────────
+  Future<void> _handleAdminAction(String id, String newStatus) async {
+    try {
+      await _supabase.from('classificados').update({
+        'status': newStatus,
+        'aprovado_por': _userId,
+      }).eq('id', id);
+
+      // Trigger notification
+      try {
+        await _supabase.functions.invoke('classificados-notify', body: {
+          'condominio_id': _condoId,
+          'classificado_id': id,
+          'action': newStatus,
+        });
+      } catch (_) {}
+
+      setState(() {
+        final i = _classificados.indexWhere((c) => c['id'] == id);
+        if (i >= 0) _classificados[i]['status'] = newStatus;
+      });
+    } catch (e) {
+      debugPrint('Error admin action: $e');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Erro ao atualizar anúncio')));
+      }
+    }
   }
 
   // ── Format ─────────────────────────────────────────────────
@@ -399,6 +447,84 @@ class _ClassificadosScreenState extends State<ClassificadosScreen> {
 
   @override
   Widget build(BuildContext context) {
+    if (_isAdmin) return _buildAdminView();
+    return _buildResidentView();
+  }
+
+  // ── Admin View ─────────────────────────────────────────────
+  Widget _buildAdminView() {
+    final items = _filteredAdmin;
+    return Scaffold(
+      backgroundColor: AppColors.surface,
+      appBar: AppBar(
+        title: const Text('🛒 Aprovar Classificados'),
+        backgroundColor: Colors.white,
+        foregroundColor: AppColors.primary,
+        elevation: 0,
+      ),
+      body: _loading
+          ? const Center(child: CircularProgressIndicator(color: AppColors.primary))
+          : RefreshIndicator(
+              onRefresh: _loadData,
+              child: CustomScrollView(
+                slivers: [
+                  // Admin filter tabs
+                  SliverToBoxAdapter(child: Padding(
+                    padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
+                    child: SingleChildScrollView(
+                      scrollDirection: Axis.horizontal,
+                      child: Row(children: [
+                        _buildAdminTab('pendente', '⏳ Pendente', badge: _adminTabCount('pendente')),
+                        const SizedBox(width: 8),
+                        _buildAdminTab('aprovado', '✅ Aprovado', badge: _adminTabCount('aprovado')),
+                        const SizedBox(width: 8),
+                        _buildAdminTab('rejeitado', '❌ Rejeitado', badge: _adminTabCount('rejeitado')),
+                        const SizedBox(width: 8),
+                        _buildAdminTab('todos', '📋 Todos'),
+                      ]),
+                    ),
+                  )),
+
+                  // Count
+                  SliverToBoxAdapter(child: Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+                    child: Text(
+                      '${items.length} anúncio${items.length != 1 ? 's' : ''}',
+                      style: TextStyle(fontSize: 13, color: AppColors.textSecondary),
+                    ),
+                  )),
+
+                  // List
+                  if (items.isEmpty)
+                    SliverFillRemaining(child: Center(child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(Icons.shopping_bag_outlined, size: 56, color: Colors.grey.shade300),
+                        const SizedBox(height: 8),
+                        Text('Nenhum anúncio $_adminTab',
+                          style: TextStyle(fontSize: 16, fontWeight: FontWeight.w500, color: AppColors.textSecondary)),
+                      ],
+                    )))
+                  else
+                    SliverPadding(
+                      padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
+                      sliver: SliverList(
+                        delegate: SliverChildBuilderDelegate(
+                          (ctx, i) => _buildAdminCard(items[i]),
+                          childCount: items.length,
+                        ),
+                      ),
+                    ),
+
+                  const SliverToBoxAdapter(child: SizedBox(height: 24)),
+                ],
+              ),
+            ),
+    );
+  }
+
+  // ── Resident View ──────────────────────────────────────────
+  Widget _buildResidentView() {
     return Scaffold(
       backgroundColor: AppColors.surface,
       appBar: AppBar(
@@ -730,6 +856,258 @@ class _ClassificadosScreenState extends State<ClassificadosScreen> {
       ),
     );
   }
+
+  // ── Admin Tab button ───────────────────────────────────────
+  Widget _buildAdminTab(String value, String label, {int badge = 0}) {
+    final active = _adminTab == value;
+    Color activeColor;
+    switch (value) {
+      case 'pendente':
+        activeColor = Colors.amber.shade700;
+        break;
+      case 'aprovado':
+        activeColor = AppColors.success;
+        break;
+      case 'rejeitado':
+        activeColor = AppColors.error;
+        break;
+      default:
+        activeColor = AppColors.primary;
+    }
+
+    return GestureDetector(
+      onTap: () => setState(() => _adminTab = value),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 9),
+        decoration: BoxDecoration(
+          color: active ? activeColor : Colors.grey.shade100,
+          borderRadius: BorderRadius.circular(24),
+          boxShadow: active ? [BoxShadow(
+            color: activeColor.withValues(alpha: 0.3),
+            blurRadius: 8, offset: const Offset(0, 2),
+          )] : null,
+        ),
+        child: Row(mainAxisSize: MainAxisSize.min, children: [
+          Text(label, style: TextStyle(
+            fontSize: 13, fontWeight: FontWeight.bold,
+            color: active ? Colors.white : AppColors.textSecondary)),
+          if (badge > 0) ...[
+            const SizedBox(width: 6),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+              decoration: BoxDecoration(
+                color: Colors.white.withValues(alpha: 0.3),
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: Text('$badge', style: TextStyle(
+                fontSize: 11, fontWeight: FontWeight.bold,
+                color: active ? Colors.white : AppColors.textSecondary)),
+            ),
+          ],
+        ]),
+      ),
+    );
+  }
+
+  // ── Admin Card ─────────────────────────────────────────────
+  Widget _buildAdminCard(Map<String, dynamic> c) {
+    final perfil = c['perfil'] as Map<String, dynamic>?;
+    final isExpanded = _expandedAdminId == c['id'];
+
+    Color statusColor;
+    String statusLabel;
+    switch (c['status']) {
+      case 'aprovado':
+        statusColor = AppColors.success;
+        statusLabel = '✅ Aprovado';
+        break;
+      case 'rejeitado':
+        statusColor = AppColors.error;
+        statusLabel = '❌ Rejeitado';
+        break;
+      default:
+        statusColor = Colors.amber.shade700;
+        statusLabel = '⏳ Pendente';
+    }
+
+    return Container(
+      margin: const EdgeInsets.only(bottom: 12),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: AppColors.border),
+        boxShadow: [BoxShadow(
+          color: Colors.black.withValues(alpha: 0.04),
+          blurRadius: 8, offset: const Offset(0, 2),
+        )],
+      ),
+      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        // Header (always visible)
+        InkWell(
+          borderRadius: const BorderRadius.vertical(top: Radius.circular(16)),
+          onTap: () => setState(() =>
+            _expandedAdminId = isExpanded ? null : c['id'] as String),
+          child: Padding(
+            padding: const EdgeInsets.all(14),
+            child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              // Photo thumbnail
+              if (c['foto_url'] != null)
+                ClipRRect(
+                  borderRadius: BorderRadius.circular(10),
+                  child: Image.network(c['foto_url'],
+                    width: 64, height: 64, fit: BoxFit.cover,
+                    errorBuilder: (_, __, ___) => Container(
+                      width: 64, height: 64, color: Colors.grey.shade100,
+                      child: const Icon(Icons.image, color: Colors.grey)),
+                  ),
+                )
+              else
+                Container(
+                  width: 64, height: 64,
+                  decoration: BoxDecoration(
+                    color: Colors.grey.shade100,
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: const Icon(Icons.image_outlined, color: Colors.grey),
+                ),
+              const SizedBox(width: 12),
+
+              // Info
+              Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                Row(children: [
+                  Expanded(
+                    child: Text(c['titulo'] ?? '',
+                      style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold),
+                      maxLines: 1, overflow: TextOverflow.ellipsis),
+                  ),
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                    decoration: BoxDecoration(
+                      color: statusColor.withValues(alpha: 0.12),
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: Text(statusLabel,
+                      style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: statusColor)),
+                  ),
+                ]),
+                const SizedBox(height: 4),
+                Text('Dono: ${perfil?['nome_completo'] ?? 'N/A'}',
+                  style: TextStyle(fontSize: 12, color: AppColors.textSecondary)),
+                Text(
+                  '$_blocoLabel: ${perfil?['bloco_txt'] ?? '?'} · $_aptoLabel: ${perfil?['apto_txt'] ?? '?'}',
+                  style: TextStyle(fontSize: 12, color: AppColors.textSecondary)),
+                const SizedBox(height: 4),
+                Row(children: [
+                  if (c['preco'] != null)
+                    Text(_fmtPrice(c['preco']),
+                      style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: Colors.green.shade700)),
+                  const Spacer(),
+                  Text(_fmtDate(c['created_at']),
+                    style: TextStyle(fontSize: 11, color: AppColors.textHint)),
+                ]),
+              ])),
+
+              const SizedBox(width: 6),
+              Icon(
+                isExpanded ? Icons.keyboard_arrow_up : Icons.keyboard_arrow_down,
+                color: AppColors.textSecondary),
+            ]),
+          ),
+        ),
+
+        // Expanded details + action buttons
+        if (isExpanded) ...[
+          const Divider(height: 1),
+          Padding(
+            padding: const EdgeInsets.all(14),
+            child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              // Details grid
+              _adminDetailRow('Categoria', _categorias[c['categoria']] ?? c['categoria'] ?? ''),
+              _adminDetailRow('Condição', c['condicao'] == 'novo' ? 'Novo' : 'Usado'),
+              if (c['marca_modelo'] != null && (c['marca_modelo'] as String).isNotEmpty)
+                _adminDetailRow('Marca/Modelo', c['marca_modelo']),
+              if (c['mostrar_telefone'] == true && perfil?['whatsapp'] != null)
+                _adminDetailRow('WhatsApp', perfil!['whatsapp']),
+              _adminDetailRow('Cód.', c['cod_interno'] ?? ''),
+
+              if (c['descricao'] != null && (c['descricao'] as String).isNotEmpty) ...[
+                const SizedBox(height: 8),
+                Text('Descrição:', style: TextStyle(fontSize: 12, color: Colors.grey.shade600, fontWeight: FontWeight.w600)),
+                const SizedBox(height: 2),
+                Text(c['descricao'], style: const TextStyle(fontSize: 13)),
+              ],
+
+              // Approve / Reject buttons (only for pending)
+              if (c['status'] == 'pendente') ...[
+                const SizedBox(height: 14),
+                Row(children: [
+                  Expanded(child: _adminActionBtn(
+                    label: 'Aprovar',
+                    icon: Icons.check_circle_outline,
+                    color: AppColors.success,
+                    onTap: () => _handleAdminAction(c['id'], 'aprovado'),
+                  )),
+                  const SizedBox(width: 10),
+                  Expanded(child: _adminActionBtn(
+                    label: 'Rejeitar',
+                    icon: Icons.cancel_outlined,
+                    color: AppColors.error,
+                    onTap: () => _handleAdminAction(c['id'], 'rejeitado'),
+                  )),
+                ]),
+              ],
+
+              // Re-approve button for rejected items
+              if (c['status'] == 'rejeitado') ...[
+                const SizedBox(height: 14),
+                _adminActionBtn(
+                  label: 'Aprovar mesmo assim',
+                  icon: Icons.check_circle_outline,
+                  color: AppColors.success,
+                  onTap: () => _handleAdminAction(c['id'], 'aprovado'),
+                ),
+              ],
+            ]),
+          ),
+        ],
+      ]),
+    );
+  }
+
+  Widget _adminDetailRow(String label, String value) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 4),
+      child: Row(children: [
+        SizedBox(width: 110,
+          child: Text(label, style: TextStyle(fontSize: 12, color: Colors.grey.shade600, fontWeight: FontWeight.w500))),
+        Expanded(child: Text(value, style: const TextStyle(fontSize: 12))),
+      ]),
+    );
+  }
+
+  Widget _adminActionBtn({
+    required String label,
+    required IconData icon,
+    required Color color,
+    required VoidCallback onTap,
+  }) {
+    return Material(
+      color: color,
+      borderRadius: BorderRadius.circular(12),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(12),
+        onTap: onTap,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(vertical: 12),
+          child: Row(mainAxisAlignment: MainAxisAlignment.center, children: [
+            Icon(icon, color: Colors.white, size: 18),
+            const SizedBox(width: 6),
+            Text(label, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 14)),
+          ]),
+        ),
+      ),
+    );
+  }
 }
 
 // ═══════════════════════════════════════════════════════════════
@@ -958,7 +1336,7 @@ class _ClassificadoFormState extends State<_ClassificadoForm> {
 
               // Category
               DropdownButtonFormField<String>(
-                value: _categoria,
+                initialValue: _categoria,
                 decoration: const InputDecoration(labelText: 'Categoria'),
                 items: _categorias.entries.map((e) =>
                   DropdownMenuItem(value: e.key, child: Text(e.value))).toList(),

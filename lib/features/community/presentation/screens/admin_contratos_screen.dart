@@ -616,7 +616,7 @@ class _ContratoFormScreenState extends State<_ContratoFormScreen> {
               children: [
                 Expanded(
                   child: DropdownButtonFormField<String>(
-                    value: _categoria,
+                    initialValue: _categoria,
                     decoration: InputDecoration(
                       border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
                       contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
@@ -645,7 +645,7 @@ class _ContratoFormScreenState extends State<_ContratoFormScreen> {
             const Text('Pasta', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13)),
             const SizedBox(height: 6),
             DropdownButtonFormField<String>(
-              value: _pastaId,
+              initialValue: _pastaId,
               decoration: InputDecoration(
                 border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
                 contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
