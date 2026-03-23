@@ -42,8 +42,9 @@ async function sendWhatsApp(url: string, token: string, phone: string, msg: stri
   } catch (e: unknown) { console.error(`WhatsApp error:`, e instanceof Error ? e.message : String(e)); return false }
 }
 
-function genCodInterno() {
-  return Array.from({ length: 4 }, () => "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789"[Math.floor(Math.random() * 62)]).join("")
+function genCodInterno(): string {
+  const chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789"
+  return Array.from({ length: 5 }, () => chars[Math.floor(Math.random() * chars.length)]).join("")
 }
 
 serve(async (req) => {
@@ -63,21 +64,37 @@ serve(async (req) => {
     const results: string[] = []
 
     if (action === "new_thread") {
-      // Notify síndicos about new thread
-      const { data: resident } = await supabase.from("perfil").select("nome_completo").eq("id", resident_id).single()
+      // ── Morador criou nova thread → notificar síndicos ──
+      const { data: resident } = await supabase
+        .from("perfil")
+        .select("nome_completo, bloco_txt, apto_txt")
+        .eq("id", resident_id)
+        .single()
+
       const residentName = resident?.nome_completo || "Morador"
+      const bloco = resident?.bloco_txt || "—"
+      const apto = resident?.apto_txt || "—"
 
-      const { data: sindicos } = await supabase.from("perfil").select("id, whatsapp, fcm_token, notificacoes_whatsapp").eq("condominio_id", condominio_id).in("tipo_morador", ["Síndico"])
+      // Query síndicos by papel_sistema (matches "Síndico", "Síndico (a)", etc.)
+      const { data: sindicos } = await supabase
+        .from("perfil")
+        .select("id, whatsapp, fcm_token, notificacoes_whatsapp")
+        .eq("condominio_id", condominio_id)
+        .eq("status_aprovacao", "aprovado")
+        .or("papel_sistema.ilike.%sindico%,papel_sistema.ilike.%síndico%,papel_sistema.eq.ADMIN")
 
+      console.log(`[fale-sindico-notify] Found ${sindicos?.length ?? 0} síndicos for condo ${condominio_id}`)
+
+      // Send WhatsApp to all síndicos
       if (UAZAPI_URL && UAZAPI_TOKEN) {
         const cod = genCodInterno()
-        const msg = `💬 ${condoNome}\n\nNova mensagem no Fale Conosco!\n\n👤 Morador: ${residentName}\n📝 Assunto: ${assunto || "Mensagem do morador"}\n\nAcesse o painel para responder.\n\nCondomeet agradece.\nCód interno: ${cod}`
+        const msg = `🚨 Condomeet informa! 🚨\n\nO(A) morador(a):\n${residentName}\n\nBloco:\n${bloco}\n\nApto:\n${apto}\n\nAcabou de escrever uma nova mensagem no canal\n\n*Fale com a administração.*\n\nCondomeet agradece!\nCód. interno: ${cod}`
 
         for (const s of (sindicos ?? [])) {
           const sData = s as Record<string, unknown>
           if ((sData.whatsapp as string)?.trim() && sData.notificacoes_whatsapp !== false) {
             const sent = await sendWhatsApp(UAZAPI_URL, UAZAPI_TOKEN, sData.whatsapp as string, msg)
-            results.push(`WhatsApp síndico: ${sent ? "✅" : "❌"}`)
+            results.push(`WhatsApp síndico ${(sData.whatsapp as string)?.slice(-4)}: ${sent ? "✅" : "❌"}`)
           }
         }
       }
@@ -91,7 +108,7 @@ serve(async (req) => {
           for (const s of (sindicos ?? [])) {
             const sFcm = (s as Record<string, unknown>).fcm_token as string | undefined
             if (sFcm && sFcm.length > 10 && !sFcm.startsWith("dummy")) {
-              const ok = await sendFcmPush(accessToken, sa.project_id, sFcm, `💬 Fale Conosco - ${condoNome}`, `${residentName}: ${assunto || "Nova mensagem"}`, { type: "fale_conosco", thread_id: thread_id || "" })
+              const ok = await sendFcmPush(accessToken, sa.project_id, sFcm, `💬 Fale Conosco`, `${residentName} (${bloco}/${apto}) escreveu uma nova mensagem`, { type: "fale_conosco", thread_id: thread_id || "" })
               results.push(`Push síndico: ${ok ? "✅" : "❌"}`)
             }
           }
@@ -99,13 +116,17 @@ serve(async (req) => {
       } catch (e: unknown) { console.error("Push error:", e instanceof Error ? e.message : String(e)) }
 
     } else if (action === "admin_reply") {
-      // Notify resident about admin reply
-      const { data: resident } = await supabase.from("perfil").select("nome_completo, whatsapp, fcm_token, notificacoes_whatsapp").eq("id", resident_id).single()
+      // ── Síndico respondeu → notificar morador ──
+      const { data: resident } = await supabase
+        .from("perfil")
+        .select("nome_completo, whatsapp, fcm_token, notificacoes_whatsapp")
+        .eq("id", resident_id)
+        .single()
 
       if (resident?.whatsapp && resident.notificacoes_whatsapp !== false && UAZAPI_URL && UAZAPI_TOKEN) {
         const firstName = resident.nome_completo?.split(" ")[0] || "Morador"
         const cod = genCodInterno()
-        const msg = `💬 ${condoNome}\n\nOlá ${firstName},\n\nO síndico respondeu sua mensagem no Fale Conosco.\n\n📝 Assunto: ${assunto || "Sua mensagem"}\n\nAcesse o app para ver a resposta.\n\nCondomeet agradece.\nCód interno: ${cod}`
+        const msg = `📬 ${condoNome}\n\nEi ${firstName}, o Síndico do seu condomínio acabou de responder no Fale Conosco.\n\nAbra o app e veja a resposta 😊\n\nCondomeet agradece.\nCód. interno: ${cod}`
         const sent = await sendWhatsApp(UAZAPI_URL, UAZAPI_TOKEN, resident.whatsapp, msg)
         results.push(`WhatsApp morador: ${sent ? "✅" : "❌"}`)
       }
