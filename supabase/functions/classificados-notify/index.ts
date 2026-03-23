@@ -167,12 +167,14 @@ serve(async (req) => {
     // ACTION: novo — Notify síndicos (Push + WhatsApp)
     // ══════════════════════════════════════════════════════════
     if (action === "novo") {
-      // Fetch síndicos with FCM tokens
-      const { data: sindicos } = await supabase
+      // Fetch síndicos with FCM tokens (use ilike for accent-safe matching)
+      const { data: sindicos, error: sindicosError } = await supabase
         .from("perfil")
         .select("id, nome_completo, fcm_token, botconversa_id")
         .eq("condominio_id", condominio_id)
-        .in("papel_sistema", ["Síndico", "Síndico (a)", "ADMIN", "admin", "Sub-Síndico"])
+        .or("papel_sistema.ilike.%síndico%,papel_sistema.ilike.%sindico%,papel_sistema.ilike.%subsíndico%,papel_sistema.ilike.%subsindico%,papel_sistema.eq.admin,papel_sistema.eq.ADMIN")
+
+      console.log(`[classificados-notify] sindicos found: ${sindicos?.length ?? 0}, error: ${sindicosError?.message ?? 'none'}`)
 
       const validSindicos = (sindicos ?? []).filter((s: any) => s.fcm_token && s.fcm_token.length > 10)
 
