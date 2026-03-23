@@ -73,7 +73,10 @@ export default function AdminSidebar({
         { label: 'Configurar Acesso', href: '/admin/configurar-acesso', icon: <Settings size={18} /> },
         { label: 'Configurar Ordem',  href: '/admin/configurar-ordem',  icon: <SlidersHorizontal size={18} /> },
         ...(isSuperAdmin
-          ? [{ label: 'Push Universal', href: '/admin/push-universal', icon: <Megaphone size={18} /> }]
+          ? [
+              { label: 'Push Universal', href: '/admin/push-universal', icon: <Megaphone size={18} /> },
+              { label: 'Propaganda', href: '/super-admin/propaganda', icon: <ShoppingBag size={18} /> },
+            ]
           : []),
       ],
     },
