@@ -2,6 +2,9 @@ import { createClient } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
 import ClassificadosAdminClient from './classificados-admin-client'
 
+export const dynamic = 'force-dynamic'
+export const metadata = { title: 'Classificados — Painel Admin' }
+
 export default async function ClassificadosAdminPage() {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()

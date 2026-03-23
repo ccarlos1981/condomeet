@@ -7,7 +7,7 @@ import {
   Home, UserCheck, Users, Bell, FileText, MessageSquare,
   CalendarDays, MapPin, ClipboardList, Settings, Package,
   ChevronLeft, ChevronRight, Menu, X, LogOut, Megaphone,
-  AlertCircle, SlidersHorizontal, ArrowRight, BarChart3, Building2, Camera
+  AlertCircle, SlidersHorizontal, ArrowRight, BarChart3, Building2, Camera, ShoppingBag
 } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { useRouter } from 'next/navigation'
@@ -64,6 +64,7 @@ export default function AdminSidebar({
         { label: 'Reservas',        href: '/admin/reservas',        icon: <CalendarDays size={18} /> },
         { label: 'Registro Turno',  href: '/admin/registro-turno',  icon: <ClipboardList size={18} /> },
         { label: 'Estrutura',       href: '/admin/estrutura',       icon: <Building2 size={18} /> },
+        { label: 'Classificados',   href: '/admin/classificados',   icon: <ShoppingBag size={18} /> },
       ],
     },
     {
