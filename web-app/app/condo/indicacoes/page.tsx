@@ -40,9 +40,10 @@ export default async function IndicacoesPage() {
   )
 
   // 3. Merge creator names into indicações
-  const indicacoesComCriador = indicacoesList.map((i: { criado_por: string }) => ({
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const indicacoesComCriador: any[] = indicacoesList.map((i: Record<string, unknown>) => ({
     ...i,
-    criador: { nome_completo: criadorMap[i.criado_por] ?? 'Morador' },
+    criador: { nome_completo: criadorMap[i.criado_por as string] ?? 'Morador' },
   }))
 
   // 4. Fetch all ratings for this condo's indicações
