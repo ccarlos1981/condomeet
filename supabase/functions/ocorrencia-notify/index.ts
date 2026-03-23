@@ -56,10 +56,9 @@ async function sendWhatsApp(url: string, token: string, phone: string, msg: stri
   }
 }
 
-function genCodInterno() {
-  return Array.from({ length: 4 }, () =>
-    "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789"[Math.floor(Math.random() * 62)]
-  ).join("")
+function genCodInterno(): string {
+  const chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789"
+  return Array.from({ length: 5 }, () => chars[Math.floor(Math.random() * chars.length)]).join("")
 }
 
 // ── Main handler ─────────────────────────────────────────────────────────
@@ -94,36 +93,39 @@ serve(async (req) => {
         .single()
 
       const residentName = resident?.nome_completo || "Morador"
+      const bloco = resident?.bloco_txt || "—"
+      const apto = resident?.apto_txt || "—"
 
-      // Get síndicos
+      // Get síndicos by papel_sistema (matches "Síndico", "Síndico (a)", etc.)
       const { data: sindicos } = await supabase
         .from("perfil")
         .select("id, whatsapp, fcm_token, notificacoes_whatsapp")
         .eq("condominio_id", condominio_id)
-        .in("tipo_morador", ["Síndico"])
+        .eq("status_aprovacao", "aprovado")
+        .or("papel_sistema.ilike.%sindico%,papel_sistema.ilike.%síndico%,papel_sistema.eq.ADMIN")
+
+      console.log(`[ocorrencia-notify] Found ${sindicos?.length ?? 0} síndicos for condo ${condominio_id}`)
 
       // WhatsApp to síndicos
       if (UAZAPI_URL && UAZAPI_TOKEN) {
         const cod = genCodInterno()
         const msg =
-          `📋 ${condoNome}\n` +
-          `\n` +
-          `Nova ocorrência registrada!\n` +
-          `\n` +
-          `👤 Morador: ${residentName}\n` +
-          `📝 Assunto: ${assunto || "Sem assunto"}\n` +
-          `\n` +
-          `Acesse o painel para verificar.\n` +
-          `\n` +
-          `Condomeet agradece.\n` +
-          `Cód interno: ${cod}`
+          `🚨 Condomeet informa! 🚨\n\n` +
+          `O(A) morador(a):\n${residentName}\n\n` +
+          `Bloco:\n${bloco}\n\n` +
+          `Apto:\n${apto}\n\n` +
+          `Acabou de registrar uma nova *ocorrência*.\n\n` +
+          `📝 Assunto: ${assunto || "Sem assunto"}\n\n` +
+          `Acesse o painel para verificar.\n\n` +
+          `Condomeet agradece!\n` +
+          `Cód. interno: ${cod}`
 
         for (const s of (sindicos ?? [])) {
           const sData = s as Record<string, unknown>
           const sWhatsapp = sData.whatsapp as string | undefined
           if (sWhatsapp && sWhatsapp.trim() !== "" && sData.notificacoes_whatsapp !== false) {
             const sent = await sendWhatsApp(UAZAPI_URL, UAZAPI_TOKEN, sWhatsapp, msg)
-            results.push(`WhatsApp síndico: ${sent ? "✅" : "❌"}`)
+            results.push(`WhatsApp síndico ${sWhatsapp.slice(-4)}: ${sent ? "✅" : "❌"}`)
           }
         }
       }
@@ -138,8 +140,8 @@ serve(async (req) => {
             const sFcm = (s as Record<string, unknown>).fcm_token as string | undefined
             if (sFcm && sFcm.length > 10 && !sFcm.startsWith("dummy")) {
               const ok = await sendFcmPush(accessToken, sa.project_id, sFcm,
-                `📋 Nova Ocorrência - ${condoNome}`,
-                `${residentName}: ${assunto || "Nova ocorrência registrada"}`,
+                `📋 Nova Ocorrência`,
+                `${residentName} (${bloco}/${apto}): ${assunto || "Nova ocorrência"}`,
                 { type: "ocorrencia", ocorrencia_id }
               )
               results.push(`Push síndico: ${ok ? "✅" : "❌"}`)
@@ -164,17 +166,12 @@ serve(async (req) => {
         const cod = genCodInterno()
         const firstName = resident.nome_completo?.split(" ")[0] || "Morador"
         const msg =
-          `📋 ${condoNome}\n` +
-          `\n` +
-          `Olá ${firstName},\n` +
-          `\n` +
-          `O síndico respondeu sua ocorrência:\n` +
-          `📝 Assunto: ${assunto || "Sua ocorrência"}\n` +
-          `\n` +
-          `💬 Resposta: ${admin_response || "Verifique no app"}\n` +
-          `\n` +
+          `📬 ${condoNome}\n\n` +
+          `Ei ${firstName}, o Síndico do seu condomínio acabou de responder sua ocorrência.\n\n` +
+          `📝 Assunto: ${assunto || "Sua ocorrência"}\n\n` +
+          `Abra o app e veja a resposta 😊\n\n` +
           `Condomeet agradece.\n` +
-          `Cód interno: ${cod}`
+          `Cód. interno: ${cod}`
 
         const sent = await sendWhatsApp(UAZAPI_URL, UAZAPI_TOKEN, resident.whatsapp, msg)
         results.push(`WhatsApp morador: ${sent ? "✅" : "❌"}`)
