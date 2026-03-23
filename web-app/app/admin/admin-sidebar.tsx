@@ -7,7 +7,7 @@ import {
   Home, UserCheck, Users, Bell, FileText, MessageSquare,
   CalendarDays, MapPin, ClipboardList, Settings, Package,
   ChevronLeft, ChevronRight, Menu, X, LogOut, Megaphone,
-  AlertCircle, SlidersHorizontal, ArrowRight, BarChart3, Building2
+  AlertCircle, SlidersHorizontal, ArrowRight, BarChart3, Building2, Camera
 } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { useRouter } from 'next/navigation'
@@ -50,6 +50,7 @@ export default function AdminSidebar({
         { label: 'Fale Conosco', href: '/admin/fale-conosco', icon: <MessageSquare size={18} /> },
         { label: 'Ocorrências',  href: '/admin/ocorrencias',  icon: <AlertCircle size={18} /> },
         { label: 'Enquetes',     href: '/admin/enquetes',     icon: <BarChart3 size={18} /> },
+        { label: 'Álbum de Fotos', href: '/admin/album-fotos', icon: <Camera size={18} /> },
       ],
     },
     {

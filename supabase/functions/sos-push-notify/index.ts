@@ -183,19 +183,19 @@ serve(async (req) => {
     const condoNome = condoData?.nome ?? 'Condomínio'
 
     const residentName = resident.nome_completo ?? "Morador"
-    const unitLabel =
+    const _unitLabel =
       resident.bloco_txt && resident.apto_txt
         ? `${getBlocoLabel(tipoEstrutura)} ${resident.bloco_txt} / ${getAptoLabel(tipoEstrutura)} ${resident.apto_txt}`
         : resident.apto_txt
           ? `${getAptoLabel(tipoEstrutura)} ${resident.apto_txt}`
           : "Sem unidade"
 
-    // 4. Get síndicos/admins
+    // 4. Get síndicos/admins AND porteiros
     const { data: staff, error: staffError } = await supabase
       .from("perfil")
       .select("id, nome_completo, fcm_token, whatsapp, notificacoes_whatsapp")
       .eq("condominio_id", condominium_id)
-      .in("tipo_morador", ["Síndico"])
+      .in("tipo_morador", ["Síndico", "Subsíndico", "Porteiro"])
 
     if (staffError) {
       console.error("Error fetching staff:", staffError)
@@ -205,8 +205,8 @@ serve(async (req) => {
     const allResults: string[] = []
 
     // 5. Build notification content
-    const title = "🚨 SOS - Emergência!"
-    const body = `${residentName} (${unitLabel}) está precisando de ajuda!`
+    const title = "🆘 Mensagem de SOS"
+    const body = `O(A) Morador(a) ${residentName}, do condomínio ${condoNome} acabou de apertar o botão SOS!`
     const notifData: Record<string, string> = {
       type: "sos",
       sos_id: String(sos_id),
@@ -214,7 +214,7 @@ serve(async (req) => {
       condominium_id: String(condominium_id),
     }
 
-    // 6. Push notifications to staff
+    // 6. Push notifications to staff (Síndicos + Porteiros)
     const validStaffFcm = (staff ?? []).filter((s: any) => s.fcm_token && s.fcm_token.length > 10)
     if (validStaffFcm.length > 0) {
       const accessToken = await getAccessToken(serviceAccount)
@@ -224,34 +224,45 @@ serve(async (req) => {
         )
       )
       const pushSuccess = pushResults.filter((r: any) => r.success).length
-      allResults.push(`Push síndicos: ${pushSuccess}/${pushResults.length}`)
+      allResults.push(`Push staff: ${pushSuccess}/${pushResults.length}`)
     }
 
-    // 7. WhatsApp to síndicos
-    if (UAZAPI_URL && UAZAPI_TOKEN) {
-      const codSos = genCodInterno()
-      const whatsappMsg =
-        `🚨 SOS - Emergência!\n` +
-        `\n` +
-        `${condoNome}\n` +
-        `\n` +
-        `${residentName} (${unitLabel}) está precisando de ajuda!\n` +
-        `\n` +
-        `Verifique imediatamente!\n` +
-        `\n` +
-        `Condomeet\n` +
-        `Cód interno: ${codSos}`
+    // Helper: build standardized SOS WhatsApp message
+    const blocoLabel = getBlocoLabel(tipoEstrutura)
+    const aptoLabel = getAptoLabel(tipoEstrutura)
+    function buildSosMessage(destinatarioNome?: string): string {
+      const cod = genCodInterno()
+      let msg = `🆘 Mensagem de SOS\n\n`
+      if (destinatarioNome) {
+        msg += `Olá ${destinatarioNome},\n\n`
+      }
+      msg += `O(A) Morador(a) ${residentName}, do condomínio ${condoNome}\n\n`
+      if (resident.bloco_txt) {
+        msg += `do ${blocoLabel.toLowerCase()}: ${resident.bloco_txt}\n`
+      }
+      if (resident.apto_txt) {
+        msg += `do ${aptoLabel.toLowerCase()}: ${resident.apto_txt}\n`
+      }
+      msg += `\nacabou de apertar o botão SOS, pedindo ajuda!\n\n`
+      msg += `Faça contato, pode estar precisando de sua ajuda.\n\n`
+      msg += `Condomeet agradece!\n`
+      msg += `cód interno: ${cod}`
+      return msg
+    }
 
-      let sindicoWaCount = 0
+    // 7. WhatsApp to staff (Síndicos + Porteiros)
+    if (UAZAPI_URL && UAZAPI_TOKEN) {
+      let staffWaCount = 0
       for (const s of (staff ?? [])) {
         const sData = s as Record<string, unknown>
         const sWhatsapp = sData.whatsapp as string | undefined
         if (sWhatsapp && sWhatsapp.trim() !== "" && sData.notificacoes_whatsapp !== false) {
-          const sent = await sendWhatsApp(UAZAPI_URL, UAZAPI_TOKEN, sWhatsapp, whatsappMsg)
-          if (sent) sindicoWaCount++
+          const msg = buildSosMessage(sData.nome_completo as string)
+          const sent = await sendWhatsApp(UAZAPI_URL, UAZAPI_TOKEN, sWhatsapp, msg)
+          if (sent) staffWaCount++
         }
       }
-      allResults.push(`WhatsApp síndicos: ${sindicoWaCount}`)
+      allResults.push(`WhatsApp staff: ${staffWaCount}`)
 
       // 8. WhatsApp to SOS emergency contacts
       const { data: sosContatos } = await supabase
@@ -267,19 +278,7 @@ serve(async (req) => {
         ].filter(c => c.whatsapp && c.whatsapp.trim() !== "")
 
         for (const c of contacts) {
-          const codContact = genCodInterno()
-          const contactMsg =
-            `🚨 SOS - Emergência!\n` +
-            `\n` +
-            `Olá ${c.nome || "Contato"},\n` +
-            `\n` +
-            `${residentName} (${unitLabel}) no ${condoNome} acionou o botão de emergência.\n` +
-            `\n` +
-            `Por favor, entre em contato imediatamente!\n` +
-            `\n` +
-            `Condomeet\n` +
-            `Cód interno: ${codContact}`
-
+          const contactMsg = buildSosMessage(c.nome || "Contato")
           const sent = await sendWhatsApp(UAZAPI_URL, UAZAPI_TOKEN, c.whatsapp!, contactMsg)
           allResults.push(`WhatsApp contato ${c.nome}: ${sent ? "✅" : "❌"}`)
         }

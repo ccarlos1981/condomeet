@@ -28,6 +28,7 @@ const FUNCTION_CATALOG: Record<string, { label: string; emoji: string }> = {
   enquete_admin:      { label: 'Enquetes (Admin)',         emoji: '📊' },
   botconversa_send:   { label: 'Enviar WhatsApp',          emoji: '📱' },
   chat:               { label: 'Chat Oficial',             emoji: '💬' },
+  album_fotos:        { label: 'Álbum de Fotos',           emoji: '📸' },
 }
 
 interface FnData {

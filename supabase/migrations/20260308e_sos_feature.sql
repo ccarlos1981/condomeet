@@ -106,7 +106,7 @@ BEGIN
   payload := jsonb_build_object(
     'sos_id',         NEW.id,
     'resident_id',    NEW.resident_id,
-    'condominium_id', NEW.condominium_id
+    'condominium_id', NEW.condominio_id
   );
 
   PERFORM net.http_post(
