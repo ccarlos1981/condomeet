@@ -15,44 +15,58 @@ export default async function AlbumFotosCondoPage() {
 
   const condoId = profile?.condominio_id ?? ''
 
-  // Load albums with images, reactions, comments
+  // Load albums without FK joins
   const { data: albums } = await supabase
     .from('album_fotos')
     .select(`
-      id, titulo, descricao, tipo_evento, data_evento, created_at,
-      perfil:autor_id (nome_completo),
+      id, titulo, descricao, tipo_evento, data_evento, created_at, autor_id,
       album_fotos_imagens (id, imagem_url, ordem),
       album_fotos_reacoes (id, user_id, emoji),
-      album_fotos_comentarios (
-        id, conteudo, created_at, parent_id,
-        perfil:user_id (id, nome_completo)
-      ),
+      album_fotos_comentarios (id, conteudo, created_at, parent_id, user_id),
       album_fotos_visualizacoes (count)
     `)
     .eq('condominio_id', condoId)
     .order('created_at', { ascending: false })
 
-  const mapped = (albums ?? []).map(a => ({
-    ...a,
-    autor_nome: (a.perfil as unknown as { nome_completo: string })?.nome_completo ?? 'Administrador',
-    imagens: (a.album_fotos_imagens ?? []).sort((x: { ordem: number }, y: { ordem: number }) => x.ordem - y.ordem),
-    reacoes: a.album_fotos_reacoes ?? [],
-    comentarios: (a.album_fotos_comentarios ?? []).map((c: Record<string, unknown>) => ({
-      ...c,
-      perfil: Array.isArray(c.perfil) ? c.perfil[0] : c.perfil,
-    })).sort(
-      (x: Record<string, unknown>, y: Record<string, unknown>) => new Date(x.created_at as string).getTime() - new Date(y.created_at as string).getTime()
-    ),
-    visualizacoes_count: (a.album_fotos_visualizacoes as unknown as { count: number }[])?.[0]?.count ?? 0,
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  })) as any
+  const albumList = albums ?? []
+
+  // Fetch all unique user IDs (authors + commenters) in one query
+  const autorIds = [...new Set(albumList.map((a: { autor_id: string }) => a.autor_id))]
+  const commenterIds = albumList.flatMap((a: Record<string, unknown>) =>
+    ((a.album_fotos_comentarios as { user_id: string }[]) ?? []).map(c => c.user_id)
+  )
+  const allUserIds = [...new Set([...autorIds, ...commenterIds])]
+
+  const { data: perfis } = allUserIds.length > 0
+    ? await supabase
+        .from('perfil')
+        .select('id, nome_completo')
+        .in('id', allUserIds)
+    : { data: [] }
+
+  const perfilMap = Object.fromEntries(
+    (perfis ?? []).map((p: { id: string; nome_completo: string }) => [p.id, p.nome_completo])
+  )
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const albumsForClient = mapped as any[]
+  const mapped: any[] = albumList.map((a: Record<string, unknown>) => ({
+    ...a,
+    autor_nome: perfilMap[a.autor_id as string] ?? 'Administrador',
+    imagens: ((a.album_fotos_imagens as { ordem: number }[]) ?? [])
+      .sort((x, y) => x.ordem - y.ordem),
+    reacoes: a.album_fotos_reacoes ?? [],
+    comentarios: ((a.album_fotos_comentarios as { user_id: string; created_at: string }[]) ?? [])
+      .map(c => ({
+        ...c,
+        perfil: { id: c.user_id, nome_completo: perfilMap[c.user_id] ?? 'Morador' },
+      }))
+      .sort((x, y) => new Date(x.created_at).getTime() - new Date(y.created_at).getTime()),
+    visualizacoes_count: (a.album_fotos_visualizacoes as { count: number }[])?.[0]?.count ?? 0,
+  }))
 
   return (
     <AlbumFotosCondoClient
-      albums={albumsForClient}
+      albums={mapped}
       userId={user.id}
       userName={profile?.nome_completo ?? ''}
     />
