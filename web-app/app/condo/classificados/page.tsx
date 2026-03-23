@@ -2,6 +2,8 @@ import { createClient } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
 import ClassificadosClient from './classificados-client'
 
+export const dynamic = 'force-dynamic'
+
 export default async function ClassificadosPage() {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
@@ -61,13 +63,21 @@ export default async function ClassificadosPage() {
     .eq('id', perfil.condominio_id)
     .single()
 
+  // Merge & deduplicate (user's own approved ads appear in both queries)
+  const seenIds = new Set<string>()
   const allClassificados = [
     ...(meusPendentes ?? []),
     ...(classificados ?? []),
-  ].map((c: any) => ({ // eslint-disable-line @typescript-eslint/no-explicit-any
-    ...c,
-    perfil: Array.isArray(c.perfil) ? c.perfil[0] : c.perfil,
-  }))
+  ]
+    .filter((c: any) => { // eslint-disable-line @typescript-eslint/no-explicit-any
+      if (seenIds.has(c.id)) return false
+      seenIds.add(c.id)
+      return true
+    })
+    .map((c: any) => ({ // eslint-disable-line @typescript-eslint/no-explicit-any
+      ...c,
+      perfil: Array.isArray(c.perfil) ? c.perfil[0] : c.perfil,
+    }))
 
   return (
     <ClassificadosClient
