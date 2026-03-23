@@ -32,7 +32,7 @@ class _AdminScreenState extends State<AdminScreen> {
   @override
   void initState() {
     super.initState();
-    _loadPendingCounts();
+    WidgetsBinding.instance.addPostFrameCallback((_) => _loadPendingCounts());
   }
 
   Future<void> _loadPendingCounts() async {
