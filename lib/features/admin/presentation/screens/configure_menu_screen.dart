@@ -46,7 +46,6 @@ const _kAllFunctions = [
   _FunctionDef(id: 'fale_sindico',       icon: 'forum',         label: 'Fale com o Síndico',      route: '/fale-sindico',               defaultRoles: {'morador'}),
   _FunctionDef(id: 'enquetes',           icon: 'bar_chart',     label: 'Enquetes',                route: '/enquetes',                   defaultRoles: {'morador'}),
   _FunctionDef(id: 'enquete_admin',      icon: 'bar_chart',     label: 'Enquetes',                route: '/enquete-admin',              defaultRoles: {'sindico'}),
-  _FunctionDef(id: 'botconversa_send',   icon: 'send',          label: 'Enviar WhatsApp',         route: '/botconversa-send',           defaultRoles: {'sindico', 'sub_sindico', 'portaria'}),
   _FunctionDef(id: 'reservas_portaria',   icon: 'calendar_month',label: 'Reservas (Portaria)',      route: '/reservas-portaria',          defaultRoles: {'portaria', 'sindico', 'sub_sindico'}),
   _FunctionDef(id: 'visitor_register',    icon: 'badge',         label: 'Registrar Visitante',     route: '/registrar-visitante',        defaultRoles: {'portaria'}),
   _FunctionDef(id: 'portaria_authorize',  icon: 'how_to_reg',    label: 'Autorização Visitante (Portaria)', route: '/autorizar-visitante-portaria', defaultRoles: {'portaria'}),
