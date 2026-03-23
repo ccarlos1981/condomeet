@@ -414,16 +414,40 @@ Deno.serve(async (req) => {
 
     if (!perfil) {
       console.log(`[Webhook] No approved profile found for phone: ${incoming.phone}`)
-      // Send a polite response to unidentified users
+
+      // Count how many times this unknown number has messaged in the last 24h
+      const since24h = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString()
+      const { count } = await supabase
+        .from("chatbot_conversas")
+        .select("id", { count: "exact", head: true })
+        .eq("whatsapp", incoming.phone)
+        .gte("created_at", since24h)
+        .catch(() => ({ count: 0 }))
+
+      if (!count || count === 0) {
+        // First attempt — silently ignore (visitor who got a notification and accidentally replied)
+        console.log(`[Webhook] First message from unknown number ${incoming.phone} — ignoring silently`)
+        // Save to history so next time we know they've tried before
+        await supabase.from("chatbot_conversas").insert({
+          whatsapp: incoming.phone,
+          perfil_id: null,
+          condominio_id: null,
+          role: "user",
+          content: incoming.text,
+        }).catch(() => {})
+        return jsonResponse({ skipped: true, reason: "Unknown number — first attempt, silent ignore" })
+      }
+
+      // Second+ message — they're insisting, respond politely
       await sendTextMessage(
         UAZAPI_URL,
         UAZAPI_TOKEN,
         incoming.phone,
-        "Olá! 👋 Não consegui identificar seu número no nosso sistema. " +
-        "Se você é morador, verifique se seu número de celular está cadastrado corretamente no aplicativo Condomeet. " +
-        "Caso precise de ajuda, procure o síndico do seu condomínio."
+        "Olá! 👋 Não consegui identificar seu número no nosso sistema.\n\n" +
+        "Se você é morador, verifique se seu celular está cadastrado corretamente no aplicativo *Condomeet*.\n\n" +
+        "Caso precise de ajuda, procure o síndico do seu condomínio. 😊"
       )
-      return jsonResponse({ skipped: true, reason: "Profile not found" })
+      return jsonResponse({ skipped: true, reason: "Profile not found — responded after insistence" })
     }
 
     // Check if notifications are blocked
