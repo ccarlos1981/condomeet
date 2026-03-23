@@ -19,6 +19,7 @@ import 'package:condomeet/features/portaria/domain/entities/parcel.dart';
 import 'package:condomeet/features/security/presentation/bloc/sos_bloc.dart';
 import 'package:condomeet/features/security/presentation/bloc/sos_event.dart';
 import 'package:condomeet/features/auth/presentation/screens/edit_profile_screen.dart';
+import 'package:condomeet/features/community/presentation/screens/empresa_detalhe_screen.dart';
 import 'package:supabase_flutter/supabase_flutter.dart' hide AuthState;
 import 'package:condomeet/main.dart';
 
@@ -36,6 +37,7 @@ class _HomeScreenState extends State<HomeScreen> {
   int _selectedTab = 0;
   String? _fotoUrl;
   bool _uploadingSelfie = false;
+  List<Map<String, dynamic>> _propaganda = [];
 
   @override
   void initState() {
@@ -43,12 +45,28 @@ class _HomeScreenState extends State<HomeScreen> {
     final authState = context.read<AuthBloc>().state;
     _initStream(authState.condominiumId);
     _loadFotoUrl(authState.userId);
+    _loadPropaganda(authState.condominiumId);
 
     if (authState.userId != null) {
       context.read<ParcelBloc>().add(
         WatchPendingParcelsRequested(authState.userId!),
       );
     }
+  }
+
+  Future<void> _loadPropaganda(String? condoId) async {
+    if (condoId == null) return;
+    try {
+      final data = await Supabase.instance.client
+          .from('propaganda')
+          .select('*, propaganda_fotos(id, foto_url, ordem)')
+          .eq('condominio_id', condoId)
+          .eq('ativo', true)
+          .order('ordem');
+      if (mounted) {
+        setState(() => _propaganda = List<Map<String, dynamic>>.from(data));
+      }
+    } catch (_) {}
   }
 
   Future<void> _loadFotoUrl(String? userId) async {
@@ -982,13 +1000,8 @@ class _HomeScreenState extends State<HomeScreen> {
               scrollDirection: Axis.horizontal,
               padding: const EdgeInsets.symmetric(horizontal: 12),
               children: [
-                _buildPartnerItem(
-                  const Color(0xFF003D4C),
-                  Icons.attach_money_rounded,
-                ),
-                _buildPartnerItem(AppColors.primary, Icons.stars_rounded),
-                _buildPartnerItem(AppColors.primary, Icons.stars_rounded),
-                _buildPartnerItem(AppColors.primary, Icons.stars_rounded),
+                if (_propaganda.isEmpty) ..._defaultPartnerItems()
+                else ..._propaganda.map((p) => _buildRealPartnerItem(p)).toList(),
               ],
             ),
           ),
@@ -996,6 +1009,44 @@ class _HomeScreenState extends State<HomeScreen> {
       ),
     );
   }
+
+  List<Widget> _defaultPartnerItems() => [
+    _buildPartnerItem(const Color(0xFF003D4C), Icons.attach_money_rounded),
+    _buildPartnerItem(AppColors.primary, Icons.stars_rounded),
+    _buildPartnerItem(AppColors.primary, Icons.stars_rounded),
+    _buildPartnerItem(AppColors.primary, Icons.stars_rounded),
+  ];
+
+  Widget _buildRealPartnerItem(Map<String, dynamic> empresa) {
+    return GestureDetector(
+      onTap: () => Navigator.push(
+        context,
+        MaterialPageRoute(builder: (_) => EmpresaDetalheScreen(empresa: empresa)),
+      ),
+      child: Container(
+        width: 70,
+        margin: const EdgeInsets.symmetric(horizontal: 4),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(color: Colors.grey.shade200),
+          boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.06), blurRadius: 6, offset: const Offset(0, 2))],
+        ),
+        child: ClipRRect(
+          borderRadius: BorderRadius.circular(20),
+          child: empresa['logo_url'] != null
+            ? Image.network(empresa['logo_url'], fit: BoxFit.cover,
+                errorBuilder: (_, __, ___) => _partnerPlaceholder())
+            : _partnerPlaceholder(),
+        ),
+      ),
+    );
+  }
+
+  Widget _partnerPlaceholder() => Container(
+    color: AppColors.primary.withValues(alpha: 0.1),
+    child: const Center(child: Icon(Icons.business, color: AppColors.primary, size: 28)),
+  );
 
   Widget _buildPartnerItem(Color color, IconData icon) {
     return Container(
