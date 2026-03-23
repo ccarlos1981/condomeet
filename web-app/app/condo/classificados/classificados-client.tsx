@@ -74,7 +74,7 @@ export default function ClassificadosClient({
   const [favoritos, setFavoritos] = useState<Set<string>>(new Set(initialFavoritos))
   const [searchText, setSearchText] = useState('')
   const [categoriaFilter, setCategoriaFilter] = useState('')
-  const [showMyAds, setShowMyAds] = useState(false)
+  const [statusTab, setStatusTab] = useState<'aprovados' | 'pendentes'>('aprovados')
   const [showFavorites, setShowFavorites] = useState(false)
   const [showModal, setShowModal] = useState(false)
   const [editingId, setEditingId] = useState<string | null>(null)
@@ -97,9 +97,15 @@ export default function ClassificadosClient({
   const blocoLabel = getBlocoLabel(tipoEstrutura)
   const aptoLabel = getAptoLabel(tipoEstrutura)
 
+  const myPendingCount = useMemo(() => classificados.filter(c => c.criado_por === userId && (c.status === 'pendente' || c.status === 'rejeitado')).length, [classificados, userId])
+
   const filtered = useMemo(() => {
     let result = classificados
-    if (showMyAds) result = result.filter(c => c.criado_por === userId)
+    if (statusTab === 'pendentes') {
+      result = result.filter(c => c.criado_por === userId && (c.status === 'pendente' || c.status === 'rejeitado'))
+    } else {
+      result = result.filter(c => c.status === 'aprovado' || c.status === 'vendido')
+    }
     if (showFavorites) result = result.filter(c => favoritos.has(c.id))
     if (categoriaFilter) result = result.filter(c => c.categoria === categoriaFilter)
     if (searchText) {
@@ -111,7 +117,7 @@ export default function ClassificadosClient({
       )
     }
     return result
-  }, [classificados, showMyAds, showFavorites, categoriaFilter, searchText, favoritos, userId])
+  }, [classificados, statusTab, showFavorites, categoriaFilter, searchText, favoritos, userId])
 
   const toggleFavorite = useCallback(async (id: string) => {
     const isFav = favoritos.has(id)
@@ -178,7 +184,8 @@ export default function ClassificadosClient({
       }
 
       if (editingId) {
-        const { error } = await supabase.from('classificados').update(record).eq('id', editingId)
+        // Edit sends back to pendente for re-approval
+        const { error } = await supabase.from('classificados').update({ ...record, status: 'pendente' }).eq('id', editingId)
         if (error) throw error
       } else {
         const { error } = await supabase.from('classificados').insert({
@@ -276,6 +283,33 @@ export default function ClassificadosClient({
         </button>
       </div>
 
+      {/* Status tabs */}
+      <div className="flex gap-2 mb-4">
+        <button
+          onClick={() => setStatusTab('aprovados')}
+          className={`px-5 py-2 rounded-full text-sm font-bold transition-all ${
+            statusTab === 'aprovados'
+              ? 'bg-green-500 text-white shadow-md'
+              : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+          }`}
+        >
+          ✅ Aprovados
+        </button>
+        <button
+          onClick={() => setStatusTab('pendentes')}
+          className={`px-5 py-2 rounded-full text-sm font-bold transition-all ${
+            statusTab === 'pendentes'
+              ? 'bg-yellow-500 text-white shadow-md'
+              : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+          }`}
+        >
+          ⏳ Meus Pendentes
+          {myPendingCount > 0 && (
+            <span className="ml-1.5 px-1.5 py-0.5 bg-white/30 rounded-full text-xs">{myPendingCount}</span>
+          )}
+        </button>
+      </div>
+
       {/* Filters */}
       <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-4 mb-6">
         <div className="flex flex-wrap gap-3 items-center">
@@ -307,7 +341,7 @@ export default function ClassificadosClient({
             </select>
           </div>
 
-          {/* Toggles */}
+          {/* Favorites */}
           <label className="flex items-center gap-2 cursor-pointer text-sm">
             <input
               type="checkbox"
@@ -316,15 +350,6 @@ export default function ClassificadosClient({
               className="rounded border-gray-300 text-[#FC5931] focus:ring-[#FC5931]"
             />
             ❤️ Favoritos
-          </label>
-          <label className="flex items-center gap-2 cursor-pointer text-sm">
-            <input
-              type="checkbox"
-              checked={showMyAds}
-              onChange={e => setShowMyAds(e.target.checked)}
-              className="rounded border-gray-300 text-[#FC5931] focus:ring-[#FC5931]"
-            />
-            📌 Meus anúncios
           </label>
         </div>
       </div>
@@ -406,19 +431,21 @@ export default function ClassificadosClient({
                 {/* Owner actions */}
                 {c.criado_por === userId && c.status !== 'vendido' && (
                   <div className="flex gap-2 mt-3 pt-3 border-t border-gray-100">
-                    <button
-                      onClick={(e) => { e.stopPropagation(); openEditModal(c) }}
-                      className="flex-1 flex items-center justify-center gap-1 py-1.5 bg-blue-500 hover:bg-blue-600 text-white text-xs font-bold rounded-lg transition-colors"
-                    >
-                      <Edit2 size={12} /> Editar
-                    </button>
                     {c.status === 'aprovado' && (
-                      <button
-                        onClick={(e) => { e.stopPropagation(); handleMarkSold(c.id) }}
-                        className="flex-1 flex items-center justify-center gap-1 py-1.5 bg-green-500 hover:bg-green-600 text-white text-xs font-bold rounded-lg transition-colors"
-                      >
-                        <Tag size={12} /> Vendi
-                      </button>
+                      <>
+                        <button
+                          onClick={(e) => { e.stopPropagation(); openEditModal(c) }}
+                          className="flex-1 flex items-center justify-center gap-1 py-1.5 bg-blue-500 hover:bg-blue-600 text-white text-xs font-bold rounded-lg transition-colors"
+                        >
+                          <Edit2 size={12} /> Editar
+                        </button>
+                        <button
+                          onClick={(e) => { e.stopPropagation(); handleMarkSold(c.id) }}
+                          className="flex-1 flex items-center justify-center gap-1 py-1.5 bg-green-500 hover:bg-green-600 text-white text-xs font-bold rounded-lg transition-colors"
+                        >
+                          <Tag size={12} /> Vendi
+                        </button>
+                      </>
                     )}
                     <button
                       onClick={(e) => { e.stopPropagation(); handleDelete(c.id) }}
