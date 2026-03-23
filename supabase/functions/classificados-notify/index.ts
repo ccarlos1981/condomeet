@@ -91,20 +91,32 @@ async function sendFcmMessage(
   }
 }
 
+// ── CORS headers ────────────────────────────────────────────────────────────
+const corsHeaders = {
+  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+  "Access-Control-Allow-Methods": "POST, OPTIONS",
+}
+
 // ── Main handler ────────────────────────────────────────────────────────────
 
 serve(async (req) => {
+  // Handle CORS preflight
+  if (req.method === "OPTIONS") {
+    return new Response("ok", { headers: corsHeaders })
+  }
+
   try {
     const { condominio_id, classificado_id, action } = await req.json()
 
     if (!condominio_id || !classificado_id || !action) {
-      return new Response(JSON.stringify({ error: "Missing required fields" }), { status: 400 })
+      return new Response(JSON.stringify({ error: "Missing required fields" }), { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } })
     }
 
     // 1. Load Firebase service account
     const serviceAccountJson = Deno.env.get("FIREBASE_SERVICE_ACCOUNT_JSON")
     if (!serviceAccountJson) {
-      return new Response(JSON.stringify({ error: "FIREBASE_SERVICE_ACCOUNT_JSON not set" }), { status: 500 })
+      return new Response(JSON.stringify({ error: "FIREBASE_SERVICE_ACCOUNT_JSON not set" }), { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } })
     }
     const serviceAccount = JSON.parse(serviceAccountJson)
     const firebaseProjectId = serviceAccount.project_id
@@ -123,7 +135,7 @@ serve(async (req) => {
       .single()
 
     if (classError || !classificado) {
-      return new Response(JSON.stringify({ error: "Classificado not found" }), { status: 404 })
+      return new Response(JSON.stringify({ error: "Classificado not found" }), { status: 404, headers: { ...corsHeaders, "Content-Type": "application/json" } })
     }
 
     // 4. Fetch creator profile
@@ -273,10 +285,10 @@ Cod. interno: ${classificado.cod_interno}`
         push: { sent: pushSuccess, total: pushResults.length },
         whatsapp: { sent: whatsappResults.filter((r: any) => r.success).length, total: whatsappResults.length },
       }),
-      { status: 200, headers: { "Content-Type": "application/json" } }
+      { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
     )
   } catch (err: any) {
     console.error("Unexpected error:", err)
-    return new Response(JSON.stringify({ error: err.message }), { status: 500 })
+    return new Response(JSON.stringify({ error: err.message }), { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } })
   }
 })
