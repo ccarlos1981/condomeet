@@ -978,24 +978,38 @@ class _HomeScreenState extends State<HomeScreen> {
     return Container(
       color: Colors.white,
       margin: const EdgeInsets.only(top: 8),
-      padding: const EdgeInsets.symmetric(vertical: 16),
+      padding: const EdgeInsets.only(top: 16, bottom: 20),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Padding(
-            padding: EdgeInsets.symmetric(horizontal: 16),
-            child: Text(
-              'Empresas parceiras',
-              style: TextStyle(
-                fontSize: 14,
-                fontWeight: FontWeight.bold,
-                color: AppColors.textMain,
-              ),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                const Text(
+                  'Empresas parceiras',
+                  style: TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.bold,
+                    color: AppColors.textMain,
+                  ),
+                ),
+                if (_propaganda.isNotEmpty)
+                  Text(
+                    'Outras...',
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: AppColors.primary,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+              ],
             ),
           ),
           const SizedBox(height: 12),
           SizedBox(
-            height: 80,
+            height: 90,
             child: ListView(
               scrollDirection: Axis.horizontal,
               padding: const EdgeInsets.symmetric(horizontal: 12),
@@ -1011,11 +1025,85 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   List<Widget> _defaultPartnerItems() => [
-    _buildPartnerItem(const Color(0xFF003D4C), Icons.attach_money_rounded),
-    _buildPartnerItem(AppColors.primary, Icons.stars_rounded),
-    _buildPartnerItem(AppColors.primary, Icons.stars_rounded),
-    _buildPartnerItem(AppColors.primary, Icons.stars_rounded),
+    _buildPlaceholderPartner(
+      gradient: const LinearGradient(
+        colors: [Color(0xFF003D4C), Color(0xFF006680)],
+        begin: Alignment.topLeft, end: Alignment.bottomRight,
+      ),
+      icon: Icons.attach_money_rounded,
+      iconColor: const Color(0xFF4ECDC4),
+    ),
+    _buildPlaceholderPartner(
+      gradient: const LinearGradient(
+        colors: [Color(0xFF7B2FF7), Color(0xFF9B5FFF)],
+        begin: Alignment.topLeft, end: Alignment.bottomRight,
+      ),
+    ),
+    _buildPlaceholderPartner(
+      gradient: const LinearGradient(
+        colors: [Color(0xFF7B2FF7), Color(0xFF9B5FFF)],
+        begin: Alignment.topLeft, end: Alignment.bottomRight,
+      ),
+    ),
+    _buildPlaceholderPartner(
+      gradient: const LinearGradient(
+        colors: [Color(0xFF7B2FF7), Color(0xFF9B5FFF)],
+        begin: Alignment.topLeft, end: Alignment.bottomRight,
+      ),
+    ),
   ];
+
+  Widget _buildPlaceholderPartner({
+    required LinearGradient gradient,
+    IconData? icon,
+    Color iconColor = Colors.white,
+  }) {
+    return Container(
+      width: 82,
+      height: 90,
+      margin: const EdgeInsets.symmetric(horizontal: 4),
+      decoration: BoxDecoration(
+        gradient: gradient,
+        borderRadius: BorderRadius.circular(20),
+        boxShadow: [
+          BoxShadow(
+            color: gradient.colors.first.withValues(alpha: 0.35),
+            blurRadius: 8,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: Stack(
+        alignment: Alignment.center,
+        children: [
+          if (icon != null)
+            Icon(icon, color: iconColor, size: 32),
+          Positioned(
+            bottom: 8,
+            left: 4,
+            right: 4,
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+              decoration: BoxDecoration(
+                color: Colors.black.withValues(alpha: 0.25),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: const Text(
+                'sua marca aqui',
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  color: Colors.white,
+                  fontSize: 7.5,
+                  fontWeight: FontWeight.w600,
+                  letterSpacing: 0.2,
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
 
   Widget _buildRealPartnerItem(Map<String, dynamic> empresa) {
     return GestureDetector(
@@ -1024,19 +1112,29 @@ class _HomeScreenState extends State<HomeScreen> {
         MaterialPageRoute(builder: (_) => EmpresaDetalheScreen(empresa: empresa)),
       ),
       child: Container(
-        width: 70,
+        width: 82,
+        height: 90,
         margin: const EdgeInsets.symmetric(horizontal: 4),
         decoration: BoxDecoration(
           color: Colors.white,
           borderRadius: BorderRadius.circular(20),
           border: Border.all(color: Colors.grey.shade200),
-          boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.06), blurRadius: 6, offset: const Offset(0, 2))],
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withValues(alpha: 0.06),
+              blurRadius: 8,
+              offset: const Offset(0, 3),
+            ),
+          ],
         ),
         child: ClipRRect(
           borderRadius: BorderRadius.circular(20),
           child: empresa['logo_url'] != null
-            ? Image.network(empresa['logo_url'], fit: BoxFit.cover,
-                errorBuilder: (_, __, ___) => _partnerPlaceholder())
+            ? Image.network(
+                empresa['logo_url'],
+                fit: BoxFit.cover,
+                errorBuilder: (_, __, ___) => _partnerPlaceholder(),
+              )
             : _partnerPlaceholder(),
         ),
       ),
@@ -1044,33 +1142,19 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   Widget _partnerPlaceholder() => Container(
-    color: AppColors.primary.withValues(alpha: 0.1),
-    child: const Center(child: Icon(Icons.business, color: AppColors.primary, size: 28)),
+    decoration: const BoxDecoration(
+      gradient: LinearGradient(
+        colors: [Color(0xFF7B2FF7), Color(0xFF9B5FFF)],
+        begin: Alignment.topLeft,
+        end: Alignment.bottomRight,
+      ),
+    ),
+    child: const Center(
+      child: Icon(Icons.business, color: Colors.white70, size: 32),
+    ),
   );
 
-  Widget _buildPartnerItem(Color color, IconData icon) {
-    return Container(
-      width: 70,
-      margin: const EdgeInsets.symmetric(horizontal: 4),
-      decoration: BoxDecoration(
-        color: color,
-        borderRadius: BorderRadius.circular(20),
-      ),
-      child: Center(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(icon, color: Colors.white, size: 30),
-            const Text(
-              'sua marca aqui',
-              textAlign: TextAlign.center,
-              style: TextStyle(color: Colors.white, fontSize: 8),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
+
 
   Widget _buildFeaturedSection() {
     return Container(
