@@ -142,23 +142,48 @@ function parseGeminiResponse(raw: string): GeminiResponse {
   const direct = tryParseJson(raw)
   if (direct) return direct
 
-  // 2. Try to extract JSON from markdown code block ```json ... ```
+  // 2. Try to extract JSON from markdown code block ```json ... ``` or ```...```
   const jsonMatch = raw.match(/```(?:json)?\s*([\s\S]*?)\s*```/)
   if (jsonMatch) {
     const fromBlock = tryParseJson(jsonMatch[1])
     if (fromBlock) return fromBlock
   }
 
-  // 3. Try to find JSON object anywhere in the text (for thinking models)
-  const braceMatch = raw.match(/\{[\s\S]*"message"\s*:\s*"[\s\S]*?\}/)
+  // 3. Handle "json\n{...}" format — model outputs "json" then newline then JSON (no backticks)
+  const jsonPrefixMatch = raw.match(/^json\s*(\{[\s\S]*\})\s*$/i)
+  if (jsonPrefixMatch) {
+    const fromPrefix = tryParseJson(jsonPrefixMatch[1])
+    if (fromPrefix) return fromPrefix
+  }
+
+  // 4. Try to find JSON object anywhere in the text (for thinking models)
+  const braceMatch = raw.match(/\{[\s\S]*?"message"\s*:\s*"[\s\S]*?\}/)
   if (braceMatch) {
     const fromBrace = tryParseJson(braceMatch[0])
     if (fromBrace) return fromBrace
   }
 
-  // 4. Fallback: treat as plain text response
+  // 5. Fallback: extract just the message text if present, stripping leftover JSON artifacts
+  // e.g. if raw contains 'json\n{ "message": "...", "actions": [] }'
+  const msgMatch = raw.match(/"message"\s*:\s*"((?:[^"\\]|\\.)*)"/s)
+  if (msgMatch) {
+    try {
+      return {
+        message: JSON.parse(`"${msgMatch[1]}"`),
+        actions: [],
+      }
+    } catch { /* continue */ }
+  }
+
+  // Final fallback: treat as plain text response
   console.warn("[Gemini] Could not parse JSON response, using raw text")
-  return { message: raw, actions: [] }
+  // Strip any leftover JSON-like artifacts from the text
+  const cleaned = raw
+    .replace(/^json\s*/i, "")
+    .replace(/^\{[\s\S]*?"message"\s*:\s*"/i, "")
+    .replace(/",?\s*"actions"\s*:\s*\[[\s\S]*\]\s*\}$/i, "")
+    .trim()
+  return { message: cleaned || raw, actions: [] }
 }
 
 // ── Check if message should be ignored ────────────────────────────────────
@@ -243,7 +268,33 @@ Deno.serve(async (req) => {
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? ""
     )
 
-    // ── MAGIC WORD: admin can pause/resume bot ────────────────────────────
+    // ── DEBOUNCE: wait 4s to see if user sends more messages ─────────────
+    const arrivalTs = new Date().toISOString()
+
+    // Save a "pending" marker to track this message arrival
+    await supabase.from("chatbot_pending").upsert({
+      phone: incoming.phone,
+      last_text: incoming.text,
+      last_arrival: arrivalTs,
+    }, { onConflict: "phone" }).throwOnError().catch(() => {/* ignore if table missing */})
+
+    // Wait 4 seconds
+    await new Promise(r => setTimeout(r, 4000))
+
+    // Check if a newer message arrived during the wait
+    const { data: pending } = await supabase
+      .from("chatbot_pending")
+      .select("last_arrival")
+      .eq("phone", incoming.phone)
+      .single()
+      .catch(() => ({ data: null }))
+
+    if (pending && pending.last_arrival > arrivalTs) {
+      console.log(`[Debounce] Newer message detected for ${incoming.phone}, skipping this one`)
+      return jsonResponse({ skipped: true, reason: "Debounce: newer message arrived" })
+    }
+    // ─────────────────────────────────────────────────────────────────────
+
     const isAdmin = ADMIN_PHONES.some(p => incoming.phone.replace(/\D/g, '').endsWith(p.replace(/\D/g, '')))
     if (isAdmin) {
       const cmd = incoming.text.trim().toUpperCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "")
