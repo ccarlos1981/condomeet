@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useTransition } from 'react'
-import { Save, CheckSquare, Square, ChevronDown } from 'lucide-react'
+import { Save, CheckSquare, Square } from 'lucide-react'
 
 // ─── Master function catalog ─────────────────────────────────────
 const ALL_FUNCTIONS = [
@@ -25,6 +25,8 @@ const ALL_FUNCTIONS = [
   { id: 'visitor_register', label: 'Registrar Visitante',     icon: 'badge',         emoji: '🪪', route: '/registrar-visitante',       defaultRoles: ['portaria'] },
   { id: 'portaria_authorize', label: 'Autorização Visitante (Portaria)', icon: 'how_to_reg', emoji: '🛂', route: '/autorizar-visitante-portaria', defaultRoles: ['portaria', 'sindico', 'sub_sindico'] },
   { id: 'reservas_portaria', label: 'Reservas (Portaria)', icon: 'calendar_month', emoji: '📅', route: '/reservas-portaria', defaultRoles: ['portaria', 'sindico', 'sub_sindico'] },
+  { id: 'album_fotos',       label: 'Álbum de Fotos',     icon: 'photo_camera',   emoji: '📸', route: '/album-fotos',       defaultRoles: ['morador'] },
+  { id: 'visita_proprietario', label: 'Visita Proprietário', icon: 'door_front', emoji: '🚪', route: '/visita-proprietario', defaultRoles: ['portaria'] },
 ]
 
 // Normalize role name → key: "Porteiro (a)" → "portaria"

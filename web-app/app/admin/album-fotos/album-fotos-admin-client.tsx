@@ -1,8 +1,7 @@
 'use client'
 
-import { useState, useRef } from 'react'
+import { useState, useRef, useEffect } from 'react'
 import { Camera, Trash2, Pencil, X, Send, Image, Heart, MessageCircle, Eye, ChevronLeft, ChevronRight } from 'lucide-react'
-import { useRouter } from 'next/navigation'
 
 type TipoEvento = 'evento' | 'manutencao' | 'reuniao' | 'outros'
 
@@ -45,7 +44,6 @@ const TIPO_COLORS: Record<TipoEvento, string> = {
 }
 
 export default function AlbumFotosAdminClient({ condominioId, albums: initial }: Props) {
-  const router = useRouter()
   const [albums, setAlbums] = useState<Album[]>(initial)
   const [titulo, setTitulo] = useState('')
   const [descricao, setDescricao] = useState('')
@@ -56,6 +54,11 @@ export default function AlbumFotosAdminClient({ condominioId, albums: initial }:
   const [sending, setSending] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
+
+  // Sync albums when server props change (after router.refresh)
+  useEffect(() => {
+    setAlbums(initial)
+  }, [initial])
 
   // Edit state
   const [editingId, setEditingId] = useState<string | null>(null)
@@ -123,7 +126,9 @@ export default function AlbumFotosAdminClient({ condominioId, albums: initial }:
     previews.forEach(p => URL.revokeObjectURL(p))
     setPreviews([])
     setSending(false)
-    router.refresh()
+
+    // Force full page reload to get fresh data from server
+    window.location.reload()
   }
 
   async function handleDelete(id: string) {
@@ -186,7 +191,9 @@ export default function AlbumFotosAdminClient({ condominioId, albums: initial }:
 
     cancelEdit()
     setSending(false)
-    router.refresh()
+
+    // Force full page reload to get fresh data from server
+    window.location.reload()
   }
 
   function getCarouselIdx(albumId: string) {

@@ -7,7 +7,7 @@ import { useRouter } from 'next/navigation'
 import {
   Home, UserCheck, Package, QrCode, Bell, LogOut,
   Building2, ChevronLeft, ChevronRight, Menu, X,
-  Shield, ClipboardList, Users, CalendarDays, AlertCircle, MessageSquare, FileText, UserCog, BadgeCheck, BarChart3, Camera
+  Shield, ClipboardList, Users, CalendarDays, AlertCircle, MessageSquare, FileText, UserCog, BadgeCheck, BarChart3, Camera, DoorOpen
 } from 'lucide-react'
 
 type NavItem = { label: string; href: string; icon: React.ReactNode; fnId?: string }
@@ -37,6 +37,7 @@ const FN_TO_NAV: Record<string, { label: string; href: string; icon: React.React
   portaria_authorize: { label: 'Autorização Visitante\n(Portaria)', href: '/condo/autorizar-visitante-portaria', icon: <UserCheck size={18} /> },
   reservas_portaria: { label: 'Reservas (Portaria)', href: '/condo/reservas-portaria', icon: <CalendarDays size={18} /> },
   album_fotos:        { label: 'Álbum de Fotos',            href: '/condo/album-fotos',           icon: <Camera size={18} /> },
+  visita_proprietario: { label: 'Visita Proprietário',       href: '/condo/visita-proprietario',   icon: <DoorOpen size={18} /> },
 }
 
 function normalizeRoleKey(role: string): string {
@@ -88,6 +89,7 @@ const PORTER_NAV: NavItem[] = [
   { label: 'Registro de Turno', href: '/condo/registro-turno', icon: <ClipboardList size={18} /> },
   { label: 'Autorização Visitante (Portaria)', href: '/condo/autorizar-visitante-portaria', icon: <UserCheck size={18} /> },
   { label: 'Reservas (Portaria)', href: '/condo/reservas-portaria', icon: <CalendarDays size={18} /> },
+  { label: 'Visita Proprietário', href: '/condo/visita-proprietario', icon: <DoorOpen size={18} /> },
 ]
 
 const ADMIN_NAV: NavItem[] = [
@@ -107,6 +109,7 @@ const ADMIN_NAV: NavItem[] = [
   { label: 'Registro de Turno', href: '/condo/registro-turno', icon: <ClipboardList size={18} /> },
   { label: 'Autorização Visitante (Portaria)', href: '/condo/autorizar-visitante-portaria', icon: <UserCheck size={18} /> },
   { label: 'Reservas (Portaria)', href: '/condo/reservas-portaria', icon: <CalendarDays size={18} /> },
+  { label: 'Visita Proprietário', href: '/condo/visita-proprietario', icon: <DoorOpen size={18} /> },
   { label: 'Painel Admin', href: '/admin', icon: <Shield size={18} /> },
 ]
 

@@ -98,15 +98,20 @@ export default function AlbumFotosCondoClient({ albums: initial, userId, userNam
       body: JSON.stringify({ album_id: albumId, emoji }),
     })
     if (!res.ok) return
-    const { action } = await res.json()
+    const { action, previous_emoji } = await res.json()
 
     setAlbums(prev => prev.map(a => {
       if (a.id !== albumId) return a
+      let reacoes = [...a.reacoes]
       if (action === 'added') {
-        return { ...a, reacoes: [...a.reacoes, { id: crypto.randomUUID(), user_id: userId, emoji }] }
-      } else {
-        return { ...a, reacoes: a.reacoes.filter(r => !(r.user_id === userId && r.emoji === emoji)) }
+        reacoes.push({ id: crypto.randomUUID(), user_id: userId, emoji })
+      } else if (action === 'removed') {
+        reacoes = reacoes.filter(r => !(r.user_id === userId && r.emoji === emoji))
+      } else if (action === 'replaced') {
+        reacoes = reacoes.filter(r => !(r.user_id === userId && r.emoji === previous_emoji))
+        reacoes.push({ id: crypto.randomUUID(), user_id: userId, emoji })
       }
+      return { ...a, reacoes }
     }))
     setShowEmojiPicker(null)
   }

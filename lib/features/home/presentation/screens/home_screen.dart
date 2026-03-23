@@ -1252,6 +1252,7 @@ class _HomeScreenState extends State<HomeScreen> {
       case 'star':              return Icons.star_outline_rounded;
       case 'favorite':          return Icons.favorite_outline_rounded;
       case 'photo':             return Icons.photo_outlined;
+      case 'photo_camera':      return Icons.photo_camera_outlined;
       case 'image':             return Icons.image_outlined;
       case 'map':               return Icons.map_outlined;
       case 'place':             return Icons.place_outlined;

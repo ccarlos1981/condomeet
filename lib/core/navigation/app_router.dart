@@ -26,6 +26,7 @@ import 'package:condomeet/features/community/presentation/screens/documents_scre
 import 'package:condomeet/features/community/presentation/screens/contracts_screen.dart';
 import 'package:condomeet/features/community/presentation/screens/admin_documentos_screen.dart';
 import 'package:condomeet/features/community/presentation/screens/admin_contratos_screen.dart';
+import 'package:condomeet/features/community/presentation/screens/album_fotos_screen.dart';
 import 'package:condomeet/features/community/presentation/screens/area_picker_screen.dart';
 import 'package:condomeet/features/community/presentation/screens/portaria_booking_screen.dart';
 import 'package:condomeet/features/community/presentation/screens/areas_comuns_admin_screen.dart';
@@ -52,6 +53,7 @@ import 'package:condomeet/features/security/presentation/screens/fale_conosco_ad
 import 'package:condomeet/features/auth/presentation/screens/splash_screen.dart';
 import 'package:condomeet/features/admin/presentation/screens/universal_push_screen.dart';
 import 'package:condomeet/features/admin/presentation/screens/avisos_admin_screen.dart';
+import 'package:condomeet/features/admin/presentation/screens/album_fotos_admin_screen.dart';
 
 
 class AppRouter {
@@ -152,12 +154,14 @@ class AppRouter {
       '/sos': (context) => const SosScreen(),
       '/sos-contatos': (context) => const SosContatosScreen(),
       '/avisos': (context) => const AvisosScreen(),
+      '/album-fotos': (context) => const AlbumFotosScreen(),
       '/fale-sindico': (context) => BlockedAccessOverlay(
             isBlocked: state.isUnitBlocked,
             child: const FaleSindicoScreen(),
           ),
       '/fale-conosco-admin': (context) => const FaleConoscoAdminScreen(),
       '/admin-avisos': (context) => const AvisosAdminScreen(),
+      '/admin-album-fotos': (context) => const AlbumFotosAdminScreen(),
       '/universal-push': (context) => const UniversalPushScreen(),
     };
   }

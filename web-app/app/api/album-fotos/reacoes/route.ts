@@ -1,7 +1,8 @@
 import { createClient } from '@/lib/supabase/server'
 import { NextRequest, NextResponse } from 'next/server'
 
-// POST — Toggle reaction (insert or delete)
+// POST — Toggle reaction (one reaction per user per album)
+// If same emoji → remove. If different emoji → replace. If none → add.
 export async function POST(req: NextRequest) {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
@@ -12,21 +13,28 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'album_id e emoji são obrigatórios' }, { status: 400 })
   }
 
-  // Check if reaction already exists
+  // Check if user already has a reaction on this album
   const { data: existing } = await supabase
     .from('album_fotos_reacoes')
-    .select('id')
+    .select('id, emoji')
     .eq('album_id', album_id)
     .eq('user_id', user.id)
-    .eq('emoji', emoji)
     .maybeSingle()
 
   if (existing) {
-    // Remove reaction
-    await supabase.from('album_fotos_reacoes').delete().eq('id', existing.id)
-    return NextResponse.json({ action: 'removed' })
+    if (existing.emoji === emoji) {
+      // Same emoji → remove (toggle off)
+      await supabase.from('album_fotos_reacoes').delete().eq('id', existing.id)
+      return NextResponse.json({ action: 'removed' })
+    } else {
+      // Different emoji → replace
+      await supabase.from('album_fotos_reacoes')
+        .update({ emoji })
+        .eq('id', existing.id)
+      return NextResponse.json({ action: 'replaced', previous_emoji: existing.emoji })
+    }
   } else {
-    // Add reaction
+    // No existing reaction → add
     const { error } = await supabase
       .from('album_fotos_reacoes')
       .insert({ album_id, user_id: user.id, emoji })
