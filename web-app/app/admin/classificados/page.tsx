@@ -18,21 +18,26 @@ export default async function ClassificadosAdminPage() {
 
   if (!perfil) redirect('/login')
 
-  // Fetch pending classificados
+  // Fetch classificados without FK join
   const { data: classificados } = await supabase
     .from('classificados')
-    .select(`
-      *,
-      perfil:criado_por (
-        nome_completo,
-        bloco_txt,
-        apto_txt,
-        whatsapp
-      )
-    `)
+    .select('*')
     .eq('condominio_id', perfil.condominio_id)
     .in('status', ['pendente', 'aprovado', 'rejeitado'])
     .order('created_at', { ascending: false })
+
+  // Fetch creator profiles separately
+  const creatorIds = [...new Set((classificados ?? []).map((c: { criado_por: string }) => c.criado_por))]
+  const { data: criadores } = creatorIds.length > 0
+    ? await supabase
+        .from('perfil')
+        .select('id, nome_completo, bloco_txt, apto_txt, whatsapp')
+        .in('id', creatorIds)
+    : { data: [] }
+
+  const criadorMap = Object.fromEntries(
+    (criadores ?? []).map((c: { id: string; nome_completo: string; bloco_txt: string; apto_txt: string; whatsapp: string }) => [c.id, c])
+  )
 
   // Fetch condo info for labels
   const { data: condoData } = await supabase
@@ -41,12 +46,15 @@ export default async function ClassificadosAdminPage() {
     .eq('id', perfil.condominio_id)
     .single()
 
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const withProfiles: any[] = (classificados ?? []).map((c: Record<string, unknown>) => ({
+    ...c,
+    perfil: criadorMap[c.criado_por as string] ?? null,
+  }))
+
   return (
     <ClassificadosAdminClient
-      classificados={(classificados ?? []).map((c: any) => ({
-        ...c,
-        perfil: Array.isArray(c.perfil) ? c.perfil[0] : c.perfil,
-      }))}
+      classificados={withProfiles}
       condominioId={perfil.condominio_id}
       tipoEstrutura={condoData?.tipo_estrutura ?? 'predio'}
     />

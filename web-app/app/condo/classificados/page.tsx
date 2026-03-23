@@ -17,18 +17,10 @@ export default async function ClassificadosPage() {
 
   if (!perfil) redirect('/login')
 
-  // Fetch approved classificados with creator profile
+  // Fetch approved classificados (without FK join)
   const { data: classificados } = await supabase
     .from('classificados')
-    .select(`
-      *,
-      perfil:criado_por (
-        nome_completo,
-        bloco_txt,
-        apto_txt,
-        whatsapp
-      )
-    `)
+    .select('*')
     .eq('condominio_id', perfil.condominio_id)
     .in('status', ['aprovado', 'vendido'])
     .order('created_at', { ascending: false })
@@ -36,15 +28,7 @@ export default async function ClassificadosPage() {
   // Fetch user's own pending/rejected ads
   const { data: meusPendentes } = await supabase
     .from('classificados')
-    .select(`
-      *,
-      perfil:criado_por (
-        nome_completo,
-        bloco_txt,
-        apto_txt,
-        whatsapp
-      )
-    `)
+    .select('*')
     .eq('condominio_id', perfil.condominio_id)
     .eq('criado_por', user.id)
     .in('status', ['pendente', 'rejeitado'])
@@ -65,26 +49,40 @@ export default async function ClassificadosPage() {
 
   // Merge & deduplicate (user's own approved ads appear in both queries)
   const seenIds = new Set<string>()
-  const allClassificados = [
+  const merged = [
     ...(meusPendentes ?? []),
     ...(classificados ?? []),
-  ]
-    .filter((c: any) => { // eslint-disable-line @typescript-eslint/no-explicit-any
-      if (seenIds.has(c.id)) return false
-      seenIds.add(c.id)
-      return true
-    })
-    .map((c: any) => ({ // eslint-disable-line @typescript-eslint/no-explicit-any
-      ...c,
-      perfil: Array.isArray(c.perfil) ? c.perfil[0] : c.perfil,
-    }))
+  ].filter((c: { id: string }) => {
+    if (seenIds.has(c.id)) return false
+    seenIds.add(c.id)
+    return true
+  })
+
+  // Fetch creator profiles in one go
+  const creatorIds = [...new Set(merged.map((c: { criado_por: string }) => c.criado_por))]
+  const { data: criadores } = creatorIds.length > 0
+    ? await supabase
+        .from('perfil')
+        .select('id, nome_completo, bloco_txt, apto_txt, whatsapp')
+        .in('id', creatorIds)
+    : { data: [] }
+
+  const criadorMap = Object.fromEntries(
+    (criadores ?? []).map((c: { id: string; nome_completo: string; bloco_txt: string; apto_txt: string; whatsapp: string }) => [c.id, c])
+  )
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const allClassificados: any[] = merged.map((c: Record<string, unknown>) => ({
+    ...c,
+    perfil: criadorMap[c.criado_por as string] ?? null,
+  }))
 
   return (
     <ClassificadosClient
       classificados={allClassificados}
       userId={user.id}
       condominioId={perfil.condominio_id}
-      favoritosIds={(favoritos ?? []).map((f: any) => f.classificado_id)} // eslint-disable-line @typescript-eslint/no-explicit-any
+      favoritosIds={(favoritos ?? []).map((f: { classificado_id: string }) => f.classificado_id)}
       tipoEstrutura={condoData?.tipo_estrutura ?? 'predio'}
       userName={perfil.nome_completo}
     />
