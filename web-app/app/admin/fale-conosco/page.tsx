@@ -40,6 +40,14 @@ export default async function FaleConoscoAdminPage() {
 
   const condoId = profile?.condominio_id ?? ''
 
+  // Fetch tipo_estrutura
+  const { data: condoData } = await supabase
+    .from('condominios')
+    .select('tipo_estrutura')
+    .eq('id', condoId)
+    .single()
+  const tipoEstrutura = condoData?.tipo_estrutura ?? 'predio'
+
   // Fetch all threads for this condo
   const { data: threads, error } = await supabase
     .from('fale_sindico_threads')
@@ -72,6 +80,7 @@ export default async function FaleConoscoAdminPage() {
       adminId={user.id}
       adminName={profile?.nome_completo ?? 'Síndico'}
       condoId={condoId}
+      tipoEstrutura={tipoEstrutura}
     />
   )
 }

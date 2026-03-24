@@ -2,6 +2,7 @@
 
 import { useState } from 'react'
 import { X, Sparkles, Building2, Home } from 'lucide-react'
+import { getBlocoLabel, getAptoLabel } from '@/lib/labels'
 
 type Bloco = { id: string; nome_ou_numero: string }
 type Apartamento = { id: string; numero: string }
@@ -14,9 +15,12 @@ interface Props {
   loading: boolean
   onGenerate: (blocoIds: string[], aptoIds: string[]) => void
   onClose: () => void
+  tipoEstrutura?: string
 }
 
-export default function GenerateDialog({ blocos, apartamentos, unidades, loading, onGenerate, onClose }: Props) {
+export default function GenerateDialog({ blocos, apartamentos, unidades, loading, onGenerate, onClose, tipoEstrutura }: Props) {
+  const blocoLabel = getBlocoLabel(tipoEstrutura)
+  const aptoLabel = getAptoLabel(tipoEstrutura)
   const [selectedBlocos, setSelectedBlocos] = useState<Set<string>>(new Set(blocos.map(b => b.id)))
   const [selectedAptos, setSelectedAptos] = useState<Set<string>>(new Set(apartamentos.map(a => a.id)))
 
@@ -67,7 +71,7 @@ export default function GenerateDialog({ blocos, apartamentos, unidades, loading
             <div className="flex items-center justify-between mb-3">
               <label className="text-sm font-semibold text-gray-700 flex items-center gap-2">
                 <Building2 size={14} className="text-[#FC5931]" />
-                Selecione os Blocos
+                Selecione os {blocoLabel}s
               </label>
               <button
                 onClick={() => {
@@ -101,7 +105,7 @@ export default function GenerateDialog({ blocos, apartamentos, unidades, loading
             <div className="flex items-center justify-between mb-3">
               <label className="text-sm font-semibold text-gray-700 flex items-center gap-2">
                 <Home size={14} className="text-[#FC5931]" />
-                Selecione os Apartamentos
+                Selecione os {aptoLabel}s
               </label>
               <button
                 onClick={() => {

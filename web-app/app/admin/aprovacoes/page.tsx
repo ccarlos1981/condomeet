@@ -16,6 +16,14 @@ export default async function ApprovalsPage() {
 
   const condoId = profile?.condominio_id ?? ''
 
+  // Fetch tipo_estrutura
+  const { data: condoData } = await supabase
+    .from('condominios')
+    .select('tipo_estrutura')
+    .eq('id', condoId)
+    .single()
+  const tipoEstrutura = condoData?.tipo_estrutura ?? 'predio'
+
   // Fetch ALL profiles (all statuses) — columns that actually exist in perfil
   const { data: profiles, error } = await supabase
     .from('perfil')
@@ -38,5 +46,5 @@ export default async function ApprovalsPage() {
     )
   }
 
-  return <AprovacoesClient profiles={profiles ?? []} />
+  return <AprovacoesClient profiles={profiles ?? []} tipoEstrutura={tipoEstrutura} />
 }

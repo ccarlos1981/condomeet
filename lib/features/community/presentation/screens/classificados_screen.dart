@@ -7,6 +7,7 @@ import 'package:image_picker/image_picker.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:condomeet/core/design_system/design_system.dart';
 import 'package:condomeet/features/auth/presentation/bloc/auth_bloc.dart';
+import 'package:condomeet/shared/utils/structure_labels.dart';
 
 const _categorias = <String, String>{
   'eletronicos': 'Eletrônicos',
@@ -55,17 +56,9 @@ class _ClassificadosScreenState extends State<ClassificadosScreen> {
     _loadData();
   }
 
-  String get _blocoLabel {
-    if (_tipoEstrutura == 'casa_quadra') return 'Quadra';
-    if (_tipoEstrutura == 'casa_rua') return 'Rua';
-    return 'Bloco';
-  }
+  String get _blocoLabel => getBlocoLabel(_tipoEstrutura);
 
-  String get _aptoLabel {
-    if (_tipoEstrutura == 'casa_quadra') return 'Lote';
-    if (_tipoEstrutura == 'casa_rua') return 'Número';
-    return 'Apto';
-  }
+  String get _aptoLabel => getAptoLabel(_tipoEstrutura);
 
   // ── Load Data ──────────────────────────────────────────────
   Future<void> _loadData() async {

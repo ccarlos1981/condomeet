@@ -16,6 +16,14 @@ export default async function MoradoresPage() {
 
   const condoId = profile?.condominio_id ?? ''
 
+  // Fetch tipo_estrutura
+  const { data: condo } = await supabase
+    .from('condominios')
+    .select('tipo_estrutura')
+    .eq('id', condoId)
+    .single()
+  const tipoEstrutura = condo?.tipo_estrutura ?? 'predio'
+
   const { data: moradores, error } = await supabase
     .from('perfil')
     .select('id, nome_completo, bloco_txt, apto_txt, status_aprovacao, papel_sistema, created_at')
@@ -35,5 +43,5 @@ export default async function MoradoresPage() {
     )
   }
 
-  return <MoradoresClient moradores={moradores ?? []} />
+  return <MoradoresClient moradores={moradores ?? []} tipoEstrutura={tipoEstrutura} />
 }

@@ -40,6 +40,9 @@ export default function AutorizarVisitantePortariaClient({
   const [guestName, setGuestName] = useState('')
   const [visitorWhatsapp, setVisitorWhatsapp] = useState('')
   const [observacao, setObservacao] = useState('')
+  const [documento, setDocumento] = useState('')
+  const [placa, setPlaca] = useState('')
+  const [crachaReferencia, setCrachaReferencia] = useState('')
 
   // UI state
   const [saving, setSaving] = useState(false)
@@ -91,6 +94,9 @@ export default function AutorizarVisitantePortariaClient({
           status: 'active',
           whatsapp: visitorWhatsapp.trim() || null,
           observacao: observacao.trim() || null,
+          documento: documento.trim() || null,
+          placa: placa.trim() || null,
+          cracha_referencia: crachaReferencia.trim() || null,
           criado_por_portaria: true,
           bloco_destino: bloco,
           apto_destino: apto,
@@ -134,6 +140,9 @@ export default function AutorizarVisitantePortariaClient({
     setGuestName('')
     setVisitorWhatsapp('')
     setObservacao('')
+    setDocumento('')
+    setPlaca('')
+    setCrachaReferencia('')
     setError('')
   }
 
@@ -177,9 +186,10 @@ export default function AutorizarVisitantePortariaClient({
 
   // ── Form ────────────────────────────────────────────────────────
   return (
-    <div className="max-w-lg mx-auto">
+    <div className="max-w-2xl mx-auto">
       <div className="bg-[#FC5931] text-white text-center font-bold py-3 rounded-t-xl text-lg">
-        Solicitação de autorização de entrada — por {currentUserName}
+        <div>Solicitação de autorização de entrada</div>
+        <div className="text-sm font-normal opacity-90 mt-0.5">por {currentUserName}</div>
       </div>
       <div className="bg-white rounded-b-xl border border-gray-100 border-t-0 p-6 space-y-5">
 
@@ -199,8 +209,8 @@ export default function AutorizarVisitantePortariaClient({
           </select>
         </div>
 
-        {/* Bloco / Apto */}
-        <div className="grid grid-cols-2 gap-4">
+        {/* Bloco / Apto / Data */}
+        <div className="grid grid-cols-3 gap-4">
           <div>
             <label className="block text-sm font-semibold text-gray-700 mb-1">{getBlocoLabel(tipoEstrutura)} *</label>
             <select
@@ -230,6 +240,17 @@ export default function AutorizarVisitantePortariaClient({
               ))}
             </select>
           </div>
+          <div>
+            <label className="block text-sm font-semibold text-gray-700 mb-1">Data</label>
+            <input
+              type="date"
+              min={today}
+              value={validityDate}
+              onChange={e => setValidityDate(e.target.value)}
+              title="Data da visita"
+              className="w-full border border-gray-200 rounded-lg px-4 py-2.5 text-sm focus:outline-none focus:border-[#FC5931] focus:ring-1 focus:ring-[#FC5931]/30"
+            />
+          </div>
         </div>
 
         {/* Quem solicitou — show after selecting bloco + apto */}
@@ -258,14 +279,14 @@ export default function AutorizarVisitantePortariaClient({
                 <p className="text-xs text-amber-600 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2 mb-3">
                   ⚠️ Nenhum morador cadastrado nesta unidade.
                 </p>
-                <div className="space-y-3">
+                <div className="grid grid-cols-2 gap-4">
                   <div>
                     <label className="block text-sm font-semibold text-gray-700 mb-1">Nome do morador não cadastrado</label>
                     <input
                       type="text"
                       value={manualResidentName}
                       onChange={e => setManualResidentName(e.target.value)}
-                      placeholder="Nome do morador não cadastrado"
+                      placeholder="Nome do morador"
                       className="w-full border border-gray-200 rounded-lg px-4 py-2.5 text-sm focus:outline-none focus:border-[#FC5931] focus:ring-1 focus:ring-[#FC5931]/30"
                     />
                   </div>
@@ -275,7 +296,7 @@ export default function AutorizarVisitantePortariaClient({
                       type="text"
                       value={manualResidentWhatsapp}
                       onChange={e => setManualResidentWhatsapp(e.target.value)}
-                      placeholder="Whatsapp do morador: (62) 9 9999-9999"
+                      placeholder="(62) 9 9999-9999"
                       className="w-full border border-gray-200 rounded-lg px-4 py-2.5 text-sm focus:outline-none focus:border-[#FC5931] focus:ring-1 focus:ring-[#FC5931]/30"
                     />
                   </div>
@@ -285,53 +306,76 @@ export default function AutorizarVisitantePortariaClient({
           </div>
         )}
 
-        {/* Data */}
-        <div className="text-center">
-          <label className="block text-sm font-bold text-gray-700 mb-1">Data</label>
-          <input
-            type="date"
-            min={today}
-            value={validityDate}
-            onChange={e => setValidityDate(e.target.value)}
-            title="Data da visita"
-            className="border border-gray-200 rounded-lg px-4 py-2.5 text-sm focus:outline-none focus:border-[#FC5931] focus:ring-1 focus:ring-[#FC5931]/30 text-center"
-          />
+        {/* Nome do visitante + WhatsApp do visitante */}
+        <div className="grid grid-cols-2 gap-4">
+          <div>
+            <label className="block text-sm font-semibold text-gray-700 mb-1">Nome do visitante</label>
+            <input
+              type="text"
+              value={guestName}
+              onChange={e => setGuestName(e.target.value)}
+              placeholder="Nome do visitante"
+              className="w-full border border-gray-200 rounded-lg px-4 py-2.5 text-sm focus:outline-none focus:border-[#FC5931] focus:ring-1 focus:ring-[#FC5931]/30"
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-semibold text-gray-700 mb-1">WhatsApp do visitante</label>
+            <input
+              type="text"
+              value={visitorWhatsapp}
+              onChange={e => setVisitorWhatsapp(e.target.value)}
+              placeholder="(62) 9 9999-9999"
+              className="w-full border border-gray-200 rounded-lg px-4 py-2.5 text-sm focus:outline-none focus:border-[#FC5931] focus:ring-1 focus:ring-[#FC5931]/30"
+            />
+          </div>
         </div>
 
-        {/* Nome do visitante */}
-        <div>
-          <label className="block text-sm font-semibold text-gray-700 mb-1">Nome do visitante</label>
-          <input
-            type="text"
-            value={guestName}
-            onChange={e => setGuestName(e.target.value)}
-            placeholder="Nome do visitante"
-            className="w-full border border-gray-200 rounded-lg px-4 py-2.5 text-sm focus:outline-none focus:border-[#FC5931] focus:ring-1 focus:ring-[#FC5931]/30"
-          />
+        {/* Documento + Placa */}
+        <div className="grid grid-cols-2 gap-4">
+          <div>
+            <label className="block text-sm font-semibold text-gray-700 mb-1">Documento (opcional)</label>
+            <input
+              type="text"
+              value={documento}
+              onChange={e => setDocumento(e.target.value)}
+              placeholder="CPF ou RG do visitante"
+              className="w-full border border-gray-200 rounded-lg px-4 py-2.5 text-sm focus:outline-none focus:border-[#FC5931] focus:ring-1 focus:ring-[#FC5931]/30"
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-semibold text-gray-700 mb-1">Placa (opcional)</label>
+            <input
+              type="text"
+              value={placa}
+              onChange={e => setPlaca(e.target.value)}
+              placeholder="Placa do veículo"
+              className="w-full border border-gray-200 rounded-lg px-4 py-2.5 text-sm focus:outline-none focus:border-[#FC5931] focus:ring-1 focus:ring-[#FC5931]/30"
+            />
+          </div>
         </div>
 
-        {/* WhatsApp do visitante */}
-        <div>
-          <label className="block text-sm font-semibold text-gray-700 mb-1">WhatsApp do visitante</label>
-          <input
-            type="text"
-            value={visitorWhatsapp}
-            onChange={e => setVisitorWhatsapp(e.target.value)}
-            placeholder="Whatsapp do visitante: (62) 9 9999-9999"
-            className="w-full border border-gray-200 rounded-lg px-4 py-2.5 text-sm focus:outline-none focus:border-[#FC5931] focus:ring-1 focus:ring-[#FC5931]/30"
-          />
-        </div>
-
-        {/* Observação */}
-        <div>
-          <label className="block text-sm font-semibold text-gray-700 mb-1">Observação</label>
-          <textarea
-            value={observacao}
-            onChange={e => setObservacao(e.target.value)}
-            rows={3}
-            placeholder="Colocar observação"
-            className="w-full border border-gray-200 rounded-lg px-4 py-2.5 text-sm focus:outline-none focus:border-[#FC5931] focus:ring-1 focus:ring-[#FC5931]/30 resize-none"
-          />
+        {/* Crachá/Referência + Observação */}
+        <div className="grid grid-cols-2 gap-4">
+          <div>
+            <label className="block text-sm font-semibold text-gray-700 mb-1">Crachá / Referência</label>
+            <textarea
+              value={crachaReferencia}
+              onChange={e => setCrachaReferencia(e.target.value)}
+              rows={2}
+              placeholder="Nº do crachá ou referência"
+              className="w-full border border-gray-200 rounded-lg px-4 py-2.5 text-sm focus:outline-none focus:border-[#FC5931] focus:ring-1 focus:ring-[#FC5931]/30 resize-none"
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-semibold text-gray-700 mb-1">Observação</label>
+            <textarea
+              value={observacao}
+              onChange={e => setObservacao(e.target.value)}
+              rows={2}
+              placeholder="Colocar observação"
+              className="w-full border border-gray-200 rounded-lg px-4 py-2.5 text-sm focus:outline-none focus:border-[#FC5931] focus:ring-1 focus:ring-[#FC5931]/30 resize-none"
+            />
+          </div>
         </div>
 
         {/* Error */}

@@ -12,6 +12,14 @@ export default async function ReservasAdminPage() {
 
   const condoId = profile?.condominio_id ?? ''
 
+  // Fetch tipo_estrutura
+  const { data: condoData } = await supabase
+    .from('condominios')
+    .select('tipo_estrutura')
+    .eq('id', condoId)
+    .single()
+  const tipoEstrutura = condoData?.tipo_estrutura ?? 'predio'
+
   // Load reservas without FK join
   const { data: reservas } = await supabase
     .from('reservas')
@@ -65,6 +73,7 @@ export default async function ReservasAdminPage() {
     <ReservasAdminClient
       reservas={withProfiles as unknown as ReservaRow[]}
       tiposAgenda={tiposUnicos}
+      tipoEstrutura={tipoEstrutura}
     />
   )
 }

@@ -5,6 +5,7 @@ import { createClient } from '@/lib/supabase/client'
 import { useRouter } from 'next/navigation'
 import { Building2, Home, Grid3X3, Plus, Trash2, Sparkles, X, AlertCircle } from 'lucide-react'
 import GenerateDialog from './generate-dialog'
+import { getBlocoLabel, getAptoLabel } from '@/lib/labels'
 
 type Bloco = { id: string; nome_ou_numero: string }
 type Apartamento = { id: string; numero: string }
@@ -19,6 +20,7 @@ type Unidade = {
 
 interface Props {
   condoId: string
+  tipoEstrutura?: string
   blocos: Bloco[]
   apartamentos: Apartamento[]
   unidades: Unidade[]
@@ -26,9 +28,11 @@ interface Props {
 
 type Tab = 'blocos' | 'aptos' | 'unidades'
 
-export default function EstruturaClient({ condoId, blocos, apartamentos, unidades }: Props) {
+export default function EstruturaClient({ condoId, tipoEstrutura, blocos, apartamentos, unidades }: Props) {
   const router = useRouter()
   const supabase = createClient()
+  const blocoLabel = getBlocoLabel(tipoEstrutura)
+  const aptoLabel = getAptoLabel(tipoEstrutura)
   const [tab, setTab] = useState<Tab>('blocos')
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -37,8 +41,8 @@ export default function EstruturaClient({ condoId, blocos, apartamentos, unidade
   const [showGenerate, setShowGenerate] = useState(false)
 
   const tabs: { key: Tab; label: string; icon: React.ReactNode }[] = [
-    { key: 'blocos', label: 'Blocos', icon: <Building2 size={16} /> },
-    { key: 'aptos', label: 'Aptos', icon: <Home size={16} /> },
+    { key: 'blocos', label: `${blocoLabel}s`, icon: <Building2 size={16} /> },
+    { key: 'aptos', label: `${aptoLabel}s`, icon: <Home size={16} /> },
     { key: 'unidades', label: 'Unidades', icon: <Grid3X3 size={16} /> },
   ]
 
@@ -58,14 +62,14 @@ export default function EstruturaClient({ condoId, blocos, apartamentos, unidade
       setShowAdd(false)
       router.refresh()
     } catch (e) {
-      setError(`Erro ao adicionar bloco: ${e}`)
+      setError(`Erro ao adicionar ${blocoLabel.toLowerCase()}: ${e}`)
     } finally {
       setLoading(false)
     }
   }
 
   async function deleteBloco(blocoId: string) {
-    if (!confirm('Excluir este bloco? Todas as unidades vinculadas serão removidas.')) return
+    if (!confirm(`Excluir ${blocoLabel.toLowerCase() === 'bloco' ? 'este bloco' : 'esta ' + blocoLabel.toLowerCase()}? Todas as unidades vinculadas serão removidas.`)) return
     setLoading(true)
     try {
       await supabase.from('unidades').delete().eq('bloco_id', blocoId)
@@ -94,14 +98,14 @@ export default function EstruturaClient({ condoId, blocos, apartamentos, unidade
       setShowAdd(false)
       router.refresh()
     } catch (e) {
-      setError(`Erro ao adicionar apto: ${e}`)
+      setError(`Erro ao adicionar ${aptoLabel.toLowerCase()}: ${e}`)
     } finally {
       setLoading(false)
     }
   }
 
   async function deleteApto(aptoId: string) {
-    if (!confirm('Excluir este apartamento? Unidades vinculadas serão removidas.')) return
+    if (!confirm(`Excluir ${aptoLabel.toLowerCase() === 'apto' ? 'este apartamento' : 'este ' + aptoLabel.toLowerCase()}? Unidades vinculadas serão removidas.`)) return
     setLoading(true)
     try {
       await supabase.from('unidades').delete().eq('apartamento_id', aptoId)
@@ -175,7 +179,7 @@ export default function EstruturaClient({ condoId, blocos, apartamentos, unidade
           <Building2 size={28} className="text-[#FC5931]" />
           Estrutura do Condomínio
         </h1>
-        <p className="text-gray-500 mt-1">Gerencie blocos, apartamentos e unidades</p>
+        <p className="text-gray-500 mt-1">Gerencie {blocoLabel.toLowerCase()}s, {aptoLabel.toLowerCase()}s e unidades</p>
       </div>
 
       {error && (
@@ -215,13 +219,13 @@ export default function EstruturaClient({ condoId, blocos, apartamentos, unidade
           {tab === 'blocos' && (
             <div>
               <div className="flex justify-between items-center mb-4">
-                <h2 className="text-lg font-bold text-gray-800">Blocos</h2>
+                <h2 className="text-lg font-bold text-gray-800">{blocoLabel}s</h2>
                 <button
                   onClick={() => setShowAdd(!showAdd)}
                   className="flex items-center gap-2 px-4 py-2 bg-[#FC5931] text-white rounded-xl text-sm font-medium hover:bg-[#e04a25] transition-colors"
                 >
                   <Plus size={16} />
-                  Adicionar Bloco
+                  Adicionar {blocoLabel}
                 </button>
               </div>
 
@@ -229,7 +233,7 @@ export default function EstruturaClient({ condoId, blocos, apartamentos, unidade
                 <div className="mb-4 flex gap-2">
                   <input
                     type="text"
-                    placeholder="Nome ou número do bloco (ex: A, B, 1, 2)"
+                    placeholder={`Nome ou número ${blocoLabel.toLowerCase() === 'bloco' ? 'do bloco' : 'da ' + blocoLabel.toLowerCase()} (ex: A, B, 1, 2)`}
                     value={addValue}
                     onChange={e => setAddValue(e.target.value)}
                     onKeyDown={e => e.key === 'Enter' && addBloco()}
@@ -249,7 +253,7 @@ export default function EstruturaClient({ condoId, blocos, apartamentos, unidade
               {filteredBlocos.length === 0 ? (
                 <div className="text-center py-16 text-gray-400">
                   <Building2 size={48} className="mx-auto mb-3 opacity-30" />
-                  <p>Nenhum bloco cadastrado</p>
+                  <p>Nenhum {blocoLabel.toLowerCase()} cadastrado</p>
                 </div>
               ) : (
                 <div className="space-y-2">
@@ -264,7 +268,7 @@ export default function EstruturaClient({ condoId, blocos, apartamentos, unidade
                       <button
                         onClick={() => deleteBloco(b.id)}
                         className="p-2 text-red-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
-                        title="Excluir bloco"
+                        title={`Excluir ${blocoLabel.toLowerCase()}`}
                       >
                         <Trash2 size={16} />
                       </button>
@@ -279,13 +283,13 @@ export default function EstruturaClient({ condoId, blocos, apartamentos, unidade
           {tab === 'aptos' && (
             <div>
               <div className="flex justify-between items-center mb-4">
-                <h2 className="text-lg font-bold text-gray-800">Apartamentos</h2>
+                <h2 className="text-lg font-bold text-gray-800">{aptoLabel}s</h2>
                 <button
                   onClick={() => setShowAdd(!showAdd)}
                   className="flex items-center gap-2 px-4 py-2 bg-[#FC5931] text-white rounded-xl text-sm font-medium hover:bg-[#e04a25] transition-colors"
                 >
                   <Plus size={16} />
-                  Adicionar Apto
+                  Adicionar {aptoLabel}
                 </button>
               </div>
 
@@ -293,7 +297,7 @@ export default function EstruturaClient({ condoId, blocos, apartamentos, unidade
                 <div className="mb-4 flex gap-2">
                   <input
                     type="text"
-                    placeholder="Número do apartamento (ex: 101, 102)"
+                    placeholder={`Número ${aptoLabel.toLowerCase() === 'apto' ? 'do apartamento' : 'do ' + aptoLabel.toLowerCase()} (ex: 101, 102)`}
                     value={addValue}
                     onChange={e => setAddValue(e.target.value)}
                     onKeyDown={e => e.key === 'Enter' && addApto()}
@@ -313,7 +317,7 @@ export default function EstruturaClient({ condoId, blocos, apartamentos, unidade
               {filteredAptos.length === 0 ? (
                 <div className="text-center py-16 text-gray-400">
                   <Home size={48} className="mx-auto mb-3 opacity-30" />
-                  <p>Nenhum apartamento cadastrado</p>
+                  <p>Nenhum {aptoLabel.toLowerCase()} cadastrado</p>
                 </div>
               ) : (
                 <div className="grid grid-cols-4 sm:grid-cols-6 md:grid-cols-8 lg:grid-cols-10 gap-3">
@@ -354,7 +358,7 @@ export default function EstruturaClient({ condoId, blocos, apartamentos, unidade
               {filteredBlocos.length === 0 || filteredAptos.length === 0 ? (
                 <div className="text-center py-16 text-gray-400">
                   <AlertCircle size={48} className="mx-auto mb-3 opacity-30" />
-                  <p>Cadastre pelo menos 1 bloco e 1 apartamento<br />para poder gerar as unidades.</p>
+                  <p>Cadastre pelo menos 1 {blocoLabel.toLowerCase()} e 1 {aptoLabel.toLowerCase()}<br />para poder gerar as unidades.</p>
                 </div>
               ) : filteredUnidades.length === 0 ? (
                 <div className="text-center py-16 text-gray-400">
@@ -374,8 +378,8 @@ export default function EstruturaClient({ condoId, blocos, apartamentos, unidade
                     <table className="w-full">
                       <thead>
                         <tr className="border-b border-gray-100">
-                          <th className="text-left pb-3 text-xs font-semibold text-gray-400 uppercase tracking-wider">Bloco</th>
-                          <th className="text-left pb-3 text-xs font-semibold text-gray-400 uppercase tracking-wider">Apto</th>
+                          <th className="text-left pb-3 text-xs font-semibold text-gray-400 uppercase tracking-wider">{blocoLabel}</th>
+                          <th className="text-left pb-3 text-xs font-semibold text-gray-400 uppercase tracking-wider">{aptoLabel}</th>
                           <th className="text-left pb-3 text-xs font-semibold text-gray-400 uppercase tracking-wider">Status</th>
                           <th className="text-right pb-3 text-xs font-semibold text-gray-400 uppercase tracking-wider">Ações</th>
                         </tr>
@@ -455,6 +459,7 @@ export default function EstruturaClient({ condoId, blocos, apartamentos, unidade
           loading={loading}
           onGenerate={handleGenerate}
           onClose={() => setShowGenerate(false)}
+          tipoEstrutura={tipoEstrutura}
         />
       )}
     </div>

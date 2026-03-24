@@ -233,7 +233,7 @@ export default function AlbumFotosCondoClient({ albums: initial, userId, userNam
                   <img
                     src={album.imagens[idx]?.imagem_url ?? album.imagens[0]?.imagem_url}
                     alt={`${album.titulo} - foto ${idx + 1}`}
-                    className="w-full h-80 object-cover"
+                    className="w-full max-h-[500px] object-contain"
                     onDoubleClick={() => handleReaction(album.id, '❤️')}
                   />
                   {album.imagens.length > 1 && (

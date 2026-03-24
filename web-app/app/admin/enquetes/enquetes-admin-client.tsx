@@ -6,6 +6,7 @@ import {
   PlusCircle, ToggleLeft, ToggleRight, Trash2, BarChart3,
   List, Printer, X, ChevronDown, ChevronUp
 } from 'lucide-react'
+import { getBlocoLabel, getAptoLabel } from '@/lib/labels'
 
 /* ================================================================
    Types
@@ -40,6 +41,7 @@ interface Props {
   condominioId: string
   enquetes: Enquete[]
   totalUnidades: number
+  tipoEstrutura?: string
 }
 
 /* ================================================================
@@ -50,9 +52,12 @@ export default function EnquetesAdminClient({
   condominioId,
   enquetes: initialEnquetes,
   totalUnidades,
+  tipoEstrutura,
 }: Props) {
   const router = useRouter()
   const supabase = createClient()
+  const blocoLabel = getBlocoLabel(tipoEstrutura)
+  const aptoLabel = getAptoLabel(tipoEstrutura)
   const [isPending, startTransition] = useTransition()
 
   const [enquetes, setEnquetes] = useState(initialEnquetes)
@@ -266,7 +271,7 @@ export default function EnquetesAdminClient({
       <h2>Enquete: ${enquete.pergunta}</h2>
       <p class="meta">Tipo: ${enquete.tipo_resposta === 'unica' ? 'Única' : 'Múltipla'} | Criada: ${new Date(enquete.created_at).toLocaleDateString('pt-BR')}</p>
       <table>
-        <thead><tr><th>Nome</th><th>Data</th><th>Bloco</th><th>Apto</th><th>Resposta</th></tr></thead>
+        <thead><tr><th>Nome</th><th>Data</th><th>${blocoLabel}</th><th>${aptoLabel}</th><th>Resposta</th></tr></thead>
         <tbody>${rows.map(r =>
           `<tr><td>${r.nome}</td><td>${r.data}</td><td>${r.bloco}</td><td>${r.apto}</td><td>${r.resultado}</td></tr>`
         ).join('')}</tbody>
@@ -537,8 +542,8 @@ export default function EnquetesAdminClient({
                       <tr className="border-b border-gray-200">
                         <th className="text-left py-2 px-3 text-gray-500 font-semibold">Nome</th>
                         <th className="text-left py-2 px-3 text-gray-500 font-semibold">Data</th>
-                        <th className="text-center py-2 px-3 text-gray-500 font-semibold">Apto</th>
-                        <th className="text-center py-2 px-3 text-gray-500 font-semibold">Bloco</th>
+                        <th className="text-center py-2 px-3 text-gray-500 font-semibold">{aptoLabel}</th>
+                        <th className="text-center py-2 px-3 text-gray-500 font-semibold">{blocoLabel}</th>
                         <th className="text-left py-2 px-3 text-gray-500 font-semibold">Resultado</th>
                       </tr>
                     </thead>

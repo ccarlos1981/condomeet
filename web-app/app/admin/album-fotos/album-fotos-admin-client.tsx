@@ -493,7 +493,7 @@ export default function AlbumFotosAdminClient({ condominioId, albums: initial }:
                       <img
                         src={album.imagens[idx]?.imagem_url ?? album.imagens[0]?.imagem_url}
                         alt=""
-                        className="w-full h-64 object-cover"
+                        className="w-full max-h-[500px] object-contain"
                       />
                       {album.imagens.length > 1 && (
                         <>

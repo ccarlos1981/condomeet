@@ -1,7 +1,8 @@
 'use client'
 
 import { useState, useTransition } from 'react'
-import { Save, CheckSquare, Square } from 'lucide-react'
+import { useRouter } from 'next/navigation'
+import { Save, CheckSquare, Square, Building2 } from 'lucide-react'
 
 // ─── Master function catalog ─────────────────────────────────────
 const ALL_FUNCTIONS = [
@@ -63,9 +64,11 @@ interface Props {
   initialConfig: Record<string, unknown>
   condominioId: string
   dbRoles: string[]   // raw papel_sistema values from perfil
+  allCondominios?: { id: string; nome: string }[]
 }
 
-export default function ConfigurarAcessoClient({ initialConfig, condominioId, dbRoles }: Props) {
+export default function ConfigurarAcessoClient({ initialConfig, condominioId, dbRoles, allCondominios }: Props) {
+  const router = useRouter()
   // Build role list — complete list of all possible profiles
   const roleMap: Record<string, RoleDef> = {
     morador:                 { key: 'morador',                 label: 'Morador (a)' },
@@ -144,6 +147,8 @@ export default function ConfigurarAcessoClient({ initialConfig, condominioId, db
         headers: { 'Content-Type': 'application/json' },
       })
       setSaved(true)
+      // Refresh server component cache so switching condos shows fresh data
+      router.refresh()
     })
   }
 
@@ -177,6 +182,24 @@ export default function ConfigurarAcessoClient({ initialConfig, condominioId, db
           {isPending ? 'Salvando…' : saved ? '✅ Salvo!' : 'Salvar alterações'}
         </button>
       </div>
+
+      {/* Super admin condominium switcher */}
+      {allCondominios && allCondominios.length > 0 && (
+        <div className="mb-5 flex items-center gap-3 bg-gradient-to-r from-amber-50 to-orange-50 border border-amber-200 rounded-xl px-4 py-3">
+          <Building2 size={20} className="text-amber-600 shrink-0" />
+          <label className="text-sm font-semibold text-amber-800 whitespace-nowrap">Condomínio:</label>
+          <select
+            title="Selecionar condomínio"
+            value={condominioId}
+            onChange={(e) => { window.location.href = `/admin/configurar-acesso?condo=${e.target.value}` }}
+            className="flex-1 bg-white border border-amber-300 rounded-lg px-3 py-2 text-sm font-medium text-gray-800 focus:outline-none focus:ring-2 focus:ring-amber-400 focus:border-amber-400"
+          >
+            {allCondominios.map(c => (
+              <option key={c.id} value={c.id}>{c.nome}</option>
+            ))}
+          </select>
+        </div>
+      )}
 
       {/* Matrix table */}
       <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-x-auto">

@@ -7,6 +7,7 @@ import {
   ChevronDown, ChevronUp, ArrowLeft
 } from 'lucide-react'
 import Link from 'next/link'
+import { getBlocoLabel, getAptoLabel } from '@/lib/labels'
 
 interface Perfil {
   nome_completo: string
@@ -40,17 +41,6 @@ const CATEGORIAS: Record<string, string> = {
   imoveis: 'Imóveis',
   carros_e_pecas: 'Carros e Peças',
   outros: 'Outros',
-}
-
-function getBlocoLabel(tipo?: string) {
-  if (tipo === 'casa_quadra') return 'Quadra'
-  if (tipo === 'casa_rua') return 'Rua'
-  return 'Bloco'
-}
-function getAptoLabel(tipo?: string) {
-  if (tipo === 'casa_quadra') return 'Lote'
-  if (tipo === 'casa_rua') return 'Número'
-  return 'Apto'
 }
 
 export default function ClassificadosAdminClient({

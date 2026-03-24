@@ -4,6 +4,7 @@ import 'package:intl/intl.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:condomeet/core/design_system/design_system.dart';
 import 'package:condomeet/features/auth/presentation/bloc/auth_bloc.dart';
+import 'package:condomeet/shared/utils/structure_labels.dart';
 
 class VisitaProprietarioScreen extends StatefulWidget {
   const VisitaProprietarioScreen({super.key});
@@ -205,17 +206,9 @@ class _VisitaProprietarioScreenState extends State<VisitaProprietarioScreen> {
     }
   }
 
-  String get _blocoLabel {
-    if (_tipoEstrutura == 'horizontal') return 'Rua';
-    if (_tipoEstrutura == 'comercial') return 'Sala';
-    return 'Bloco';
-  }
+  String get _blocoLabel => getBlocoLabel(_tipoEstrutura);
 
-  String get _aptoLabel {
-    if (_tipoEstrutura == 'horizontal') return 'Casa';
-    if (_tipoEstrutura == 'comercial') return 'Sala';
-    return 'Apto';
-  }
+  String get _aptoLabel => getAptoLabel(_tipoEstrutura);
 
   void _showRegistrationModal() {
     String modalTipo = 'entrada';

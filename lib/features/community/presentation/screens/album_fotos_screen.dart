@@ -364,8 +364,8 @@ class _AlbumFotosScreenState extends State<AlbumFotosScreen> {
 
           // Photo carousel
           if (imagens.isNotEmpty)
-            SizedBox(
-              height: 220,
+            ConstrainedBox(
+              constraints: const BoxConstraints(maxHeight: 500),
               child: Stack(children: [
                 PageView.builder(
                   controller: _pageControllers.putIfAbsent(albumId, () => PageController()),
@@ -377,23 +377,26 @@ class _AlbumFotosScreenState extends State<AlbumFotosScreen> {
                       padding: const EdgeInsets.symmetric(horizontal: 14),
                       child: ClipRRect(
                         borderRadius: BorderRadius.circular(12),
-                        child: Image.network(
-                          imagens[i]['imagem_url'],
-                          fit: BoxFit.cover, width: double.infinity,
-                          loadingBuilder: (ctx, child, progress) {
-                            if (progress == null) return child;
-                            return Center(
-                              child: CircularProgressIndicator(
-                                color: AppColors.primary,
-                                value: progress.expectedTotalBytes != null
-                                    ? progress.cumulativeBytesLoaded / progress.expectedTotalBytes!
-                                    : null,
-                              ),
-                            );
-                          },
-                          errorBuilder: (_, __, ___) => Container(
-                            color: Colors.grey.shade100,
-                            child: const Icon(Icons.broken_image, size: 40, color: Colors.grey),
+                        child: Container(
+                          color: Colors.grey.shade100,
+                          child: Image.network(
+                            imagens[i]['imagem_url'],
+                            fit: BoxFit.contain, width: double.infinity,
+                            loadingBuilder: (ctx, child, progress) {
+                              if (progress == null) return child;
+                              return Center(
+                                child: CircularProgressIndicator(
+                                  color: AppColors.primary,
+                                  value: progress.expectedTotalBytes != null
+                                      ? progress.cumulativeBytesLoaded / progress.expectedTotalBytes!
+                                      : null,
+                                ),
+                              );
+                            },
+                            errorBuilder: (_, __, ___) => Container(
+                              color: Colors.grey.shade100,
+                              child: const Icon(Icons.broken_image, size: 40, color: Colors.grey),
+                            ),
                           ),
                         ),
                       ),

@@ -16,6 +16,14 @@ export default async function CondoEstruturaPage() {
 
   const condoId = profile?.condominio_id ?? ''
 
+  // Fetch tipo_estrutura
+  const { data: condoData } = await supabase
+    .from('condominios')
+    .select('tipo_estrutura')
+    .eq('id', condoId)
+    .single()
+  const tipoEstrutura = condoData?.tipo_estrutura ?? 'predio'
+
   const [blocosData, aptosData, unidadesData] = await Promise.all([
     fetchAll(
       supabase
@@ -44,6 +52,7 @@ export default async function CondoEstruturaPage() {
     <div className="p-6 lg:p-8 max-w-5xl">
       <EstruturaClient
         condoId={condoId}
+        tipoEstrutura={tipoEstrutura}
         blocos={blocosData as { id: string; nome_ou_numero: string }[]}
         apartamentos={aptosData as { id: string; numero: string }[]}
         unidades={unidadesData.map((u: Record<string, unknown>) => ({

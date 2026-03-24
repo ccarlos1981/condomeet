@@ -2,6 +2,7 @@
 
 import { useState } from 'react'
 import { ClipboardList, Check, X } from 'lucide-react'
+import { getBlocoLabel, getAptoLabel } from '@/lib/labels'
 
 interface ReservaRow {
   id: string
@@ -15,9 +16,12 @@ interface ReservaRow {
 interface Props {
   reservas: ReservaRow[]
   tiposAgenda: string[]
+  tipoEstrutura?: string
 }
 
-export default function ReservasAdminClient({ reservas: initial, tiposAgenda }: Props) {
+export default function ReservasAdminClient({ reservas: initial, tiposAgenda, tipoEstrutura }: Props) {
+  const blocoLabel = getBlocoLabel(tipoEstrutura)
+  const aptoLabel = getAptoLabel(tipoEstrutura)
   const [reservas, setReservas] = useState<ReservaRow[]>(initial)
   const [filterTipo, setFilterTipo] = useState('')
   const [filterStatus, setFilterStatus] = useState<'pendente' | 'aprovado' | ''>('pendente')
@@ -110,7 +114,7 @@ export default function ReservasAdminClient({ reservas: initial, tiposAgenda }: 
                 <th className="text-left px-4 py-3 font-semibold">Nome do Evento</th>
                 <th className="px-4 py-3 font-semibold">Data</th>
                 <th className="text-left px-4 py-3 font-semibold">Usuário</th>
-                <th className="px-4 py-3 font-semibold">Apto/Bloco</th>
+                <th className="px-4 py-3 font-semibold">{aptoLabel}/{blocoLabel}</th>
                 <th className="px-4 py-3 font-semibold">Status</th>
                 <th className="px-4 py-3 font-semibold text-center">Ações</th>
               </tr>
@@ -131,7 +135,7 @@ export default function ReservasAdminClient({ reservas: initial, tiposAgenda }: 
                     {r.perfil?.nome_completo ?? '—'}
                   </td>
                   <td className="px-4 py-3 text-center text-gray-600">
-                    {r.perfil ? `Apto: ${r.perfil.apto_txt} / Bloco: ${r.perfil.bloco_txt}` : '—'}
+                    {r.perfil ? `${aptoLabel}: ${r.perfil.apto_txt} / ${blocoLabel}: ${r.perfil.bloco_txt}` : '—'}
                   </td>
                   <td className="px-4 py-3 text-center">
                     <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${statusBadge(r.status)}`}>

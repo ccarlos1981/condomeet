@@ -190,7 +190,7 @@ function BookingModal({
   }, [area])
 
   async function handleAgendar() {
-    if (!bloco || !apto) { setError('Selecione Bloco e Apto'); return }
+    if (!bloco || !apto) { setError(`Selecione ${getBlocoLabel(tipoEstrutura)} e ${getAptoLabel(tipoEstrutura)}`); return }
     if (!selectedDate) { setError('Selecione uma data'); return }
     if (area.tipo_reserva === 'por_hora' && !selectedHorario) { setError('Selecione um horário'); return }
     if (!ciente) { setError('Confirme que leu o regimento'); return }
@@ -368,7 +368,7 @@ function BookingModal({
               ciente &&
               !saving
             const label = saving ? 'Agendando...'
-              : !unitOk ? 'Selecione Bloco e Apto'
+              : !unitOk ? `Selecione ${getBlocoLabel(tipoEstrutura)} e ${getAptoLabel(tipoEstrutura)}`
               : !selectedDate ? 'Selecione uma data'
               : dateBooked ? 'Data já reservada'
               : area.tipo_reserva === 'por_hora' && !selectedHorario ? 'Selecione um horário'

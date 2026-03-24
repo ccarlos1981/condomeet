@@ -2,6 +2,7 @@
 
 import { useState, useMemo } from 'react'
 import { Search, X, Home, Lock, Users, Shield, Building2, UserCheck } from 'lucide-react'
+import { getBlocoLabel, getAptoLabel } from '@/lib/labels'
 
 type Morador = {
   id: string
@@ -47,7 +48,9 @@ function getAvatarColor(id: string) {
   return AVATAR_COLORS[Math.abs(hash) % AVATAR_COLORS.length]
 }
 
-export default function MoradoresClient({ moradores }: { moradores: Morador[] }) {
+export default function MoradoresClient({ moradores, tipoEstrutura }: { moradores: Morador[]; tipoEstrutura?: string }) {
+  const blocoLabel = getBlocoLabel(tipoEstrutura)
+  const aptoLabel = getAptoLabel(tipoEstrutura)
   const [search, setSearch] = useState('')
   const [roleFilter, setRoleFilter] = useState<string | null>(null)
 
@@ -76,13 +79,13 @@ export default function MoradoresClient({ moradores }: { moradores: Morador[] })
   const grouped = useMemo(() => {
     const map = new Map<string, Morador[]>()
     filtered.forEach(m => {
-      const key = m.bloco_txt || 'Sem bloco'
+      const key = m.bloco_txt || `Sem ${blocoLabel.toLowerCase()}`
       if (!map.has(key)) map.set(key, [])
       map.get(key)!.push(m)
     })
     // Sort blocks naturally
     return [...map.entries()].sort((a, b) => a[0].localeCompare(b[0], 'pt', { numeric: true }))
-  }, [filtered])
+  }, [filtered, blocoLabel])
 
   return (
     <div className="max-w-6xl space-y-6">
@@ -106,7 +109,7 @@ export default function MoradoresClient({ moradores }: { moradores: Morador[] })
             type="text"
             value={search}
             onChange={e => setSearch(e.target.value)}
-            placeholder="Buscar por nome, bloco, apto..."
+            placeholder={`Buscar por nome, ${blocoLabel.toLowerCase()}, ${aptoLabel.toLowerCase()}...`}
             className="w-full pl-10 pr-9 py-2.5 rounded-xl border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-[#FC5931]/20 focus:border-[#FC5931] bg-white shadow-sm transition-all"
           />
           {search && (
@@ -123,7 +126,7 @@ export default function MoradoresClient({ moradores }: { moradores: Morador[] })
           { label: 'Total', value: stats.total, icon: Users, color: 'from-gray-600 to-gray-800', filter: null },
           { label: 'Moradores', value: stats.moradorCount, icon: Home, color: 'from-sky-500 to-blue-600', filter: 'Morador' },
           { label: 'Portaria', value: stats.portariaCount, icon: Shield, color: 'from-violet-500 to-purple-600', filter: 'Port' },
-          { label: 'Blocos', value: stats.blocosCount, icon: Building2, color: 'from-emerald-500 to-teal-600', filter: null },
+          { label: `${blocoLabel}s`, value: stats.blocosCount, icon: Building2, color: 'from-emerald-500 to-teal-600', filter: null },
         ].map(s => {
           const Icon = s.icon
           const isActive = roleFilter === s.filter && s.filter !== null
@@ -183,7 +186,7 @@ export default function MoradoresClient({ moradores }: { moradores: Morador[] })
               <div className="flex items-center gap-2 mb-3">
                 <div className="flex items-center gap-2 bg-gray-800 text-white px-3 py-1.5 rounded-lg">
                   <Building2 size={13} />
-                  <span className="text-xs font-bold tracking-wider">{bloco === 'Sem bloco' ? 'SEM BLOCO' : `BLOCO ${bloco}`}</span>
+                  <span className="text-xs font-bold tracking-wider">{bloco === `Sem ${blocoLabel.toLowerCase()}` ? `SEM ${blocoLabel.toUpperCase()}` : `${blocoLabel.toUpperCase()} ${bloco}`}</span>
                 </div>
                 <div className="flex-1 h-px bg-gray-200" />
                 <span className="text-xs text-gray-400 font-medium">{members.length} morador{members.length !== 1 ? 'es' : ''}</span>
@@ -239,7 +242,7 @@ export default function MoradoresClient({ moradores }: { moradores: Morador[] })
                       <div className="px-4 py-2.5 bg-gray-50/80 border-t border-gray-100 flex items-center justify-between">
                         <div className="flex items-center gap-1.5 text-xs text-gray-500">
                           <Home size={12} className="text-gray-400" />
-                          <span>{m.bloco_txt ? `Bloco ${m.bloco_txt}` : '—'}{m.apto_txt ? ` · Apto ${m.apto_txt}` : ''}</span>
+                          <span>{m.bloco_txt ? `${blocoLabel} ${m.bloco_txt}` : '—'}{m.apto_txt ? ` · ${aptoLabel} ${m.apto_txt}` : ''}</span>
                         </div>
                         <span className="text-[10px] text-gray-400">
                           {new Date(m.created_at).toLocaleDateString('pt-BR', { month: 'short', year: '2-digit' })}

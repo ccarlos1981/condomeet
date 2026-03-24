@@ -4,6 +4,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:condomeet/core/design_system/design_system.dart';
 import 'package:condomeet/features/auth/presentation/bloc/auth_bloc.dart';
+import 'package:condomeet/shared/utils/structure_labels.dart';
 
 class AdminScreen extends StatefulWidget {
   const AdminScreen({super.key});
@@ -217,7 +218,7 @@ class _AdminScreenState extends State<AdminScreen> {
               _buildAdminItem(
                 context: context,
                 icon: Icons.apartment_outlined,
-                label: 'Estrutura (Blocos e Unidades)',
+                label: 'Estrutura (${getEstruturaLabel(context.read<AuthBloc>().state.tipoEstrutura)})',
                 onTap: () => Navigator.of(context).pushNamed('/condo-structure'),
               ),
               const SizedBox(height: 24),

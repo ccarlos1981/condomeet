@@ -125,6 +125,9 @@ export default function VisitantesResidentClient({
     validity_date: todayStr,
     whatsapp: '',
     observacao: '',
+    documento: '',
+    placa: '',
+    cracha_referencia: '',
   })
 
   const filtered = convites.filter(c => {
@@ -162,6 +165,9 @@ export default function VisitantesResidentClient({
         created_at: now,
         whatsapp: form.whatsapp.trim() || null,
         observacao: form.observacao.trim() || null,
+        documento: form.documento.trim() || null,
+        placa: form.placa.trim() || null,
+        cracha_referencia: form.cracha_referencia.trim() || null,
       })
       .select()
       .single()
@@ -171,7 +177,7 @@ export default function VisitantesResidentClient({
     } else if (inserted) {
       setConvites(prev => [inserted, ...prev])
       setShowModal(false)
-      setForm({ guest_name: '', visitor_type: '', validity_date: todayStr, whatsapp: '', observacao: '' })
+      setForm({ guest_name: '', visitor_type: '', validity_date: todayStr, whatsapp: '', observacao: '', documento: '', placa: '', cracha_referencia: '' })
     }
     setSaving(false)
   }
@@ -261,7 +267,7 @@ export default function VisitantesResidentClient({
       {/* Modal */}
       {showModal && (
         <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="bg-white rounded-3xl shadow-2xl w-full max-w-sm overflow-hidden"
+          <div className="bg-white rounded-3xl shadow-2xl w-full max-w-xl overflow-hidden"
             style={{ animation: 'modalIn 0.2s ease-out' }}>
             <style>{`@keyframes modalIn { from { opacity:0; transform: scale(0.96) translateY(8px) } to { opacity:1; transform: scale(1) translateY(0) } }`}</style>
 
@@ -311,40 +317,82 @@ export default function VisitantesResidentClient({
 
               <p className="text-xs text-gray-400 mt-1">Envie a autorização para seu visitante (Opcional):</p>
 
-              <div>
-                <label className="text-xs font-semibold text-gray-500 uppercase tracking-wider block mb-2">
-                  Nome do visitante (Opcional)
-                </label>
-                <input
-                  value={form.guest_name}
-                  onChange={e => setForm(f => ({ ...f, guest_name: e.target.value }))}
-                  placeholder="Nome do visitante"
-                  className="w-full border border-gray-200 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#FC5931]/30 focus:border-[#FC5931] transition-all"
-                />
+              {/* Nome + WhatsApp */}
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="text-xs font-semibold text-gray-500 uppercase tracking-wider block mb-2">
+                    Nome do visitante
+                  </label>
+                  <input
+                    value={form.guest_name}
+                    onChange={e => setForm(f => ({ ...f, guest_name: e.target.value }))}
+                    placeholder="Nome do visitante"
+                    className="w-full border border-gray-200 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#FC5931]/30 focus:border-[#FC5931] transition-all"
+                  />
+                </div>
+                <div>
+                  <label className="text-xs font-semibold text-gray-500 uppercase tracking-wider block mb-2">
+                    WhatsApp
+                  </label>
+                  <input
+                    value={form.whatsapp}
+                    onChange={e => setForm(f => ({ ...f, whatsapp: e.target.value }))}
+                    placeholder="(00) 0 0000-0000"
+                    className="w-full border border-gray-200 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#FC5931]/30 focus:border-[#FC5931] transition-all"
+                  />
+                </div>
               </div>
 
-              <div>
-                <label className="text-xs font-semibold text-gray-500 uppercase tracking-wider block mb-2">
-                  WhatsApp
-                </label>
-                <input
-                  value={form.whatsapp}
-                  onChange={e => setForm(f => ({ ...f, whatsapp: e.target.value }))}
-                  placeholder="(00) 0 0000-0000"
-                  className="w-full border border-gray-200 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#FC5931]/30 focus:border-[#FC5931] transition-all"
-                />
+              {/* Documento + Placa */}
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="text-xs font-semibold text-gray-500 uppercase tracking-wider block mb-2">
+                    Documento (opcional)
+                  </label>
+                  <input
+                    value={form.documento}
+                    onChange={e => setForm(f => ({ ...f, documento: e.target.value }))}
+                    placeholder="CPF ou RG"
+                    className="w-full border border-gray-200 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#FC5931]/30 focus:border-[#FC5931] transition-all"
+                  />
+                </div>
+                <div>
+                  <label className="text-xs font-semibold text-gray-500 uppercase tracking-wider block mb-2">
+                    Placa (opcional)
+                  </label>
+                  <input
+                    value={form.placa}
+                    onChange={e => setForm(f => ({ ...f, placa: e.target.value }))}
+                    placeholder="Placa do veículo"
+                    className="w-full border border-gray-200 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#FC5931]/30 focus:border-[#FC5931] transition-all"
+                  />
+                </div>
               </div>
 
-              <div>
-                <label className="text-xs font-semibold text-gray-500 uppercase tracking-wider block mb-2">
-                  Observação
-                </label>
-                <input
-                  value={form.observacao}
-                  onChange={e => setForm(f => ({ ...f, observacao: e.target.value }))}
-                  placeholder="Observação (Opcional)"
-                  className="w-full border border-gray-200 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#FC5931]/30 focus:border-[#FC5931] transition-all"
-                />
+              {/* Crachá/Referência + Observação */}
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="text-xs font-semibold text-gray-500 uppercase tracking-wider block mb-2">
+                    Crachá / Referência
+                  </label>
+                  <input
+                    value={form.cracha_referencia}
+                    onChange={e => setForm(f => ({ ...f, cracha_referencia: e.target.value }))}
+                    placeholder="Nº do crachá"
+                    className="w-full border border-gray-200 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#FC5931]/30 focus:border-[#FC5931] transition-all"
+                  />
+                </div>
+                <div>
+                  <label className="text-xs font-semibold text-gray-500 uppercase tracking-wider block mb-2">
+                    Observação
+                  </label>
+                  <input
+                    value={form.observacao}
+                    onChange={e => setForm(f => ({ ...f, observacao: e.target.value }))}
+                    placeholder="Observação (Opcional)"
+                    className="w-full border border-gray-200 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#FC5931]/30 focus:border-[#FC5931] transition-all"
+                  />
+                </div>
               </div>
 
               {error && (

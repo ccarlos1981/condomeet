@@ -3,6 +3,7 @@
 import { useState, useEffect, useRef } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { MessageSquare, Send, Search, CheckCircle } from 'lucide-react'
+import { getBlocoLabel, getAptoLabel } from '@/lib/labels'
 
 type AdminThread = {
   id: string
@@ -111,12 +112,16 @@ export default function FaleConoscoAdminClient({
   adminId,
   adminName,
   condoId,
+  tipoEstrutura,
 }: {
   initialThreads: AdminThread[]
   adminId: string
   adminName: string
   condoId: string
+  tipoEstrutura?: string
 }) {
+  const blocoLabel = getBlocoLabel(tipoEstrutura)
+  const aptoLabel = getAptoLabel(tipoEstrutura)
   const [threads, setThreads] = useState<AdminThread[]>(initialThreads)
   const [selected, setSelected] = useState<AdminThread | null>(initialThreads[0] ?? null)
   const [mensagens, setMensagens] = useState<Mensagem[]>([])
@@ -318,7 +323,7 @@ export default function FaleConoscoAdminClient({
                 </div>
                 <p className="text-xs text-gray-500">
                   {selected.perfil?.nome_completo ?? 'Morador'}
-                  {selected.perfil?.bloco_txt ? ` · Bloco ${selected.perfil.bloco_txt} / Apto ${selected.perfil.apto_txt}` : ''}
+                  {selected.perfil?.bloco_txt ? ` · ${blocoLabel} ${selected.perfil.bloco_txt} / ${aptoLabel} ${selected.perfil.apto_txt}` : ''}
                   {' · '}{selectedTipo.label}
                 </p>
               </div>

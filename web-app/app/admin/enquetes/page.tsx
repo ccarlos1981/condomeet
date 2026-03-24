@@ -15,6 +15,14 @@ export default async function EnquetesAdminPage() {
 
   const condoId = profile?.condominio_id ?? ''
 
+  // Fetch tipo_estrutura
+  const { data: condoData } = await supabase
+    .from('condominios')
+    .select('tipo_estrutura')
+    .eq('id', condoId)
+    .single()
+  const tipoEstrutura = condoData?.tipo_estrutura ?? 'predio'
+
   // Load enquetes with options
   const { data: enquetes } = await supabase
     .from('enquetes')
@@ -73,6 +81,7 @@ export default async function EnquetesAdminPage() {
         totalRespostas: unitCountMap[e.id] ?? 0,
       }))}
       totalUnidades={uniqueUnits.size}
+      tipoEstrutura={tipoEstrutura}
     />
   )
 }

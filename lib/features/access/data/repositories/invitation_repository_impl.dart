@@ -126,6 +126,10 @@ class InvitationRepositoryImpl implements InvitationRepository {
           }
           if (dateFilter != null && dateFilter.isNotEmpty) {
             query = query.gte('validity_date', dateFilter).lte('validity_date', '${dateFilter}T23:59:59');
+          } else {
+            // Default: only fetch invitations from the last 30 days to avoid scanning entire history
+            final thirtyDaysAgo = DateTime.now().subtract(const Duration(days: 30)).toIso8601String();
+            query = query.gte('created_at', thirtyDaysAgo);
           }
 
           var orderedQuery = query.order('created_at', ascending: false);

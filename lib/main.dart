@@ -14,6 +14,7 @@ import 'package:condomeet/features/auth/presentation/screens/self_registration_s
 import 'package:condomeet/features/auth/presentation/screens/waiting_approval_screen.dart';
 import 'package:condomeet/features/auth/presentation/screens/consent_screen.dart';
 import 'package:condomeet/features/home/presentation/screens/home_screen.dart';
+import 'package:condomeet/features/auth/presentation/screens/splash_screen.dart';
 import 'package:condomeet/core/navigation/app_router.dart';
 import 'package:condomeet/core/di/injection_container.dart';
 import 'package:condomeet/core/services/powersync_service.dart';
@@ -208,7 +209,7 @@ class AuthRootGate extends StatelessWidget {
             // Obsolete for Schema 2.0 unless we keep phone fallback
             return const LoginScreen();
           case AuthStatus.unknown:
-            return const Scaffold(body: Center(child: CircularProgressIndicator()));
+            return const SplashScreen();
         }
       },
     );

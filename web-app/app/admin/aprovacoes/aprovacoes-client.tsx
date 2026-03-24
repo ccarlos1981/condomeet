@@ -3,6 +3,7 @@
 import { useState } from 'react'
 import { User, Clock, CheckCircle, XCircle, Lock } from 'lucide-react'
 import ApproveButton from './approve-button'
+import { getBlocoLabel, getAptoLabel } from '@/lib/labels'
 
 type Profile = {
   id: string
@@ -16,8 +17,10 @@ type Profile = {
 
 type Filter = 'pendente' | 'aprovado' | 'bloqueado' | 'rejeitado' | 'todos'
 
-export default function AprovacoesClient({ profiles }: { profiles: Profile[] }) {
+export default function AprovacoesClient({ profiles, tipoEstrutura }: { profiles: Profile[]; tipoEstrutura?: string }) {
   const [filter, setFilter] = useState<Filter>('pendente')
+  const blocoLabel = getBlocoLabel(tipoEstrutura)
+  const aptoLabel = getAptoLabel(tipoEstrutura)
 
   function isPending(p: Profile)  { return !p.status_aprovacao || p.status_aprovacao === 'pendente' }
   function isApproved(p: Profile) { return p.status_aprovacao === 'aprovado' }
@@ -116,7 +119,7 @@ export default function AprovacoesClient({ profiles }: { profiles: Profile[] }) 
                       )}
                       {p.bloco_txt && (
                         <span className="text-xs text-gray-500">
-                          🏠 Bloco {p.bloco_txt}{p.apto_txt ? ` / Apto ${p.apto_txt}` : ''}
+                          🏠 {blocoLabel} {p.bloco_txt}{p.apto_txt ? ` / ${aptoLabel} ${p.apto_txt}` : ''}
                         </span>
                       )}
                       <span className="text-xs text-gray-400">
