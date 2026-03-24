@@ -72,5 +72,7 @@
 	<string>Para anexar foto da encomenda</string>
 	<key>NSFaceIDUsageDescription</key>
 	<string>Para autenticar sua identidade de forma segura no Condomeet</string>
+	<key>ITSAppUsesNonExemptEncryption</key>
+	<false/>
 </dict>
 </plist>

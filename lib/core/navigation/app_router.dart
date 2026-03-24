@@ -56,6 +56,7 @@ import 'package:condomeet/features/auth/presentation/screens/splash_screen.dart'
 import 'package:condomeet/features/admin/presentation/screens/universal_push_screen.dart';
 import 'package:condomeet/features/admin/presentation/screens/avisos_admin_screen.dart';
 import 'package:condomeet/features/admin/presentation/screens/album_fotos_admin_screen.dart';
+import 'package:condomeet/features/portaria/presentation/screens/visita_proprietario_screen.dart';
 
 
 class AppRouter {
@@ -168,6 +169,7 @@ class AppRouter {
       '/admin-avisos': (context) => const AvisosAdminScreen(),
       '/admin-album-fotos': (context) => const AlbumFotosAdminScreen(),
       '/universal-push': (context) => const UniversalPushScreen(),
+      '/visita-proprietario': (context) => const VisitaProprietarioScreen(),
     };
   }
 

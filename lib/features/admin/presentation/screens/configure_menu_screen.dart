@@ -54,6 +54,7 @@ const _kAllFunctions = [
   _FunctionDef(id: 'classificados',    icon: 'sell',          label: 'Classificados',           route: '/classificados',              defaultRoles: {'morador'}),
   _FunctionDef(id: 'indicacoes',       icon: 'favorite',      label: 'Indicações de Serviço', route: '/indicacoes',                 defaultRoles: {'morador'}),
   _FunctionDef(id: 'contracts',        icon: 'description',   label: 'Contratos',               route: '/contratos',                  defaultRoles: {'sindico', 'sub_sindico'}),
+  _FunctionDef(id: 'visita_proprietario', icon: 'door_front', label: 'Visita Proprietário',     route: '/visita-proprietario',        defaultRoles: {'portaria'}),
 ];
 
 /// Normalize papal_sistema → internal key: "Porteiro (a)" → "portaria"
@@ -602,6 +603,10 @@ class _ConfigureMenuScreenState extends State<ConfigureMenuScreen>
       'photo': Icons.photo,
       'sell': Icons.sell,
       'favorite': Icons.favorite_border,
+      'door_front': Icons.door_front_door,
+      'badge': Icons.badge,
+      'assignment': Icons.assignment,
+      'description': Icons.description,
     };
     return map[name] ?? Icons.widgets;
   }
