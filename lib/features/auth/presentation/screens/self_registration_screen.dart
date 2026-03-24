@@ -633,32 +633,93 @@ class _SelfRegistrationScreenState extends State<SelfRegistrationScreen> {
         ? options.where((o) => o[idKey] == value).map(labelBuilder).firstOrNull ?? 'Selecionar...'
         : 'Selecionar...';
 
+    // Sort options numerically
+    final sortedOptions = List<Map<String, dynamic>>.from(options);
+    sortedOptions.sort((a, b) {
+      final aVal = a['nome_ou_numero'] ?? a['numero'] ?? '';
+      final bVal = b['nome_ou_numero'] ?? b['numero'] ?? '';
+      final aNum = int.tryParse(aVal.toString());
+      final bNum = int.tryParse(bVal.toString());
+      if (aNum != null && bNum != null) return aNum.compareTo(bNum);
+      return aVal.toString().compareTo(bVal.toString());
+    });
+
     return GestureDetector(
       onTap: options.isEmpty ? null : () {
         showModalBottomSheet(
           context: context,
+          isScrollControlled: true,
           shape: const RoundedRectangleBorder(
             borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
           ),
-          builder: (ctx) => SafeArea(
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Padding(
-                  padding: const EdgeInsets.all(16),
-                  child: Text(label, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
-                ),
-                const Divider(height: 1),
-                ...options.map((opt) => ListTile(
-                  title: Text(labelBuilder(opt)),
-                  trailing: opt[idKey] == value ? const Icon(Icons.check, color: AppColors.primary) : null,
-                  onTap: () {
-                    Navigator.pop(ctx);
-                    onChanged(opt[idKey] as String);
-                  },
-                )),
-                const SizedBox(height: 16),
-              ],
+          builder: (ctx) => DraggableScrollableSheet(
+            initialChildSize: 0.5,
+            maxChildSize: 0.85,
+            minChildSize: 0.3,
+            expand: false,
+            builder: (ctx, scrollCtrl) => SafeArea(
+              child: Column(
+                children: [
+                  // Handle bar
+                  const SizedBox(height: 8),
+                  Container(
+                    width: 40, height: 4,
+                    decoration: BoxDecoration(
+                      color: Colors.grey.shade300,
+                      borderRadius: BorderRadius.circular(2),
+                    ),
+                  ),
+                  Padding(
+                    padding: const EdgeInsets.all(16),
+                    child: Text(label, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+                  ),
+                  const Divider(height: 1),
+                  Expanded(
+                    child: GridView.builder(
+                      controller: scrollCtrl,
+                      padding: const EdgeInsets.all(12),
+                      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                        crossAxisCount: 2,
+                        childAspectRatio: 3.0,
+                        crossAxisSpacing: 8,
+                        mainAxisSpacing: 8,
+                      ),
+                      itemCount: sortedOptions.length,
+                      itemBuilder: (ctx, index) {
+                        final opt = sortedOptions[index];
+                        final isSelected = opt[idKey] == value;
+                        return InkWell(
+                          onTap: () {
+                            Navigator.pop(ctx);
+                            onChanged(opt[idKey] as String);
+                          },
+                          borderRadius: BorderRadius.circular(10),
+                          child: Container(
+                            decoration: BoxDecoration(
+                              color: isSelected ? AppColors.primary.withValues(alpha: 0.1) : Colors.grey.shade50,
+                              borderRadius: BorderRadius.circular(10),
+                              border: Border.all(
+                                color: isSelected ? AppColors.primary : Colors.grey.shade300,
+                                width: isSelected ? 2 : 1,
+                              ),
+                            ),
+                            alignment: Alignment.center,
+                            child: Text(
+                              labelBuilder(opt),
+                              style: TextStyle(
+                                fontSize: 14,
+                                fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
+                                color: isSelected ? AppColors.primary : Colors.black87,
+                              ),
+                              textAlign: TextAlign.center,
+                            ),
+                          ),
+                        );
+                      },
+                    ),
+                  ),
+                ],
+              ),
             ),
           ),
         );

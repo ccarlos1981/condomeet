@@ -508,6 +508,7 @@ class _ManagerApprovalScreenState extends State<ManagerApprovalScreen> {
               ),
             ),
             child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 const CircleAvatar(
                   radius: 18,
@@ -520,18 +521,26 @@ class _ManagerApprovalScreenState extends State<ManagerApprovalScreen> {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(resident.fullName,
-                          style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
+                          style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis),
+                      const SizedBox(height: 2),
                       Text(unitLabel,
                           style: TextStyle(fontSize: 11, color: Colors.grey.shade600)),
+                      const SizedBox(height: 6),
+                      Wrap(
+                        spacing: 4,
+                        runSpacing: 4,
+                        children: [
+                          if (resident.tipoMorador != null)
+                            _badge(resident.tipoMorador!, Colors.grey.shade200, Colors.black87),
+                          if (resident.papelSistema != null)
+                            _badge(resident.papelSistema!, badgeColor.withValues(alpha: 0.15), badgeColor),
+                        ],
+                      ),
                     ],
                   ),
                 ),
-                // Type badges
-                if (resident.tipoMorador != null)
-                  _badge(resident.tipoMorador!, Colors.grey.shade200, Colors.black87),
-                const SizedBox(width: 4),
-                if (resident.papelSistema != null)
-                  _badge(resident.papelSistema!, badgeColor.withValues(alpha: 0.15), badgeColor),
               ],
             ),
           ),

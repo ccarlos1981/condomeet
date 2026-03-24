@@ -41,6 +41,7 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
 
   Future<void> _onAuthCheckRequested(AuthCheckRequested event, Emitter<AuthState> emit) async {
     var session = _authRepository.currentSession;
+    bool autoLoggedIn = false;
     if (session == null) {
       print('🔐 AuthCheckRequested: No session found. Checking saved credentials...');
       // Try auto-login with saved credentials
@@ -50,6 +51,7 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
           print('🔑 Auto-login attempt with saved credentials for ${creds['email']}');
           await _authRepository.signInWithEmail(creds['email']!, creds['password']!);
           session = _authRepository.currentSession;
+          autoLoggedIn = true;
           print('✅ Auto-login successful');
         } catch (e) {
           print('❌ Auto-login failed: $e — clearing saved credentials');
@@ -62,6 +64,13 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
         emit(const AuthState.unauthenticated());
         return;
       }
+    }
+
+    // Session exists (persisted or auto-login) → skip PIN on resume
+    // Device security (FaceID/fingerprint/passcode) already protects the app
+    final hasSavedCreds = await _securityService.getCredentials() != null;
+    if (hasSavedCreds || autoLoggedIn) {
+      _isSessionUnlocked = true;
     }
 
     try {

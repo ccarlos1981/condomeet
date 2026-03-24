@@ -7,7 +7,7 @@ import {
   Home, UserCheck, Users, Bell, FileText, MessageSquare,
   CalendarDays, MapPin, ClipboardList, Settings, Package,
   ChevronLeft, ChevronRight, Menu, X, LogOut, Megaphone,
-  AlertCircle, SlidersHorizontal, ArrowRight, BarChart3, Building2, Camera, ShoppingBag
+  AlertCircle, SlidersHorizontal, ArrowRight, BarChart3, Building2, Camera, ShoppingBag, Wallet
 } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { useRouter } from 'next/navigation'
@@ -76,6 +76,7 @@ export default function AdminSidebar({
           ? [
               { label: 'Push Universal', href: '/admin/push-universal', icon: <Megaphone size={18} /> },
               { label: 'Propaganda', href: '/admin/propaganda', icon: <ShoppingBag size={18} /> },
+              { label: 'Meu Bolso', href: '/admin/dinglo', icon: <Wallet size={18} /> },
             ]
           : []),
       ],

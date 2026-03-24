@@ -57,6 +57,18 @@ import 'package:condomeet/features/admin/presentation/screens/universal_push_scr
 import 'package:condomeet/features/admin/presentation/screens/avisos_admin_screen.dart';
 import 'package:condomeet/features/admin/presentation/screens/album_fotos_admin_screen.dart';
 import 'package:condomeet/features/portaria/presentation/screens/visita_proprietario_screen.dart';
+import 'package:condomeet/features/dinglo/presentation/screens/dinglo_home_screen.dart';
+import 'package:condomeet/features/dinglo/presentation/screens/contas_screen.dart';
+import 'package:condomeet/features/dinglo/presentation/screens/cadastro_conta_screen.dart';
+import 'package:condomeet/features/dinglo/presentation/screens/cartoes_screen.dart';
+import 'package:condomeet/features/dinglo/presentation/screens/lancamento_screen.dart';
+import 'package:condomeet/features/dinglo/presentation/screens/movimentos_screen.dart';
+import 'package:condomeet/features/dinglo/presentation/screens/categorias_screen.dart';
+import 'package:condomeet/features/dinglo/presentation/screens/metas_screen.dart';
+import 'package:condomeet/features/dinglo/presentation/screens/despesas_fixas_screen.dart';
+import 'package:condomeet/features/dinglo/presentation/screens/indicadores_screen.dart';
+import 'package:condomeet/features/dinglo/presentation/screens/planos_screen.dart';
+import 'package:condomeet/features/dinglo/presentation/screens/meu_bolso_onboarding_screen.dart';
 
 
 class AppRouter {
@@ -170,6 +182,19 @@ class AppRouter {
       '/admin-album-fotos': (context) => const AlbumFotosAdminScreen(),
       '/universal-push': (context) => const UniversalPushScreen(),
       '/visita-proprietario': (context) => const VisitaProprietarioScreen(),
+      // Dinglo Financial Module
+      '/dinglo': (context) => const DingloHomeScreen(),
+      '/dinglo/contas': (context) => const ContasScreen(),
+      '/dinglo/cadastro-conta': (context) => const CadastroContaScreen(),
+      '/dinglo/cartoes': (context) => const CartoesScreen(),
+      '/dinglo/lancamento': (context) => const LancamentoScreen(),
+      '/dinglo/movimentos': (context) => const MovimentosScreen(),
+      '/dinglo/categorias': (context) => const CategoriasScreen(),
+      '/dinglo/metas': (context) => const MetasScreen(),
+      '/dinglo/despesas-fixas': (context) => const DespesasFixasScreen(),
+      '/dinglo/indicadores': (context) => const IndicadoresScreen(),
+      '/dinglo/planos': (context) => const PlanosScreen(),
+      '/dinglo/onboarding': (context) => const MeuBolsoOnboardingScreen(),
     };
   }
 
