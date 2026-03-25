@@ -115,6 +115,36 @@ class _VisitorAuthorizationScreenState extends State<VisitorAuthorizationScreen>
     }
   }
 
+  void _handleQuickAuthorize(String type) {
+    final authState = context.read<AuthBloc>().state;
+    context.read<InvitationBloc>().add(
+      CreateInvitationRequested(
+        residentId: authState.userId!,
+        condominiumId: authState.condominiumId!,
+        guestName: type,
+        validityDate: DateTime.now(),
+        visitorType: type,
+        visitorPhone: '',
+        observation: '',
+      ),
+    );
+  }
+
+  IconData _iconForType(String type) {
+    switch (type) {
+      case 'Delivery': return Icons.delivery_dining;
+      case 'Uber ou Taxi': return Icons.local_taxi;
+      case 'Farmácia': return Icons.local_pharmacy;
+      case 'Diarista': return Icons.cleaning_services;
+      case 'Visitante': return Icons.person;
+      case 'Mat. Obra': return Icons.construction;
+      case 'Serviços': return Icons.build;
+      case 'Hóspedes': return Icons.hotel;
+      case 'Outros': return Icons.more_horiz;
+      default: return Icons.person;
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final authState = context.watch<AuthBloc>().state;
@@ -350,6 +380,47 @@ class _VisitorAuthorizationScreenState extends State<VisitorAuthorizationScreen>
             CondoButton(
               label: 'Registrar visita',
               onPressed: _handleSubmit,
+            ),
+            const SizedBox(height: 16),
+            
+            // Quick-access shortcut chips
+            Align(
+              alignment: Alignment.centerLeft,
+              child: Text(
+                'Atalho rápido',
+                style: TextStyle(fontSize: 12, color: Colors.grey.shade500, fontWeight: FontWeight.w600),
+              ),
+            ),
+            const SizedBox(height: 8),
+            SizedBox(
+              height: 38,
+              child: ListView.separated(
+                scrollDirection: Axis.horizontal,
+                itemCount: _visitorTypes.length,
+                separatorBuilder: (_, __) => const SizedBox(width: 8),
+                itemBuilder: (context, index) {
+                  final type = _visitorTypes[index];
+                  return GestureDetector(
+                    onTap: () => _handleQuickAuthorize(type),
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                      decoration: BoxDecoration(
+                        color: AppColors.primary.withValues(alpha: 0.08),
+                        borderRadius: BorderRadius.circular(20),
+                        border: Border.all(color: AppColors.primary.withValues(alpha: 0.3)),
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(_iconForType(type), size: 16, color: AppColors.primary),
+                          const SizedBox(width: 4),
+                          Text(type, style: TextStyle(fontSize: 12, color: AppColors.primary, fontWeight: FontWeight.w600)),
+                        ],
+                      ),
+                    ),
+                  );
+                },
+              ),
             ),
           ],
         ),
