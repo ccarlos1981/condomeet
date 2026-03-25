@@ -181,6 +181,30 @@ class _ListaMercadoHomeScreenState extends State<ListaMercadoHomeScreen> {
                       ),
                     ),
                   ),
+                  const SizedBox(height: 10),
+
+                  // ── Escanear cupom ──
+                  GestureDetector(
+                    onTap: () => Navigator.pushNamed(context, '/lista-mercado/scanner'),
+                    child: Container(
+                      padding: const EdgeInsets.all(16),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFF1E1E2E),
+                        borderRadius: BorderRadius.circular(14),
+                        border: Border.all(color: Colors.blueAccent.withOpacity(0.3)),
+                      ),
+                      child: const Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Text('📷', style: TextStyle(fontSize: 22)),
+                          SizedBox(width: 10),
+                          Text('Escanear Cupom', style: TextStyle(color: Colors.blueAccent, fontSize: 16, fontWeight: FontWeight.bold)),
+                          SizedBox(width: 6),
+                          Text('(OCR)', style: TextStyle(color: Colors.white38, fontSize: 13)),
+                        ],
+                      ),
+                    ),
+                  ),
                   const SizedBox(height: 24),
                   if (_lists.isNotEmpty) ...[
                     const Row(
