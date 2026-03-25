@@ -75,6 +75,7 @@ import 'package:condomeet/features/lista_mercado/presentation/screens/lista_comp
 import 'package:condomeet/features/lista_mercado/presentation/screens/reportar_preco_screen.dart';
 import 'package:condomeet/features/lista_mercado/presentation/screens/scanner_receipt_screen.dart';
 import 'package:condomeet/features/lista_mercado/presentation/screens/gamificacao_screen.dart';
+import 'package:condomeet/features/lista_mercado/presentation/screens/alertas_preco_screen.dart';
 
 
 class AppRouter {
@@ -214,6 +215,7 @@ class AppRouter {
       '/lista-mercado/reportar': (context) => const ReportarPrecoScreen(),
       '/lista-mercado/scanner': (context) => const ScannerReceiptScreen(),
       '/lista-mercado/ranking': (context) => const GamificacaoScreen(),
+      '/lista-mercado/alertas': (context) => const AlertasPrecoScreen(),
     };
   }
 

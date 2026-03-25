@@ -431,4 +431,51 @@ class ListaMercadoService {
       'total_contributors': (users as List).length,
     };
   }
+
+  // ══════════════════════════════════════════
+  // ALERTAS DE PREÇO
+  // ══════════════════════════════════════════
+
+  /// Buscar meus alertas de preço
+  Future<List<Map<String, dynamic>>> getMyAlerts() async {
+    final data = await _client
+        .from('lista_price_alerts')
+        .select('*, lista_product_variants(id, variant_name, unit, lista_products_base(name, icon_emoji)), lista_supermarkets(name)')
+        .eq('user_id', _userId!)
+        .order('created_at', ascending: false);
+    return List<Map<String, dynamic>>.from(data);
+  }
+
+  /// Criar alerta de preço
+  Future<void> createPriceAlert({
+    required String variantId,
+    String? supermarketId,
+    required double targetPrice,
+  }) async {
+    await _client.from('lista_price_alerts').insert({
+      'user_id': _userId,
+      'variant_id': variantId,
+      'supermarket_id': supermarketId,
+      'target_price': targetPrice,
+      'is_active': true,
+      'is_triggered': false,
+    });
+  }
+
+  /// Deletar alerta
+  Future<void> deletePriceAlert(String alertId) async {
+    await _client.from('lista_price_alerts').delete().eq('id', alertId);
+  }
+
+  /// Reativar alerta (resetar triggered)
+  Future<void> reactivatePriceAlert(String alertId) async {
+    await _client.from('lista_price_alerts').update({
+      'is_triggered': false,
+      'is_active': true,
+      'triggered_at': null,
+      'current_price': null,
+      'updated_at': DateTime.now().toIso8601String(),
+    }).eq('id', alertId);
+  }
 }
+

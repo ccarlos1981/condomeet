@@ -229,6 +229,28 @@ class _ListaMercadoHomeScreenState extends State<ListaMercadoHomeScreen> {
                       ),
                     ),
                   ),
+                  const SizedBox(height: 10),
+
+                  // ── Alertas de Preço ──
+                  GestureDetector(
+                    onTap: () => Navigator.pushNamed(context, '/lista-mercado/alertas'),
+                    child: Container(
+                      padding: const EdgeInsets.all(16),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFF1E1E2E),
+                        borderRadius: BorderRadius.circular(14),
+                        border: Border.all(color: Colors.redAccent.withOpacity(0.3)),
+                      ),
+                      child: const Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Text('🔔', style: TextStyle(fontSize: 22)),
+                          SizedBox(width: 10),
+                          Text('Alertas de Preço', style: TextStyle(color: Colors.redAccent, fontSize: 16, fontWeight: FontWeight.bold)),
+                        ],
+                      ),
+                    ),
+                  ),
                   const SizedBox(height: 24),
                   if (_lists.isNotEmpty) ...[
                     const Row(
