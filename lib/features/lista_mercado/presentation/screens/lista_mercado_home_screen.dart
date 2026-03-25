@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:condomeet/features/lista_mercado/lista_mercado_service.dart';
+import 'package:condomeet/features/lista_mercado/presentation/widgets/lista_onboarding_popup.dart';
+import 'package:condomeet/features/lista_mercado/presentation/screens/lista_admin_screen.dart';
 
 class ListaMercadoHomeScreen extends StatefulWidget {
   const ListaMercadoHomeScreen({super.key});
@@ -18,6 +20,10 @@ class _ListaMercadoHomeScreenState extends State<ListaMercadoHomeScreen> {
   void initState() {
     super.initState();
     _loadData();
+    // Show onboarding on first access
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      ListaOnboardingPopup.showIfNeeded(context);
+    });
   }
 
   Future<void> _loadData() async {
@@ -128,6 +134,21 @@ class _ListaMercadoHomeScreenState extends State<ListaMercadoHomeScreen> {
           ],
         ),
         iconTheme: const IconThemeData(color: Colors.white),
+        actions: [
+          // Help button — re-show onboarding
+          IconButton(
+            icon: const Icon(Icons.help_outline, color: Colors.white54),
+            tooltip: 'Como funciona?',
+            onPressed: () => ListaOnboardingPopup.showAlways(context),
+          ),
+          // Admin button — only for admin
+          if (ListaAdminScreen.isAdmin())
+            IconButton(
+              icon: const Icon(Icons.settings, color: Colors.amber),
+              tooltip: 'Admin',
+              onPressed: () => Navigator.pushNamed(context, '/lista-mercado/admin'),
+            ),
+        ],
       ),
       body: _loading
           ? const Center(child: CircularProgressIndicator(color: Color(0xFF00C853)))
