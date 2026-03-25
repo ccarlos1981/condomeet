@@ -69,6 +69,9 @@ import 'package:condomeet/features/dinglo/presentation/screens/despesas_fixas_sc
 import 'package:condomeet/features/dinglo/presentation/screens/indicadores_screen.dart';
 import 'package:condomeet/features/dinglo/presentation/screens/planos_screen.dart';
 import 'package:condomeet/features/dinglo/presentation/screens/meu_bolso_onboarding_screen.dart';
+import 'package:condomeet/features/lista_mercado/presentation/screens/lista_mercado_home_screen.dart';
+import 'package:condomeet/features/lista_mercado/presentation/screens/lista_edit_screen.dart';
+import 'package:condomeet/features/lista_mercado/presentation/screens/lista_compare_screen.dart';
 
 
 class AppRouter {
@@ -195,6 +198,16 @@ class AppRouter {
       '/dinglo/indicadores': (context) => const IndicadoresScreen(),
       '/dinglo/planos': (context) => const PlanosScreen(),
       '/dinglo/onboarding': (context) => const MeuBolsoOnboardingScreen(),
+      // Lista Inteligente de Supermercado
+      '/lista-mercado': (context) => const ListaMercadoHomeScreen(),
+      '/lista-mercado/edit': (context) {
+        final listId = ModalRoute.of(context)!.settings.arguments as String;
+        return ListaEditScreen(listId: listId);
+      },
+      '/lista-mercado/compare': (context) {
+        final listId = ModalRoute.of(context)!.settings.arguments as String;
+        return ListaCompareScreen(listId: listId);
+      },
     };
   }
 
