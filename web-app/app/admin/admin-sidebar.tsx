@@ -7,7 +7,7 @@ import {
   Home, UserCheck, Users, Bell, FileText, MessageSquare,
   CalendarDays, MapPin, ClipboardList, Settings, Package,
   ChevronLeft, ChevronRight, Menu, X, LogOut, Megaphone,
-  AlertCircle, SlidersHorizontal, ArrowRight, BarChart3, Building2, Camera, ShoppingBag, Wallet, ShoppingCart
+  AlertCircle, SlidersHorizontal, ArrowRight, BarChart3, Building2, Camera, ShoppingBag, Wallet, ShoppingCart, Store
 } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { useRouter } from 'next/navigation'
@@ -78,6 +78,7 @@ export default function AdminSidebar({
               { label: 'Propaganda', href: '/admin/propaganda', icon: <ShoppingBag size={18} /> },
               { label: 'Meu Bolso', href: '/admin/dinglo', icon: <Wallet size={18} /> },
               { label: 'Lista Inteligente', href: '/admin/lista-inteligente', icon: <ShoppingCart size={18} /> },
+              { label: 'B2B Mercados', href: '/admin/lista-b2b', icon: <Store size={18} /> },
             ]
           : []),
       ],
