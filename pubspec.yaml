@@ -75,6 +75,7 @@ dependencies:
   flutter_local_notifications: ^21.0.0
   connectivity_plus: ^7.0.0
   purchases_flutter: ^9.15.1
+  path_provider: ^2.1.5
 
 dev_dependencies:
   flutter_test:

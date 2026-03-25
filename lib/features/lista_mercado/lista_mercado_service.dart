@@ -4,6 +4,7 @@ class ListaMercadoService {
   final _client = Supabase.instance.client;
 
   String? get _userId => _client.auth.currentUser?.id;
+  String? get currentUserId => _userId;
 
   // ══════════════════════════════════════════
   // BUSCA DE PRODUTOS (autocomplete)

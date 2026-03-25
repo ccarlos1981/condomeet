@@ -264,6 +264,30 @@ class _ListaMercadoHomeScreenState extends State<ListaMercadoHomeScreen> {
                       ),
                     ),
                   ),
+                  const SizedBox(height: 10),
+
+                  // ── Compartilhar Economia ──
+                  GestureDetector(
+                    onTap: () => Navigator.pushNamed(context, '/lista-mercado/cartao'),
+                    child: Container(
+                      padding: const EdgeInsets.all(16),
+                      decoration: BoxDecoration(
+                        gradient: LinearGradient(
+                          colors: [const Color(0xFF00C853).withOpacity(0.15), const Color(0xFF00E676).withOpacity(0.08)],
+                        ),
+                        borderRadius: BorderRadius.circular(14),
+                        border: Border.all(color: const Color(0xFF00C853).withOpacity(0.3)),
+                      ),
+                      child: const Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Text('📤', style: TextStyle(fontSize: 22)),
+                          SizedBox(width: 10),
+                          Text('Compartilhar Economia', style: TextStyle(color: Color(0xFF00E676), fontSize: 16, fontWeight: FontWeight.bold)),
+                        ],
+                      ),
+                    ),
+                  ),
                   const SizedBox(height: 24),
                   if (_lists.isNotEmpty) ...[
                     const Row(
