@@ -77,6 +77,7 @@ export default function AdminSidebar({
               { label: 'Push Universal', href: '/admin/push-universal', icon: <Megaphone size={18} /> },
               { label: 'Propaganda', href: '/admin/propaganda', icon: <ShoppingBag size={18} /> },
               { label: 'Meu Bolso', href: '/admin/dinglo', icon: <Wallet size={18} /> },
+              { label: 'Lista Inteligente', href: '/admin/lista-inteligente', icon: <ShoppingCart size={18} /> },
             ]
           : []),
       ],
