@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:condomeet/features/lista_mercado/lista_mercado_service.dart';
 import 'package:condomeet/features/lista_mercado/presentation/widgets/lista_onboarding_popup.dart';
-import 'package:condomeet/features/lista_mercado/presentation/screens/lista_admin_screen.dart';
 
 class ListaMercadoHomeScreen extends StatefulWidget {
   const ListaMercadoHomeScreen({super.key});
@@ -141,13 +140,6 @@ class _ListaMercadoHomeScreenState extends State<ListaMercadoHomeScreen> {
             tooltip: 'Como funciona?',
             onPressed: () => ListaOnboardingPopup.showAlways(context),
           ),
-          // Admin button — only for admin
-          if (ListaAdminScreen.isAdmin())
-            IconButton(
-              icon: const Icon(Icons.settings, color: Colors.amber),
-              tooltip: 'Admin',
-              onPressed: () => Navigator.pushNamed(context, '/lista-mercado/admin'),
-            ),
         ],
       ),
       body: _loading
