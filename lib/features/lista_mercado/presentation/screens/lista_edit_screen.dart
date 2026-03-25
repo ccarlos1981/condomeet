@@ -157,19 +157,19 @@ class _ListaEditScreenState extends State<ListaEditScreen> {
     final checkedItems = _items.where((i) => i['is_checked'] == true).toList();
 
     return Scaffold(
-      backgroundColor: const Color(0xFF121212),
+      backgroundColor: Colors.grey.shade50,
       appBar: AppBar(
-        backgroundColor: const Color(0xFF1A1A2E),
-        elevation: 0,
-        iconTheme: const IconThemeData(color: Colors.white),
+        backgroundColor: Colors.white,
+        elevation: 0.5,
+        iconTheme: IconThemeData(color: Colors.grey.shade800),
         title: Text(
           _listData?['name'] ?? 'Lista',
-          style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 18),
+          style: TextStyle(color: Colors.grey.shade900, fontWeight: FontWeight.bold, fontSize: 18),
         ),
         actions: [
           if (_items.isNotEmpty)
             IconButton(
-              icon: const Icon(Icons.compare_arrows),
+              icon: Icon(Icons.compare_arrows, color: Colors.grey.shade700),
               tooltip: 'Comparar preços',
               onPressed: () {
                 Navigator.pushNamed(context, '/lista-mercado/compare', arguments: widget.listId);
@@ -178,7 +178,7 @@ class _ListaEditScreenState extends State<ListaEditScreen> {
         ],
       ),
       body: _loading
-          ? const Center(child: CircularProgressIndicator(color: Color(0xFF00C853)))
+          ? const Center(child: CircularProgressIndicator(color: Color(0xFF2E7D32)))
           : Column(
               children: [
                 // ── Estimativa ao vivo ──
@@ -186,8 +186,9 @@ class _ListaEditScreenState extends State<ListaEditScreen> {
                   Container(
                     width: double.infinity,
                     padding: const EdgeInsets.all(16),
-                    decoration: const BoxDecoration(
-                      gradient: LinearGradient(colors: [Color(0xFF1A1A2E), Color(0xFF16213E)]),
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      border: Border(bottom: BorderSide(color: Colors.grey.shade200)),
                     ),
                     child: Row(
                       children: [
@@ -195,11 +196,17 @@ class _ListaEditScreenState extends State<ListaEditScreen> {
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              const Text('💰 Estimativa ao vivo', style: TextStyle(color: Colors.white54, fontSize: 12)),
+                              Row(
+                                children: [
+                                  Icon(Icons.savings_outlined, color: Colors.green.shade700, size: 18),
+                                  const SizedBox(width: 6),
+                                  Text('Estimativa ao vivo', style: TextStyle(color: Colors.grey.shade600, fontSize: 13)),
+                                ],
+                              ),
                               const SizedBox(height: 2),
                               Text(
                                 'R\$ ${_estimatedTotal.toStringAsFixed(2)}',
-                                style: const TextStyle(color: Color(0xFF00E676), fontSize: 24, fontWeight: FontWeight.bold),
+                                style: TextStyle(color: Colors.green.shade700, fontSize: 24, fontWeight: FontWeight.bold),
                               ),
                             ],
                           ),
@@ -207,12 +214,12 @@ class _ListaEditScreenState extends State<ListaEditScreen> {
                         Container(
                           padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
                           decoration: BoxDecoration(
-                            color: Colors.white10,
+                            color: Colors.grey.shade100,
                             borderRadius: BorderRadius.circular(20),
                           ),
                           child: Text(
                             '$_itemsWithPrice/${_items.length} com preço',
-                            style: const TextStyle(color: Colors.white38, fontSize: 12),
+                            style: TextStyle(color: Colors.grey.shade600, fontSize: 12),
                           ),
                         ),
                       ],
@@ -226,11 +233,11 @@ class _ListaEditScreenState extends State<ListaEditScreen> {
                           child: Column(
                             mainAxisAlignment: MainAxisAlignment.center,
                             children: [
-                              const Text('📝', style: TextStyle(fontSize: 60)),
+                              Icon(Icons.receipt_long, size: 64, color: Colors.grey.shade300),
                               const SizedBox(height: 12),
-                              const Text('Lista vazia', style: TextStyle(color: Colors.white54, fontSize: 18)),
+                              Text('Lista vazia', style: TextStyle(color: Colors.grey.shade600, fontSize: 18, fontWeight: FontWeight.w600)),
                               const SizedBox(height: 8),
-                              const Text('Toque + para adicionar produtos', style: TextStyle(color: Colors.white30, fontSize: 14)),
+                              Text('Toque + para adicionar produtos', style: TextStyle(color: Colors.grey.shade400, fontSize: 14)),
                             ],
                           ),
                         )
@@ -249,12 +256,18 @@ class _ListaEditScreenState extends State<ListaEditScreen> {
                                 padding: const EdgeInsets.symmetric(vertical: 12),
                                 child: Row(
                                   children: [
-                                    const Expanded(child: Divider(color: Colors.white12)),
+                                    Expanded(child: Divider(color: Colors.grey.shade300)),
                                     Padding(
                                       padding: const EdgeInsets.symmetric(horizontal: 12),
-                                      child: Text('✅ Comprados (${checkedItems.length})', style: const TextStyle(color: Colors.white30, fontSize: 13)),
+                                      child: Row(
+                                        children: [
+                                          Icon(Icons.check_circle, size: 16, color: Colors.green.shade600),
+                                          const SizedBox(width: 6),
+                                          Text('Comprados (${checkedItems.length})', style: TextStyle(color: Colors.grey.shade500, fontSize: 13)),
+                                        ],
+                                      ),
                                     ),
-                                    const Expanded(child: Divider(color: Colors.white12)),
+                                    Expanded(child: Divider(color: Colors.grey.shade300)),
                                   ],
                                 ),
                               ),
@@ -268,7 +281,7 @@ class _ListaEditScreenState extends State<ListaEditScreen> {
       floatingActionButton: !_showSearch
           ? FloatingActionButton(
               onPressed: () => setState(() { _showSearch = true; }),
-              backgroundColor: const Color(0xFF00C853),
+              backgroundColor: const Color(0xFF2E7D32),
               child: const Icon(Icons.add, color: Colors.white, size: 28),
             )
           : null,
@@ -283,33 +296,34 @@ class _ListaEditScreenState extends State<ListaEditScreen> {
         Container(
           margin: const EdgeInsets.only(bottom: 8),
           decoration: BoxDecoration(
-            color: const Color(0xFF1E1E2E),
+            color: Colors.white,
             borderRadius: BorderRadius.circular(14),
-            border: Border.all(color: const Color(0xFF00C853).withOpacity(0.4)),
+            border: Border.all(color: const Color(0xFF2E7D32).withOpacity(0.4)),
+            boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 8, offset: const Offset(0, 2))],
           ),
           child: Row(
             children: [
               const Padding(
                 padding: EdgeInsets.only(left: 14),
-                child: Icon(Icons.search, color: Color(0xFF00C853), size: 22),
+                child: Icon(Icons.search, color: Color(0xFF2E7D32), size: 22),
               ),
               Expanded(
                 child: TextField(
                   controller: _searchController,
                   focusNode: _searchFocus,
                   autofocus: true,
-                  style: const TextStyle(color: Colors.white),
-                  decoration: const InputDecoration(
+                  style: TextStyle(color: Colors.grey.shade900),
+                  decoration: InputDecoration(
                     hintText: 'Buscar produto... Ex: arroz, leite',
-                    hintStyle: TextStyle(color: Colors.white30),
+                    hintStyle: TextStyle(color: Colors.grey.shade400),
                     border: InputBorder.none,
-                    contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 14),
+                    contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 14),
                   ),
                   onChanged: _onSearchChanged,
                 ),
               ),
               IconButton(
-                icon: const Icon(Icons.close, color: Colors.white38),
+                icon: Icon(Icons.close, color: Colors.grey.shade500),
                 onPressed: () {
                   _searchController.clear();
                   setState(() { _showSearch = false; _searchResults = []; });
@@ -323,7 +337,7 @@ class _ListaEditScreenState extends State<ListaEditScreen> {
         if (_searching)
           const Padding(
             padding: EdgeInsets.all(16),
-            child: Center(child: CircularProgressIndicator(color: Color(0xFF00C853), strokeWidth: 2)),
+            child: Center(child: CircularProgressIndicator(color: Color(0xFF2E7D32), strokeWidth: 2)),
           )
         else if (_searchResults.isNotEmpty) ...[
           ..._searchResults.map((product) => _buildProductResult(product)),
@@ -332,7 +346,7 @@ class _ListaEditScreenState extends State<ListaEditScreen> {
           Padding(
             padding: const EdgeInsets.all(16),
             child: Center(
-              child: Text('Nenhum produto encontrado 😕', style: TextStyle(color: Colors.white38, fontSize: 14)),
+              child: Text('Nenhum produto encontrado', style: TextStyle(color: Colors.grey.shade500, fontSize: 14)),
             ),
           ),
       ],
@@ -346,8 +360,9 @@ class _ListaEditScreenState extends State<ListaEditScreen> {
     return Container(
       margin: const EdgeInsets.only(bottom: 6),
       decoration: BoxDecoration(
-        color: const Color(0xFF1E1E2E),
+        color: Colors.white,
         borderRadius: BorderRadius.circular(12),
+        boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.04), blurRadius: 6, offset: const Offset(0, 2))],
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -359,15 +374,15 @@ class _ListaEditScreenState extends State<ListaEditScreen> {
               children: [
                 Text(emoji, style: const TextStyle(fontSize: 22)),
                 const SizedBox(width: 10),
-                Text(product['name'] ?? '', style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 15)),
+                Text(product['name'] ?? '', style: TextStyle(color: Colors.grey.shade900, fontWeight: FontWeight.bold, fontSize: 15)),
                 const SizedBox(width: 8),
                 Container(
                   padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
                   decoration: BoxDecoration(
-                    color: Colors.white10,
+                    color: Colors.grey.shade100,
                     borderRadius: BorderRadius.circular(10),
                   ),
-                  child: Text(product['category'] ?? '', style: const TextStyle(color: Colors.white30, fontSize: 10)),
+                  child: Text(product['category'] ?? '', style: TextStyle(color: Colors.grey.shade500, fontSize: 10)),
                 ),
               ],
             ),
@@ -382,17 +397,17 @@ class _ListaEditScreenState extends State<ListaEditScreen> {
                       Container(
                         width: 28, height: 28,
                         decoration: BoxDecoration(
-                          color: const Color(0xFF00C853).withOpacity(0.15),
+                          color: const Color(0xFF2E7D32).withOpacity(0.1),
                           borderRadius: BorderRadius.circular(8),
                         ),
-                        child: const Icon(Icons.add, color: Color(0xFF00C853), size: 18),
+                        child: const Icon(Icons.add, color: Color(0xFF2E7D32), size: 18),
                       ),
                       const SizedBox(width: 12),
                       Expanded(
-                        child: Text(v['variant_name'] ?? '', style: const TextStyle(color: Colors.white70, fontSize: 14)),
+                        child: Text(v['variant_name'] ?? '', style: TextStyle(color: Colors.grey.shade700, fontSize: 14)),
                       ),
                       Text('${v['default_weight']} ${v['unit']}',
-                          style: const TextStyle(color: Colors.white30, fontSize: 12)),
+                          style: TextStyle(color: Colors.grey.shade400, fontSize: 12)),
                     ],
                   ),
                 ),
@@ -421,19 +436,20 @@ class _ListaEditScreenState extends State<ListaEditScreen> {
         padding: const EdgeInsets.only(right: 20),
         margin: const EdgeInsets.only(bottom: 8),
         decoration: BoxDecoration(
-          color: Colors.redAccent.withOpacity(0.2),
+          color: Colors.red.shade50,
           borderRadius: BorderRadius.circular(12),
         ),
-        child: const Icon(Icons.delete, color: Colors.redAccent),
+        child: Icon(Icons.delete, color: Colors.red.shade400),
       ),
       onDismissed: (_) => _removeItem(item['id']),
       child: Container(
         margin: const EdgeInsets.only(bottom: 8),
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
         decoration: BoxDecoration(
-          color: isChecked ? const Color(0xFF1A1A2E).withOpacity(0.5) : const Color(0xFF1E1E2E),
+          color: isChecked ? Colors.grey.shade100 : Colors.white,
           borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: isChecked ? Colors.green.withOpacity(0.2) : Colors.white10),
+          border: Border.all(color: isChecked ? Colors.green.shade200 : Colors.grey.shade200),
+          boxShadow: isChecked ? null : [BoxShadow(color: Colors.black.withOpacity(0.03), blurRadius: 4, offset: const Offset(0, 1))],
         ),
         child: Row(
           children: [
@@ -443,9 +459,9 @@ class _ListaEditScreenState extends State<ListaEditScreen> {
               child: Container(
                 width: 26, height: 26,
                 decoration: BoxDecoration(
-                  color: isChecked ? const Color(0xFF00C853) : Colors.transparent,
+                  color: isChecked ? const Color(0xFF2E7D32) : Colors.transparent,
                   borderRadius: BorderRadius.circular(7),
-                  border: Border.all(color: isChecked ? const Color(0xFF00C853) : Colors.white30, width: 2),
+                  border: Border.all(color: isChecked ? const Color(0xFF2E7D32) : Colors.grey.shade400, width: 2),
                 ),
                 child: isChecked ? const Icon(Icons.check, color: Colors.white, size: 16) : null,
               ),
@@ -461,7 +477,7 @@ class _ListaEditScreenState extends State<ListaEditScreen> {
                   Text(
                     name,
                     style: TextStyle(
-                      color: isChecked ? Colors.white38 : Colors.white,
+                      color: isChecked ? Colors.grey.shade500 : Colors.grey.shade900,
                       fontWeight: FontWeight.w600,
                       fontSize: 14,
                       decoration: isChecked ? TextDecoration.lineThrough : null,
@@ -470,7 +486,7 @@ class _ListaEditScreenState extends State<ListaEditScreen> {
                   if (estimate != null)
                     Text(
                       '≈ R\$ ${(estimate['avg_price'] as double).toStringAsFixed(2)} • ${estimate['cheapest_market']}',
-                      style: const TextStyle(color: Color(0xFF00C853), fontSize: 11),
+                      style: TextStyle(color: Colors.green.shade700, fontSize: 11),
                     ),
                 ],
               ),
@@ -483,20 +499,20 @@ class _ListaEditScreenState extends State<ListaEditScreen> {
                   onTap: () => _updateQuantity(item['id'], qty - 1),
                   child: Container(
                     width: 28, height: 28,
-                    decoration: BoxDecoration(color: Colors.white10, borderRadius: BorderRadius.circular(8)),
-                    child: const Icon(Icons.remove, color: Colors.white54, size: 16),
+                    decoration: BoxDecoration(color: Colors.grey.shade100, borderRadius: BorderRadius.circular(8)),
+                    child: Icon(Icons.remove, color: Colors.grey.shade600, size: 16),
                   ),
                 ),
                 Padding(
                   padding: const EdgeInsets.symmetric(horizontal: 10),
-                  child: Text('$qty', style: const TextStyle(color: Colors.white, fontSize: 15, fontWeight: FontWeight.bold)),
+                  child: Text('$qty', style: TextStyle(color: Colors.grey.shade900, fontSize: 15, fontWeight: FontWeight.bold)),
                 ),
                 GestureDetector(
                   onTap: () => _updateQuantity(item['id'], qty + 1),
                   child: Container(
                     width: 28, height: 28,
-                    decoration: BoxDecoration(color: const Color(0xFF00C853).withOpacity(0.2), borderRadius: BorderRadius.circular(8)),
-                    child: const Icon(Icons.add, color: Color(0xFF00C853), size: 16),
+                    decoration: BoxDecoration(color: const Color(0xFF2E7D32).withOpacity(0.1), borderRadius: BorderRadius.circular(8)),
+                    child: const Icon(Icons.add, color: Color(0xFF2E7D32), size: 16),
                   ),
                 ),
               ],

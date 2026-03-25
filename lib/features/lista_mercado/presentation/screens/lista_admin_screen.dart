@@ -82,27 +82,27 @@ class _ListaAdminScreenState extends State<ListaAdminScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFF121212),
+      backgroundColor: Colors.grey.shade50,
       appBar: AppBar(
-        backgroundColor: const Color(0xFF1A1A2E),
-        elevation: 0,
-        iconTheme: const IconThemeData(color: Colors.white),
-        title: const Row(
+        backgroundColor: Colors.white,
+        elevation: 0.5,
+        iconTheme: IconThemeData(color: Colors.grey.shade800),
+        title: Row(
           children: [
-            Text('⚙️', style: TextStyle(fontSize: 22)),
-            SizedBox(width: 8),
-            Text('Admin Lista', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+            Icon(Icons.admin_panel_settings, color: Colors.grey.shade800, size: 22),
+            const SizedBox(width: 8),
+            Text('Admin Lista', style: TextStyle(color: Colors.grey.shade900, fontWeight: FontWeight.bold)),
           ],
         ),
         actions: [
-          IconButton(onPressed: _loadData, icon: const Icon(Icons.refresh, color: Colors.white54)),
+          IconButton(onPressed: _loadData, icon: Icon(Icons.refresh, color: Colors.grey.shade600)),
         ],
       ),
       body: _loading
-          ? const Center(child: CircularProgressIndicator(color: Color(0xFF00C853)))
+          ? const Center(child: CircularProgressIndicator(color: Color(0xFF2E7D32)))
           : RefreshIndicator(
               onRefresh: _loadData,
-              color: const Color(0xFF00C853),
+              color: const Color(0xFF2E7D32),
               child: ListView(
                 padding: const EdgeInsets.all(16),
                 children: [
@@ -125,7 +125,13 @@ class _ListaAdminScreenState extends State<ListaAdminScreen> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Text('📊 Métricas', style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold)),
+        Row(
+          children: [
+            Icon(Icons.bar_chart, color: Colors.grey.shade800, size: 20),
+            const SizedBox(width: 6),
+            Text('Métricas', style: TextStyle(color: Colors.grey.shade900, fontSize: 18, fontWeight: FontWeight.bold)),
+          ],
+        ),
         const SizedBox(height: 12),
         GridView.count(
           crossAxisCount: 3,
@@ -134,33 +140,33 @@ class _ListaAdminScreenState extends State<ListaAdminScreen> {
           childAspectRatio: 1.3,
           mainAxisSpacing: 8, crossAxisSpacing: 8,
           children: [
-            _buildStatTile('👥', '${_stats['total_contributors'] ?? 0}', 'Colaboradores'),
-            _buildStatTile('💰', '${_stats['total_prices'] ?? 0}', 'Preços'),
-            _buildStatTile('🔔', '${_stats['total_alerts'] ?? 0}', 'Alertas'),
-            _buildStatTile('📦', '${_stats['total_products'] ?? 0}', 'Produtos'),
-            _buildStatTile('📋', '${_stats['total_variants'] ?? 0}', 'Variantes'),
-            _buildStatTile('🏷️', '${_stats['total_skus'] ?? 0}', 'SKUs'),
-            _buildStatTile('🏪', '${_stats['total_supermarkets'] ?? 0}', 'Mercados'),
+            _buildStatTile(Icons.group, '${_stats['total_contributors'] ?? 0}', 'Colaboradores'),
+            _buildStatTile(Icons.attach_money, '${_stats['total_prices'] ?? 0}', 'Preços'),
+            _buildStatTile(Icons.notifications, '${_stats['total_alerts'] ?? 0}', 'Alertas'),
+            _buildStatTile(Icons.inventory_2, '${_stats['total_products'] ?? 0}', 'Produtos'),
+            _buildStatTile(Icons.list, '${_stats['total_variants'] ?? 0}', 'Variantes'),
+            _buildStatTile(Icons.label, '${_stats['total_skus'] ?? 0}', 'SKUs'),
+            _buildStatTile(Icons.store, '${_stats['total_supermarkets'] ?? 0}', 'Mercados'),
           ],
         ),
       ],
     );
   }
 
-  Widget _buildStatTile(String emoji, String value, String label) {
+  Widget _buildStatTile(IconData icon, String value, String label) {
     return Container(
       padding: const EdgeInsets.all(10),
       decoration: BoxDecoration(
-        color: const Color(0xFF1E1E2E),
+        color: Colors.white,
         borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: Colors.white10),
+        border: Border.all(color: Colors.grey.shade200),
       ),
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Text(emoji, style: const TextStyle(fontSize: 18)),
-          Text(value, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 18)),
-          Text(label, style: const TextStyle(color: Colors.white38, fontSize: 10)),
+          Icon(icon, color: Colors.grey.shade600, size: 18),
+          Text(value, style: TextStyle(color: Colors.grey.shade900, fontWeight: FontWeight.bold, fontSize: 18)),
+          Text(label, style: TextStyle(color: Colors.grey.shade500, fontSize: 10)),
         ],
       ),
     );
@@ -170,7 +176,13 @@ class _ListaAdminScreenState extends State<ListaAdminScreen> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Text('🏆 Top Colaboradores', style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold)),
+        Row(
+          children: [
+            Icon(Icons.emoji_events, color: Colors.amber.shade700, size: 20),
+            const SizedBox(width: 6),
+            Text('Top Colaboradores', style: TextStyle(color: Colors.grey.shade900, fontSize: 18, fontWeight: FontWeight.bold)),
+          ],
+        ),
         const SizedBox(height: 12),
         ..._topUsers.asMap().entries.map((e) {
           final i = e.key;
@@ -184,22 +196,22 @@ class _ListaAdminScreenState extends State<ListaAdminScreen> {
             margin: const EdgeInsets.only(bottom: 6),
             padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
             decoration: BoxDecoration(
-              color: const Color(0xFF1E1E2E),
+              color: Colors.white,
               borderRadius: BorderRadius.circular(10),
-              border: Border.all(color: Colors.white10),
+              border: Border.all(color: Colors.grey.shade200),
             ),
             child: Row(
               children: [
-                Text('#${i + 1}', style: TextStyle(color: i < 3 ? Colors.amber : Colors.white38, fontWeight: FontWeight.bold, fontSize: 14)),
+                Text('#${i + 1}', style: TextStyle(color: i < 3 ? Colors.amber.shade700 : Colors.grey.shade500, fontWeight: FontWeight.bold, fontSize: 14)),
                 const SizedBox(width: 12),
                 Expanded(child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(name, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w600, fontSize: 13)),
-                    Text('$rank • $reports reportes', style: const TextStyle(color: Colors.white38, fontSize: 11)),
+                    Text(name, style: TextStyle(color: Colors.grey.shade900, fontWeight: FontWeight.w600, fontSize: 13)),
+                    Text('$rank • $reports reportes', style: TextStyle(color: Colors.grey.shade500, fontSize: 11)),
                   ],
                 )),
-                Text('$pts pts', style: const TextStyle(color: Color(0xFF00C853), fontWeight: FontWeight.bold)),
+                Text('$pts pts', style: TextStyle(color: Colors.green.shade700, fontWeight: FontWeight.bold)),
               ],
             ),
           );
@@ -212,7 +224,13 @@ class _ListaAdminScreenState extends State<ListaAdminScreen> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Text('📝 Últimos Preços', style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold)),
+        Row(
+          children: [
+            Icon(Icons.edit_note, color: Colors.grey.shade800, size: 20),
+            const SizedBox(width: 6),
+            Text('Últimos Preços', style: TextStyle(color: Colors.grey.shade900, fontSize: 18, fontWeight: FontWeight.bold)),
+          ],
+        ),
         const SizedBox(height: 12),
         ..._recentPrices.map((p) {
           final sku = p['lista_products_sku'] as Map<String, dynamic>?;
@@ -226,21 +244,22 @@ class _ListaAdminScreenState extends State<ListaAdminScreen> {
             margin: const EdgeInsets.only(bottom: 4),
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
             decoration: BoxDecoration(
-              color: const Color(0xFF1E1E2E),
+              color: Colors.white,
               borderRadius: BorderRadius.circular(8),
+              border: Border.all(color: Colors.grey.shade200),
             ),
             child: Row(
               children: [
                 Text(base?['icon_emoji'] ?? '📦', style: const TextStyle(fontSize: 18)),
                 const SizedBox(width: 10),
                 Expanded(child: Text('${base?['name'] ?? ''} ${variant?['variant_name'] ?? ''}',
-                    style: const TextStyle(color: Colors.white70, fontSize: 12), overflow: TextOverflow.ellipsis)),
-                Text('R\$ ${price.toStringAsFixed(2)}', style: const TextStyle(color: Color(0xFF00E676), fontWeight: FontWeight.bold, fontSize: 13)),
+                    style: TextStyle(color: Colors.grey.shade700, fontSize: 12), overflow: TextOverflow.ellipsis)),
+                Text('R\$ ${price.toStringAsFixed(2)}', style: TextStyle(color: Colors.green.shade700, fontWeight: FontWeight.bold, fontSize: 13)),
                 const SizedBox(width: 8),
                 Container(
                   padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                  decoration: BoxDecoration(color: Colors.white10, borderRadius: BorderRadius.circular(6)),
-                  child: Text(source, style: const TextStyle(color: Colors.white38, fontSize: 9)),
+                  decoration: BoxDecoration(color: Colors.grey.shade100, borderRadius: BorderRadius.circular(6)),
+                  child: Text(source, style: TextStyle(color: Colors.grey.shade500, fontSize: 9)),
                 ),
               ],
             ),
@@ -256,10 +275,12 @@ class _ListaAdminScreenState extends State<ListaAdminScreen> {
       children: [
         Row(
           children: [
-            const Text('🏪 Mercados', style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold)),
+            Icon(Icons.store, color: Colors.grey.shade800, size: 20),
+            const SizedBox(width: 6),
+            Text('Mercados', style: TextStyle(color: Colors.grey.shade900, fontSize: 18, fontWeight: FontWeight.bold)),
             const Spacer(),
             TextButton(onPressed: _showAddSupermarketDialog,
-                child: const Text('+ Adicionar', style: TextStyle(color: Color(0xFF00C853), fontSize: 13))),
+                child: Text('+ Adicionar', style: TextStyle(color: Colors.green.shade700, fontSize: 13))),
           ],
         ),
         const SizedBox(height: 8),
@@ -268,11 +289,11 @@ class _ListaAdminScreenState extends State<ListaAdminScreen> {
           children: _supermarkets.map((m) => Container(
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
             decoration: BoxDecoration(
-              color: const Color(0xFF1E1E2E),
+              color: Colors.white,
               borderRadius: BorderRadius.circular(10),
-              border: Border.all(color: Colors.white10),
+              border: Border.all(color: Colors.grey.shade200),
             ),
-            child: Text(m['name'] ?? '', style: const TextStyle(color: Colors.white70, fontSize: 12)),
+            child: Text(m['name'] ?? '', style: TextStyle(color: Colors.grey.shade700, fontSize: 12)),
           )).toList(),
         ),
       ],
@@ -283,13 +304,19 @@ class _ListaAdminScreenState extends State<ListaAdminScreen> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Text('🔧 Ações', style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold)),
+        Row(
+          children: [
+            Icon(Icons.build, color: Colors.grey.shade800, size: 20),
+            const SizedBox(width: 6),
+            Text('Ações', style: TextStyle(color: Colors.grey.shade900, fontSize: 18, fontWeight: FontWeight.bold)),
+          ],
+        ),
         const SizedBox(height: 12),
-        _buildActionButton('📦 Adicionar Produto Base', Icons.add_box, () => _showAddProductDialog()),
+        _buildActionButton('Adicionar Produto Base', Icons.add_box, () => _showAddProductDialog()),
         const SizedBox(height: 8),
-        _buildActionButton('🏪 Adicionar Mercado', Icons.store, () => _showAddSupermarketDialog()),
+        _buildActionButton('Adicionar Mercado', Icons.store, () => _showAddSupermarketDialog()),
         const SizedBox(height: 8),
-        _buildActionButton('🔔 Enviar Push para Usuários', Icons.notifications_active, () => _showSendPushDialog()),
+        _buildActionButton('Enviar Push para Usuários', Icons.notifications_active, () => _showSendPushDialog()),
       ],
     );
   }
@@ -300,17 +327,17 @@ class _ListaAdminScreenState extends State<ListaAdminScreen> {
       child: Container(
         padding: const EdgeInsets.all(14),
         decoration: BoxDecoration(
-          color: const Color(0xFF1E1E2E),
+          color: Colors.white,
           borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: Colors.white10),
+          border: Border.all(color: Colors.grey.shade200),
         ),
         child: Row(
           children: [
-            Icon(icon, color: const Color(0xFF00C853), size: 22),
+            Icon(icon, color: const Color(0xFF2E7D32), size: 22),
             const SizedBox(width: 12),
-            Text(label, style: const TextStyle(color: Colors.white, fontSize: 14)),
+            Text(label, style: TextStyle(color: Colors.grey.shade900, fontSize: 14)),
             const Spacer(),
-            const Icon(Icons.chevron_right, color: Colors.white30),
+            Icon(Icons.chevron_right, color: Colors.grey.shade400),
           ],
         ),
       ),
@@ -325,9 +352,15 @@ class _ListaAdminScreenState extends State<ListaAdminScreen> {
     await showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
-        backgroundColor: const Color(0xFF1E1E2E),
+        backgroundColor: Colors.white,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        title: const Text('🏪 Novo Mercado', style: TextStyle(color: Colors.white)),
+        title: Row(
+          children: [
+            Icon(Icons.store, color: Colors.grey.shade800, size: 22),
+            const SizedBox(width: 8),
+            Text('Novo Mercado', style: TextStyle(color: Colors.grey.shade900)),
+          ],
+        ),
         content: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
@@ -339,7 +372,7 @@ class _ListaAdminScreenState extends State<ListaAdminScreen> {
           ],
         ),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancelar', style: TextStyle(color: Colors.white54))),
+          TextButton(onPressed: () => Navigator.pop(ctx), child: Text('Cancelar', style: TextStyle(color: Colors.grey.shade600))),
           ElevatedButton(
             onPressed: () async {
               if (nameCtl.text.trim().isEmpty) return;
@@ -351,7 +384,7 @@ class _ListaAdminScreenState extends State<ListaAdminScreen> {
               if (ctx.mounted) Navigator.pop(ctx);
               _loadData();
             },
-            style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF00C853)),
+            style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF2E7D32)),
             child: const Text('Salvar', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
           ),
         ],
@@ -369,9 +402,15 @@ class _ListaAdminScreenState extends State<ListaAdminScreen> {
       context: context,
       builder: (ctx) => StatefulBuilder(
         builder: (ctx, setDialogState) => AlertDialog(
-          backgroundColor: const Color(0xFF1E1E2E),
+          backgroundColor: Colors.white,
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-          title: const Text('📦 Novo Produto', style: TextStyle(color: Colors.white)),
+          title: Row(
+            children: [
+              Icon(Icons.inventory_2, color: Colors.grey.shade800, size: 22),
+              const SizedBox(width: 8),
+              Text('Novo Produto', style: TextStyle(color: Colors.grey.shade900)),
+            ],
+          ),
           content: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
@@ -386,9 +425,9 @@ class _ListaAdminScreenState extends State<ListaAdminScreen> {
                   child: Container(
                     width: 36, height: 36,
                     decoration: BoxDecoration(
-                      color: selectedEmoji == e ? const Color(0xFF00C853).withOpacity(0.2) : Colors.white10,
+                      color: selectedEmoji == e ? const Color(0xFF2E7D32).withOpacity(0.15) : Colors.grey.shade100,
                       borderRadius: BorderRadius.circular(8),
-                      border: Border.all(color: selectedEmoji == e ? const Color(0xFF00C853) : Colors.transparent),
+                      border: Border.all(color: selectedEmoji == e ? const Color(0xFF2E7D32) : Colors.transparent),
                     ),
                     child: Center(child: Text(e, style: const TextStyle(fontSize: 18))),
                   ),
@@ -397,7 +436,7 @@ class _ListaAdminScreenState extends State<ListaAdminScreen> {
             ],
           ),
           actions: [
-            TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancelar', style: TextStyle(color: Colors.white54))),
+            TextButton(onPressed: () => Navigator.pop(ctx), child: Text('Cancelar', style: TextStyle(color: Colors.grey.shade600))),
             ElevatedButton(
               onPressed: () async {
                 if (nameCtl.text.trim().isEmpty) return;
@@ -409,7 +448,7 @@ class _ListaAdminScreenState extends State<ListaAdminScreen> {
                 if (ctx.mounted) Navigator.pop(ctx);
                 _loadData();
               },
-              style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF00C853)),
+              style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF2E7D32)),
               child: const Text('Salvar', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
             ),
           ],
@@ -419,15 +458,21 @@ class _ListaAdminScreenState extends State<ListaAdminScreen> {
   }
 
   Future<void> _showSendPushDialog() async {
-    final titleCtl = TextEditingController(text: '🛒 Lista Inteligente');
+    final titleCtl = TextEditingController(text: 'Lista Inteligente');
     final bodyCtl = TextEditingController();
 
     await showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
-        backgroundColor: const Color(0xFF1E1E2E),
+        backgroundColor: Colors.white,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        title: const Text('🔔 Push Segmentado', style: TextStyle(color: Colors.white)),
+        title: Row(
+          children: [
+            Icon(Icons.notifications_active, color: Colors.grey.shade800, size: 22),
+            const SizedBox(width: 8),
+            Text('Push Segmentado', style: TextStyle(color: Colors.grey.shade900)),
+          ],
+        ),
         content: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
@@ -436,21 +481,21 @@ class _ListaAdminScreenState extends State<ListaAdminScreen> {
             TextField(
               controller: bodyCtl,
               maxLines: 3,
-              style: const TextStyle(color: Colors.white),
+              style: TextStyle(color: Colors.grey.shade900),
               decoration: InputDecoration(
                 hintText: 'Mensagem...',
-                hintStyle: TextStyle(color: Colors.white.withOpacity(0.3)),
-                filled: true, fillColor: Colors.white10,
+                hintStyle: TextStyle(color: Colors.grey.shade400),
+                filled: true, fillColor: Colors.grey.shade100,
                 border: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: BorderSide.none),
               ),
             ),
             const SizedBox(height: 8),
             Text('Push será enviado apenas para usuários que reportaram preços.',
-                style: TextStyle(color: Colors.white.withOpacity(0.3), fontSize: 11)),
+                style: TextStyle(color: Colors.grey.shade400, fontSize: 11)),
           ],
         ),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancelar', style: TextStyle(color: Colors.white54))),
+          TextButton(onPressed: () => Navigator.pop(ctx), child: Text('Cancelar', style: TextStyle(color: Colors.grey.shade600))),
           ElevatedButton(
             onPressed: () async {
               if (bodyCtl.text.trim().isEmpty) return;
@@ -478,7 +523,7 @@ class _ListaAdminScreenState extends State<ListaAdminScreen> {
                 if (ctx.mounted) {
                   Navigator.pop(ctx);
                   ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(content: Text('✅ Push enviado para ${userIds.length} usuários!'), backgroundColor: const Color(0xFF00C853)),
+                    SnackBar(content: Text('Push enviado para ${userIds.length} usuários!'), backgroundColor: const Color(0xFF2E7D32)),
                   );
                 }
               } catch (e) {
@@ -489,7 +534,7 @@ class _ListaAdminScreenState extends State<ListaAdminScreen> {
                 }
               }
             },
-            style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF00C853)),
+            style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF2E7D32)),
             child: const Text('Enviar', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
           ),
         ],
@@ -500,11 +545,11 @@ class _ListaAdminScreenState extends State<ListaAdminScreen> {
   Widget _buildDialogField(TextEditingController ctl, String hint) {
     return TextField(
       controller: ctl,
-      style: const TextStyle(color: Colors.white),
+      style: TextStyle(color: Colors.grey.shade900),
       decoration: InputDecoration(
         hintText: hint,
-        hintStyle: TextStyle(color: Colors.white.withOpacity(0.3)),
-        filled: true, fillColor: Colors.white10,
+        hintStyle: TextStyle(color: Colors.grey.shade400),
+        filled: true, fillColor: Colors.grey.shade100,
         border: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: BorderSide.none),
       ),
     );

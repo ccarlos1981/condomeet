@@ -101,7 +101,7 @@ class _CartaoEconomiaScreenState extends State<CartaoEconomiaScreen> {
       await SharePlus.instance.share(
         ShareParams(
           files: [XFile(file.path)],
-          text: '🛒 Já economizei R\$ ${_estimatedSavings.toStringAsFixed(2)} usando a Lista Inteligente do Condomeet! 💰\n\n📊 ${_reportsCount} preços reportados\n🏆 Rank: $_rankTitle\n\nBaixe o app e comece a economizar! 🚀',
+          text: 'Já economizei R\$ ${_estimatedSavings.toStringAsFixed(2)} usando a Lista Inteligente do Condomeet!\n\n$_reportsCount preços reportados\nRank: $_rankTitle\n\nBaixe o app e comece a economizar!',
         ),
       );
     } catch (e) {
@@ -114,44 +114,44 @@ class _CartaoEconomiaScreenState extends State<CartaoEconomiaScreen> {
     if (mounted) setState(() => _sharing = false);
   }
 
-  String _getRankEmoji() {
+  IconData _getRankIcon() {
     switch (_rankTitle) {
-      case 'Mestre do Preço': return '👑';
-      case 'Caçador de Oferta': return '🎯';
-      case 'Fiscal de Preço': return '🔍';
-      case 'Colaborador': return '⭐';
-      default: return '🌱';
+      case 'Mestre do Preço': return Icons.workspace_premium;
+      case 'Caçador de Oferta': return Icons.gps_fixed;
+      case 'Fiscal de Preço': return Icons.search;
+      case 'Colaborador': return Icons.star;
+      default: return Icons.spa;
     }
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFF121212),
+      backgroundColor: Colors.grey.shade50,
       appBar: AppBar(
-        backgroundColor: const Color(0xFF1A1A2E),
-        elevation: 0,
-        iconTheme: const IconThemeData(color: Colors.white),
-        title: const Row(
+        backgroundColor: Colors.white,
+        elevation: 0.5,
+        iconTheme: IconThemeData(color: Colors.grey.shade800),
+        title: Row(
           children: [
-            Text('📤', style: TextStyle(fontSize: 22)),
-            SizedBox(width: 8),
-            Text('Compartilhar', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+            Icon(Icons.share, color: Colors.grey.shade800, size: 22),
+            const SizedBox(width: 8),
+            Text('Compartilhar', style: TextStyle(color: Colors.grey.shade900, fontWeight: FontWeight.bold)),
           ],
         ),
       ),
       body: _loading
-          ? const Center(child: CircularProgressIndicator(color: Color(0xFF00C853)))
+          ? const Center(child: CircularProgressIndicator(color: Color(0xFF2E7D32)))
           : SingleChildScrollView(
               padding: const EdgeInsets.all(20),
               child: Column(
                 children: [
                   // Preview text
-                  const Text('Seu Cartão de Economia 💰',
-                      style: TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.bold)),
+                  Text('Seu Cartão de Economia',
+                      style: TextStyle(color: Colors.grey.shade900, fontSize: 20, fontWeight: FontWeight.bold)),
                   const SizedBox(height: 4),
                   Text('Mostre quanto você economizou!',
-                      style: TextStyle(color: Colors.white.withOpacity(0.4), fontSize: 13)),
+                      style: TextStyle(color: Colors.grey.shade500, fontSize: 13)),
                   const SizedBox(height: 20),
 
                   // ═══════════════════════════════
@@ -171,7 +171,7 @@ class _CartaoEconomiaScreenState extends State<CartaoEconomiaScreen> {
                     child: ElevatedButton(
                       onPressed: _sharing ? null : _shareCard,
                       style: ElevatedButton.styleFrom(
-                        backgroundColor: const Color(0xFF00C853),
+                        backgroundColor: const Color(0xFF2E7D32),
                         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
                         elevation: 4,
                       ),
@@ -182,7 +182,7 @@ class _CartaoEconomiaScreenState extends State<CartaoEconomiaScreen> {
                               children: [
                                 Icon(Icons.share, color: Colors.white),
                                 SizedBox(width: 10),
-                                Text('Compartilhar no WhatsApp 📲',
+                                Text('Compartilhar no WhatsApp',
                                     style: TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold)),
                               ],
                             ),
@@ -194,10 +194,17 @@ class _CartaoEconomiaScreenState extends State<CartaoEconomiaScreen> {
                   TextButton(
                     onPressed: () {
                       ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(content: Text('Texto copiado! ✅'), backgroundColor: Color(0xFF00C853)),
+                        const SnackBar(content: Text('Texto copiado!'), backgroundColor: Color(0xFF2E7D32)),
                       );
                     },
-                    child: const Text('📋 Copiar texto', style: TextStyle(color: Colors.white38)),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Icon(Icons.copy, size: 16, color: Colors.grey.shade500),
+                        const SizedBox(width: 6),
+                        Text('Copiar texto', style: TextStyle(color: Colors.grey.shade500)),
+                      ],
+                    ),
                   ),
                 ],
               ),
@@ -206,6 +213,7 @@ class _CartaoEconomiaScreenState extends State<CartaoEconomiaScreen> {
   }
 
   Widget _buildCard() {
+    // The card itself keeps the dark gradient for visual impact when shared
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.all(24),
@@ -217,7 +225,7 @@ class _CartaoEconomiaScreenState extends State<CartaoEconomiaScreen> {
         ),
         borderRadius: BorderRadius.circular(24),
         boxShadow: [
-          BoxShadow(color: const Color(0xFF00C853).withOpacity(0.2), blurRadius: 20, offset: const Offset(0, 8)),
+          BoxShadow(color: Colors.black.withOpacity(0.15), blurRadius: 20, offset: const Offset(0, 8)),
         ],
       ),
       child: Column(
@@ -225,7 +233,7 @@ class _CartaoEconomiaScreenState extends State<CartaoEconomiaScreen> {
           // Header
           Row(
             children: [
-              const Text('🛒', style: TextStyle(fontSize: 28)),
+              const Icon(Icons.shopping_cart, color: Colors.white, size: 28),
               const SizedBox(width: 10),
               const Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -242,7 +250,7 @@ class _CartaoEconomiaScreenState extends State<CartaoEconomiaScreen> {
                   borderRadius: BorderRadius.circular(20),
                   border: Border.all(color: const Color(0xFF00C853).withOpacity(0.4)),
                 ),
-                child: Text(_getRankEmoji(), style: const TextStyle(fontSize: 20)),
+                child: Icon(_getRankIcon(), color: const Color(0xFF00C853), size: 20),
               ),
             ],
           ),
@@ -265,8 +273,15 @@ class _CartaoEconomiaScreenState extends State<CartaoEconomiaScreen> {
               ]),
               borderRadius: BorderRadius.circular(20),
             ),
-            child: Text('${_getRankEmoji()} $_rankTitle',
-                style: const TextStyle(color: Color(0xFF00E676), fontSize: 13, fontWeight: FontWeight.w600)),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(_getRankIcon(), color: const Color(0xFF00E676), size: 14),
+                const SizedBox(width: 4),
+                Text(_rankTitle,
+                    style: const TextStyle(color: Color(0xFF00E676), fontSize: 13, fontWeight: FontWeight.w600)),
+              ],
+            ),
           ),
           const SizedBox(height: 24),
 
@@ -288,10 +303,10 @@ class _CartaoEconomiaScreenState extends State<CartaoEconomiaScreen> {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceEvenly,
             children: [
-              _buildStatPill('📊', '$_reportsCount', 'Preços'),
-              _buildStatPill('📋', '$_listsCount', 'Listas'),
-              _buildStatPill('🔔', '$_alertsCount', 'Alertas'),
-              _buildStatPill('⭐', '$_totalPoints', 'Pontos'),
+              _buildStatPill(Icons.bar_chart, '$_reportsCount', 'Preços'),
+              _buildStatPill(Icons.list_alt, '$_listsCount', 'Listas'),
+              _buildStatPill(Icons.notifications, '$_alertsCount', 'Alertas'),
+              _buildStatPill(Icons.star, '$_totalPoints', 'Pontos'),
             ],
           ),
           const SizedBox(height: 20),
@@ -304,7 +319,7 @@ class _CartaoEconomiaScreenState extends State<CartaoEconomiaScreen> {
             children: [
               Text('Baixe o Condomeet e economize também! ',
                   style: TextStyle(color: Colors.white.withOpacity(0.3), fontSize: 10)),
-              const Text('🚀', style: TextStyle(fontSize: 12)),
+              const Icon(Icons.rocket_launch, color: Colors.white38, size: 12),
             ],
           ),
         ],
@@ -312,7 +327,7 @@ class _CartaoEconomiaScreenState extends State<CartaoEconomiaScreen> {
     );
   }
 
-  Widget _buildStatPill(String emoji, String value, String label) {
+  Widget _buildStatPill(IconData icon, String value, String label) {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
       decoration: BoxDecoration(
@@ -321,7 +336,7 @@ class _CartaoEconomiaScreenState extends State<CartaoEconomiaScreen> {
       ),
       child: Column(
         children: [
-          Text(emoji, style: const TextStyle(fontSize: 16)),
+          Icon(icon, color: Colors.white70, size: 16),
           const SizedBox(height: 2),
           Text(value, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 14)),
           Text(label, style: TextStyle(color: Colors.white.withOpacity(0.3), fontSize: 9)),

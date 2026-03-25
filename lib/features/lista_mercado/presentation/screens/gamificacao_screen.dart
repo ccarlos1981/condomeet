@@ -67,11 +67,11 @@ class _GamificacaoScreenState extends State<GamificacaoScreen> with SingleTicker
 
   // Rank config
   static const _ranks = [
-    {'title': 'Iniciante', 'emoji': '🌱', 'min': 0, 'color': 0xFF9E9E9E},
-    {'title': 'Colaborador', 'emoji': '⭐', 'min': 50, 'color': 0xFF42A5F5},
-    {'title': 'Fiscal de Preço', 'emoji': '🔍', 'min': 200, 'color': 0xFFFFA726},
-    {'title': 'Caçador de Oferta', 'emoji': '🎯', 'min': 500, 'color': 0xFFAB47BC},
-    {'title': 'Mestre do Preço', 'emoji': '👑', 'min': 1000, 'color': 0xFFFFD700},
+    {'title': 'Iniciante', 'icon': Icons.spa, 'min': 0, 'color': 0xFF9E9E9E},
+    {'title': 'Colaborador', 'icon': Icons.star, 'min': 50, 'color': 0xFF42A5F5},
+    {'title': 'Fiscal de Preço', 'icon': Icons.search, 'min': 200, 'color': 0xFFFFA726},
+    {'title': 'Caçador de Oferta', 'icon': Icons.gps_fixed, 'min': 500, 'color': 0xFFAB47BC},
+    {'title': 'Mestre do Preço', 'icon': Icons.workspace_premium, 'min': 1000, 'color': 0xFFFFD700},
   ];
 
   Map<String, dynamic> _getRankInfo(String? title) {
@@ -88,24 +88,24 @@ class _GamificacaoScreenState extends State<GamificacaoScreen> with SingleTicker
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFF121212),
+      backgroundColor: Colors.grey.shade50,
       appBar: AppBar(
-        backgroundColor: const Color(0xFF1A1A2E),
-        elevation: 0,
-        iconTheme: const IconThemeData(color: Colors.white),
-        title: const Row(
+        backgroundColor: Colors.white,
+        elevation: 0.5,
+        iconTheme: IconThemeData(color: Colors.grey.shade800),
+        title: Row(
           children: [
-            Text('🏆', style: TextStyle(fontSize: 22)),
-            SizedBox(width: 8),
-            Text('Ranking', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+            Icon(Icons.emoji_events, color: Colors.amber.shade700, size: 22),
+            const SizedBox(width: 8),
+            Text('Ranking', style: TextStyle(color: Colors.grey.shade900, fontWeight: FontWeight.bold)),
           ],
         ),
       ),
       body: _loading
-          ? const Center(child: CircularProgressIndicator(color: Color(0xFF00C853)))
+          ? const Center(child: CircularProgressIndicator(color: Color(0xFF2E7D32)))
           : RefreshIndicator(
               onRefresh: _loadData,
-              color: const Color(0xFF00C853),
+              color: const Color(0xFF2E7D32),
               child: ListView(
                 padding: const EdgeInsets.all(16),
                 children: [
@@ -134,13 +134,10 @@ class _GamificacaoScreenState extends State<GamificacaoScreen> with SingleTicker
     return Container(
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
-        gradient: LinearGradient(
-          colors: [Color(rank['color'] as int).withOpacity(0.15), const Color(0xFF1E1E2E)],
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-        ),
+        color: Colors.white,
         borderRadius: BorderRadius.circular(18),
         border: Border.all(color: Color(rank['color'] as int).withOpacity(0.3)),
+        boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 10, offset: const Offset(0, 4))],
       ),
       child: Column(
         children: [
@@ -150,10 +147,10 @@ class _GamificacaoScreenState extends State<GamificacaoScreen> with SingleTicker
               Container(
                 width: 56, height: 56,
                 decoration: BoxDecoration(
-                  color: Color(rank['color'] as int).withOpacity(0.2),
+                  color: Color(rank['color'] as int).withOpacity(0.15),
                   borderRadius: BorderRadius.circular(16),
                 ),
-                child: Center(child: Text(rank['emoji'] as String, style: const TextStyle(fontSize: 32))),
+                child: Center(child: Icon(rank['icon'] as IconData, color: Color(rank['color'] as int), size: 30)),
               ),
               const SizedBox(width: 14),
               Expanded(
@@ -161,15 +158,21 @@ class _GamificacaoScreenState extends State<GamificacaoScreen> with SingleTicker
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(rankTitle, style: TextStyle(color: Color(rank['color'] as int), fontWeight: FontWeight.bold, fontSize: 18)),
-                    Text('$points pontos totais', style: const TextStyle(color: Colors.white54, fontSize: 13)),
+                    Text('$points pontos totais', style: TextStyle(color: Colors.grey.shade600, fontSize: 13)),
                   ],
                 ),
               ),
               Column(
                 crossAxisAlignment: CrossAxisAlignment.end,
                 children: [
-                  Text('📊 $weeklyPts', style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 16)),
-                  const Text('esta semana', style: TextStyle(color: Colors.white38, fontSize: 11)),
+                  Row(
+                    children: [
+                      Icon(Icons.trending_up, size: 16, color: Colors.grey.shade600),
+                      const SizedBox(width: 4),
+                      Text('$weeklyPts', style: TextStyle(color: Colors.grey.shade900, fontWeight: FontWeight.bold, fontSize: 16)),
+                    ],
+                  ),
+                  Text('esta semana', style: TextStyle(color: Colors.grey.shade500, fontSize: 11)),
                 ],
               ),
             ],
@@ -180,10 +183,15 @@ class _GamificacaoScreenState extends State<GamificacaoScreen> with SingleTicker
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                Text('Próximo: ${next['emoji']} ${next['title']}',
-                    style: const TextStyle(color: Colors.white38, fontSize: 12)),
+                Row(
+                  children: [
+                    Text('Próximo: ', style: TextStyle(color: Colors.grey.shade500, fontSize: 12)),
+                    Icon(next['icon'] as IconData, size: 14, color: Color(next['color'] as int)),
+                    Text(' ${next['title']}', style: TextStyle(color: Colors.grey.shade500, fontSize: 12)),
+                  ],
+                ),
                 Text('$points / $nextMin pts',
-                    style: const TextStyle(color: Colors.white54, fontSize: 12, fontWeight: FontWeight.bold)),
+                    style: TextStyle(color: Colors.grey.shade700, fontSize: 12, fontWeight: FontWeight.bold)),
               ],
             ),
             const SizedBox(height: 6),
@@ -191,21 +199,21 @@ class _GamificacaoScreenState extends State<GamificacaoScreen> with SingleTicker
               borderRadius: BorderRadius.circular(8),
               child: LinearProgressIndicator(
                 value: progress.clamp(0.0, 1.0),
-                backgroundColor: Colors.white10,
+                backgroundColor: Colors.grey.shade200,
                 valueColor: AlwaysStoppedAnimation(Color(next['color'] as int)),
                 minHeight: 8,
               ),
             ),
           ] else
-            const Text('🎉 Rank máximo alcançado!', style: TextStyle(color: Color(0xFFFFD700), fontSize: 14, fontWeight: FontWeight.bold)),
+            Text('Rank máximo alcançado!', style: TextStyle(color: Colors.amber.shade700, fontSize: 14, fontWeight: FontWeight.bold)),
           const SizedBox(height: 14),
           // Stats row
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceEvenly,
             children: [
-              _buildStatBadge('📝', '$reports', 'Reportes'),
-              _buildStatBadge('⭐', '$points', 'Pontos'),
-              _buildStatBadge('📊', '$weeklyPts', 'Semana'),
+              _buildStatBadge(Icons.edit_note, '$reports', 'Reportes'),
+              _buildStatBadge(Icons.star, '$points', 'Pontos'),
+              _buildStatBadge(Icons.trending_up, '$weeklyPts', 'Semana'),
             ],
           ),
         ],
@@ -213,13 +221,13 @@ class _GamificacaoScreenState extends State<GamificacaoScreen> with SingleTicker
     );
   }
 
-  Widget _buildStatBadge(String emoji, String value, String label) {
+  Widget _buildStatBadge(IconData icon, String value, String label) {
     return Column(
       children: [
-        Text(emoji, style: const TextStyle(fontSize: 20)),
+        Icon(icon, color: Colors.grey.shade600, size: 22),
         const SizedBox(height: 2),
-        Text(value, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 16)),
-        Text(label, style: const TextStyle(color: Colors.white38, fontSize: 11)),
+        Text(value, style: TextStyle(color: Colors.grey.shade900, fontWeight: FontWeight.bold, fontSize: 16)),
+        Text(label, style: TextStyle(color: Colors.grey.shade500, fontSize: 11)),
       ],
     );
   }
@@ -231,29 +239,29 @@ class _GamificacaoScreenState extends State<GamificacaoScreen> with SingleTicker
     return Container(
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
-        color: const Color(0xFF1E1E2E),
+        color: Colors.white,
         borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: Colors.white10),
+        border: Border.all(color: Colors.grey.shade200),
       ),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceEvenly,
         children: [
-          _buildCommunityItem('🏪', '$totalPrices', 'Preços'),
-          Container(width: 1, height: 30, color: Colors.white10),
-          _buildCommunityItem('👥', '$totalContribs', 'Colaboradores'),
-          Container(width: 1, height: 30, color: Colors.white10),
-          _buildCommunityItem('📅', '${_weeklyBoard.length}', 'Ativos'),
+          _buildCommunityItem(Icons.store, '$totalPrices', 'Preços'),
+          Container(width: 1, height: 30, color: Colors.grey.shade200),
+          _buildCommunityItem(Icons.group, '$totalContribs', 'Colaboradores'),
+          Container(width: 1, height: 30, color: Colors.grey.shade200),
+          _buildCommunityItem(Icons.calendar_month, '${_weeklyBoard.length}', 'Ativos'),
         ],
       ),
     );
   }
 
-  Widget _buildCommunityItem(String emoji, String value, String label) {
+  Widget _buildCommunityItem(IconData icon, String value, String label) {
     return Column(
       children: [
-        Text(emoji, style: const TextStyle(fontSize: 18)),
-        Text(value, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 16)),
-        Text(label, style: const TextStyle(color: Colors.white38, fontSize: 11)),
+        Icon(icon, color: Colors.grey.shade600, size: 20),
+        Text(value, style: TextStyle(color: Colors.grey.shade900, fontWeight: FontWeight.bold, fontSize: 16)),
+        Text(label, style: TextStyle(color: Colors.grey.shade500, fontSize: 11)),
       ],
     );
   }
@@ -265,19 +273,19 @@ class _GamificacaoScreenState extends State<GamificacaoScreen> with SingleTicker
         // Tab bar
         Container(
           decoration: BoxDecoration(
-            color: const Color(0xFF1E1E2E),
+            color: Colors.grey.shade100,
             borderRadius: BorderRadius.circular(12),
           ),
           child: TabBar(
             controller: _tabController,
-            indicatorColor: const Color(0xFF00C853),
-            labelColor: const Color(0xFF00C853),
-            unselectedLabelColor: Colors.white54,
+            indicatorColor: const Color(0xFF2E7D32),
+            labelColor: const Color(0xFF2E7D32),
+            unselectedLabelColor: Colors.grey.shade600,
             indicatorSize: TabBarIndicatorSize.tab,
             onTap: (_) => setState(() {}),
             tabs: const [
-              Tab(text: '📅 Semanal'),
-              Tab(text: '🏆 Geral'),
+              Tab(text: 'Semanal'),
+              Tab(text: 'Geral'),
             ],
           ),
         ),
@@ -293,9 +301,9 @@ class _GamificacaoScreenState extends State<GamificacaoScreen> with SingleTicker
       return [
         Container(
           padding: const EdgeInsets.all(30),
-          child: const Center(
-            child: Text('Nenhum participante ainda.\nSeja o primeiro! 🚀', textAlign: TextAlign.center,
-                style: TextStyle(color: Colors.white38, fontSize: 14)),
+          child: Center(
+            child: Text('Nenhum participante ainda.\nSeja o primeiro!', textAlign: TextAlign.center,
+                style: TextStyle(color: Colors.grey.shade500, fontSize: 14)),
           ),
         ),
       ];
@@ -312,30 +320,33 @@ class _GamificacaoScreenState extends State<GamificacaoScreen> with SingleTicker
       final isMe = userId == _myUserId;
       final position = i + 1;
 
-      String posEmoji;
-      if (position == 1) posEmoji = '🥇';
-      else if (position == 2) posEmoji = '🥈';
-      else if (position == 3) posEmoji = '🥉';
-      else posEmoji = '#$position';
+      IconData posIcon;
+      Color posColor;
+      if (position == 1) { posIcon = Icons.emoji_events; posColor = Colors.amber; }
+      else if (position == 2) { posIcon = Icons.emoji_events; posColor = Colors.grey.shade400; }
+      else if (position == 3) { posIcon = Icons.emoji_events; posColor = Colors.brown.shade300; }
+      else { posIcon = Icons.tag; posColor = Colors.grey.shade400; }
 
       return Container(
         margin: const EdgeInsets.only(bottom: 6),
         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
         decoration: BoxDecoration(
-          color: isMe ? const Color(0xFF00C853).withOpacity(0.08) : const Color(0xFF1E1E2E),
+          color: isMe ? const Color(0xFF2E7D32).withOpacity(0.06) : Colors.white,
           borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: isMe ? const Color(0xFF00C853).withOpacity(0.3) : Colors.white10),
+          border: Border.all(color: isMe ? const Color(0xFF2E7D32).withOpacity(0.3) : Colors.grey.shade200),
         ),
         child: Row(
           children: [
             // Position
             SizedBox(
               width: 36,
-              child: Text(posEmoji, style: TextStyle(fontSize: position <= 3 ? 22 : 14, color: Colors.white54), textAlign: TextAlign.center),
+              child: position <= 3
+                ? Icon(posIcon, color: posColor, size: 22)
+                : Text('#$position', style: TextStyle(fontSize: 14, color: Colors.grey.shade500), textAlign: TextAlign.center),
             ),
             const SizedBox(width: 10),
-            // Rank emoji
-            Text(rank['emoji'] as String, style: const TextStyle(fontSize: 20)),
+            // Rank icon
+            Icon(rank['icon'] as IconData, color: Color(rank['color'] as int), size: 20),
             const SizedBox(width: 10),
             // Name
             Expanded(
@@ -344,15 +355,15 @@ class _GamificacaoScreenState extends State<GamificacaoScreen> with SingleTicker
                 children: [
                   Text(
                     isMe ? '$name (você)' : _anonymizeName(name),
-                    style: TextStyle(color: isMe ? const Color(0xFF00C853) : Colors.white, fontWeight: FontWeight.w600, fontSize: 14),
+                    style: TextStyle(color: isMe ? const Color(0xFF2E7D32) : Colors.grey.shade900, fontWeight: FontWeight.w600, fontSize: 14),
                   ),
-                  Text(rankTitle, style: TextStyle(color: Color(rank['color'] as int).withOpacity(0.7), fontSize: 11)),
+                  Text(rankTitle, style: TextStyle(color: Color(rank['color'] as int).withOpacity(0.8), fontSize: 11)),
                 ],
               ),
             ),
             // Points
             Text('$pts pts', style: TextStyle(
-              color: isMe ? const Color(0xFF00C853) : Colors.white70,
+              color: isMe ? const Color(0xFF2E7D32) : Colors.grey.shade700,
               fontWeight: FontWeight.bold, fontSize: 15,
             )),
           ],

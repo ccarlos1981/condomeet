@@ -44,7 +44,7 @@ class _AlertasPrecoScreenState extends State<AlertasPrecoScreen> {
     await showModalBottomSheet(
       context: context,
       isScrollControlled: true,
-      backgroundColor: const Color(0xFF1A1A2E),
+      backgroundColor: Colors.white,
       shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
       builder: (ctx) => StatefulBuilder(
         builder: (ctx, setModalState) {
@@ -54,11 +54,11 @@ class _AlertasPrecoScreenState extends State<AlertasPrecoScreen> {
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Row(
+                Row(
                   children: [
-                    Text('🔔', style: TextStyle(fontSize: 24)),
-                    SizedBox(width: 10),
-                    Text('Novo Alerta de Preço', style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold)),
+                    Icon(Icons.notifications_active, color: Colors.amber.shade700, size: 24),
+                    const SizedBox(width: 10),
+                    Text('Novo Alerta de Preço', style: TextStyle(color: Colors.grey.shade900, fontSize: 18, fontWeight: FontWeight.bold)),
                   ],
                 ),
                 const SizedBox(height: 16),
@@ -73,12 +73,13 @@ class _AlertasPrecoScreenState extends State<AlertasPrecoScreen> {
                         setModalState(() => searchResults = results);
                       }
                     },
-                    style: const TextStyle(color: Colors.white),
+                    style: TextStyle(color: Colors.grey.shade900),
                     decoration: InputDecoration(
-                      hintText: '🔍 Buscar produto...',
-                      hintStyle: TextStyle(color: Colors.white.withOpacity(0.3)),
+                      hintText: 'Buscar produto...',
+                      hintStyle: TextStyle(color: Colors.grey.shade400),
+                      prefixIcon: Icon(Icons.search, color: Colors.grey.shade500),
                       filled: true,
-                      fillColor: const Color(0xFF2A2A3E),
+                      fillColor: Colors.grey.shade100,
                       border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
                     ),
                   ),
@@ -93,7 +94,7 @@ class _AlertasPrecoScreenState extends State<AlertasPrecoScreen> {
                           return Column(
                             children: variants.map((v) => ListTile(
                               leading: Text(prod['icon_emoji'] ?? '📦', style: const TextStyle(fontSize: 22)),
-                              title: Text('${prod['name']} - ${v['variant_name']}', style: const TextStyle(color: Colors.white, fontSize: 13)),
+                              title: Text('${prod['name']} - ${v['variant_name']}', style: TextStyle(color: Colors.grey.shade900, fontSize: 13)),
                               onTap: () => setModalState(() { selectedVariant = {...v, 'icon_emoji': prod['icon_emoji'], 'product_name': prod['name']}; }),
                             )).toList(),
                           );
@@ -107,9 +108,9 @@ class _AlertasPrecoScreenState extends State<AlertasPrecoScreen> {
                   Container(
                     padding: const EdgeInsets.all(12),
                     decoration: BoxDecoration(
-                      color: const Color(0xFF00C853).withOpacity(0.1),
+                      color: const Color(0xFF2E7D32).withOpacity(0.08),
                       borderRadius: BorderRadius.circular(12),
-                      border: Border.all(color: const Color(0xFF00C853).withOpacity(0.3)),
+                      border: Border.all(color: const Color(0xFF2E7D32).withOpacity(0.3)),
                     ),
                     child: Row(
                       children: [
@@ -119,13 +120,13 @@ class _AlertasPrecoScreenState extends State<AlertasPrecoScreen> {
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              Text(selectedVariant!['product_name'] ?? '', style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
-                              Text(selectedVariant!['variant_name'] ?? '', style: const TextStyle(color: Colors.white54, fontSize: 12)),
+                              Text(selectedVariant!['product_name'] ?? '', style: TextStyle(color: Colors.grey.shade900, fontWeight: FontWeight.bold)),
+                              Text(selectedVariant!['variant_name'] ?? '', style: TextStyle(color: Colors.grey.shade600, fontSize: 12)),
                             ],
                           ),
                         ),
                         IconButton(
-                          icon: const Icon(Icons.close, color: Colors.white38, size: 18),
+                          icon: Icon(Icons.close, color: Colors.grey.shade400, size: 18),
                           onPressed: () => setModalState(() => selectedVariant = null),
                         ),
                       ],
@@ -137,20 +138,20 @@ class _AlertasPrecoScreenState extends State<AlertasPrecoScreen> {
                   Container(
                     padding: const EdgeInsets.symmetric(horizontal: 12),
                     decoration: BoxDecoration(
-                      color: const Color(0xFF2A2A3E),
+                      color: Colors.grey.shade100,
                       borderRadius: BorderRadius.circular(12),
                     ),
                     child: DropdownButton<String>(
                       value: selectedMarketId,
-                      hint: const Text('🏪 Qualquer mercado', style: TextStyle(color: Colors.white54, fontSize: 13)),
-                      dropdownColor: const Color(0xFF1E1E2E),
+                      hint: Text('Qualquer mercado', style: TextStyle(color: Colors.grey.shade600, fontSize: 13)),
+                      dropdownColor: Colors.white,
                       isExpanded: true,
                       underline: const SizedBox.shrink(),
                       items: [
-                        const DropdownMenuItem<String>(value: null, child: Text('🏪 Qualquer mercado', style: TextStyle(color: Colors.white54, fontSize: 13))),
+                        DropdownMenuItem<String>(value: null, child: Text('Qualquer mercado', style: TextStyle(color: Colors.grey.shade600, fontSize: 13))),
                         ...markets.map((m) => DropdownMenuItem<String>(
                           value: m['id'] as String,
-                          child: Text(m['name'] ?? '', style: const TextStyle(color: Colors.white, fontSize: 13)),
+                          child: Text(m['name'] ?? '', style: TextStyle(color: Colors.grey.shade900, fontSize: 13)),
                         )),
                       ],
                       onChanged: (v) => setModalState(() => selectedMarketId = v),
@@ -162,20 +163,20 @@ class _AlertasPrecoScreenState extends State<AlertasPrecoScreen> {
                   TextField(
                     controller: priceController,
                     keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                    style: const TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.bold),
+                    style: TextStyle(color: Colors.grey.shade900, fontSize: 20, fontWeight: FontWeight.bold),
                     decoration: InputDecoration(
-                      labelText: '💰 Preço alvo (R\$)',
-                      labelStyle: const TextStyle(color: Colors.white38),
+                      labelText: 'Preço alvo (R\$)',
+                      labelStyle: TextStyle(color: Colors.grey.shade500),
                       prefixText: 'R\$ ',
-                      prefixStyle: const TextStyle(color: Color(0xFF00C853), fontWeight: FontWeight.bold, fontSize: 18),
+                      prefixStyle: TextStyle(color: Colors.green.shade700, fontWeight: FontWeight.bold, fontSize: 18),
                       filled: true,
-                      fillColor: const Color(0xFF2A2A3E),
+                      fillColor: Colors.grey.shade100,
                       border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
                     ),
                   ),
                   const SizedBox(height: 6),
                   Text('Você será notificado quando o preço atingir ou ficar abaixo desse valor.',
-                      style: TextStyle(color: Colors.white.withOpacity(0.3), fontSize: 11)),
+                      style: TextStyle(color: Colors.grey.shade400, fontSize: 11)),
                   const SizedBox(height: 16),
 
                   // Create button
@@ -194,10 +195,17 @@ class _AlertasPrecoScreenState extends State<AlertasPrecoScreen> {
                         _loadAlerts();
                       },
                       style: ElevatedButton.styleFrom(
-                        backgroundColor: const Color(0xFF00C853),
+                        backgroundColor: const Color(0xFF2E7D32),
                         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                       ),
-                      child: const Text('🔔 Criar Alerta', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 16)),
+                      child: const Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Icon(Icons.notifications_active, color: Colors.white, size: 20),
+                          SizedBox(width: 8),
+                          Text('Criar Alerta', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 16)),
+                        ],
+                      ),
                     ),
                   ),
                 ],
@@ -216,30 +224,30 @@ class _AlertasPrecoScreenState extends State<AlertasPrecoScreen> {
     final inactiveAlerts = _alerts.where((a) => a['is_active'] != true && a['is_triggered'] != true).toList();
 
     return Scaffold(
-      backgroundColor: const Color(0xFF121212),
+      backgroundColor: Colors.grey.shade50,
       appBar: AppBar(
-        backgroundColor: const Color(0xFF1A1A2E),
-        elevation: 0,
-        iconTheme: const IconThemeData(color: Colors.white),
-        title: const Row(
+        backgroundColor: Colors.white,
+        elevation: 0.5,
+        iconTheme: IconThemeData(color: Colors.grey.shade800),
+        title: Row(
           children: [
-            Text('🔔', style: TextStyle(fontSize: 22)),
-            SizedBox(width: 8),
-            Text('Alertas de Preço', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+            Icon(Icons.notifications_active, color: Colors.amber.shade700, size: 22),
+            const SizedBox(width: 8),
+            Text('Alertas de Preço', style: TextStyle(color: Colors.grey.shade900, fontWeight: FontWeight.bold)),
           ],
         ),
       ),
       floatingActionButton: FloatingActionButton.extended(
         onPressed: _showCreateAlertDialog,
-        backgroundColor: const Color(0xFF00C853),
+        backgroundColor: const Color(0xFF2E7D32),
         icon: const Icon(Icons.add, color: Colors.white),
         label: const Text('Novo Alerta', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
       ),
       body: _loading
-          ? const Center(child: CircularProgressIndicator(color: Color(0xFF00C853)))
+          ? const Center(child: CircularProgressIndicator(color: Color(0xFF2E7D32)))
           : RefreshIndicator(
               onRefresh: _loadAlerts,
-              color: const Color(0xFF00C853),
+              color: const Color(0xFF2E7D32),
               child: _alerts.isEmpty
                   ? _buildEmptyState()
                   : ListView(
@@ -249,16 +257,16 @@ class _AlertasPrecoScreenState extends State<AlertasPrecoScreen> {
                         Container(
                           padding: const EdgeInsets.all(14),
                           decoration: BoxDecoration(
-                            color: const Color(0xFF00C853).withOpacity(0.08),
+                            color: Colors.blue.shade50,
                             borderRadius: BorderRadius.circular(12),
-                            border: Border.all(color: const Color(0xFF00C853).withOpacity(0.2)),
+                            border: Border.all(color: Colors.blue.shade100),
                           ),
-                          child: const Row(
+                          child: Row(
                             children: [
-                              Text('💡', style: TextStyle(fontSize: 20)),
-                              SizedBox(width: 10),
+                              Icon(Icons.lightbulb_outline, color: Colors.blue.shade600, size: 22),
+                              const SizedBox(width: 10),
                               Expanded(child: Text('Receba notificação quando o preço atingir sua meta!',
-                                  style: TextStyle(color: Colors.white54, fontSize: 12))),
+                                  style: TextStyle(color: Colors.grey.shade700, fontSize: 13))),
                             ],
                           ),
                         ),
@@ -266,21 +274,21 @@ class _AlertasPrecoScreenState extends State<AlertasPrecoScreen> {
 
                         // Active alerts
                         if (activeAlerts.isNotEmpty) ...[
-                          _buildSectionHeader('⏳ Monitorando', activeAlerts.length),
+                          _buildSectionHeader(Icons.hourglass_top, 'Monitorando', activeAlerts.length),
                           ...activeAlerts.map((a) => _buildAlertCard(a, 'active')),
                           const SizedBox(height: 16),
                         ],
 
                         // Triggered
                         if (triggeredAlerts.isNotEmpty) ...[
-                          _buildSectionHeader('🎉 Preço atingido!', triggeredAlerts.length),
+                          _buildSectionHeader(Icons.celebration, 'Preço atingido!', triggeredAlerts.length),
                           ...triggeredAlerts.map((a) => _buildAlertCard(a, 'triggered')),
                           const SizedBox(height: 16),
                         ],
 
                         // Inactive
                         if (inactiveAlerts.isNotEmpty) ...[
-                          _buildSectionHeader('⏸️ Inativos', inactiveAlerts.length),
+                          _buildSectionHeader(Icons.pause_circle_outline, 'Inativos', inactiveAlerts.length),
                           ...inactiveAlerts.map((a) => _buildAlertCard(a, 'inactive')),
                         ],
 
@@ -298,19 +306,19 @@ class _AlertasPrecoScreenState extends State<AlertasPrecoScreen> {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            const Text('🔔', style: TextStyle(fontSize: 64)),
+            Icon(Icons.notifications_none, size: 64, color: Colors.grey.shade300),
             const SizedBox(height: 16),
-            const Text('Nenhum alerta ainda', style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold)),
+            Text('Nenhum alerta ainda', style: TextStyle(color: Colors.grey.shade800, fontSize: 18, fontWeight: FontWeight.bold)),
             const SizedBox(height: 8),
             Text('Crie um alerta para ser notificado\nquando o preço de um produto cair!',
-                textAlign: TextAlign.center, style: TextStyle(color: Colors.white.withOpacity(0.4), fontSize: 14)),
+                textAlign: TextAlign.center, style: TextStyle(color: Colors.grey.shade500, fontSize: 14)),
             const SizedBox(height: 24),
             ElevatedButton.icon(
               onPressed: _showCreateAlertDialog,
               icon: const Icon(Icons.add, color: Colors.white),
               label: const Text('Criar Primeiro Alerta', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
               style: ElevatedButton.styleFrom(
-                backgroundColor: const Color(0xFF00C853),
+                backgroundColor: const Color(0xFF2E7D32),
                 padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 14),
                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
               ),
@@ -321,17 +329,19 @@ class _AlertasPrecoScreenState extends State<AlertasPrecoScreen> {
     );
   }
 
-  Widget _buildSectionHeader(String title, int count) {
+  Widget _buildSectionHeader(IconData icon, String title, int count) {
     return Padding(
       padding: const EdgeInsets.only(bottom: 8),
       child: Row(
         children: [
-          Text(title, style: const TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold)),
+          Icon(icon, size: 18, color: Colors.grey.shade700),
+          const SizedBox(width: 6),
+          Text(title, style: TextStyle(color: Colors.grey.shade900, fontSize: 16, fontWeight: FontWeight.bold)),
           const SizedBox(width: 8),
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-            decoration: BoxDecoration(color: Colors.white10, borderRadius: BorderRadius.circular(10)),
-            child: Text('$count', style: const TextStyle(color: Colors.white54, fontSize: 12, fontWeight: FontWeight.bold)),
+            decoration: BoxDecoration(color: Colors.grey.shade200, borderRadius: BorderRadius.circular(10)),
+            child: Text('$count', style: TextStyle(color: Colors.grey.shade600, fontSize: 12, fontWeight: FontWeight.bold)),
           ),
         ],
       ),
@@ -354,16 +364,16 @@ class _AlertasPrecoScreenState extends State<AlertasPrecoScreen> {
     Color bgColor;
     switch (status) {
       case 'triggered':
-        borderColor = const Color(0xFF00C853).withOpacity(0.4);
-        bgColor = const Color(0xFF00C853).withOpacity(0.05);
+        borderColor = Colors.green.shade200;
+        bgColor = Colors.green.shade50;
         break;
       case 'inactive':
-        borderColor = Colors.white10;
-        bgColor = Colors.white.withOpacity(0.02);
+        borderColor = Colors.grey.shade200;
+        bgColor = Colors.grey.shade50;
         break;
       default:
-        borderColor = Colors.amber.withOpacity(0.3);
-        bgColor = const Color(0xFF1E1E2E);
+        borderColor = Colors.amber.shade200;
+        bgColor = Colors.white;
     }
 
     return Container(
@@ -382,27 +392,34 @@ class _AlertasPrecoScreenState extends State<AlertasPrecoScreen> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text('$productName $variantName', style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w600, fontSize: 14)),
+                Text('$productName $variantName', style: TextStyle(color: Colors.grey.shade900, fontWeight: FontWeight.w600, fontSize: 14)),
                 const SizedBox(height: 2),
                 Row(
                   children: [
                     Text('Meta: R\$ ${targetPrice.toStringAsFixed(2)}',
-                        style: TextStyle(color: Colors.amber.withOpacity(0.8), fontSize: 12, fontWeight: FontWeight.bold)),
+                        style: TextStyle(color: Colors.amber.shade800, fontSize: 12, fontWeight: FontWeight.bold)),
                     if (currentPrice != null) ...[
-                      const Text(' → ', style: TextStyle(color: Colors.white30, fontSize: 12)),
+                      Text(' → ', style: TextStyle(color: Colors.grey.shade400, fontSize: 12)),
                       Text('R\$ ${currentPrice.toStringAsFixed(2)}',
-                          style: const TextStyle(color: Color(0xFF00C853), fontSize: 12, fontWeight: FontWeight.bold)),
+                          style: TextStyle(color: Colors.green.shade700, fontSize: 12, fontWeight: FontWeight.bold)),
                     ],
                   ],
                 ),
-                if (marketName != null) Text('🏪 $marketName', style: const TextStyle(color: Colors.white30, fontSize: 11)),
+                if (marketName != null)
+                  Row(
+                    children: [
+                      Icon(Icons.store, size: 12, color: Colors.grey.shade400),
+                      const SizedBox(width: 4),
+                      Text(marketName, style: TextStyle(color: Colors.grey.shade500, fontSize: 11)),
+                    ],
+                  ),
               ],
             ),
           ),
           // Actions
           if (isTriggered)
             IconButton(
-              icon: const Icon(Icons.refresh, color: Color(0xFF00C853)),
+              icon: const Icon(Icons.refresh, color: Color(0xFF2E7D32)),
               tooltip: 'Reativar',
               onPressed: () async {
                 await _service.reactivatePriceAlert(alert['id']);
@@ -410,7 +427,7 @@ class _AlertasPrecoScreenState extends State<AlertasPrecoScreen> {
               },
             ),
           IconButton(
-            icon: Icon(Icons.delete_outline, color: Colors.redAccent.withOpacity(0.6), size: 20),
+            icon: Icon(Icons.delete_outline, color: Colors.red.shade300, size: 20),
             onPressed: () async {
               await _service.deletePriceAlert(alert['id']);
               _loadAlerts();
