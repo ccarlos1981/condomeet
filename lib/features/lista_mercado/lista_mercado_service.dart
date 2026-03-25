@@ -382,4 +382,53 @@ class ListaMercadoService {
       'p_points': 2,
     });
   }
+
+  // ══════════════════════════════════════════
+  // GAMIFICAÇÃO & LEADERBOARD
+  // ══════════════════════════════════════════
+
+  /// Ranking semanal (top users)
+  Future<List<Map<String, dynamic>>> getWeeklyLeaderboard({int limit = 20}) async {
+    final data = await _client
+        .from('lista_user_points')
+        .select('user_id, total_points, weekly_points, reports_count, rank_title, confirmations_given')
+        .order('weekly_points', ascending: false)
+        .limit(limit);
+    return List<Map<String, dynamic>>.from(data);
+  }
+
+  /// Ranking geral (all time)
+  Future<List<Map<String, dynamic>>> getAllTimeLeaderboard({int limit = 20}) async {
+    final data = await _client
+        .from('lista_user_points')
+        .select('user_id, total_points, weekly_points, reports_count, rank_title, confirmations_given')
+        .order('total_points', ascending: false)
+        .limit(limit);
+    return List<Map<String, dynamic>>.from(data);
+  }
+
+  /// Buscar perfil de nomes para o leaderboard
+  Future<Map<String, String>> getUserNames(List<String> userIds) async {
+    if (userIds.isEmpty) return {};
+    final data = await _client
+        .from('perfil')
+        .select('id, nome_completo')
+        .inFilter('id', userIds);
+    final map = <String, String>{};
+    for (final p in data) {
+      map[p['id']] = p['nome_completo'] ?? 'Anônimo';
+    }
+    return map;
+  }
+
+  /// Stats gerais da comunidade
+  Future<Map<String, dynamic>> getCommunityStats() async {
+    final prices = await _client.from('lista_prices_raw').select('id').limit(1000);
+    final users = await _client.from('lista_user_points').select('user_id').limit(1000);
+
+    return {
+      'total_prices': (prices as List).length,
+      'total_contributors': (users as List).length,
+    };
+  }
 }
