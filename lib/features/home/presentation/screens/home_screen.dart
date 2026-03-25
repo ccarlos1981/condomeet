@@ -1310,68 +1310,155 @@ class _HomeScreenState extends State<HomeScreen> {
 
   Widget _buildBottomNav(BuildContext context, AuthState authState) {
     final tabs = [
-      {'icon': Icons.home_outlined, 'label': 'início'},
-      {'icon': Icons.emergency_share_outlined, 'label': 'SOS'},
-      {'icon': Icons.campaign_outlined, 'label': 'Notificação'},
-      {'icon': Icons.person_outline_rounded, 'label': 'Perfil'},
+      {'icon': Icons.home_rounded, 'iconOutlined': Icons.home_outlined, 'label': 'Início'},
+      {'icon': Icons.emergency_share_rounded, 'iconOutlined': Icons.emergency_share_outlined, 'label': 'SOS'},
+      {'icon': Icons.notifications_rounded, 'iconOutlined': Icons.notifications_outlined, 'label': 'Notificação'},
+      {'icon': Icons.person_rounded, 'iconOutlined': Icons.person_outline_rounded, 'label': 'Perfil'},
     ];
 
     return Container(
-      decoration: const BoxDecoration(
-        color: Color(0xFF616161), // Grey bottom nav as in screenshot
-        borderRadius: BorderRadius.only(
-          topLeft: Radius.circular(30),
-          topRight: Radius.circular(30),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: const BorderRadius.only(
+          topLeft: Radius.circular(28),
+          topRight: Radius.circular(28),
         ),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.08),
+            blurRadius: 20,
+            offset: const Offset(0, -4),
+          ),
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.04),
+            blurRadius: 6,
+            offset: const Offset(0, -1),
+          ),
+        ],
       ),
       child: SafeArea(
-        child: Row(
-          children: List.generate(tabs.length, (index) {
-            final isSelected = _selectedTab == index;
-            final item = tabs[index];
-            return Expanded(
-              child: GestureDetector(
-                onTap: () {
-                  if (index == 1) {
-                    // SOS tab — mostrar dialog diretamente
-                    _showSosDialog(context);
-                  } else if (index == 2) {
-                    // Notificação tab — avisos do condomínio
-                    Navigator.of(context).pushNamed('/avisos');
-                  } else if (index == 3) {
-                    _scaffoldKey.currentState?.openEndDrawer();
-                  } else {
-                    setState(() => _selectedTab = index);
-                  }
-                },
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(vertical: 12),
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Icon(
-                        item['icon'] as IconData,
-                        // SOS tab (index 1) is always red; others use selected state
-                        color: index == 1
-                            ? Colors.red
-                            : (isSelected ? Colors.red : Colors.white),
-                        size: 24,
-                      ),
-                      Text(
-                        item['label'] as String,
-                        style: TextStyle(
-                          fontSize: 10,
-                          color: index == 1
-                              ? Colors.red
-                              : (isSelected ? Colors.red : Colors.white),
-                        ),
-                      ),
-                    ],
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+          child: Row(
+            children: List.generate(tabs.length, (index) {
+              final isSelected = _selectedTab == index;
+              final item = tabs[index];
+              final isSos = index == 1;
+
+              return Expanded(
+                child: GestureDetector(
+                  behavior: HitTestBehavior.opaque,
+                  onTap: () {
+                    if (isSos) {
+                      _showSosDialog(context);
+                    } else if (index == 2) {
+                      Navigator.of(context).pushNamed('/avisos');
+                    } else if (index == 3) {
+                      _scaffoldKey.currentState?.openEndDrawer();
+                    } else {
+                      setState(() => _selectedTab = index);
+                    }
+                  },
+                  child: AnimatedContainer(
+                    duration: const Duration(milliseconds: 250),
+                    curve: Curves.easeInOut,
+                    padding: const EdgeInsets.symmetric(vertical: 6, horizontal: 4),
+                    decoration: BoxDecoration(
+                      gradient: isSelected && !isSos
+                          ? LinearGradient(
+                              colors: [
+                                AppColors.primary.withValues(alpha: 0.10),
+                                AppColors.primaryDark.withValues(alpha: 0.05),
+                              ],
+                            )
+                          : null,
+                      borderRadius: BorderRadius.circular(16),
+                    ),
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        // SOS gets special elevated circle
+                        if (isSos) ...[
+                          Container(
+                            width: 44,
+                            height: 44,
+                            decoration: BoxDecoration(
+                              gradient: const LinearGradient(
+                                colors: [Color(0xFFEF4444), Color(0xFFDC2626)],
+                                begin: Alignment.topLeft,
+                                end: Alignment.bottomRight,
+                              ),
+                              borderRadius: BorderRadius.circular(16),
+                              boxShadow: [
+                                BoxShadow(
+                                  color: const Color(0xFFEF4444).withValues(alpha: 0.40),
+                                  blurRadius: 10,
+                                  offset: const Offset(0, 4),
+                                ),
+                              ],
+                            ),
+                            child: const Icon(
+                              Icons.emergency_share_rounded,
+                              color: Colors.white,
+                              size: 22,
+                            ),
+                          ),
+                          const SizedBox(height: 2),
+                          const Text(
+                            'SOS',
+                            style: TextStyle(
+                              fontSize: 10,
+                              fontWeight: FontWeight.w700,
+                              color: Color(0xFFEF4444),
+                              letterSpacing: 0.5,
+                            ),
+                          ),
+                        ] else ...[
+                          AnimatedSwitcher(
+                            duration: const Duration(milliseconds: 200),
+                            child: Icon(
+                              isSelected
+                                  ? item['icon'] as IconData
+                                  : item['iconOutlined'] as IconData,
+                              key: ValueKey(isSelected),
+                              color: isSelected
+                                  ? AppColors.primary
+                                  : const Color(0xFF9CA3AF),
+                              size: 26,
+                            ),
+                          ),
+                          const SizedBox(height: 4),
+                          AnimatedDefaultTextStyle(
+                            duration: const Duration(milliseconds: 200),
+                            style: TextStyle(
+                              fontSize: isSelected ? 11 : 10,
+                              fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
+                              color: isSelected
+                                  ? AppColors.primary
+                                  : const Color(0xFF9CA3AF),
+                              letterSpacing: isSelected ? 0.2 : 0,
+                            ),
+                            child: Text(item['label'] as String),
+                          ),
+                          // Selection indicator dot
+                          AnimatedContainer(
+                            duration: const Duration(milliseconds: 250),
+                            margin: const EdgeInsets.only(top: 4),
+                            width: isSelected ? 5 : 0,
+                            height: isSelected ? 5 : 0,
+                            decoration: BoxDecoration(
+                              shape: BoxShape.circle,
+                              color: AppColors.primary,
+                            ),
+                          ),
+                        ],
+                      ],
+                    ),
                   ),
                 ),
-              ),
-            );
-          }),
+              );
+            }),
+          ),
         ),
       ),
     );
