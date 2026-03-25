@@ -283,7 +283,13 @@ class _PortariaVisitorAuthorizationFormScreenState
         backgroundColor: Colors.white,
         foregroundColor: AppColors.primary,
         elevation: 0,
-        title: const Text('Autorização Visitante', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+        title: Column(
+          children: [
+            const Text('Solicitação de autorização de Visitante', style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold)),
+            if (_currentUserName.isNotEmpty)
+              Text(_currentUserName, style: TextStyle(fontSize: 13, fontWeight: FontWeight.normal, color: Colors.grey.shade600)),
+          ],
+        ),
         centerTitle: true,
       ),
       body: _successData != null ? _buildSuccess() : _buildForm(),
@@ -379,17 +385,6 @@ class _PortariaVisitorAuthorizationFormScreenState
 
     return SingleChildScrollView(
       child: Column(children: [
-        // Header banner
-        Container(
-          width: double.infinity,
-          color: AppColors.primary,
-          padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
-          child: Text(
-            'Solicitação de autorização de entrada — por $_currentUserName',
-            style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 14),
-            textAlign: TextAlign.center,
-          ),
-        ),
 
         Padding(
           padding: const EdgeInsets.all(16),
