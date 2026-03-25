@@ -28,6 +28,9 @@ abstract class InvitationRepository {
     String? visitorType,
     String? visitorPhone,
     String? observation,
+    String? documento,
+    String? placa,
+    String? crachaReferencia,
   });
 
   /// Fetches paginated invitations for a resident.

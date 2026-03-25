@@ -40,6 +40,9 @@ class _PortariaVisitorAuthorizationFormScreenState
   final _guestNameCtrl = TextEditingController();
   final _visitorWhatsappCtrl = TextEditingController();
   final _observacaoCtrl = TextEditingController();
+  final _docCtrl = TextEditingController();
+  final _placaCtrl = TextEditingController();
+  final _crachaCtrl = TextEditingController();
 
   // UI state
   bool _saving = false;
@@ -67,6 +70,9 @@ class _PortariaVisitorAuthorizationFormScreenState
     _guestNameCtrl.dispose();
     _visitorWhatsappCtrl.dispose();
     _observacaoCtrl.dispose();
+    _docCtrl.dispose();
+    _placaCtrl.dispose();
+    _crachaCtrl.dispose();
     super.dispose();
   }
 
@@ -217,6 +223,9 @@ class _PortariaVisitorAuthorizationFormScreenState
         'bloco_destino': _bloco,
         'apto_destino': _apto,
         'morador_nome_manual': moradorNomeManual,
+        'documento': _docCtrl.text.trim().isEmpty ? null : _docCtrl.text.trim(),
+        'placa': _placaCtrl.text.trim().isEmpty ? null : _placaCtrl.text.trim(),
+        'cracha_referencia': _crachaCtrl.text.trim().isEmpty ? null : _crachaCtrl.text.trim(),
       });
 
       if (mounted) {
@@ -257,6 +266,9 @@ class _PortariaVisitorAuthorizationFormScreenState
       _guestNameCtrl.clear();
       _visitorWhatsappCtrl.clear();
       _observacaoCtrl.clear();
+      _docCtrl.clear();
+      _placaCtrl.clear();
+      _crachaCtrl.clear();
       _error = null;
       _successData = null;
       _unitResidents = [];
@@ -532,15 +544,47 @@ class _PortariaVisitorAuthorizationFormScreenState
               decoration: _inputDecoration('Whatsapp do visitante: (62) 9 9999-9999'),
               keyboardType: TextInputType.phone,
             ),
-            const SizedBox(height: 16),
+            const SizedBox(height: 12),
 
-            // ── Observação ────────────────────────────
-            _buildLabel('Observação'),
-            TextField(
-              controller: _observacaoCtrl,
-              decoration: _inputDecoration('Colocar observação'),
-              maxLines: 3,
-            ),
+            // ── Documento + Placa (side by side) ─────
+            Row(children: [
+              Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                _buildLabel('Documento (opcional)'),
+                TextField(
+                  controller: _docCtrl,
+                  decoration: _inputDecoration('CPF ou RG'),
+                ),
+              ])),
+              const SizedBox(width: 12),
+              Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                _buildLabel('Placa (opcional)'),
+                TextField(
+                  controller: _placaCtrl,
+                  decoration: _inputDecoration('Placa do veículo'),
+                  textCapitalization: TextCapitalization.characters,
+                ),
+              ])),
+            ]),
+            const SizedBox(height: 12),
+
+            // ── Crachá + Observação (side by side) ───
+            Row(children: [
+              Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                _buildLabel('Crachá / Referência'),
+                TextField(
+                  controller: _crachaCtrl,
+                  decoration: _inputDecoration('Nº do crachá'),
+                ),
+              ])),
+              const SizedBox(width: 12),
+              Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                _buildLabel('Observação'),
+                TextField(
+                  controller: _observacaoCtrl,
+                  decoration: _inputDecoration('Colocar observação'),
+                ),
+              ])),
+            ]),
             const SizedBox(height: 16),
 
             // ── Error ─────────────────────────────────

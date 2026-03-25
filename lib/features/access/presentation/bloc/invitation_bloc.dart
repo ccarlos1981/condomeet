@@ -123,6 +123,9 @@ class InvitationBloc extends Bloc<InvitationEvent, InvitationState> {
       visitorType: event.visitorType,
       visitorPhone: event.visitorPhone,
       observation: event.observation,
+      documento: event.documento,
+      placa: event.placa,
+      crachaReferencia: event.crachaReferencia,
     );
 
     if (result.isSuccess) {

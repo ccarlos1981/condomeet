@@ -23,6 +23,9 @@ class _VisitorAuthorizationScreenState extends State<VisitorAuthorizationScreen>
   final _nameController = TextEditingController();
   final _phoneController = TextEditingController();
   final _obsController = TextEditingController();
+  final _docController = TextEditingController();
+  final _placaController = TextEditingController();
+  final _crachaController = TextEditingController();
   
   String? _visitorType;
   bool _showTypeError = false;
@@ -62,6 +65,9 @@ class _VisitorAuthorizationScreenState extends State<VisitorAuthorizationScreen>
     _nameController.dispose();
     _phoneController.dispose();
     _obsController.dispose();
+    _docController.dispose();
+    _placaController.dispose();
+    _crachaController.dispose();
     super.dispose();
   }
 
@@ -101,6 +107,9 @@ class _VisitorAuthorizationScreenState extends State<VisitorAuthorizationScreen>
           visitorType: _visitorType,
           visitorPhone: _phoneController.text,
           observation: _obsController.text,
+          documento: _docController.text,
+          placa: _placaController.text,
+          crachaReferencia: _crachaController.text,
         ),
       );
     }
@@ -294,13 +303,47 @@ class _VisitorAuthorizationScreenState extends State<VisitorAuthorizationScreen>
               keyboardType: TextInputType.phone,
               decoration: _inputDecoration('Whatsapp (00) 0 0000-0000'),
             ),
-            const SizedBox(height: 12),
+            const SizedBox(height: 8),
             
-            // Observação
-            TextFormField(
-              controller: _obsController,
-              maxLines: 3,
-              decoration: _inputDecoration('Observação (Opcional)'),
+            // Documento + Placa side by side
+            Row(
+              children: [
+                Expanded(
+                  child: TextFormField(
+                    controller: _docController,
+                    decoration: _inputDecoration('CPF ou RG'),
+                    keyboardType: TextInputType.text,
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: TextFormField(
+                    controller: _placaController,
+                    decoration: _inputDecoration('Placa do veículo'),
+                    textCapitalization: TextCapitalization.characters,
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 8),
+            
+            // Crachá + Observação side by side
+            Row(
+              children: [
+                Expanded(
+                  child: TextFormField(
+                    controller: _crachaController,
+                    decoration: _inputDecoration('Nº do crachá'),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: TextFormField(
+                    controller: _obsController,
+                    decoration: _inputDecoration('Observação'),
+                  ),
+                ),
+              ],
             ),
             const SizedBox(height: 20),
             
@@ -590,6 +633,9 @@ class _VisitorAuthorizationScreenState extends State<VisitorAuthorizationScreen>
     _nameController.clear();
     _phoneController.clear();
     _obsController.clear();
+    _docController.clear();
+    _placaController.clear();
+    _crachaController.clear();
     setState(() {
       _visitorType = null;
       _showTypeError = false;

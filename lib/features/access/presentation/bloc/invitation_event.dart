@@ -65,6 +65,9 @@ class CreateInvitationRequested extends InvitationEvent {
   final String? visitorType;
   final String? visitorPhone;
   final String? observation;
+  final String? documento;
+  final String? placa;
+  final String? crachaReferencia;
 
   const CreateInvitationRequested({
     required this.residentId,
@@ -74,6 +77,9 @@ class CreateInvitationRequested extends InvitationEvent {
     this.visitorType,
     this.visitorPhone,
     this.observation,
+    this.documento,
+    this.placa,
+    this.crachaReferencia,
   });
 
   @override
@@ -85,6 +91,9 @@ class CreateInvitationRequested extends InvitationEvent {
         visitorType,
         visitorPhone,
         observation,
+        documento,
+        placa,
+        crachaReferencia,
       ];
 }
 

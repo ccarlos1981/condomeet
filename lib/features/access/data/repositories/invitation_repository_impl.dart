@@ -172,6 +172,9 @@ class InvitationRepositoryImpl implements InvitationRepository {
     String? visitorType,
     String? visitorPhone,
     String? observation,
+    String? documento,
+    String? placa,
+    String? crachaReferencia,
   }) async {
     try {
       final id = const Uuid().v4();
@@ -211,6 +214,9 @@ class InvitationRepositoryImpl implements InvitationRepository {
         'visitor_type': visitorType,
         'visitor_phone': visitorPhone,
         'observation': observation,
+        'documento': documento,
+        'placa': placa,
+        'cracha_referencia': crachaReferencia,
         'status': 'active',
         'visitante_compareceu': 0,
         'created_at': now.toIso8601String(),
