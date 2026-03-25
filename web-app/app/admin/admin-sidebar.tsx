@@ -79,6 +79,7 @@ export default function AdminSidebar({
               { label: 'Meu Bolso', href: '/admin/dinglo', icon: <Wallet size={18} /> },
               { label: 'Lista Inteligente', href: '/admin/lista-inteligente', icon: <ShoppingCart size={18} /> },
               { label: 'B2B Mercados', href: '/admin/lista-b2b', icon: <Store size={18} /> },
+              { label: 'Analytics', href: '/admin/lista-analytics', icon: <BarChart3 size={18} /> },
             ]
           : []),
       ],
