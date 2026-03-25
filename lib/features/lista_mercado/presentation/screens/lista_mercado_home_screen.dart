@@ -157,9 +157,31 @@ class _ListaMercadoHomeScreenState extends State<ListaMercadoHomeScreen> {
                       ),
                     ),
                   ),
-                  const SizedBox(height: 24),
+                  const SizedBox(height: 12),
 
-                  // ── Minhas Listas ──
+                  // ── Reportar preço ──
+                  GestureDetector(
+                    onTap: () => Navigator.pushNamed(context, '/lista-mercado/reportar'),
+                    child: Container(
+                      padding: const EdgeInsets.all(16),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFF1E1E2E),
+                        borderRadius: BorderRadius.circular(14),
+                        border: Border.all(color: Colors.orange.withOpacity(0.3)),
+                      ),
+                      child: const Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Text('📢', style: TextStyle(fontSize: 22)),
+                          SizedBox(width: 10),
+                          Text('Reportar Preço', style: TextStyle(color: Colors.orange, fontSize: 16, fontWeight: FontWeight.bold)),
+                          SizedBox(width: 6),
+                          Text('(ganhe pontos!)', style: TextStyle(color: Colors.white38, fontSize: 13)),
+                        ],
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 24),
                   if (_lists.isNotEmpty) ...[
                     const Row(
                       children: [

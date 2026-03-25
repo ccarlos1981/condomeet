@@ -72,6 +72,7 @@ import 'package:condomeet/features/dinglo/presentation/screens/meu_bolso_onboard
 import 'package:condomeet/features/lista_mercado/presentation/screens/lista_mercado_home_screen.dart';
 import 'package:condomeet/features/lista_mercado/presentation/screens/lista_edit_screen.dart';
 import 'package:condomeet/features/lista_mercado/presentation/screens/lista_compare_screen.dart';
+import 'package:condomeet/features/lista_mercado/presentation/screens/reportar_preco_screen.dart';
 
 
 class AppRouter {
@@ -208,6 +209,7 @@ class AppRouter {
         final listId = ModalRoute.of(context)!.settings.arguments as String;
         return ListaCompareScreen(listId: listId);
       },
+      '/lista-mercado/reportar': (context) => const ReportarPrecoScreen(),
     };
   }
 

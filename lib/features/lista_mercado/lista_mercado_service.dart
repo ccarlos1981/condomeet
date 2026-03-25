@@ -264,4 +264,122 @@ class ListaMercadoService {
 
     return List<Map<String, dynamic>>.from(data);
   }
+
+  // ══════════════════════════════════════════
+  // CROWDSOURCING
+  // ══════════════════════════════════════════
+
+  /// Listar supermercados para seleção
+  Future<List<Map<String, dynamic>>> getSupermarkets() async {
+    final data = await _client
+        .from('lista_supermarkets')
+        .select('id, name, is_chain')
+        .order('name');
+    return List<Map<String, dynamic>>.from(data);
+  }
+
+  /// Buscar variantes populares (para seleção rápida)
+  Future<List<Map<String, dynamic>>> getPopularVariants({int limit = 30}) async {
+    final data = await _client
+        .from('lista_product_variants')
+        .select('id, variant_name, unit, default_weight, lista_products_base(name, icon_emoji, category)')
+        .order('popularity_score', ascending: false)
+        .limit(limit);
+    return List<Map<String, dynamic>>.from(data);
+  }
+
+  /// Reportar preço (crowdsourcing)
+  Future<void> submitPriceReport({
+    required String variantId,
+    required String supermarketId,
+    required double price,
+    String? receiptPhotoUrl,
+  }) async {
+    // 1) Buscar ou criar SKU genérico para a variante
+    var skuData = await _client
+        .from('lista_products_sku')
+        .select('id')
+        .eq('variant_id', variantId)
+        .limit(1);
+
+    String skuId;
+    if (skuData.isEmpty) {
+      final newSku = await _client
+          .from('lista_products_sku')
+          .insert({'variant_id': variantId, 'brand': 'Genérico'})
+          .select('id')
+          .single();
+      skuId = newSku['id'];
+    } else {
+      skuId = skuData.first['id'];
+    }
+
+    // 2) Inserir preço bruto
+    await _client.from('lista_prices_raw').insert({
+      'sku_id': skuId,
+      'supermarket_id': supermarketId,
+      'price': price,
+      'source': 'crowd',
+      'confidence_score': 0.6,
+      'reported_by': _userId,
+    });
+
+    // 3) Inserir no relatório
+    await _client.from('lista_price_reports').insert({
+      'user_id': _userId,
+      'sku_id': skuId,
+      'supermarket_id': supermarketId,
+      'price': price,
+      'receipt_photo_url': receiptPhotoUrl,
+    });
+
+    // 4) Upsert no prices_current
+    await _client.from('lista_prices_current').upsert({
+      'sku_id': skuId,
+      'supermarket_id': supermarketId,
+      'price': price,
+      'price_type': 'regular',
+      'confidence_score': 0.6,
+      'is_stale': false,
+      'updated_at': DateTime.now().toIso8601String(),
+    }, onConflict: 'sku_id,supermarket_id');
+
+    // 5) Adicionar pontos ao usuário
+    await _client.rpc('lista_add_points', params: {
+      'p_user_id': _userId,
+      'p_points': 10,
+    });
+  }
+
+  /// Buscar preços recentes (feed para votar)
+  Future<List<Map<String, dynamic>>> getRecentPrices({int limit = 20}) async {
+    final data = await _client
+        .from('lista_prices_raw')
+        .select('id, price, source, confidence_score, confirmations, created_at, lista_products_sku(brand, weight_label, lista_product_variants(variant_name, lista_products_base(name, icon_emoji))), lista_supermarkets(name)')
+        .order('created_at', ascending: false)
+        .limit(limit);
+    return List<Map<String, dynamic>>.from(data);
+  }
+
+  /// Votar em preço (confirmar ou negar)
+  Future<void> voteOnPrice(String priceRawId, String vote) async {
+    await _client.from('lista_price_votes').upsert({
+      'price_raw_id': priceRawId,
+      'user_id': _userId,
+      'vote': vote,
+    }, onConflict: 'price_raw_id,user_id');
+
+    // Incrementar confirmações se confirmou
+    if (vote == 'confirm') {
+      await _client.rpc('lista_increment_confirmations', params: {
+        'p_price_id': priceRawId,
+      });
+    }
+
+    // Pontos por voto
+    await _client.rpc('lista_add_points', params: {
+      'p_user_id': _userId,
+      'p_points': 2,
+    });
+  }
 }
