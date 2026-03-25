@@ -78,6 +78,7 @@ import 'package:condomeet/features/lista_mercado/presentation/screens/gamificaca
 import 'package:condomeet/features/lista_mercado/presentation/screens/alertas_preco_screen.dart';
 import 'package:condomeet/features/lista_mercado/presentation/screens/lista_admin_screen.dart';
 import 'package:condomeet/features/lista_mercado/presentation/screens/cartao_economia_screen.dart';
+import 'package:condomeet/features/lista_mercado/presentation/screens/lista_paywall_screen.dart';
 
 
 class AppRouter {
@@ -220,6 +221,7 @@ class AppRouter {
       '/lista-mercado/alertas': (context) => const AlertasPrecoScreen(),
       '/lista-mercado/admin': (context) => const ListaAdminScreen(),
       '/lista-mercado/cartao': (context) => const CartaoEconomiaScreen(),
+      '/lista-mercado/paywall': (context) => const ListaPaywallScreen(),
     };
   }
 

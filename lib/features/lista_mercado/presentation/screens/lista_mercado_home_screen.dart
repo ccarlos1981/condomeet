@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:condomeet/features/lista_mercado/lista_mercado_service.dart';
+import 'package:condomeet/features/lista_mercado/lista_subscription_service.dart';
 import 'package:condomeet/features/lista_mercado/presentation/widgets/lista_onboarding_popup.dart';
 
 class ListaMercadoHomeScreen extends StatefulWidget {
@@ -14,6 +15,9 @@ class _ListaMercadoHomeScreenState extends State<ListaMercadoHomeScreen> {
   List<Map<String, dynamic>> _lists = [];
   List<Map<String, dynamic>> _promotions = [];
   bool _loading = true;
+  bool _hasPremium = true;
+  bool _inTrial = false;
+  int _daysRemaining = 45;
 
   // Light theme colors
   static const _accent = Color(0xFF00C853);
@@ -31,12 +35,21 @@ class _ListaMercadoHomeScreenState extends State<ListaMercadoHomeScreen> {
   Future<void> _loadData() async {
     setState(() => _loading = true);
     try {
+      // Ensure trial is started on first open
+      await ListaSubscriptionService.ensureTrialStarted();
+
       final lists = await _service.getMyLists();
       final promos = await _service.getActivePromotions(limit: 5);
+      final hasPremium = await ListaSubscriptionService.hasAccess();
+      final inTrial = await ListaSubscriptionService.isInTrial();
+      final daysRemaining = await ListaSubscriptionService.getDaysRemaining();
       if (mounted) {
         setState(() {
           _lists = lists;
           _promotions = promos;
+          _hasPremium = hasPremium;
+          _inTrial = inTrial;
+          _daysRemaining = daysRemaining;
           _loading = false;
         });
       }
@@ -45,7 +58,22 @@ class _ListaMercadoHomeScreenState extends State<ListaMercadoHomeScreen> {
     }
   }
 
+  Future<void> _navigateToPremiumScreen(String route) async {
+    if (_hasPremium) {
+      Navigator.pushNamed(context, route);
+    } else {
+      final result = await Navigator.pushNamed(context, '/lista-mercado/paywall');
+      if (result == true) _loadData(); // Refresh after subscription
+    }
+  }
+
   Future<void> _createNewList() async {
+    // Free tier: max 1 list
+    if (!_hasPremium && _lists.length >= ListaSubscriptionService.freeMaxLists) {
+      final result = await Navigator.pushNamed(context, '/lista-mercado/paywall');
+      if (result == true) _loadData();
+      return;
+    }
     final name = await showDialog<String>(
       context: context,
       builder: (ctx) {
@@ -195,6 +223,9 @@ class _ListaMercadoHomeScreenState extends State<ListaMercadoHomeScreen> {
               child: ListView(
                 padding: const EdgeInsets.all(16),
                 children: [
+                  // ── Subscription Banner ──
+                  _buildSubscriptionBanner(),
+
                   // ── CTA: Criar Lista ──
                   _buildCTAButton(),
                   const SizedBox(height: 20),
@@ -254,14 +285,96 @@ class _ListaMercadoHomeScreenState extends State<ListaMercadoHomeScreen> {
     );
   }
 
+  // ── Subscription Banner ──
+  Widget _buildSubscriptionBanner() {
+    if (_inTrial && _hasPremium) {
+      // Trial active
+      return Padding(
+        padding: const EdgeInsets.only(bottom: 16),
+        child: Container(
+          padding: const EdgeInsets.all(14),
+          decoration: BoxDecoration(
+            gradient: LinearGradient(colors: [_accent.withValues(alpha: 0.08), _accent.withValues(alpha: 0.15)]),
+            borderRadius: BorderRadius.circular(14),
+            border: Border.all(color: _accent.withValues(alpha: 0.3)),
+          ),
+          child: Row(
+            children: [
+              Icon(Icons.timer_rounded, color: _accentDark, size: 24),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Trial Premium — $_daysRemaining dias restantes',
+                      style: TextStyle(fontWeight: FontWeight.w700, fontSize: 13, color: Colors.grey.shade900),
+                    ),
+                    Text(
+                      'Todas as funcionalidades desbloqueadas!',
+                      style: TextStyle(fontSize: 11, color: Colors.grey.shade600),
+                    ),
+                  ],
+                ),
+              ),
+              const Icon(Icons.star_rounded, color: Color(0xFFFFC107), size: 20),
+            ],
+          ),
+        ),
+      );
+    } else if (!_hasPremium) {
+      // Trial expired, no subscription
+      return Padding(
+        padding: const EdgeInsets.only(bottom: 16),
+        child: GestureDetector(
+          onTap: () async {
+            final result = await Navigator.pushNamed(context, '/lista-mercado/paywall');
+            if (result == true) _loadData();
+          },
+          child: Container(
+            padding: const EdgeInsets.all(14),
+            decoration: BoxDecoration(
+              color: Colors.orange.shade50,
+              borderRadius: BorderRadius.circular(14),
+              border: Border.all(color: Colors.orange.shade200),
+            ),
+            child: Row(
+              children: [
+                Icon(Icons.lock_rounded, color: Colors.orange.shade700, size: 24),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Período gratuito encerrado',
+                        style: TextStyle(fontWeight: FontWeight.w700, fontSize: 13, color: Colors.orange.shade900),
+                      ),
+                      Text(
+                        'Toque para assinar e desbloquear tudo',
+                        style: TextStyle(fontSize: 11, color: Colors.orange.shade700),
+                      ),
+                    ],
+                  ),
+                ),
+                Icon(Icons.arrow_forward_ios_rounded, color: Colors.orange.shade700, size: 16),
+              ],
+            ),
+          ),
+        ),
+      );
+    }
+    return const SizedBox.shrink(); // Active subscriber, no banner
+  }
+
   // ── Quick Actions Grid ──
   Widget _buildQuickActionsGrid() {
     final actions = [
-      _QuickAction('Reportar\nPreço', Icons.campaign_rounded, const Color(0xFFF57C00), '/lista-mercado/reportar'),
-      _QuickAction('Escanear\nCupom', Icons.qr_code_scanner_rounded, const Color(0xFF1976D2), '/lista-mercado/scanner'),
-      _QuickAction('Ranking', Icons.emoji_events_rounded, const Color(0xFFF9A825), '/lista-mercado/ranking'),
-      _QuickAction('Alertas\nde Preço', Icons.notifications_active_rounded, const Color(0xFFE53935), '/lista-mercado/alertas'),
-      _QuickAction('Compartilhar\nEconomia', Icons.share_rounded, const Color(0xFF43A047), '/lista-mercado/cartao'),
+      _QuickAction('Reportar\nPreço', Icons.campaign_rounded, const Color(0xFFF57C00), '/lista-mercado/reportar', true),
+      _QuickAction('Escanear\nCupom', Icons.qr_code_scanner_rounded, const Color(0xFF1976D2), '/lista-mercado/scanner', true),
+      _QuickAction('Ranking', Icons.emoji_events_rounded, const Color(0xFFF9A825), '/lista-mercado/ranking', false),
+      _QuickAction('Alertas\nde Preço', Icons.notifications_active_rounded, const Color(0xFFE53935), '/lista-mercado/alertas', true),
+      _QuickAction('Compartilhar\nEconomia', Icons.share_rounded, const Color(0xFF43A047), '/lista-mercado/cartao', true),
     ];
 
     return Column(
@@ -284,7 +397,7 @@ class _ListaMercadoHomeScreenState extends State<ListaMercadoHomeScreen> {
 
   Widget _buildActionTile(_QuickAction action) {
     return GestureDetector(
-      onTap: () => Navigator.pushNamed(context, action.route),
+      onTap: () => action.premiumOnly ? _navigateToPremiumScreen(action.route) : Navigator.pushNamed(context, action.route),
       child: Container(
         decoration: BoxDecoration(
           color: Colors.white,
@@ -591,5 +704,6 @@ class _QuickAction {
   final IconData icon;
   final Color color;
   final String route;
-  const _QuickAction(this.label, this.icon, this.color, this.route);
+  final bool premiumOnly;
+  const _QuickAction(this.label, this.icon, this.color, this.route, this.premiumOnly);
 }
