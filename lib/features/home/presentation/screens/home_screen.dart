@@ -1073,10 +1073,44 @@ class _HomeScreenState extends State<HomeScreen> {
         ),
       ),
     ),
-    _buildPlaceholderPartner(
-      gradient: const LinearGradient(
-        colors: [Color(0xFF7B2FF7), Color(0xFF9B5FFF)],
-        begin: Alignment.topLeft, end: Alignment.bottomRight,
+    // Lista Inteligente de Supermercado
+    GestureDetector(
+      onTap: () => Navigator.pushNamed(context, '/lista-mercado'),
+      child: Container(
+        width: 82,
+        height: 90,
+        margin: const EdgeInsets.symmetric(horizontal: 4),
+        decoration: BoxDecoration(
+          gradient: const LinearGradient(
+            colors: [Color(0xFF00C853), Color(0xFF69F0AE)],
+            begin: Alignment.topLeft, end: Alignment.bottomRight,
+          ),
+          borderRadius: BorderRadius.circular(20),
+          boxShadow: [
+            BoxShadow(
+              color: const Color(0xFF00C853).withValues(alpha: 0.35),
+              blurRadius: 8,
+              offset: const Offset(0, 4),
+            ),
+          ],
+        ),
+        child: const Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(Icons.shopping_cart, color: Colors.white, size: 34),
+            SizedBox(height: 4),
+            Text(
+              'Lista\nInteligente',
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                color: Colors.white,
+                fontSize: 8.5,
+                fontWeight: FontWeight.w700,
+                height: 1.25,
+              ),
+            ),
+          ],
+        ),
       ),
     ),
     _buildPlaceholderPartner(
