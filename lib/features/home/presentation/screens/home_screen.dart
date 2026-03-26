@@ -1033,7 +1033,7 @@ class _HomeScreenState extends State<HomeScreen> {
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
                 const Text(
-                  'Empresas parceiras',
+                  'Aplicativos parceiros',
                   style: TextStyle(
                     fontSize: 14,
                     fontWeight: FontWeight.bold,
@@ -1053,19 +1053,24 @@ class _HomeScreenState extends State<HomeScreen> {
             ),
           ),
           const SizedBox(height: 12),
-          SizedBox(
-            height: 90,
-            child: ListView(
-              scrollDirection: Axis.horizontal,
-              padding: const EdgeInsets.symmetric(horizontal: 12),
-              children: [
-                if (_propaganda.isEmpty)
-                  ..._defaultPartnerItems()
-                else
-                  ..._propaganda.map((p) => _buildRealPartnerItem(p)).toList(),
-              ],
+          if (_propaganda.isEmpty)
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16),
+              child: Row(
+                children: _defaultPartnerItems()
+                    .map((item) => Expanded(child: item))
+                    .toList(),
+              ),
+            )
+          else
+            SizedBox(
+              height: 90,
+              child: ListView(
+                scrollDirection: Axis.horizontal,
+                padding: const EdgeInsets.symmetric(horizontal: 12),
+                children: _propaganda.map((p) => _buildRealPartnerItem(p)).toList(),
+              ),
             ),
-          ),
           // ── Partners checklist ─────────────────────
           if (_showPartnersChecklist) ...[
             const SizedBox(height: 12),
@@ -1232,178 +1237,86 @@ class _HomeScreenState extends State<HomeScreen> {
 
   List<Widget> _defaultPartnerItems() => [
     // Dinglo Financial App
-    GestureDetector(
-      onTap: () => Navigator.pushNamed(context, '/dinglo'),
-      child: Container(
-        width: 82,
-        height: 90,
-        margin: const EdgeInsets.symmetric(horizontal: 4),
-        decoration: BoxDecoration(
-          gradient: const LinearGradient(
-            colors: [Color(0xFF1D4ED8), Color(0xFF3B82F6)],
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-          ),
-          borderRadius: BorderRadius.circular(20),
-          boxShadow: [
-            BoxShadow(
-              color: const Color(0xFF1D4ED8).withValues(alpha: 0.35),
-              blurRadius: 8,
-              offset: const Offset(0, 4),
-            ),
-          ],
-        ),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            ClipRRect(
-              borderRadius: BorderRadius.circular(10),
-              child: Image.asset(
-                'assets/images/meu_bolso_icon.png',
-                width: 38,
-                height: 38,
-                fit: BoxFit.contain,
-              ),
-            ),
-            const SizedBox(height: 4),
-            const Text(
-              'Meu\nBolso',
-              textAlign: TextAlign.center,
-              style: TextStyle(
-                color: Colors.white,
-                fontSize: 9.5,
-                fontWeight: FontWeight.w700,
-                height: 1.25,
-              ),
-            ),
-          ],
-        ),
-      ),
+    _buildAppIcon(
+      route: '/dinglo',
+      assetPath: 'assets/images/meu_bolso_icon.png',
+      label: 'Meu\nBolso',
     ),
-    // Lista Inteligente de Supermercado
-    GestureDetector(
-      onTap: () => Navigator.pushNamed(context, '/lista-mercado'),
-      child: Container(
-        width: 82,
-        height: 90,
-        margin: const EdgeInsets.symmetric(horizontal: 4),
-        decoration: BoxDecoration(
-          gradient: const LinearGradient(
-            colors: [Color(0xFF00C853), Color(0xFF69F0AE)],
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-          ),
-          borderRadius: BorderRadius.circular(20),
-          boxShadow: [
-            BoxShadow(
-              color: const Color(0xFF00C853).withValues(alpha: 0.35),
-              blurRadius: 8,
-              offset: const Offset(0, 4),
-            ),
-          ],
-        ),
-        child: const Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(Icons.shopping_cart, color: Colors.white, size: 34),
-            SizedBox(height: 4),
-            Text(
-              'Lista\nInteligente',
-              textAlign: TextAlign.center,
-              style: TextStyle(
-                color: Colors.white,
-                fontSize: 8.5,
-                fontWeight: FontWeight.w700,
-                height: 1.25,
-              ),
-            ),
-          ],
-        ),
-      ),
+    // Smart List
+    _buildAppIcon(
+      route: '/lista-mercado',
+      assetPath: 'assets/images/smart_list_icon.png',
+      label: 'Smart\nList',
     ),
-    // Garagem Inteligente
-    GestureDetector(
-      onTap: () => Navigator.pushNamed(context, '/garagem'),
-      child: Container(
-        width: 82,
-        height: 90,
-        margin: const EdgeInsets.symmetric(horizontal: 4),
-        decoration: BoxDecoration(
-          gradient: const LinearGradient(
-            colors: [Color(0xFF7B2FF7), Color(0xFF9B5FFF)],
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-          ),
-          borderRadius: BorderRadius.circular(20),
-          boxShadow: [
-            BoxShadow(
-              color: const Color(0xFF7B2FF7).withValues(alpha: 0.35),
-              blurRadius: 8,
-              offset: const Offset(0, 4),
-            ),
-          ],
-        ),
-        child: const Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(Icons.local_parking, color: Colors.white, size: 34),
-            SizedBox(height: 4),
-            Text(
-              'Garagem\nInteligente',
-              textAlign: TextAlign.center,
-              style: TextStyle(
-                color: Colors.white,
-                fontSize: 8.5,
-                fontWeight: FontWeight.w700,
-                height: 1.25,
-              ),
-            ),
-          ],
-        ),
-      ),
+    // Smart Garage
+    _buildAppIcon(
+      route: '/garagem',
+      assetPath: 'assets/images/garagem_icon.png',
+      label: 'Smart\nGarage',
     ),
-    // Checklist / Vistoria Digital
-    GestureDetector(
-      onTap: () => Navigator.pushNamed(context, '/vistorias'),
-      child: Container(
-        width: 82,
-        height: 90,
-        margin: const EdgeInsets.symmetric(horizontal: 4),
-        decoration: BoxDecoration(
-          gradient: const LinearGradient(
-            colors: [Color(0xFFFF6D00), Color(0xFFFF9E40)],
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-          ),
-          borderRadius: BorderRadius.circular(20),
-          boxShadow: [
-            BoxShadow(
-              color: const Color(0xFFFF6D00).withValues(alpha: 0.35),
-              blurRadius: 8,
-              offset: const Offset(0, 4),
-            ),
-          ],
-        ),
-        child: const Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(Icons.checklist_rounded, color: Colors.white, size: 34),
-            SizedBox(height: 4),
-            Text(
-              'Checklist',
-              textAlign: TextAlign.center,
-              style: TextStyle(
-                color: Colors.white,
-                fontSize: 9.5,
-                fontWeight: FontWeight.w700,
-                height: 1.25,
-              ),
-            ),
-          ],
-        ),
-      ),
+    // Checklist
+    _buildAppIcon(
+      route: '/vistorias',
+      assetPath: 'assets/images/checklist_icon.png',
+      label: 'Check\nList',
     ),
   ];
+
+  Widget _buildAppIcon({
+    required String route,
+    required String assetPath,
+    required String label,
+  }) {
+    return GestureDetector(
+      onTap: () => Navigator.pushNamed(context, route),
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          final iconSize = (constraints.maxWidth * 0.78).clamp(48.0, 72.0);
+          return Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                width: iconSize,
+                height: iconSize,
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(iconSize * 0.22),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withValues(alpha: 0.08),
+                      blurRadius: 8,
+                      offset: const Offset(0, 2),
+                    ),
+                  ],
+                ),
+                child: ClipRRect(
+                  borderRadius: BorderRadius.circular(iconSize * 0.22),
+                  child: Image.asset(
+                    assetPath,
+                    width: iconSize,
+                    height: iconSize,
+                    fit: BoxFit.cover,
+                  ),
+                ),
+              ),
+              const SizedBox(height: 6),
+              Text(
+                label,
+                textAlign: TextAlign.center,
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(
+                  color: Colors.grey.shade800,
+                  fontSize: 10.5,
+                  fontWeight: FontWeight.w600,
+                  height: 1.2,
+                ),
+              ),
+            ],
+          );
+        },
+      ),
+    );
+  }
 
   Widget _buildPlaceholderPartner({
     required LinearGradient gradient,

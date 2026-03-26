@@ -5,6 +5,7 @@ import 'package:condomeet/core/design_system/app_colors.dart';
 import 'package:condomeet/features/auth/presentation/bloc/auth_bloc.dart';
 import 'package:condomeet/features/garagem/garagem_service.dart';
 import 'package:condomeet/features/garagem/presentation/widgets/garagem_onboarding_popup.dart';
+import 'package:condomeet/features/garagem/presentation/widgets/garagem_welcome_dialog.dart';
 
 class GaragemHomeScreen extends StatefulWidget {
   const GaragemHomeScreen({super.key});
@@ -37,7 +38,7 @@ class _GaragemHomeScreenState extends State<GaragemHomeScreen>
     _loadData();
     _loadGuideState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      GaragemOnboardingPopup.showIfNeeded(context);
+      GaragemWelcomeDialog.showIfFirstTime(context);
     });
   }
 
@@ -83,6 +84,14 @@ class _GaragemHomeScreenState extends State<GaragemHomeScreen>
         foregroundColor: Colors.black87,
         elevation: 0,
         actions: [
+          IconButton(
+            icon: const Icon(Icons.route_rounded, color: Color(0xFF7B2FF7)),
+            tooltip: 'Passo a passo',
+            onPressed: () {
+              Navigator.pushNamed(context, '/garagem/onboarding');
+              _showGuideAgain();
+            },
+          ),
           IconButton(
             icon: Icon(Icons.help_outline_rounded, color: Colors.grey.shade500),
             tooltip: 'Como funciona?',

@@ -1,8 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:condomeet/core/design_system/app_colors.dart';
 import 'package:condomeet/features/auth/presentation/bloc/auth_bloc.dart';
 import 'package:condomeet/features/vistoria/vistoria_service.dart';
+import 'package:condomeet/features/vistoria/presentation/widgets/vistoria_welcome_dialog.dart';
+import 'package:condomeet/features/vistoria/presentation/widgets/vistoria_welcome_dialog_plans.dart';
 
 class VistoriaHomeScreen extends StatefulWidget {
   const VistoriaHomeScreen({super.key});
@@ -17,6 +20,7 @@ class _VistoriaHomeScreenState extends State<VistoriaHomeScreen> {
   List<Map<String, dynamic>> _templates = [];
   bool _loading = true;
   String _statusFilter = '';
+  bool _showGuide = false;
 
   static const _statusLabels = {
     'rascunho':   {'label': 'Rascunho',   'icon': '📝', 'color': Color(0xFF6B7280)},
@@ -40,7 +44,30 @@ class _VistoriaHomeScreenState extends State<VistoriaHomeScreen> {
   @override
   void initState() {
     super.initState();
+    _loadGuideState();
     _loadData();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      VistoriaWelcomeDialogPlans.showIfFirstTime(context);
+    });
+  }
+
+  Future<void> _loadGuideState() async {
+    final prefs = await SharedPreferences.getInstance();
+    if (mounted) {
+      setState(() => _showGuide = prefs.getBool('vistoria_guide_dismissed') != true);
+    }
+  }
+
+  Future<void> _dismissGuide() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool('vistoria_guide_dismissed', true);
+    if (mounted) setState(() => _showGuide = false);
+  }
+
+  Future<void> _reopenGuide() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.remove('vistoria_guide_dismissed');
+    if (mounted) setState(() => _showGuide = true);
   }
 
   Future<void> _loadData() async {
@@ -103,6 +130,38 @@ class _VistoriaHomeScreenState extends State<VistoriaHomeScreen> {
         ),
         actions: [
           IconButton(
+            icon: const Icon(
+              Icons.route_rounded,
+              color: AppColors.primary,
+            ),
+            tooltip: 'Passo a passo',
+            onPressed: () {
+              Navigator.pushNamed(context, '/vistoria/onboarding');
+              _reopenGuide();
+            },
+          ),
+          IconButton(
+            icon: Icon(Icons.help_outline_rounded, color: Colors.grey.shade500),
+            tooltip: 'Como funciona?',
+            onPressed: () {
+              showGeneralDialog(
+                context: context,
+                barrierDismissible: true,
+                barrierLabel: 'Fechar',
+                barrierColor: Colors.black54,
+                transitionDuration: const Duration(milliseconds: 400),
+                pageBuilder: (_, __, ___) => const VistoriaWelcomeDialog(),
+                transitionBuilder: (_, anim, __, child) {
+                  return ScaleTransition(
+                    scale: CurvedAnimation(parent: anim, curve: Curves.elasticOut),
+                    child: child,
+                  );
+                },
+              );
+              _reopenGuide();
+            },
+          ),
+          IconButton(
             icon: const Icon(Icons.refresh, color: AppColors.primary),
             onPressed: _loadData,
           ),
@@ -128,6 +187,8 @@ class _VistoriaHomeScreenState extends State<VistoriaHomeScreen> {
                 children: [
                   // Status filter chips
                   _buildFilterChips(),
+                  // Como começar guide
+                  if (_showGuide) _buildGuideWidget(),
                   // Stats summary
                   _buildStats(),
                   // List
@@ -160,6 +221,118 @@ class _VistoriaHomeScreenState extends State<VistoriaHomeScreen> {
                 ],
               ),
             ),
+    );
+  }
+
+  Widget _buildGuideWidget() {
+    final steps = [
+      {
+        'icon': Icons.add_circle_outline,
+        'title': 'Crie uma vistoria',
+        'desc': 'Clique em "Nova Vistoria" abaixo',
+        'color': const Color(0xFFFC5931),
+        'done': _vistorias.isNotEmpty,
+      },
+      {
+        'icon': Icons.camera_alt_outlined,
+        'title': 'Adicione fotos e status',
+        'desc': 'Registre cada item do imóvel',
+        'color': const Color(0xFF3B82F6),
+        'done': _vistorias.any((v) => v['status'] != 'rascunho'),
+      },
+      {
+        'icon': Icons.picture_as_pdf_outlined,
+        'title': 'Assine e exporte',
+        'desc': 'Gere o PDF e compartilhe',
+        'color': const Color(0xFF10B981),
+        'done': _vistorias.any((v) => v['status'] == 'assinada'),
+      },
+    ];
+
+    return Container(
+      margin: const EdgeInsets.fromLTRB(16, 4, 16, 8),
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          colors: [Colors.orange.shade50, Colors.red.shade50],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: Colors.orange.shade100),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Row(
+                children: [
+                  Icon(Icons.route, size: 16, color: Colors.orange.shade700),
+                  const SizedBox(width: 6),
+                  Text(
+                    'Como começar',
+                    style: TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w700,
+                      color: Colors.orange.shade900,
+                    ),
+                  ),
+                ],
+              ),
+              GestureDetector(
+                onTap: _dismissGuide,
+                child: Icon(Icons.close, size: 16, color: Colors.grey.shade400),
+              ),
+            ],
+          ),
+          const SizedBox(height: 10),
+          ...steps.map((s) => Padding(
+            padding: const EdgeInsets.only(bottom: 8),
+            child: Row(
+              children: [
+                Container(
+                  width: 28,
+                  height: 28,
+                  decoration: BoxDecoration(
+                    color: (s['done'] as bool)
+                        ? const Color(0xFF10B981)
+                        : (s['color'] as Color).withValues(alpha: 0.12),
+                    shape: BoxShape.circle,
+                  ),
+                  child: Icon(
+                    (s['done'] as bool) ? Icons.check : s['icon'] as IconData,
+                    size: 16,
+                    color: (s['done'] as bool) ? Colors.white : s['color'] as Color,
+                  ),
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        s['title'] as String,
+                        style: TextStyle(
+                          fontSize: 13,
+                          fontWeight: FontWeight.w600,
+                          color: (s['done'] as bool) ? Colors.grey.shade400 : AppColors.textMain,
+                          decoration: (s['done'] as bool) ? TextDecoration.lineThrough : null,
+                        ),
+                      ),
+                      Text(
+                        s['desc'] as String,
+                        style: TextStyle(fontSize: 11, color: Colors.grey.shade500),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          )),
+        ],
+      ),
     );
   }
 

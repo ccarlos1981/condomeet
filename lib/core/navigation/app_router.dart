@@ -79,13 +79,16 @@ import 'package:condomeet/features/lista_mercado/presentation/screens/alertas_pr
 import 'package:condomeet/features/lista_mercado/presentation/screens/lista_admin_screen.dart';
 import 'package:condomeet/features/lista_mercado/presentation/screens/cartao_economia_screen.dart';
 import 'package:condomeet/features/lista_mercado/presentation/screens/lista_paywall_screen.dart';
+import 'package:condomeet/features/lista_mercado/presentation/screens/lista_onboarding_screen.dart';
 import 'package:condomeet/features/garagem/presentation/screens/garagem_home_screen.dart';
 import 'package:condomeet/features/garagem/presentation/screens/garagem_detail_screen.dart';
 import 'package:condomeet/features/garagem/presentation/screens/garagem_reservation_screen.dart';
 import 'package:condomeet/features/garagem/presentation/screens/garagem_cadastro_screen.dart';
+import 'package:condomeet/features/garagem/presentation/screens/garagem_onboarding_screen.dart';
 import 'package:condomeet/features/vistoria/presentation/screens/vistoria_home_screen.dart';
 import 'package:condomeet/features/vistoria/presentation/screens/vistoria_editor_screen.dart';
 import 'package:condomeet/features/vistoria/presentation/screens/vistoria_timeline_screen.dart';
+import 'package:condomeet/features/vistoria/presentation/screens/vistoria_onboarding_screen.dart';
 
 
 class AppRouter {
@@ -229,8 +232,10 @@ class AppRouter {
       '/lista-mercado/admin': (context) => const ListaAdminScreen(),
       '/lista-mercado/cartao': (context) => const CartaoEconomiaScreen(),
       '/lista-mercado/paywall': (context) => const ListaPaywallScreen(),
+      '/lista-mercado/onboarding': (context) => const ListaOnboardingScreen(),
       // Garagem (Aluguel de Vaga)
       '/garagem': (context) => const GaragemHomeScreen(),
+      '/garagem/onboarding': (context) => const GaragemOnboardingScreen(),
       '/garagem-detalhe': (context) {
         final vagaId = ModalRoute.of(context)!.settings.arguments as String;
         return GaragemDetailScreen(vagaId: vagaId);
@@ -245,6 +250,7 @@ class AppRouter {
       },
       // Vistoria Digital
       '/vistorias': (context) => const VistoriaHomeScreen(),
+      '/vistoria/onboarding': (context) => const VistoriaOnboardingScreen(),
       '/vistoria-editor': (context) {
         final vistoriaId = ModalRoute.of(context)!.settings.arguments as String;
         return VistoriaEditorScreen(vistoriaId: vistoriaId);

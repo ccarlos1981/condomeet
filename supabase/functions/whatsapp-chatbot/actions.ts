@@ -53,6 +53,9 @@ export async function executeActions(
         case "REPORT_WRONG_PARCEL":
           result = await reportWrongParcel(ctx)
           break
+        case "REPORT_UNAUTHORIZED_VISITOR":
+          result = await reportUnauthorizedVisitor(ctx)
+          break
         default:
           result = { type: action.type, success: false, error: `Ação desconhecida: ${action.type}` }
       }
@@ -256,5 +259,55 @@ async function reportWrongParcel(ctx: ActionParams): Promise<ActionResult> {
     type: "REPORT_WRONG_PARCEL",
     success: anySuccess,
     details: `${sindicos.length} síndico(s) notificado(s)`,
+  }
+}
+
+// ── Action: Report Unauthorized Visitor ──────────────────────────────────────
+
+async function reportUnauthorizedVisitor(ctx: ActionParams): Promise<ActionResult> {
+  // Find all síndicos of this condominium
+  const { data: sindicos } = await ctx.supabase
+    .from("perfil")
+    .select("id, nome_completo, whatsapp")
+    .eq("condominio_id", ctx.condominioId)
+    .in("papel_sistema", ["Sindico", "Síndico", "sindico", "Síndico (a)", "Admin", "admin"])
+    .eq("status_aprovacao", "aprovado")
+    .not("whatsapp", "is", null)
+
+  const msg =
+    `🚨 *Condomeet — Visitante Não Autorizado*\n\n` +
+    `Morador(a) ${ctx.moradorNome} (Bloco ${ctx.bloco} / Apto ${ctx.apto}) informou que *nenhum morador dessa unidade solicitou a entrada de visitante* que foi liberada pela portaria.\n\n` +
+    `Por favor, verifique com a portaria o que aconteceu.`
+
+  if (!sindicos || sindicos.length === 0) {
+    // Fallback: notify admin phones
+    const adminPhone1 = Deno.env.get("ADMIN_PHONE_1") || "5531992707070"
+    await sendTextMessage(ctx.uazapiUrl, ctx.uazapiToken, adminPhone1, msg)
+
+    return {
+      type: "REPORT_UNAUTHORIZED_VISITOR",
+      success: true,
+      details: "Administrador notificado sobre visitante não autorizado",
+    }
+  }
+
+  // Notify all síndicos
+  let anySuccess = false
+  for (const sindico of sindicos) {
+    if (sindico.whatsapp) {
+      const phone = sindico.whatsapp.startsWith("55") ? sindico.whatsapp : "55" + sindico.whatsapp
+      const result = await sendTextMessage(ctx.uazapiUrl, ctx.uazapiToken, phone, msg)
+      if (result.success) anySuccess = true
+
+      // Small delay between sends
+      await new Promise(r => setTimeout(r, 2000))
+    }
+  }
+
+  console.log(`[ACTION] REPORT_UNAUTHORIZED_VISITOR: notified ${sindicos.length} síndico(s)`)
+  return {
+    type: "REPORT_UNAUTHORIZED_VISITOR",
+    success: anySuccess,
+    details: `${sindicos.length} síndico(s) notificado(s) sobre visitante não autorizado`,
   }
 }

@@ -3,6 +3,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:condomeet/features/lista_mercado/lista_mercado_service.dart';
 import 'package:condomeet/features/lista_mercado/lista_subscription_service.dart';
 import 'package:condomeet/features/lista_mercado/presentation/widgets/lista_onboarding_popup.dart';
+import 'package:condomeet/features/lista_mercado/presentation/widgets/lista_welcome_dialog.dart';
 
 class ListaMercadoHomeScreen extends StatefulWidget {
   const ListaMercadoHomeScreen({super.key});
@@ -32,7 +33,7 @@ class _ListaMercadoHomeScreenState extends State<ListaMercadoHomeScreen> {
     _loadData();
     _loadGuideState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      ListaOnboardingPopup.showIfNeeded(context);
+      ListaWelcomeDialog.showIfFirstTime(context);
     });
   }
 
@@ -208,6 +209,14 @@ class _ListaMercadoHomeScreenState extends State<ListaMercadoHomeScreen> {
           ],
         ),
         actions: [
+          IconButton(
+            icon: const Icon(Icons.route_rounded, color: _accent),
+            tooltip: 'Passo a passo',
+            onPressed: () {
+              Navigator.pushNamed(context, '/lista-mercado/onboarding');
+              _showGuideAgain();
+            },
+          ),
           IconButton(
             icon: Icon(Icons.help_outline_rounded, color: Colors.grey.shade500),
             tooltip: 'Como funciona?',
@@ -524,8 +533,8 @@ class _ListaMercadoHomeScreenState extends State<ListaMercadoHomeScreen> {
   // ── Empty State ──
   Widget _buildEmptyState() {
     return Container(
-      margin: const EdgeInsets.only(top: 40),
-      padding: const EdgeInsets.all(32),
+      margin: const EdgeInsets.only(top: 8),
+      padding: const EdgeInsets.all(24),
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(24),
@@ -534,17 +543,17 @@ class _ListaMercadoHomeScreenState extends State<ListaMercadoHomeScreen> {
       child: Column(
         children: [
           Container(
-            padding: const EdgeInsets.all(20),
+            padding: const EdgeInsets.all(16),
             decoration: BoxDecoration(
               color: _accent.withValues(alpha: 0.08),
               shape: BoxShape.circle,
             ),
-            child: Icon(Icons.shopping_cart_outlined, size: 48, color: _accent.withValues(alpha: 0.5)),
+            child: Icon(Icons.shopping_cart_outlined, size: 40, color: _accent.withValues(alpha: 0.5)),
           ),
-          const SizedBox(height: 20),
-          Text('Crie sua primeira lista!', style: TextStyle(color: Colors.grey.shade800, fontSize: 18, fontWeight: FontWeight.w600)),
-          const SizedBox(height: 8),
-          Text('Compare preços e economize nas compras', style: TextStyle(color: Colors.grey.shade500, fontSize: 14)),
+          const SizedBox(height: 16),
+          Text('Crie sua primeira lista!', style: TextStyle(color: Colors.grey.shade800, fontSize: 16, fontWeight: FontWeight.w600)),
+          const SizedBox(height: 6),
+          Text('Compare preços e economize nas compras', style: TextStyle(color: Colors.grey.shade500, fontSize: 13)),
         ],
       ),
     );
