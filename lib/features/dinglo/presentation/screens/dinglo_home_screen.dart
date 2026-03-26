@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../../dinglo/dinglo_theme.dart';
 import '../widgets/dinglo_welcome_dialog.dart';
@@ -23,6 +24,8 @@ class _DingloHomeScreenState extends State<DingloHomeScreen> {
   int _contasCount = 0;
   int _cartoesCount = 0;
   List<Map<String, dynamic>> _recentTransactions = [];
+  bool _showGuide = true;
+  static const _guidePrefKey = 'dinglo_guide_dismissed';
 
   @override
   void initState() {
@@ -30,6 +33,7 @@ class _DingloHomeScreenState extends State<DingloHomeScreen> {
     _loadDashboardData().then((_) {
       if (mounted) DingloWelcomeDialog.showIfFirstTime(context);
     });
+    _loadGuideState();
   }
 
   Future<void> _loadDashboardData() async {
@@ -149,6 +153,7 @@ class _DingloHomeScreenState extends State<DingloHomeScreen> {
           children: [
             _buildHeaderCard(),
             const SizedBox(height: 16),
+            if (_showGuide) _buildStepGuide(),
             _buildQuickActions(),
             const SizedBox(height: 16),
             _buildSummaryCards(),
@@ -200,6 +205,21 @@ class _DingloHomeScreenState extends State<DingloHomeScreen> {
                     onTap: () => Navigator.pushNamed(context, '/dinglo/onboarding'),
                     child: const Icon(
                       Icons.route_rounded,
+                      color: Colors.white70,
+                      size: 22,
+                    ),
+                  ),
+                  const SizedBox(width: 16),
+                  GestureDetector(
+                    onTap: () {
+                      showDialog(
+                        context: context,
+                        builder: (_) => const DingloWelcomeDialog(),
+                      );
+                      _showGuideAgain();
+                    },
+                    child: const Icon(
+                      Icons.help_outline_rounded,
                       color: Colors.white70,
                       size: 22,
                     ),
@@ -636,6 +656,123 @@ class _DingloHomeScreenState extends State<DingloHomeScreen> {
       ),
     );
   }
+
+  // ── Guide State ──
+  Future<void> _loadGuideState() async {
+    final prefs = await SharedPreferences.getInstance();
+    if (mounted) {
+      setState(() => _showGuide = !(prefs.getBool(_guidePrefKey) ?? false));
+    }
+  }
+
+  Future<void> _dismissGuide() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool(_guidePrefKey, true);
+    if (mounted) setState(() => _showGuide = false);
+  }
+
+  void _showGuideAgain() {
+    setState(() => _showGuide = true);
+  }
+
+  // ── Step-by-Step Checklist Guide ──
+  Widget _buildStepGuide() {
+    final steps = [
+      _DingloGuideStep('Cadastre suas contas', 'Banco, carteira, poupança...', _contasCount > 0),
+      _DingloGuideStep('Organize categorias', 'Alimentação, transporte, lazer...', true), // Always has defaults
+      _DingloGuideStep('Registre seus gastos', 'Acompanhe para onde vai seu dinheiro', _recentTransactions.isNotEmpty),
+    ];
+
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16),
+      child: Container(
+        margin: const EdgeInsets.only(bottom: 16),
+        padding: const EdgeInsets.all(14),
+        decoration: BoxDecoration(
+          gradient: LinearGradient(
+            colors: [DingloTheme.primary.withValues(alpha: 0.06), DingloTheme.primary.withValues(alpha: 0.12)],
+          ),
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: DingloTheme.primary.withValues(alpha: 0.2)),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                const Icon(Icons.route_rounded, color: DingloTheme.primary, size: 18),
+                const SizedBox(width: 6),
+                const Expanded(
+                  child: Text(
+                    'Como começar',
+                    style: TextStyle(fontWeight: FontWeight.w700, fontSize: 14, color: DingloTheme.textPrimary),
+                  ),
+                ),
+                GestureDetector(
+                  onTap: _dismissGuide,
+                  child: Icon(Icons.close_rounded, color: Colors.grey.shade400, size: 18),
+                ),
+              ],
+            ),
+            const SizedBox(height: 10),
+            ...steps.asMap().entries.map((entry) {
+              final i = entry.key;
+              final step = entry.value;
+              final isLast = i == steps.length - 1;
+              return Padding(
+                padding: EdgeInsets.only(bottom: isLast ? 0 : 8),
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Container(
+                      width: 26, height: 26,
+                      decoration: BoxDecoration(
+                        color: step.done ? const Color(0xFF00C853) : Colors.white,
+                        shape: BoxShape.circle,
+                        border: Border.all(
+                          color: step.done ? const Color(0xFF00C853) : Colors.grey.shade400,
+                          width: 2,
+                        ),
+                      ),
+                      child: step.done
+                          ? const Icon(Icons.check_rounded, color: Colors.white, size: 16)
+                          : Center(
+                              child: Text(
+                                '${i + 1}',
+                                style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: Colors.grey.shade500),
+                              ),
+                            ),
+                    ),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            step.title,
+                            style: TextStyle(
+                              fontWeight: FontWeight.w600,
+                              fontSize: 13,
+                              color: step.done ? Colors.grey.shade500 : DingloTheme.textPrimary,
+                              decoration: step.done ? TextDecoration.lineThrough : null,
+                            ),
+                          ),
+                          Text(
+                            step.subtitle,
+                            style: TextStyle(fontSize: 11, color: Colors.grey.shade500),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              );
+            }),
+          ],
+        ),
+      ),
+    );
+  }
 }
 
 class _QuickAction {
@@ -650,4 +787,11 @@ class _PainelItem {
   final IconData icon;
   final String route;
   _PainelItem(this.label, this.icon, this.route);
+}
+
+class _DingloGuideStep {
+  final String title;
+  final String subtitle;
+  final bool done;
+  const _DingloGuideStep(this.title, this.subtitle, this.done);
 }

@@ -6,15 +6,22 @@ import { usePathname } from 'next/navigation'
 import {
   Home, UserCheck, Users, Bell, FileText, MessageSquare,
   CalendarDays, MapPin, ClipboardList, Settings, Package,
-  ChevronLeft, ChevronRight, Menu, X, LogOut, Megaphone,
-  AlertCircle, SlidersHorizontal, ArrowRight, BarChart3, Building2, Camera, ShoppingBag, Wallet, ShoppingCart, Store
+  ChevronLeft, ChevronRight, ChevronDown, Menu, X, LogOut, Megaphone,
+  AlertCircle, SlidersHorizontal, ArrowRight, BarChart3, Building2, Camera, ShoppingBag, Wallet, ShoppingCart, Store, Car, ClipboardCheck
 } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { useRouter } from 'next/navigation'
 
-type NavSection = {
+type NavItem = {
+  label: string
+  href: string
+  icon: React.ReactNode
+  children?: { label: string; href: string; icon: React.ReactNode }[]
+}
+
+type NavSectionTyped = {
   title: string
-  items: { label: string; href: string; icon: React.ReactNode }[]
+  items: NavItem[]
 }
 
 export default function AdminSidebar({
@@ -33,8 +40,13 @@ export default function AdminSidebar({
   const supabase = createClient()
   const [collapsed, setCollapsed] = useState(false)
   const [mobileOpen, setMobileOpen] = useState(false)
+  const [expandedMenus, setExpandedMenus] = useState<Record<string, boolean>>({})
 
-  const sections: NavSection[] = [
+  const toggleSubmenu = (label: string) => {
+    setExpandedMenus(prev => ({ ...prev, [label]: !prev[label] }))
+  }
+
+  const sections: NavSectionTyped[] = [
     {
       title: 'Geral',
       items: [
@@ -65,6 +77,7 @@ export default function AdminSidebar({
         { label: 'Registro Turno',  href: '/admin/registro-turno',  icon: <ClipboardList size={18} /> },
         { label: 'Estrutura',       href: '/admin/estrutura',       icon: <Building2 size={18} /> },
         { label: 'Classificados',   href: '/admin/classificados',   icon: <ShoppingBag size={18} /> },
+        { label: 'Vistorias',       href: '/admin/vistorias',       icon: <ClipboardCheck size={18} /> },
       ],
     },
     {
@@ -73,17 +86,32 @@ export default function AdminSidebar({
         { label: 'Configurar Acesso', href: '/admin/configurar-acesso', icon: <Settings size={18} /> },
         { label: 'Configurar Ordem',  href: '/admin/configurar-ordem',  icon: <SlidersHorizontal size={18} /> },
         ...(isSuperAdmin
-          ? [
-              { label: 'Push Universal', href: '/admin/push-universal', icon: <Megaphone size={18} /> },
-              { label: 'Propaganda', href: '/admin/propaganda', icon: <ShoppingBag size={18} /> },
-              { label: 'Meu Bolso', href: '/admin/dinglo', icon: <Wallet size={18} /> },
-              { label: 'Lista Inteligente', href: '/admin/lista-inteligente', icon: <ShoppingCart size={18} /> },
-              { label: 'B2B Mercados', href: '/admin/lista-b2b', icon: <Store size={18} /> },
-              { label: 'Analytics', href: '/admin/lista-analytics', icon: <BarChart3 size={18} /> },
-            ]
+          ? [{ label: 'Push Universal', href: '/admin/push-universal', icon: <Megaphone size={18} /> }]
           : []),
       ],
     },
+    ...(isSuperAdmin
+      ? [
+          {
+            title: 'Empresas Parceiras',
+            items: [
+              { label: 'Propaganda', href: '/admin/propaganda', icon: <ShoppingBag size={18} /> },
+              { label: 'Meu Bolso', href: '/admin/dinglo', icon: <Wallet size={18} /> },
+              {
+                label: 'Lista Inteligente',
+                href: '/admin/lista-inteligente',
+                icon: <ShoppingCart size={18} />,
+                children: [
+                  { label: 'B2B Mercados', href: '/admin/lista-b2b', icon: <Store size={18} /> },
+                  { label: 'Analytics', href: '/admin/lista-analytics', icon: <BarChart3 size={18} /> },
+                ],
+              },
+              { label: 'Garagem', href: '/admin/garagem', icon: <Car size={18} /> },
+              { label: 'Checklist', href: '/admin/vistorias', icon: <ClipboardCheck size={18} /> },
+            ] as NavItem[],
+          },
+        ]
+      : []),
   ]
 
   async function handleLogout() {
@@ -134,21 +162,65 @@ export default function AdminSidebar({
             <div className="space-y-0.5 px-2">
               {section.items.map(item => {
                 const isActive = pathname === item.href
+                const hasChildren = item.children && item.children.length > 0
+                const isChildActive = hasChildren && item.children!.some(c => pathname === c.href)
+                const isExpanded = expandedMenus[item.label] || isChildActive
+
                 return (
-                  <Link
-                    key={item.href}
-                    href={item.href}
-                    onClick={() => setMobileOpen(false)}
-                    title={collapsed ? item.label : undefined}
-                    className={`flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all duration-150 ${
-                      isActive
-                        ? 'bg-[#FC5931] text-white shadow-lg shadow-[#FC5931]/20'
-                        : 'text-white/60 hover:bg-white/[0.06] hover:text-white'
-                    }`}
-                  >
-                    <span className="flex-shrink-0">{item.icon}</span>
-                    {!collapsed && <span className="truncate">{item.label}</span>}
-                  </Link>
+                  <div key={item.href}>
+                    {/* Parent item */}
+                    <div className="flex items-center">
+                      <Link
+                        href={item.href}
+                        onClick={() => setMobileOpen(false)}
+                        title={collapsed ? item.label : undefined}
+                        className={`flex-1 flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all duration-150 ${
+                          isActive
+                            ? 'bg-[#FC5931] text-white shadow-lg shadow-[#FC5931]/20'
+                            : 'text-white/60 hover:bg-white/[0.06] hover:text-white'
+                        }`}
+                      >
+                        <span className="shrink-0">{item.icon}</span>
+                        {!collapsed && <span className="truncate">{item.label}</span>}
+                      </Link>
+                      {hasChildren && !collapsed && (
+                        <button
+                          onClick={() => toggleSubmenu(item.label)}
+                          className="p-1.5 rounded-lg hover:bg-white/10 text-white/40 hover:text-white transition-colors"
+                          title={`Expandir ${item.label}`}
+                        >
+                          <ChevronDown
+                            size={14}
+                            className={`transition-transform duration-200 ${isExpanded ? 'rotate-180' : ''}`}
+                          />
+                        </button>
+                      )}
+                    </div>
+
+                    {/* Children sub-items */}
+                    {hasChildren && isExpanded && !collapsed && (
+                      <div className="ml-5 mt-0.5 space-y-0.5 border-l border-white/10 pl-2">
+                        {item.children!.map(child => {
+                          const isChildItemActive = pathname === child.href
+                          return (
+                            <Link
+                              key={child.href}
+                              href={child.href}
+                              onClick={() => setMobileOpen(false)}
+                              className={`flex items-center gap-2.5 px-3 py-2 rounded-lg text-xs font-medium transition-all duration-150 ${
+                                isChildItemActive
+                                  ? 'bg-[#FC5931]/80 text-white'
+                                  : 'text-white/50 hover:bg-white/[0.06] hover:text-white'
+                              }`}
+                            >
+                              <span className="shrink-0">{child.icon}</span>
+                              <span className="truncate">{child.label}</span>
+                            </Link>
+                          )
+                        })}
+                      </div>
+                    )}
+                  </div>
                 )
               })}
             </div>

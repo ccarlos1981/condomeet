@@ -1,4 +1,5 @@
 import 'dart:io';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/gestures.dart';
@@ -38,6 +39,7 @@ class _HomeScreenState extends State<HomeScreen> {
   String? _fotoUrl;
   bool _uploadingSelfie = false;
   List<Map<String, dynamic>> _propaganda = [];
+  bool _showPartnersChecklist = true;
 
   @override
   void initState() {
@@ -46,6 +48,7 @@ class _HomeScreenState extends State<HomeScreen> {
     _initStream(authState.condominiumId);
     _loadFotoUrl(authState.userId);
     _loadPropaganda(authState.condominiumId);
+    _loadPartnersChecklistState();
 
     if (authState.userId != null) {
       context.read<ParcelBloc>().add(
@@ -113,7 +116,8 @@ class _HomeScreenState extends State<HomeScreen> {
           .getPublicUrl(path);
 
       // Add cache-buster to force new image
-      final urlWithCacheBust = '$publicUrl?t=${DateTime.now().millisecondsSinceEpoch}';
+      final urlWithCacheBust =
+          '$publicUrl?t=${DateTime.now().millisecondsSinceEpoch}';
 
       await Supabase.instance.client
           .from('perfil')
@@ -165,7 +169,9 @@ class _HomeScreenState extends State<HomeScreen> {
       barrierDismissible: false,
       builder: (dialogContext) {
         return Dialog(
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(20),
+          ),
           elevation: 0,
           child: Padding(
             padding: const EdgeInsets.all(24),
@@ -180,8 +186,11 @@ class _HomeScreenState extends State<HomeScreen> {
                     shape: BoxShape.circle,
                     border: Border.all(color: Colors.red.shade100, width: 2),
                   ),
-                  child: Icon(Icons.emergency_share_rounded,
-                      color: Colors.red.shade600, size: 36),
+                  child: Icon(
+                    Icons.emergency_share_rounded,
+                    color: Colors.red.shade600,
+                    size: 36,
+                  ),
                 ),
                 const SizedBox(height: 20),
                 const Text(
@@ -213,7 +222,8 @@ class _HomeScreenState extends State<HomeScreen> {
                           backgroundColor: Colors.red,
                           padding: const EdgeInsets.symmetric(vertical: 14),
                           shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(12)),
+                            borderRadius: BorderRadius.circular(12),
+                          ),
                           elevation: 0,
                         ),
                         child: const Text(
@@ -234,7 +244,8 @@ class _HomeScreenState extends State<HomeScreen> {
                           padding: const EdgeInsets.symmetric(vertical: 14),
                           side: BorderSide(color: Colors.grey.shade400),
                           shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(12)),
+                            borderRadius: BorderRadius.circular(12),
+                          ),
                         ),
                         child: Text(
                           'NÃO QUERO',
@@ -264,8 +275,7 @@ class _HomeScreenState extends State<HomeScreen> {
     if (condoId == null || userId == null) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text(
-              'Erro: não foi possível identificar o condomínio.'),
+          content: Text('Erro: não foi possível identificar o condomínio.'),
           behavior: SnackBarBehavior.floating,
         ),
       );
@@ -333,7 +343,6 @@ class _HomeScreenState extends State<HomeScreen> {
                     authState.role ?? 'resident',
                   );
 
-
                   return Column(
                     children: [
                       _buildHeader(authState),
@@ -370,7 +379,8 @@ class _HomeScreenState extends State<HomeScreen> {
 
   Widget _buildSelfieBanner() {
     // Don't show banner if user already has a photo
-    if (_fotoUrl != null && _fotoUrl!.isNotEmpty) return const SizedBox.shrink();
+    if (_fotoUrl != null && _fotoUrl!.isNotEmpty)
+      return const SizedBox.shrink();
 
     return GestureDetector(
       onTap: _uploadingSelfie ? null : _captureSelfie,
@@ -383,9 +393,19 @@ class _HomeScreenState extends State<HomeScreen> {
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
             if (_uploadingSelfie) ...[
-              const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2, color: AppColors.primary)),
+              const SizedBox(
+                width: 16,
+                height: 16,
+                child: CircularProgressIndicator(
+                  strokeWidth: 2,
+                  color: AppColors.primary,
+                ),
+              ),
               const SizedBox(width: 12),
-              const Text('Salvando selfie...', style: TextStyle(color: AppColors.textMain, fontSize: 13)),
+              const Text(
+                'Salvando selfie...',
+                style: TextStyle(color: AppColors.textMain, fontSize: 13),
+              ),
             ] else ...[
               Container(
                 width: 12,
@@ -425,11 +445,7 @@ class _HomeScreenState extends State<HomeScreen> {
       child: Row(
         children: [
           // Logo
-          Image.asset(
-            'assets/images/logo.png',
-            width: 40,
-            height: 40,
-          ),
+          Image.asset('assets/images/logo.png', width: 40, height: 40),
           const SizedBox(width: 8),
           const Expanded(
             child: Column(
@@ -446,7 +462,10 @@ class _HomeScreenState extends State<HomeScreen> {
                 ),
                 Text(
                   'seu condomínio digital',
-                  style: TextStyle(fontSize: 10, color: AppColors.textSecondary),
+                  style: TextStyle(
+                    fontSize: 10,
+                    color: AppColors.textSecondary,
+                  ),
                 ),
               ],
             ),
@@ -501,8 +520,10 @@ class _HomeScreenState extends State<HomeScreen> {
     // 2 linhas fixas, colunas automáticas, scroll horizontal
     // mainAxisExtent = largura de cada coluna (= tamanho do ícone quadrado)
     // crossAxisExtent = altura de cada linha (ícone + espaço + label)
-    const double itemMainAxisExtent = 90.0;  // largura (e altura do ícone, por AspectRatio 1:1)
-    const double itemCrossAxisExtent = 115.0; // altura total: 64 ícone + 6 espaço + ~28 label
+    const double itemMainAxisExtent =
+        90.0; // largura (e altura do ícone, por AspectRatio 1:1)
+    const double itemCrossAxisExtent =
+        115.0; // altura total: 64 ícone + 6 espaço + ~28 label
     const double spacing = 10.0;
     // Altura total = 2 linhas + espaço entre elas + padding vertical
     const double sectionHeight = itemCrossAxisExtent * 2 + spacing + 8;
@@ -514,14 +535,13 @@ class _HomeScreenState extends State<HomeScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-
           SizedBox(
             height: sectionHeight,
             child: GridView.builder(
               scrollDirection: Axis.horizontal,
               padding: const EdgeInsets.only(right: 16),
               gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-                crossAxisCount: 2,          // sempre 2 linhas
+                crossAxisCount: 2, // sempre 2 linhas
                 crossAxisSpacing: spacing,
                 mainAxisSpacing: spacing,
                 mainAxisExtent: itemMainAxisExtent,
@@ -604,7 +624,9 @@ class _HomeScreenState extends State<HomeScreen> {
               .toList();
         }
         final pendingCount = pendingParcels.length;
-        final firstParcel = pendingParcels.isNotEmpty ? pendingParcels.first : null;
+        final firstParcel = pendingParcels.isNotEmpty
+            ? pendingParcels.first
+            : null;
 
         // Format arrival date
         String arrivalLabel = '';
@@ -629,11 +651,20 @@ class _HomeScreenState extends State<HomeScreen> {
         String tipoLabel = '';
         if (firstParcel?.tipo != null) {
           switch (firstParcel!.tipo) {
-            case 'caixa':       tipoLabel = 'Caixa'; break;
-            case 'envelope':    tipoLabel = 'Envelope'; break;
-            case 'pacote':      tipoLabel = 'Pacote'; break;
-            case 'notif_judicial': tipoLabel = 'Notificação Judicial'; break;
-            default:            tipoLabel = firstParcel.tipo!;
+            case 'caixa':
+              tipoLabel = 'Caixa';
+              break;
+            case 'envelope':
+              tipoLabel = 'Envelope';
+              break;
+            case 'pacote':
+              tipoLabel = 'Pacote';
+              break;
+            case 'notif_judicial':
+              tipoLabel = 'Notificação Judicial';
+              break;
+            default:
+              tipoLabel = firstParcel.tipo!;
           }
         }
 
@@ -736,14 +767,16 @@ class _HomeScreenState extends State<HomeScreen> {
                               ),
                             Text(
                               [
-                                if (tipoLabel.isNotEmpty) tipoLabel,
-                                if (pendingCount > 1) '+${pendingCount - 1} mais',
-                              ].join(' · ').isNotEmpty
-                                ? [
                                     if (tipoLabel.isNotEmpty) tipoLabel,
-                                    if (pendingCount > 1) '+${pendingCount - 1} mais',
-                                  ].join(' · ')
-                                : 'Passe na portaria para retirar.',
+                                    if (pendingCount > 1)
+                                      '+${pendingCount - 1} mais',
+                                  ].join(' · ').isNotEmpty
+                                  ? [
+                                      if (tipoLabel.isNotEmpty) tipoLabel,
+                                      if (pendingCount > 1)
+                                        '+${pendingCount - 1} mais',
+                                    ].join(' · ')
+                                  : 'Passe na portaria para retirar.',
                               style: const TextStyle(
                                 fontSize: 11,
                                 color: AppColors.textSecondary,
@@ -854,43 +887,52 @@ class _HomeScreenState extends State<HomeScreen> {
               child: ListView(
                 padding: EdgeInsets.zero,
                 children: [
-                  _drawerItem(Icons.edit_note, 'Editar meu perfil', onTap: () async {
-                    Navigator.pop(context); // fecha drawer
-                    final userId = authState.userId;
-                    final condoId = authState.condominiumId;
-                    if (userId == null || condoId == null) return;
-                    
-                    // Busca dados atuais do perfil
-                    try {
-                      final perfil = await Supabase.instance.client
-                          .from('perfil')
-                          .select('nome_completo, whatsapp, tipo_morador, bloco_txt, apto_txt')
-                          .eq('id', userId)
-                          .single();
-                      
-                      if (!context.mounted) return;
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (_) => EditProfileScreen(
-                            userId: userId,
-                            condominioId: condoId,
-                            currentName: perfil['nome_completo'],
-                            currentWhatsapp: perfil['whatsapp'],
-                            currentTipoMorador: perfil['tipo_morador'],
-                            currentBlocoTxt: perfil['bloco_txt'],
-                            currentAptoTxt: perfil['apto_txt'],
+                  _drawerItem(
+                    Icons.edit_note,
+                    'Editar meu perfil',
+                    onTap: () async {
+                      Navigator.pop(context); // fecha drawer
+                      final userId = authState.userId;
+                      final condoId = authState.condominiumId;
+                      if (userId == null || condoId == null) return;
+
+                      // Busca dados atuais do perfil
+                      try {
+                        final perfil = await Supabase.instance.client
+                            .from('perfil')
+                            .select(
+                              'nome_completo, whatsapp, tipo_morador, bloco_txt, apto_txt',
+                            )
+                            .eq('id', userId)
+                            .single();
+
+                        if (!context.mounted) return;
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (_) => EditProfileScreen(
+                              userId: userId,
+                              condominioId: condoId,
+                              currentName: perfil['nome_completo'],
+                              currentWhatsapp: perfil['whatsapp'],
+                              currentTipoMorador: perfil['tipo_morador'],
+                              currentBlocoTxt: perfil['bloco_txt'],
+                              currentAptoTxt: perfil['apto_txt'],
+                            ),
                           ),
-                        ),
-                      );
-                    } catch (e) {
-                      if (context.mounted) {
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          SnackBar(content: Text('Erro ao carregar perfil: $e'), backgroundColor: Colors.red),
                         );
+                      } catch (e) {
+                        if (context.mounted) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(
+                              content: Text('Erro ao carregar perfil: $e'),
+                              backgroundColor: Colors.red,
+                            ),
+                          );
+                        }
                       }
-                    }
-                  }),
+                    },
+                  ),
                   _drawerItem(Icons.home_outlined, 'Minha unidade'),
                   _drawerItem(
                     Icons.emergency_outlined,
@@ -908,7 +950,10 @@ class _HomeScreenState extends State<HomeScreen> {
                     'Política de privacidade',
                     onTap: () {
                       Navigator.pop(context);
-                      launchUrl(Uri.parse('https://condomeet.app.br/privacidade'), mode: LaunchMode.externalApplication);
+                      launchUrl(
+                        Uri.parse('https://condomeet.app.br/privacidade'),
+                        mode: LaunchMode.externalApplication,
+                      );
                     },
                   ),
                   _drawerItem(
@@ -1014,12 +1059,173 @@ class _HomeScreenState extends State<HomeScreen> {
               scrollDirection: Axis.horizontal,
               padding: const EdgeInsets.symmetric(horizontal: 12),
               children: [
-                if (_propaganda.isEmpty) ..._defaultPartnerItems()
-                else ..._propaganda.map((p) => _buildRealPartnerItem(p)).toList(),
+                if (_propaganda.isEmpty)
+                  ..._defaultPartnerItems()
+                else
+                  ..._propaganda.map((p) => _buildRealPartnerItem(p)).toList(),
               ],
             ),
           ),
+          // ── Partners checklist ─────────────────────
+          if (_showPartnersChecklist) ...[
+            const SizedBox(height: 12),
+            _buildPartnersChecklistWidget(),
+          ],
         ],
+      ),
+    );
+  }
+
+  Future<void> _loadPartnersChecklistState() async {
+    final prefs = await SharedPreferences.getInstance();
+    final dismissed = prefs.getBool('partners_checklist_dismissed') ?? false;
+    if (mounted && dismissed) {
+      setState(() => _showPartnersChecklist = false);
+    }
+  }
+
+  Future<void> _dismissPartnersChecklist() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool('partners_checklist_dismissed', true);
+    if (mounted) setState(() => _showPartnersChecklist = false);
+  }
+
+  Future<void> _showPartnersChecklistAgain() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.remove('partners_checklist_dismissed');
+    if (mounted) setState(() => _showPartnersChecklist = true);
+  }
+
+  Widget _buildPartnersChecklistWidget() {
+    final steps = [
+      {
+        'icon': Icons.account_balance_wallet,
+        'title': 'Explore o Meu Bolso',
+        'desc': 'Gerencie suas finanças pessoais',
+        'color': const Color(0xFF1D4ED8),
+        'route': '/dinglo',
+      },
+      {
+        'icon': Icons.shopping_cart,
+        'title': 'Use a Lista Inteligente',
+        'desc': 'Compare preços de supermercados',
+        'color': const Color(0xFF00C853),
+        'route': '/lista-mercado',
+      },
+      {
+        'icon': Icons.local_parking,
+        'title': 'Descubra a Garagem',
+        'desc': 'Alugue ou reserve vagas',
+        'color': const Color(0xFF7B2FF7),
+        'route': '/garagem',
+      },
+      {
+        'icon': Icons.checklist_rounded,
+        'title': 'Crie seu Checklist',
+        'desc': 'Vistorias digitais para seu imóvel',
+        'color': const Color(0xFFFF6D00),
+        'route': '/vistorias',
+      },
+    ];
+
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16),
+      child: Container(
+        decoration: BoxDecoration(
+          gradient: LinearGradient(
+            colors: [Colors.blue.shade50, Colors.purple.shade50],
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+          ),
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: Colors.blue.shade100),
+        ),
+        padding: const EdgeInsets.all(14),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Row(
+                  children: [
+                    Icon(Icons.route, size: 16, color: Colors.blue.shade700),
+                    const SizedBox(width: 6),
+                    Text(
+                      'Passo a passo',
+                      style: TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w700,
+                        color: Colors.blue.shade900,
+                      ),
+                    ),
+                  ],
+                ),
+                GestureDetector(
+                  onTap: _dismissPartnersChecklist,
+                  child: Icon(
+                    Icons.close,
+                    size: 16,
+                    color: Colors.grey.shade400,
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 10),
+            ...steps.map(
+              (s) => GestureDetector(
+                onTap: () => Navigator.pushNamed(context, s['route'] as String),
+                child: Padding(
+                  padding: const EdgeInsets.only(bottom: 6),
+                  child: Row(
+                    children: [
+                      Container(
+                        width: 28,
+                        height: 28,
+                        decoration: BoxDecoration(
+                          color: (s['color'] as Color).withValues(alpha: 0.12),
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: Icon(
+                          s['icon'] as IconData,
+                          size: 16,
+                          color: s['color'] as Color,
+                        ),
+                      ),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              s['title'] as String,
+                              style: const TextStyle(
+                                fontSize: 12,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                            Text(
+                              s['desc'] as String,
+                              style: TextStyle(
+                                fontSize: 10,
+                                color: Colors.grey.shade500,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      Icon(
+                        Icons.chevron_right,
+                        size: 16,
+                        color: Colors.grey.shade400,
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -1035,7 +1241,8 @@ class _HomeScreenState extends State<HomeScreen> {
         decoration: BoxDecoration(
           gradient: const LinearGradient(
             colors: [Color(0xFF1D4ED8), Color(0xFF3B82F6)],
-            begin: Alignment.topLeft, end: Alignment.bottomRight,
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
           ),
           borderRadius: BorderRadius.circular(20),
           boxShadow: [
@@ -1083,7 +1290,8 @@ class _HomeScreenState extends State<HomeScreen> {
         decoration: BoxDecoration(
           gradient: const LinearGradient(
             colors: [Color(0xFF00C853), Color(0xFF69F0AE)],
-            begin: Alignment.topLeft, end: Alignment.bottomRight,
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
           ),
           borderRadius: BorderRadius.circular(20),
           boxShadow: [
@@ -1113,16 +1321,86 @@ class _HomeScreenState extends State<HomeScreen> {
         ),
       ),
     ),
-    _buildPlaceholderPartner(
-      gradient: const LinearGradient(
-        colors: [Color(0xFF7B2FF7), Color(0xFF9B5FFF)],
-        begin: Alignment.topLeft, end: Alignment.bottomRight,
+    // Garagem Inteligente
+    GestureDetector(
+      onTap: () => Navigator.pushNamed(context, '/garagem'),
+      child: Container(
+        width: 82,
+        height: 90,
+        margin: const EdgeInsets.symmetric(horizontal: 4),
+        decoration: BoxDecoration(
+          gradient: const LinearGradient(
+            colors: [Color(0xFF7B2FF7), Color(0xFF9B5FFF)],
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+          ),
+          borderRadius: BorderRadius.circular(20),
+          boxShadow: [
+            BoxShadow(
+              color: const Color(0xFF7B2FF7).withValues(alpha: 0.35),
+              blurRadius: 8,
+              offset: const Offset(0, 4),
+            ),
+          ],
+        ),
+        child: const Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(Icons.local_parking, color: Colors.white, size: 34),
+            SizedBox(height: 4),
+            Text(
+              'Garagem\nInteligente',
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                color: Colors.white,
+                fontSize: 8.5,
+                fontWeight: FontWeight.w700,
+                height: 1.25,
+              ),
+            ),
+          ],
+        ),
       ),
     ),
-    _buildPlaceholderPartner(
-      gradient: const LinearGradient(
-        colors: [Color(0xFF7B2FF7), Color(0xFF9B5FFF)],
-        begin: Alignment.topLeft, end: Alignment.bottomRight,
+    // Checklist / Vistoria Digital
+    GestureDetector(
+      onTap: () => Navigator.pushNamed(context, '/vistorias'),
+      child: Container(
+        width: 82,
+        height: 90,
+        margin: const EdgeInsets.symmetric(horizontal: 4),
+        decoration: BoxDecoration(
+          gradient: const LinearGradient(
+            colors: [Color(0xFFFF6D00), Color(0xFFFF9E40)],
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+          ),
+          borderRadius: BorderRadius.circular(20),
+          boxShadow: [
+            BoxShadow(
+              color: const Color(0xFFFF6D00).withValues(alpha: 0.35),
+              blurRadius: 8,
+              offset: const Offset(0, 4),
+            ),
+          ],
+        ),
+        child: const Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(Icons.checklist_rounded, color: Colors.white, size: 34),
+            SizedBox(height: 4),
+            Text(
+              'Checklist',
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                color: Colors.white,
+                fontSize: 9.5,
+                fontWeight: FontWeight.w700,
+                height: 1.25,
+              ),
+            ),
+          ],
+        ),
       ),
     ),
   ];
@@ -1184,7 +1462,9 @@ class _HomeScreenState extends State<HomeScreen> {
     return GestureDetector(
       onTap: () => Navigator.push(
         context,
-        MaterialPageRoute(builder: (_) => EmpresaDetalheScreen(empresa: empresa)),
+        MaterialPageRoute(
+          builder: (_) => EmpresaDetalheScreen(empresa: empresa),
+        ),
       ),
       child: Container(
         width: 82,
@@ -1205,12 +1485,12 @@ class _HomeScreenState extends State<HomeScreen> {
         child: ClipRRect(
           borderRadius: BorderRadius.circular(20),
           child: empresa['logo_url'] != null
-            ? Image.network(
-                empresa['logo_url'],
-                fit: BoxFit.cover,
-                errorBuilder: (_, __, ___) => _partnerPlaceholder(),
-              )
-            : _partnerPlaceholder(),
+              ? Image.network(
+                  empresa['logo_url'],
+                  fit: BoxFit.cover,
+                  errorBuilder: (_, __, ___) => _partnerPlaceholder(),
+                )
+              : _partnerPlaceholder(),
         ),
       ),
     );
@@ -1228,8 +1508,6 @@ class _HomeScreenState extends State<HomeScreen> {
       child: Icon(Icons.business, color: Colors.white70, size: 32),
     ),
   );
-
-
 
   Widget _buildFeaturedSection() {
     return Container(
@@ -1273,9 +1551,16 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  Widget _buildFeaturedCard(String title, String subtitle, Color color, {String? route}) {
+  Widget _buildFeaturedCard(
+    String title,
+    String subtitle,
+    Color color, {
+    String? route,
+  }) {
     return GestureDetector(
-      onTap: route != null ? () => Navigator.of(context).pushNamed(route) : null,
+      onTap: route != null
+          ? () => Navigator.of(context).pushNamed(route)
+          : null,
       child: Container(
         height: 120,
         padding: const EdgeInsets.all(12),
@@ -1310,10 +1595,26 @@ class _HomeScreenState extends State<HomeScreen> {
 
   Widget _buildBottomNav(BuildContext context, AuthState authState) {
     final tabs = [
-      {'icon': Icons.home_rounded, 'iconOutlined': Icons.home_outlined, 'label': 'Início'},
-      {'icon': Icons.emergency_share_rounded, 'iconOutlined': Icons.emergency_share_outlined, 'label': 'SOS'},
-      {'icon': Icons.notifications_rounded, 'iconOutlined': Icons.notifications_outlined, 'label': 'Notificação'},
-      {'icon': Icons.person_rounded, 'iconOutlined': Icons.person_outline_rounded, 'label': 'Perfil'},
+      {
+        'icon': Icons.home_rounded,
+        'iconOutlined': Icons.home_outlined,
+        'label': 'Início',
+      },
+      {
+        'icon': Icons.emergency_share_rounded,
+        'iconOutlined': Icons.emergency_share_outlined,
+        'label': 'SOS',
+      },
+      {
+        'icon': Icons.notifications_rounded,
+        'iconOutlined': Icons.notifications_outlined,
+        'label': 'Notificação',
+      },
+      {
+        'icon': Icons.person_rounded,
+        'iconOutlined': Icons.person_outline_rounded,
+        'label': 'Perfil',
+      },
     ];
 
     return Container(
@@ -1362,7 +1663,10 @@ class _HomeScreenState extends State<HomeScreen> {
                   child: AnimatedContainer(
                     duration: const Duration(milliseconds: 250),
                     curve: Curves.easeInOut,
-                    padding: const EdgeInsets.symmetric(vertical: 6, horizontal: 4),
+                    padding: const EdgeInsets.symmetric(
+                      vertical: 6,
+                      horizontal: 4,
+                    ),
                     decoration: BoxDecoration(
                       gradient: isSelected && !isSos
                           ? LinearGradient(
@@ -1391,7 +1695,9 @@ class _HomeScreenState extends State<HomeScreen> {
                               borderRadius: BorderRadius.circular(16),
                               boxShadow: [
                                 BoxShadow(
-                                  color: const Color(0xFFEF4444).withValues(alpha: 0.40),
+                                  color: const Color(
+                                    0xFFEF4444,
+                                  ).withValues(alpha: 0.40),
                                   blurRadius: 10,
                                   offset: const Offset(0, 4),
                                 ),
@@ -1432,7 +1738,9 @@ class _HomeScreenState extends State<HomeScreen> {
                             duration: const Duration(milliseconds: 200),
                             style: TextStyle(
                               fontSize: isSelected ? 11 : 10,
-                              fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
+                              fontWeight: isSelected
+                                  ? FontWeight.w700
+                                  : FontWeight.w500,
                               color: isSelected
                                   ? AppColors.primary
                                   : const Color(0xFF9CA3AF),
@@ -1467,102 +1775,190 @@ class _HomeScreenState extends State<HomeScreen> {
   IconData _getIconData(String iconName) {
     switch (iconName) {
       // Already mapped
-      case 'warning':           return Icons.warning_amber_rounded;
-      case 'chat':              return Icons.chat_bubble_outline_rounded;
-      case 'file_copy':         return Icons.description_outlined;
-      case 'calendar_month':    return Icons.calendar_month_outlined;
-      case 'inventory_2':       return Icons.inventory_2_outlined;
-      case 'qr_code':           return Icons.qr_code_2_rounded;
-      case 'check_circle':      return Icons.how_to_reg_outlined;
-      case 'history':           return Icons.history_rounded;
-      case 'add_box':           return Icons.add_box_outlined;
-      case 'local_shipping':    return Icons.local_shipping_outlined;
-      case 'how_to_reg':        return Icons.how_to_reg_rounded;
-      case 'forum':             return Icons.forum_outlined;
-      case 'message':           return Icons.message_outlined;
+      case 'warning':
+        return Icons.warning_amber_rounded;
+      case 'chat':
+        return Icons.chat_bubble_outline_rounded;
+      case 'file_copy':
+        return Icons.description_outlined;
+      case 'calendar_month':
+        return Icons.calendar_month_outlined;
+      case 'inventory_2':
+        return Icons.inventory_2_outlined;
+      case 'qr_code':
+        return Icons.qr_code_2_rounded;
+      case 'check_circle':
+        return Icons.how_to_reg_outlined;
+      case 'history':
+        return Icons.history_rounded;
+      case 'add_box':
+        return Icons.add_box_outlined;
+      case 'local_shipping':
+        return Icons.local_shipping_outlined;
+      case 'how_to_reg':
+        return Icons.how_to_reg_rounded;
+      case 'forum':
+        return Icons.forum_outlined;
+      case 'message':
+        return Icons.message_outlined;
 
       // People & access
-      case 'person':            return Icons.person_outline_rounded;
-      case 'person_add':        return Icons.person_add_outlined;
-      case 'person_search':     return Icons.person_search_outlined;
-      case 'group':             return Icons.group_outlined;
-      case 'groups':            return Icons.groups_outlined;
-      case 'manage_accounts':   return Icons.manage_accounts_outlined;
-      case 'badge':             return Icons.badge_outlined;
-      case 'fingerprint':       return Icons.fingerprint;
-      case 'key':               return Icons.key_outlined;
+      case 'person':
+        return Icons.person_outline_rounded;
+      case 'person_add':
+        return Icons.person_add_outlined;
+      case 'person_search':
+        return Icons.person_search_outlined;
+      case 'group':
+        return Icons.group_outlined;
+      case 'groups':
+        return Icons.groups_outlined;
+      case 'manage_accounts':
+        return Icons.manage_accounts_outlined;
+      case 'badge':
+        return Icons.badge_outlined;
+      case 'fingerprint':
+        return Icons.fingerprint;
+      case 'key':
+        return Icons.key_outlined;
 
       // Notifications & communication
-      case 'notifications':     return Icons.notifications_outlined;
-      case 'campaign':          return Icons.campaign_outlined;
-      case 'announcement':      return Icons.announcement_outlined;
-      case 'email':             return Icons.email_outlined;
-      case 'sms':               return Icons.sms_outlined;
-      case 'send':              return Icons.send_outlined;
-      case 'phone':             return Icons.phone_outlined;
+      case 'notifications':
+        return Icons.notifications_outlined;
+      case 'campaign':
+        return Icons.campaign_outlined;
+      case 'announcement':
+        return Icons.announcement_outlined;
+      case 'email':
+        return Icons.email_outlined;
+      case 'sms':
+        return Icons.sms_outlined;
+      case 'send':
+        return Icons.send_outlined;
+      case 'phone':
+        return Icons.phone_outlined;
 
       // Building & condo
-      case 'apartment':         return Icons.apartment_outlined;
-      case 'domain':            return Icons.domain_outlined;
-      case 'business':          return Icons.business_outlined;
-      case 'home':              return Icons.home_outlined;
-      case 'house':             return Icons.house_outlined;
-      case 'meeting_room':      return Icons.meeting_room_outlined;
-      case 'door_front':        return Icons.door_front_door_outlined;
-      case 'security':          return Icons.security_outlined;
-      case 'shield':            return Icons.shield_outlined;
+      case 'apartment':
+        return Icons.apartment_outlined;
+      case 'domain':
+        return Icons.domain_outlined;
+      case 'business':
+        return Icons.business_outlined;
+      case 'home':
+        return Icons.home_outlined;
+      case 'house':
+        return Icons.house_outlined;
+      case 'meeting_room':
+        return Icons.meeting_room_outlined;
+      case 'door_front':
+        return Icons.door_front_door_outlined;
+      case 'security':
+        return Icons.security_outlined;
+      case 'shield':
+        return Icons.shield_outlined;
 
       // Events & schedule
-      case 'event':             return Icons.event_outlined;
-      case 'event_note':        return Icons.event_note_outlined;
-      case 'schedule':          return Icons.schedule_outlined;
-      case 'date_range':        return Icons.date_range_outlined;
-      case 'how_to_vote':       return Icons.how_to_vote_outlined;
-      case 'poll':              return Icons.poll_outlined;
-      case 'gavel':             return Icons.gavel_outlined;
-      case 'handshake':         return Icons.handshake_outlined;
+      case 'event':
+        return Icons.event_outlined;
+      case 'event_note':
+        return Icons.event_note_outlined;
+      case 'schedule':
+        return Icons.schedule_outlined;
+      case 'date_range':
+        return Icons.date_range_outlined;
+      case 'how_to_vote':
+        return Icons.how_to_vote_outlined;
+      case 'poll':
+        return Icons.poll_outlined;
+      case 'gavel':
+        return Icons.gavel_outlined;
+      case 'handshake':
+        return Icons.handshake_outlined;
 
       // Documents & finance
-      case 'article':           return Icons.article_outlined;
-      case 'receipt':           return Icons.receipt_outlined;
-      case 'receipt_long':      return Icons.receipt_long_outlined;
-      case 'attach_money':      return Icons.attach_money;
-      case 'paid':              return Icons.paid_outlined;
-      case 'request_quote':     return Icons.request_quote_outlined;
-      case 'assignment':        return Icons.assignment_outlined;
-      case 'description':       return Icons.description_outlined;
-      case 'folder':            return Icons.folder_outlined;
-      case 'picture_as_pdf':    return Icons.picture_as_pdf_outlined;
+      case 'article':
+        return Icons.article_outlined;
+      case 'receipt':
+        return Icons.receipt_outlined;
+      case 'receipt_long':
+        return Icons.receipt_long_outlined;
+      case 'attach_money':
+        return Icons.attach_money;
+      case 'paid':
+        return Icons.paid_outlined;
+      case 'request_quote':
+        return Icons.request_quote_outlined;
+      case 'assignment':
+        return Icons.assignment_outlined;
+      case 'description':
+        return Icons.description_outlined;
+      case 'folder':
+        return Icons.folder_outlined;
+      case 'picture_as_pdf':
+        return Icons.picture_as_pdf_outlined;
 
       // Tools & settings
-      case 'settings':          return Icons.settings_outlined;
-      case 'tune':              return Icons.tune;
-      case 'build':             return Icons.build_outlined;
-      case 'construction':      return Icons.construction_outlined;
-      case 'inventory':         return Icons.inventory_outlined;
-      case 'warehouse':         return Icons.warehouse_outlined;
-      case 'category':          return Icons.category_outlined;
+      case 'settings':
+        return Icons.settings_outlined;
+      case 'tune':
+        return Icons.tune;
+      case 'build':
+        return Icons.build_outlined;
+      case 'construction':
+        return Icons.construction_outlined;
+      case 'inventory':
+        return Icons.inventory_outlined;
+      case 'warehouse':
+        return Icons.warehouse_outlined;
+      case 'category':
+        return Icons.category_outlined;
 
       // Emergency & safety
-      case 'emergency':         return Icons.emergency_outlined;
-      case 'sos':               return Icons.sos_outlined;
-      case 'local_police':      return Icons.local_police_outlined;
-      case 'health_and_safety': return Icons.health_and_safety_outlined;
+      case 'emergency':
+        return Icons.emergency_outlined;
+      case 'sos':
+        return Icons.sos_outlined;
+      case 'local_police':
+        return Icons.local_police_outlined;
+      case 'health_and_safety':
+        return Icons.health_and_safety_outlined;
 
       // Misc
-      case 'star':              return Icons.star_outline_rounded;
-      case 'favorite':          return Icons.favorite_outline_rounded;
-      case 'photo':             return Icons.photo_outlined;
-      case 'photo_camera':      return Icons.photo_camera_outlined;
-      case 'image':             return Icons.image_outlined;
-      case 'map':               return Icons.map_outlined;
-      case 'place':             return Icons.place_outlined;
-      case 'support':           return Icons.support_outlined;
-      case 'help':              return Icons.help_outline_rounded;
-      case 'info':              return Icons.info_outline_rounded;
-      case 'book':              return Icons.book_outlined;
-      case 'newspaper':         return Icons.newspaper_outlined;
-      case 'class':             return Icons.class_outlined;
+      case 'star':
+        return Icons.star_outline_rounded;
+      case 'favorite':
+        return Icons.favorite_outline_rounded;
+      case 'photo':
+        return Icons.photo_outlined;
+      case 'photo_camera':
+        return Icons.photo_camera_outlined;
+      case 'image':
+        return Icons.image_outlined;
+      case 'map':
+        return Icons.map_outlined;
+      case 'place':
+        return Icons.place_outlined;
+      case 'support':
+        return Icons.support_outlined;
+      case 'help':
+        return Icons.help_outline_rounded;
+      case 'info':
+        return Icons.info_outline_rounded;
+      case 'book':
+        return Icons.book_outlined;
+      case 'newspaper':
+        return Icons.newspaper_outlined;
+      case 'class':
+        return Icons.class_outlined;
+
+      // Garage
+      case 'local_parking':
+        return Icons.local_parking;
+      case 'garage':
+        return Icons.garage_outlined;
+      case 'directions_car':
+        return Icons.directions_car_outlined;
 
       default:
         return Icons.apps_rounded;

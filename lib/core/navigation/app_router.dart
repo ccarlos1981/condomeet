@@ -79,6 +79,13 @@ import 'package:condomeet/features/lista_mercado/presentation/screens/alertas_pr
 import 'package:condomeet/features/lista_mercado/presentation/screens/lista_admin_screen.dart';
 import 'package:condomeet/features/lista_mercado/presentation/screens/cartao_economia_screen.dart';
 import 'package:condomeet/features/lista_mercado/presentation/screens/lista_paywall_screen.dart';
+import 'package:condomeet/features/garagem/presentation/screens/garagem_home_screen.dart';
+import 'package:condomeet/features/garagem/presentation/screens/garagem_detail_screen.dart';
+import 'package:condomeet/features/garagem/presentation/screens/garagem_reservation_screen.dart';
+import 'package:condomeet/features/garagem/presentation/screens/garagem_cadastro_screen.dart';
+import 'package:condomeet/features/vistoria/presentation/screens/vistoria_home_screen.dart';
+import 'package:condomeet/features/vistoria/presentation/screens/vistoria_editor_screen.dart';
+import 'package:condomeet/features/vistoria/presentation/screens/vistoria_timeline_screen.dart';
 
 
 class AppRouter {
@@ -222,6 +229,30 @@ class AppRouter {
       '/lista-mercado/admin': (context) => const ListaAdminScreen(),
       '/lista-mercado/cartao': (context) => const CartaoEconomiaScreen(),
       '/lista-mercado/paywall': (context) => const ListaPaywallScreen(),
+      // Garagem (Aluguel de Vaga)
+      '/garagem': (context) => const GaragemHomeScreen(),
+      '/garagem-detalhe': (context) {
+        final vagaId = ModalRoute.of(context)!.settings.arguments as String;
+        return GaragemDetailScreen(vagaId: vagaId);
+      },
+      '/garagem-reservar': (context) {
+        final vaga = ModalRoute.of(context)!.settings.arguments as Map<String, dynamic>;
+        return GaragemReservationScreen(vaga: vaga);
+      },
+      '/garagem-cadastro': (context) {
+        final editId = ModalRoute.of(context)?.settings.arguments as String?;
+        return GaragemCadastroScreen(editVagaId: editId);
+      },
+      // Vistoria Digital
+      '/vistorias': (context) => const VistoriaHomeScreen(),
+      '/vistoria-editor': (context) {
+        final vistoriaId = ModalRoute.of(context)!.settings.arguments as String;
+        return VistoriaEditorScreen(vistoriaId: vistoriaId);
+      },
+      '/vistoria-timeline': (context) {
+        final endereco = ModalRoute.of(context)!.settings.arguments as String;
+        return VistoriaTimelineScreen(endereco: endereco);
+      },
     };
   }
 

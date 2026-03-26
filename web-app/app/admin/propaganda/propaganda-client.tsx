@@ -62,6 +62,31 @@ export default function PropagandaClient({ condominios }: { condominios: Condomi
   const logoInputRef = useRef<HTMLInputElement>(null)
   const fotoInputRef = useRef<HTMLInputElement>(null)
 
+  // ── "Como começar" guide state ────────────────────
+  const [showGuide, setShowGuide] = useState(() => {
+    if (typeof window !== 'undefined') {
+      return localStorage.getItem('propaganda_admin_guide_dismissed') !== 'true'
+    }
+    return true
+  })
+
+  const dismissGuide = () => {
+    setShowGuide(false)
+    localStorage.setItem('propaganda_admin_guide_dismissed', 'true')
+  }
+
+  const reopenGuide = () => {
+    setShowGuide(true)
+    localStorage.removeItem('propaganda_admin_guide_dismissed')
+  }
+
+  const guideSteps = [
+    { num: 1, title: 'Selecione o condomínio', desc: 'Escolha o condomínio para gerenciar', done: !!selectedCondo },
+    { num: 2, title: 'Crie um anunciante', desc: 'Clique em "+ Novo Anunciante" para começar', done: list.length > 0 },
+    { num: 3, title: 'Adicione logo e fotos', desc: 'Envie a identidade visual da empresa', done: list.some(p => !!p.logo_url) },
+    { num: 4, title: 'Ative o anúncio', desc: 'O anúncio aparecerá no app para os moradores', done: list.some(p => p.ativo) },
+  ]
+
   const loadList = async () => {
     setLoading(true)
     const { data } = await supabase
@@ -178,11 +203,47 @@ export default function PropagandaClient({ condominios }: { condominios: Condomi
             <h1 className="text-2xl font-bold text-gray-900">📢 Empresas Parceiras</h1>
             <p className="text-sm text-gray-500 mt-1">Gerencie os anunciantes por condomínio</p>
           </div>
-          <button onClick={openNew}
-            className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg font-medium transition">
-            + Novo Anunciante
-          </button>
+          <div className="flex items-center gap-2">
+            {!showGuide && (
+              <button onClick={reopenGuide}
+                className="text-sm px-3 py-2 rounded-lg border border-blue-200 text-blue-600 hover:bg-blue-50 transition">
+                💡 Como começar
+              </button>
+            )}
+            <button onClick={openNew}
+              className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg font-medium transition">
+              + Novo Anunciante
+            </button>
+          </div>
         </div>
+
+        {/* Como começar guide */}
+        {showGuide && (
+          <div className="mb-6 rounded-xl border border-amber-200 bg-gradient-to-r from-amber-50 to-orange-50 p-5">
+            <div className="flex items-center justify-between mb-3">
+              <div className="flex items-center gap-2">
+                <span className="text-lg">🚀</span>
+                <h3 className="font-bold text-gray-900 text-sm">Como começar</h3>
+              </div>
+              <button onClick={dismissGuide} className="text-gray-400 hover:text-gray-600 text-lg" title="Fechar guia">×</button>
+            </div>
+            <div className="space-y-2.5">
+              {guideSteps.map(step => (
+                <div key={step.num} className="flex items-start gap-3">
+                  <div className={`w-6 h-6 rounded-full flex items-center justify-center shrink-0 text-xs font-bold ${
+                    step.done ? 'bg-green-500 text-white' : 'bg-gray-200 text-gray-500'
+                  }`}>
+                    {step.done ? '✓' : step.num}
+                  </div>
+                  <div>
+                    <p className={`text-sm font-medium ${step.done ? 'text-gray-400 line-through' : 'text-gray-800'}`}>{step.title}</p>
+                    <p className="text-xs text-gray-400">{step.desc}</p>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
 
         {/* Condomínio selector */}
         <div className="mb-6">

@@ -5,7 +5,7 @@ import { createClient } from '@/lib/supabase/client'
 import {
   Users, TrendingUp, ShoppingCart, Bell, Package,
   Store, PlusCircle, Send, RefreshCw, Trash2, Search,
-  Award, Eye, BarChart3
+  Award, Eye, BarChart3, HelpCircle, X, Route, CheckCircle2
 } from 'lucide-react'
 
 type Stats = {
@@ -57,6 +57,12 @@ export default function ListaInteligenteClient() {
   const [supermarkets, setSupermarkets] = useState<Supermarket[]>([])
   const [loading, setLoading] = useState(true)
   const [activeTab, setActiveTab] = useState<'dashboard' | 'users' | 'prices' | 'products' | 'markets' | 'push'>('dashboard')
+  const [showGuide, setShowGuide] = useState(true)
+
+  useEffect(() => {
+    const dismissed = localStorage.getItem('lista_admin_guide_dismissed')
+    if (dismissed === 'true') setShowGuide(false)
+  }, [])
 
   // Modals
   const [showAddMarket, setShowAddMarket] = useState(false)
@@ -236,6 +242,15 @@ export default function ListaInteligenteClient() {
         <button onClick={loadData} className="flex items-center gap-2 px-4 py-2 bg-white rounded-xl border border-gray-200 text-gray-600 hover:bg-gray-50 transition-colors text-sm">
           <RefreshCw size={14} /> Atualizar
         </button>
+        <button
+          onClick={() => {
+            localStorage.removeItem('lista_admin_guide_dismissed')
+            setShowGuide(true)
+          }}
+          className="flex items-center gap-1.5 px-3 py-1.5 text-sm text-[#FC5931] hover:bg-orange-50 rounded-lg transition-colors"
+        >
+          <HelpCircle size={16} /> Como começar
+        </button>
       </div>
 
       {/* Tabs */}
@@ -254,7 +269,51 @@ export default function ListaInteligenteClient() {
       </div>
 
       {/* Content */}
-      {activeTab === 'dashboard' && <DashboardTab stats={stats!} />}
+      {activeTab === 'dashboard' && (
+        <div className="space-y-6">
+          {/* Step Guide */}
+          {showGuide && (
+            <div className="bg-gradient-to-r from-orange-50 to-amber-50 border border-orange-200 rounded-xl p-5">
+              <div className="flex items-center justify-between mb-4">
+                <div className="flex items-center gap-2">
+                  <Route size={18} className="text-[#FC5931]" />
+                  <span className="font-semibold text-orange-900 text-sm">Como começar com a Lista Inteligente</span>
+                </div>
+                <button
+                  onClick={() => {
+                    localStorage.setItem('lista_admin_guide_dismissed', 'true')
+                    setShowGuide(false)
+                  }}
+                  className="text-gray-400 hover:text-gray-600"
+                  title="Fechar guia"
+                >
+                  <X size={16} />
+                </button>
+              </div>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                {[
+                  { step: 1, title: 'Cadastre mercados', desc: 'Adicione os supermercados da região', done: (stats?.total_supermarkets ?? 0) > 0 },
+                  { step: 2, title: 'Adicione produtos', desc: 'Cadastre os produtos base para busca', done: (stats?.total_products ?? 0) > 0 },
+                  { step: 3, title: 'Acompanhe preços', desc: 'Moradores reportam e você monitora', done: (stats?.total_prices ?? 0) > 0 },
+                ].map(s => (
+                  <div key={s.step} className={`flex items-start gap-3 p-3 rounded-lg ${s.done ? 'bg-white/60' : 'bg-white'}`}>
+                    <div className={`w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold shrink-0 ${
+                      s.done ? 'bg-green-500 text-white' : 'bg-white border-2 border-orange-300 text-orange-500'
+                    }`}>
+                      {s.done ? <CheckCircle2 size={16} /> : s.step}
+                    </div>
+                    <div>
+                      <p className={`text-sm font-medium ${s.done ? 'text-gray-400 line-through' : 'text-gray-800'}`}>{s.title}</p>
+                      <p className="text-xs text-gray-400">{s.desc}</p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+          <DashboardTab stats={stats!} />
+        </div>
+      )}
       {activeTab === 'users' && <UsersTab users={topUsers} />}
       {activeTab === 'prices' && <PricesTab prices={recentPrices} />}
       {activeTab === 'products' && (

@@ -1,11 +1,11 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { useRouter } from 'next/navigation'
 import {
   Users, Gift, TrendingUp, Crown, Plus, Trash2, ToggleLeft, ToggleRight,
-  Copy, Check, Ticket, Settings2, Save, Star, X
+  Copy, Check, Ticket, Settings2, Save, Star, X, HelpCircle, Route, CheckCircle2
 } from 'lucide-react'
 
 type Plano = {
@@ -78,6 +78,12 @@ export default function DingloAdminClient({
   const [showModal, setShowModal] = useState(false)
   const [saving, setSaving] = useState(false)
   const [copied, setCopied] = useState<string | null>(null)
+  const [showGuide, setShowGuide] = useState(true)
+
+  useEffect(() => {
+    const dismissed = localStorage.getItem('dinglo_admin_guide_dismissed')
+    if (dismissed === 'true') setShowGuide(false)
+  }, [])
 
   // New coupon form state
   const [form, setForm] = useState({
@@ -175,6 +181,15 @@ export default function DingloAdminClient({
           💰 Meu Bolso — Admin
         </h1>
         <p className="text-gray-500 text-sm mt-1">Painel de gestão exclusivo do proprietário</p>
+        <button
+          onClick={() => {
+            localStorage.removeItem('dinglo_admin_guide_dismissed')
+            setShowGuide(true)
+          }}
+          className="flex items-center gap-1.5 px-3 py-1.5 text-sm text-blue-600 hover:bg-blue-50 rounded-lg transition-colors mt-2"
+        >
+          <HelpCircle size={16} /> Como começar
+        </button>
       </div>
 
       {/* Tabs */}
@@ -202,6 +217,47 @@ export default function DingloAdminClient({
       {/* Dashboard Tab */}
       {tab === 'dashboard' && (
         <div className="space-y-6">
+          {/* Step Guide */}
+          {showGuide && (
+            <div className="bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-200 rounded-xl p-5">
+              <div className="flex items-center justify-between mb-4">
+                <div className="flex items-center gap-2">
+                  <Route size={18} className="text-blue-600" />
+                  <span className="font-semibold text-blue-900 text-sm">Como começar com o Meu Bolso</span>
+                </div>
+                <button
+                  onClick={() => {
+                    localStorage.setItem('dinglo_admin_guide_dismissed', 'true')
+                    setShowGuide(false)
+                  }}
+                  className="text-gray-400 hover:text-gray-600"
+                  title="Fechar guia"
+                >
+                  <X size={16} />
+                </button>
+              </div>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                {[
+                  { step: 1, title: 'Cadastre usuários', desc: 'Moradores se registram pelo app', done: totalUsuarios > 0 },
+                  { step: 2, title: 'Crie cupons', desc: 'Ofereça acesso premium gratuito', done: initialCupons.length > 0 },
+                  { step: 3, title: 'Configure planos', desc: 'Ajuste preços e funcionalidades', done: initialPlanosConfig.length > 0 },
+                ].map(s => (
+                  <div key={s.step} className={`flex items-start gap-3 p-3 rounded-lg ${s.done ? 'bg-white/60' : 'bg-white'}`}>
+                    <div className={`w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold shrink-0 ${
+                      s.done ? 'bg-green-500 text-white' : 'bg-white border-2 border-blue-300 text-blue-500'
+                    }`}>
+                      {s.done ? <CheckCircle2 size={16} /> : s.step}
+                    </div>
+                    <div>
+                      <p className={`text-sm font-medium ${s.done ? 'text-gray-400 line-through' : 'text-gray-800'}`}>{s.title}</p>
+                      <p className="text-xs text-gray-400">{s.desc}</p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
           {/* Metric Cards */}
           <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
             <MetricCard icon={<Users />} label="Total Usuários" value={totalUsuarios} color="blue" />

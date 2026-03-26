@@ -29,6 +29,8 @@ const ALL_FUNCTIONS = [
   { id: 'album_fotos',       label: 'Álbum de Fotos',     icon: 'photo_camera',   emoji: '📸', route: '/album-fotos',       defaultRoles: ['morador'] },
   { id: 'visita_proprietario', label: 'Visita Proprietário', icon: 'door_front', emoji: '🚪', route: '/visita-proprietario', defaultRoles: ['portaria'] },
   { id: 'classificados', label: 'Classificados', icon: 'newspaper', emoji: '🛒', route: '/classificados', defaultRoles: ['morador'] },
+  { id: 'aluguel_vaga', label: 'Garagem Inteligente', icon: 'local_parking', emoji: '🅿️', route: '/garagem', defaultRoles: ['morador'] },
+  { id: 'vistoria_digital', label: 'Vistoria Digital', icon: 'checklist', emoji: '📋', route: '/vistoria-digital', defaultRoles: ['morador', 'sindico', 'sub_sindico', 'proprietario'] },
 ]
 
 // Normalize role name → key: "Porteiro (a)" → "portaria"

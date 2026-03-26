@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:condomeet/features/lista_mercado/lista_mercado_service.dart';
 import 'package:condomeet/features/lista_mercado/lista_subscription_service.dart';
 import 'package:condomeet/features/lista_mercado/presentation/widgets/lista_onboarding_popup.dart';
@@ -18,6 +19,8 @@ class _ListaMercadoHomeScreenState extends State<ListaMercadoHomeScreen> {
   bool _hasPremium = true;
   bool _inTrial = false;
   int _daysRemaining = 45;
+  bool _showGuide = true;
+  static const _guidePrefKey = 'lista_mercado_guide_dismissed';
 
   // Light theme colors
   static const _accent = Color(0xFF00C853);
@@ -27,6 +30,7 @@ class _ListaMercadoHomeScreenState extends State<ListaMercadoHomeScreen> {
   void initState() {
     super.initState();
     _loadData();
+    _loadGuideState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       ListaOnboardingPopup.showIfNeeded(context);
     });
@@ -207,7 +211,10 @@ class _ListaMercadoHomeScreenState extends State<ListaMercadoHomeScreen> {
           IconButton(
             icon: Icon(Icons.help_outline_rounded, color: Colors.grey.shade500),
             tooltip: 'Como funciona?',
-            onPressed: () => ListaOnboardingPopup.showAlways(context),
+            onPressed: () {
+              ListaOnboardingPopup.showAlways(context);
+              _showGuideAgain();
+            },
           ),
         ],
         bottom: PreferredSize(
@@ -225,6 +232,9 @@ class _ListaMercadoHomeScreenState extends State<ListaMercadoHomeScreen> {
                 children: [
                   // ── Subscription Banner ──
                   _buildSubscriptionBanner(),
+
+                  // ── Step Guide ──
+                  if (_showGuide) _buildStepGuide(),
 
                   // ── CTA: Criar Lista ──
                   _buildCTAButton(),
@@ -697,6 +707,124 @@ class _ListaMercadoHomeScreenState extends State<ListaMercadoHomeScreen> {
       ),
     );
   }
+
+  // ── Guide State ──
+  Future<void> _loadGuideState() async {
+    final prefs = await SharedPreferences.getInstance();
+    if (mounted) {
+      setState(() => _showGuide = !(prefs.getBool(_guidePrefKey) ?? false));
+    }
+  }
+
+  Future<void> _dismissGuide() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool(_guidePrefKey, true);
+    if (mounted) setState(() => _showGuide = false);
+  }
+
+  void _showGuideAgain() {
+    setState(() => _showGuide = true);
+  }
+
+  // ── Step-by-Step Checklist Guide ──
+  Widget _buildStepGuide() {
+    final hasLists = _lists.isNotEmpty;
+    final hasItems = _lists.any((l) => (l['lista_shopping_list_items'] as List?)?.isNotEmpty == true);
+    final hasChecked = _lists.any((l) => (l['lista_shopping_list_items'] as List?)?.any((i) => i['is_checked'] == true) == true);
+
+    final steps = [
+      _ListaGuideStep('Crie sua lista', 'Monte sua lista de compras', hasLists),
+      _ListaGuideStep('Adicione itens', 'Busque produtos e adicione', hasItems),
+      _ListaGuideStep('Compare preços', 'Veja onde é mais barato', hasChecked),
+    ];
+
+    return Container(
+      margin: const EdgeInsets.only(bottom: 16),
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          colors: [_accent.withValues(alpha: 0.06), _accent.withValues(alpha: 0.12)],
+        ),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: _accent.withValues(alpha: 0.2)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(Icons.route_rounded, color: _accent, size: 18),
+              const SizedBox(width: 6),
+              Expanded(
+                child: Text(
+                  'Como começar',
+                  style: TextStyle(fontWeight: FontWeight.w700, fontSize: 14, color: Colors.green.shade900),
+                ),
+              ),
+              GestureDetector(
+                onTap: _dismissGuide,
+                child: Icon(Icons.close_rounded, color: Colors.grey.shade400, size: 18),
+              ),
+            ],
+          ),
+          const SizedBox(height: 10),
+          ...steps.asMap().entries.map((entry) {
+            final i = entry.key;
+            final step = entry.value;
+            final isLast = i == steps.length - 1;
+            return Padding(
+              padding: EdgeInsets.only(bottom: isLast ? 0 : 8),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Container(
+                    width: 26, height: 26,
+                    decoration: BoxDecoration(
+                      color: step.done ? const Color(0xFF00C853) : Colors.white,
+                      shape: BoxShape.circle,
+                      border: Border.all(
+                        color: step.done ? const Color(0xFF00C853) : Colors.grey.shade400,
+                        width: 2,
+                      ),
+                    ),
+                    child: step.done
+                        ? const Icon(Icons.check_rounded, color: Colors.white, size: 16)
+                        : Center(
+                            child: Text(
+                              '${i + 1}',
+                              style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: Colors.grey.shade500),
+                            ),
+                          ),
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          step.title,
+                          style: TextStyle(
+                            fontWeight: FontWeight.w600,
+                            fontSize: 13,
+                            color: step.done ? Colors.grey.shade500 : Colors.grey.shade900,
+                            decoration: step.done ? TextDecoration.lineThrough : null,
+                          ),
+                        ),
+                        Text(
+                          step.subtitle,
+                          style: TextStyle(fontSize: 11, color: Colors.grey.shade500),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            );
+          }),
+        ],
+      ),
+    );
+  }
 }
 
 class _QuickAction {
@@ -706,4 +834,11 @@ class _QuickAction {
   final String route;
   final bool premiumOnly;
   const _QuickAction(this.label, this.icon, this.color, this.route, this.premiumOnly);
+}
+
+class _ListaGuideStep {
+  final String title;
+  final String subtitle;
+  final bool done;
+  const _ListaGuideStep(this.title, this.subtitle, this.done);
 }

@@ -7,7 +7,7 @@ import { useRouter } from 'next/navigation'
 import {
   Home, UserCheck, Package, QrCode, Bell, LogOut,
   Building2, ChevronLeft, ChevronRight, Menu, X,
-  Shield, ClipboardList, Users, CalendarDays, AlertCircle, MessageSquare, FileText, UserCog, BadgeCheck, BarChart3, Camera, DoorOpen, ShoppingBag, Heart
+  Shield, ClipboardList, Users, CalendarDays, AlertCircle, MessageSquare, FileText, UserCog, BadgeCheck, BarChart3, Camera, DoorOpen, ShoppingBag, Heart, Car
 } from 'lucide-react'
 
 type NavItem = { label: string; href: string; icon: React.ReactNode; fnId?: string }
@@ -40,6 +40,7 @@ const FN_TO_NAV: Record<string, { label: string; href: string; icon: React.React
   visita_proprietario: { label: 'Visita Proprietário',       href: '/condo/visita-proprietario',   icon: <DoorOpen size={18} /> },
   classificados:       { label: 'Classificados',             href: '/condo/classificados',         icon: <ShoppingBag size={18} /> },
   indicacoes_servico:  { label: 'Indicações de Serviço',     href: '/condo/indicacoes',            icon: <Heart size={18} /> },
+  aluguel_vaga:        { label: 'Garagem Inteligente',        href: '/condo/garagem',               icon: <Car size={18} /> },
 }
 
 function normalizeRoleKey(role: string): string {
@@ -83,6 +84,7 @@ const RESIDENT_NAV: NavItem[] = [
   { label: 'Classificados', href: '/condo/classificados', icon: <ShoppingBag size={18} /> },
   { label: 'Indicações de Serviço', href: '/condo/indicacoes', icon: <Heart size={18} /> },
   { label: 'Visitante c/ Autorização', href: '/condo/visitante-checkin', icon: <QrCode size={18} /> },
+  { label: 'Garagem Inteligente', href: '/condo/garagem', icon: <Car size={18} /> },
 ]
 
 const PORTER_NAV: NavItem[] = [
