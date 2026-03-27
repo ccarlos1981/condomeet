@@ -1,10 +1,11 @@
 'use client'
 
-import { useState, useRef } from 'react'
+import { useState, useRef, useEffect } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import {
   FolderOpen, FolderPlus, FilePlus, Download, Pencil, Trash2,
-  Eye, Search, ChevronDown, ChevronRight, X, Upload, Loader2, FileText, Plus
+  Eye, Search, ChevronDown, ChevronRight, X, Upload, Loader2, FileText, Plus,
+  ChevronLeft, Calendar
 } from 'lucide-react'
 
 // ─── Types ───────────────────────────────────────────────────────────────────
@@ -45,6 +46,158 @@ const TIPOS = [
 function formatDate(d: string | null) {
   if (!d) return '—'
   return new Date(d).toLocaleDateString('pt-BR')
+}
+
+const DIAS_SEMANA = ['dom', 'seg', 'ter', 'qua', 'qui', 'sex', 'sáb']
+const MESES = ['janeiro', 'fevereiro', 'março', 'abril', 'maio', 'junho', 'julho', 'agosto', 'setembro', 'outubro', 'novembro', 'dezembro']
+
+// ─── Calendar Picker ──────────────────────────────────────────────────────────
+
+function CalendarPicker({
+  value,
+  onChange,
+  label,
+}: {
+  value: string
+  onChange: (v: string) => void
+  label: string
+}) {
+  const [open, setOpen] = useState(false)
+  const ref = useRef<HTMLDivElement>(null)
+
+  // Parse the current value or use today
+  const parsed = value ? new Date(value + 'T12:00:00') : new Date()
+  const [viewYear, setViewYear] = useState(parsed.getFullYear())
+  const [viewMonth, setViewMonth] = useState(parsed.getMonth())
+
+  // When value changes externally, sync the view
+  useEffect(() => {
+    if (value) {
+      const d = new Date(value + 'T12:00:00')
+      setViewYear(d.getFullYear())
+      setViewMonth(d.getMonth())
+    }
+  }, [value])
+
+  // Close on outside click
+  useEffect(() => {
+    function handleClick(e: MouseEvent) {
+      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false)
+    }
+    if (open) document.addEventListener('mousedown', handleClick)
+    return () => document.removeEventListener('mousedown', handleClick)
+  }, [open])
+
+  const firstDay = new Date(viewYear, viewMonth, 1).getDay()
+  const daysInMonth = new Date(viewYear, viewMonth + 1, 0).getDate()
+  const daysInPrev = new Date(viewYear, viewMonth, 0).getDate()
+
+  const today = new Date()
+  const todayStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`
+
+  function dayStr(d: number) {
+    return `${viewYear}-${String(viewMonth + 1).padStart(2, '0')}-${String(d).padStart(2, '0')}`
+  }
+
+  function prevMonth() {
+    if (viewMonth === 0) { setViewMonth(11); setViewYear(y => y - 1) }
+    else setViewMonth(m => m - 1)
+  }
+  function nextMonth() {
+    if (viewMonth === 11) { setViewMonth(0); setViewYear(y => y + 1) }
+    else setViewMonth(m => m + 1)
+  }
+
+  // Build calendar grid rows
+  const cells: { day: number; current: boolean }[] = []
+  for (let i = firstDay - 1; i >= 0; i--) cells.push({ day: daysInPrev - i, current: false })
+  for (let d = 1; d <= daysInMonth; d++) cells.push({ day: d, current: true })
+  const remaining = 7 - (cells.length % 7)
+  if (remaining < 7) for (let d = 1; d <= remaining; d++) cells.push({ day: d, current: false })
+
+  // Format display value
+  const displayValue = value
+    ? new Date(value + 'T12:00:00').toLocaleDateString('pt-BR')
+    : 'DD/MM/AAAA'
+
+  return (
+    <div className="relative" ref={ref}>
+      <label className="text-xs font-semibold text-gray-500 uppercase tracking-wide block mb-1.5">{label}</label>
+      <button
+        type="button"
+        onClick={() => setOpen(!open)}
+        className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm text-left flex items-center justify-between focus:outline-none focus:ring-2 focus:ring-[#FC5931]/30 focus:border-[#FC5931] bg-white hover:border-gray-300 transition"
+      >
+        <span className={value ? 'text-gray-800' : 'text-gray-400'}>{displayValue}</span>
+        <Calendar size={16} className="text-gray-400" />
+      </button>
+
+      {open && (
+        <div className="absolute z-50 mt-1 bg-white rounded-xl shadow-2xl border border-gray-200 p-3 w-[280px]" style={{ left: '50%', transform: 'translateX(-50%)' }}>
+          {/* Month nav */}
+          <div className="flex items-center justify-between mb-2">
+            <button type="button" onClick={prevMonth} className="p-1 rounded-lg hover:bg-gray-100 text-gray-500 transition">
+              <ChevronLeft size={18} />
+            </button>
+            <span className="text-sm font-semibold text-gray-700">
+              {MESES[viewMonth]} <span className="text-[#FC5931]">{viewYear}</span>
+            </span>
+            <button type="button" onClick={nextMonth} className="p-1 rounded-lg hover:bg-gray-100 text-gray-500 transition">
+              <ChevronRight size={18} />
+            </button>
+          </div>
+
+          {/* Day headers */}
+          <div className="grid grid-cols-7 text-center text-xs font-semibold text-gray-400 mb-1">
+            {DIAS_SEMANA.map(d => <div key={d} className="py-1">{d}</div>)}
+          </div>
+
+          {/* Day cells */}
+          <div className="grid grid-cols-7 text-center text-sm">
+            {cells.map((cell, i) => {
+              const isSelected = cell.current && dayStr(cell.day) === value
+              const isToday = cell.current && dayStr(cell.day) === todayStr
+              return (
+                <button
+                  key={i}
+                  type="button"
+                  disabled={!cell.current}
+                  onClick={() => { if (cell.current) { onChange(dayStr(cell.day)); setOpen(false) } }}
+                  className={`py-1.5 rounded-lg transition text-sm ${
+                    !cell.current
+                      ? 'text-gray-300 cursor-default'
+                      : isSelected
+                        ? 'bg-[#FC5931] text-white font-bold shadow-sm'
+                        : isToday
+                          ? 'bg-blue-100 text-blue-700 font-semibold'
+                          : 'text-gray-700 hover:bg-gray-100 cursor-pointer'
+                  }`}
+                >
+                  {cell.day}
+                </button>
+              )
+            })}
+          </div>
+
+          {/* Actions */}
+          <div className="flex items-center justify-center gap-4 mt-3 pt-2 border-t border-gray-100">
+            <button type="button" onClick={() => { onChange(todayStr); setOpen(false) }}
+              className="text-xs font-semibold text-blue-600 hover:text-blue-800 flex items-center gap-1 transition">
+              ◀ hoje
+            </button>
+            <button type="button" onClick={() => { onChange(''); setOpen(false) }}
+              className="text-xs font-semibold text-red-500 hover:text-red-700 flex items-center gap-1 transition">
+              − limpar
+            </button>
+            <button type="button" onClick={() => setOpen(false)}
+              className="text-xs font-semibold text-gray-500 hover:text-gray-700 flex items-center gap-1 transition">
+              ✕ fechar
+            </button>
+          </div>
+        </div>
+      )}
+    </div>
+  )
 }
 
 // ─── Modal Criar/Editar Pasta ─────────────────────────────────────────────────
@@ -354,16 +507,8 @@ function DocumentoForm({
 
         {/* Datas */}
         <div className="grid grid-cols-2 gap-4">
-          <div>
-            <label className="text-xs font-semibold text-gray-500 uppercase tracking-wide block mb-1.5">Data Expedição</label>
-            <input type="date" value={dataExp} onChange={e => setDataExp(e.target.value)}
-              className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#FC5931]/30 focus:border-[#FC5931]" />
-          </div>
-          <div>
-            <label className="text-xs font-semibold text-gray-500 uppercase tracking-wide block mb-1.5">Data validade</label>
-            <input type="date" value={dataVal} onChange={e => setDataVal(e.target.value)}
-              className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#FC5931]/30 focus:border-[#FC5931]" />
-          </div>
+          <CalendarPicker label="Data Emissão" value={dataExp} onChange={setDataExp} />
+          <CalendarPicker label="Data Validade" value={dataVal} onChange={setDataVal} />
         </div>
 
         {/* Flags */}
