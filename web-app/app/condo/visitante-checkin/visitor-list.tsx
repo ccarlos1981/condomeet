@@ -155,6 +155,29 @@ export default function VisitorList({ initialInvitations, initialTotal, condoId,
     setPage(1)
   }, [fCode, fBloco, fApto, fDate, fStatus])
 
+  // Supabase Realtime: auto-refresh when convites change
+  useEffect(() => {
+    const channel = supabase
+      .channel('realtime_convites_web')
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'convites',
+          filter: `condominio_id=eq.${condoId}`,
+        },
+        () => {
+          fetchData(page)
+        }
+      )
+      .subscribe()
+
+    return () => {
+      supabase.removeChannel(channel)
+    }
+  }, [condoId, page, fCode, fBloco, fApto, fDate, fStatus])
+
   async function handleApprove(inv: Invitation) {
     if (Boolean(inv.visitante_compareceu)) return
     setApproving(inv.id)

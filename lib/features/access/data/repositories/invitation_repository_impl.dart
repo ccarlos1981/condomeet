@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:math';
 import 'package:condomeet/core/errors/result.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
@@ -12,16 +13,48 @@ class InvitationRepositoryImpl implements InvitationRepository {
 
   @override
   Stream<List<Invitation>> watchInvitationsForResident(String residentId) {
-    // Use Supabase polling so new invitations from the resident's device
-    // appear immediately without waiting for PowerSync.
-    return Stream.fromIterable([0])
-        .asyncExpand((_) async* {
-          yield await _fetchResidentInvitations(residentId);
-          await for (final _ in Stream.periodic(const Duration(seconds: 10))) {
-            yield await _fetchResidentInvitations(residentId);
-          }
-        })
-        .handleError((e) => print('❌ watchInvitationsForResident error: $e'));
+    // Use Supabase Realtime: initial fetch + re-fetch on any change
+    late final StreamController<List<Invitation>> controller;
+    RealtimeChannel? channel;
+
+    controller = StreamController<List<Invitation>>(
+      onListen: () async {
+        // Initial load
+        try {
+          controller.add(await _fetchResidentInvitations(residentId));
+        } catch (e) {
+          print('❌ watchInvitationsForResident initial error: $e');
+        }
+
+        // Subscribe to Realtime changes
+        channel = _supabase
+            .channel('resident_invitations_$residentId')
+            .onPostgresChanges(
+              event: PostgresChangeEvent.all,
+              schema: 'public',
+              table: 'convites',
+              filter: PostgresChangeFilter(
+                type: PostgresChangeFilterType.eq,
+                column: 'resident_id',
+                value: residentId,
+              ),
+              callback: (payload) async {
+                try {
+                  controller.add(await _fetchResidentInvitations(residentId));
+                } catch (e) {
+                  print('❌ watchInvitationsForResident realtime error: $e');
+                }
+              },
+            )
+            .subscribe();
+      },
+      onCancel: () {
+        channel?.unsubscribe();
+        controller.close();
+      },
+    );
+
+    return controller.stream;
   }
 
   Future<List<Invitation>> _fetchResidentInvitations(String residentId) async {
@@ -37,14 +70,45 @@ class InvitationRepositoryImpl implements InvitationRepository {
 
   @override
   Stream<List<Invitation>> watchAllActiveInvitations(String condominiumId) {
-    return Stream.fromIterable([0])
-        .asyncExpand((_) async* {
-          yield await _fetchAllActiveInvitations(condominiumId);
-          await for (final _ in Stream.periodic(const Duration(seconds: 10))) {
-            yield await _fetchAllActiveInvitations(condominiumId);
-          }
-        })
-        .handleError((e) => print('❌ watchAllActiveInvitations error: $e'));
+    late final StreamController<List<Invitation>> controller;
+    RealtimeChannel? channel;
+
+    controller = StreamController<List<Invitation>>(
+      onListen: () async {
+        try {
+          controller.add(await _fetchAllActiveInvitations(condominiumId));
+        } catch (e) {
+          print('❌ watchAllActiveInvitations initial error: $e');
+        }
+
+        channel = _supabase
+            .channel('active_invitations_$condominiumId')
+            .onPostgresChanges(
+              event: PostgresChangeEvent.all,
+              schema: 'public',
+              table: 'convites',
+              filter: PostgresChangeFilter(
+                type: PostgresChangeFilterType.eq,
+                column: 'condominio_id',
+                value: condominiumId,
+              ),
+              callback: (payload) async {
+                try {
+                  controller.add(await _fetchAllActiveInvitations(condominiumId));
+                } catch (e) {
+                  print('❌ watchAllActiveInvitations realtime error: $e');
+                }
+              },
+            )
+            .subscribe();
+      },
+      onCancel: () {
+        channel?.unsubscribe();
+        controller.close();
+      },
+    );
+
+    return controller.stream;
   }
 
   Future<List<Invitation>> _fetchAllActiveInvitations(String condominiumId) async {
@@ -68,14 +132,14 @@ class InvitationRepositoryImpl implements InvitationRepository {
     String? dateFilter,
     int? limit,
   }) {
-    // Use Supabase directly — PowerSync only holds data for the local user,
-    // but the portaria needs to see invitations created by all residents.
-    // Emit immediately, then every 5 seconds
-    // (Stream.periodic starts AFTER first interval, so we prepend a tick=0)
-    return Stream.fromIterable([0])
-        .asyncExpand((_) async* {
-          // First immediate load
-          yield await _fetchCondominiumInvitations(
+    // Use Supabase Realtime: initial fetch + re-fetch on any change
+    late final StreamController<List<Invitation>> controller;
+    RealtimeChannel? channel;
+
+    controller = StreamController<List<Invitation>>(
+      onListen: () async {
+        try {
+          controller.add(await _fetchCondominiumInvitations(
             condominiumId: condominiumId,
             liberado: liberado,
             codeFilter: codeFilter,
@@ -83,21 +147,47 @@ class InvitationRepositoryImpl implements InvitationRepository {
             aptoFilter: aptoFilter,
             dateFilter: dateFilter,
             limit: limit,
-          );
-          // Then poll every 5 seconds
-          await for (final _ in Stream.periodic(const Duration(seconds: 15))) {
-            yield await _fetchCondominiumInvitations(
-              condominiumId: condominiumId,
-              liberado: liberado,
-              codeFilter: codeFilter,
-              blocoFilter: blocoFilter,
-              aptoFilter: aptoFilter,
-              dateFilter: dateFilter,
-              limit: limit,
-            );
-          }
-        })
-        .handleError((e) => print('❌ watchCondominiumInvitations error: $e'));
+          ));
+        } catch (e) {
+          print('❌ watchCondominiumInvitations initial error: $e');
+        }
+
+        channel = _supabase
+            .channel('condo_invitations_$condominiumId')
+            .onPostgresChanges(
+              event: PostgresChangeEvent.all,
+              schema: 'public',
+              table: 'convites',
+              filter: PostgresChangeFilter(
+                type: PostgresChangeFilterType.eq,
+                column: 'condominio_id',
+                value: condominiumId,
+              ),
+              callback: (payload) async {
+                try {
+                  controller.add(await _fetchCondominiumInvitations(
+                    condominiumId: condominiumId,
+                    liberado: liberado,
+                    codeFilter: codeFilter,
+                    blocoFilter: blocoFilter,
+                    aptoFilter: aptoFilter,
+                    dateFilter: dateFilter,
+                    limit: limit,
+                  ));
+                } catch (e) {
+                  print('❌ watchCondominiumInvitations realtime error: $e');
+                }
+              },
+            )
+            .subscribe();
+      },
+      onCancel: () {
+        channel?.unsubscribe();
+        controller.close();
+      },
+    );
+
+    return controller.stream;
   }
 
   Future<List<Invitation>> _fetchCondominiumInvitations({
