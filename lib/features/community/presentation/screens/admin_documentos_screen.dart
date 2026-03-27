@@ -516,7 +516,6 @@ class _DocFormScreenState extends State<_DocFormScreen> {
       initialDate: initial,
       firstDate: DateTime(2000),
       lastDate: DateTime(2100),
-      locale: const Locale('pt', 'BR'),
       builder: (context, child) {
         return Theme(
           data: Theme.of(context).copyWith(
