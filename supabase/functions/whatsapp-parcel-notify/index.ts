@@ -148,13 +148,15 @@ Deno.serve(async (req) => {
 
     const hasSuccess = results.some(r => r.success)
 
+    // ALWAYS return 200 to prevent DB trigger retries via net.http_post
+    // Failed sends are logged but should NOT cause the function to return 500
     return new Response(JSON.stringify({
       event,
       messages_sent: results.length,
       success: hasSuccess,
       results
     }), {
-      status: hasSuccess ? 200 : 500,
+      status: 200,
       headers: { 'Content-Type': 'application/json' }
     })
 
