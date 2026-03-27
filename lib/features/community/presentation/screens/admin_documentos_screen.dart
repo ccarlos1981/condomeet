@@ -20,22 +20,32 @@ class _Doc {
   final String titulo;
   final String? pastaId;
   final String? categoria;
+  final String tipo;
   final String? arquivoUrl;
   final String? arquivoNome;
+  final String? dataExpedicao;
   final String? dataValidade;
   final bool mostrarMoradores;
   final bool avisarMoradores;
+  final bool lembrar30;
+  final bool lembrar60;
+  final bool lembrar90;
 
   _Doc({
     required this.id,
     required this.titulo,
     this.pastaId,
     this.categoria,
+    this.tipo = 'obrigatorio',
     this.arquivoUrl,
     this.arquivoNome,
+    this.dataExpedicao,
     this.dataValidade,
     this.mostrarMoradores = false,
     this.avisarMoradores = false,
+    this.lembrar30 = false,
+    this.lembrar60 = false,
+    this.lembrar90 = false,
   });
 
   factory _Doc.fromMap(Map m) => _Doc(
@@ -43,11 +53,16 @@ class _Doc {
         titulo: m['titulo'] as String? ?? '',
         pastaId: m['pasta_id'] as String?,
         categoria: m['categoria'] as String?,
+        tipo: m['tipo'] as String? ?? 'obrigatorio',
         arquivoUrl: m['arquivo_url'] as String?,
         arquivoNome: m['arquivo_nome'] as String?,
+        dataExpedicao: m['data_expedicao'] as String?,
         dataValidade: m['data_validade'] as String?,
         mostrarMoradores: m['mostrar_moradores'] == true,
         avisarMoradores: m['avisar_moradores'] == true,
+        lembrar30: m['lembrar_30'] == true,
+        lembrar60: m['lembrar_60'] == true,
+        lembrar90: m['lembrar_90'] == true,
       );
 }
 
@@ -451,10 +466,12 @@ class _DocFormScreen extends StatefulWidget {
 
 class _DocFormScreenState extends State<_DocFormScreen> {
   late final TextEditingController _tituloCtrl;
-  late final TextEditingController _dataValCtrl;
+  String _tipo = 'obrigatorio';
   String? _pastaId;
   String? _categoria;
   List<String> _categorias = [];
+  DateTime? _dataEmissao;
+  DateTime? _dataValidade;
   bool _mostrarMoradores = false;
   bool _avisarMoradores = false;
   bool _lembrar30 = false;
@@ -469,12 +486,58 @@ class _DocFormScreenState extends State<_DocFormScreen> {
     super.initState();
     final doc = widget.doc;
     _tituloCtrl    = TextEditingController(text: doc?.titulo ?? '');
-    _dataValCtrl   = TextEditingController(text: doc?.dataValidade ?? '');
+    _tipo          = doc?.tipo ?? 'obrigatorio';
     _pastaId       = doc?.pastaId;
     _categoria     = doc?.categoria;
+    _dataEmissao   = _tryParseDate(doc?.dataExpedicao) ?? DateTime.now();
+    _dataValidade  = _tryParseDate(doc?.dataValidade);
     _mostrarMoradores = doc?.mostrarMoradores ?? false;
     _avisarMoradores  = doc?.avisarMoradores  ?? false;
+    _lembrar30 = doc?.lembrar30 ?? false;
+    _lembrar60 = doc?.lembrar60 ?? false;
+    _lembrar90 = doc?.lembrar90 ?? false;
     _loadCategorias();
+  }
+
+  DateTime? _tryParseDate(String? s) {
+    if (s == null || s.isEmpty) return null;
+    return DateTime.tryParse(s);
+  }
+
+  String _formatDateBR(DateTime? d) {
+    if (d == null) return '';
+    return '${d.day.toString().padLeft(2, '0')}/${d.month.toString().padLeft(2, '0')}/${d.year}';
+  }
+
+  Future<void> _pickDate({required bool isEmissao}) async {
+    final initial = isEmissao ? (_dataEmissao ?? DateTime.now()) : (_dataValidade ?? DateTime.now());
+    final picked = await showDatePicker(
+      context: context,
+      initialDate: initial,
+      firstDate: DateTime(2000),
+      lastDate: DateTime(2100),
+      locale: const Locale('pt', 'BR'),
+      builder: (context, child) {
+        return Theme(
+          data: Theme.of(context).copyWith(
+            colorScheme: Theme.of(context).colorScheme.copyWith(
+              primary: AppColors.primary,
+              onPrimary: Colors.white,
+            ),
+          ),
+          child: child!,
+        );
+      },
+    );
+    if (picked != null) {
+      setState(() {
+        if (isEmissao) {
+          _dataEmissao = picked;
+        } else {
+          _dataValidade = picked;
+        }
+      });
+    }
   }
 
   Future<void> _loadCategorias() async {
@@ -537,7 +600,6 @@ class _DocFormScreenState extends State<_DocFormScreen> {
   @override
   void dispose() {
     _tituloCtrl.dispose();
-    _dataValCtrl.dispose();
     super.dispose();
   }
 
@@ -580,7 +642,9 @@ class _DocFormScreenState extends State<_DocFormScreen> {
       'pasta_id':         _pastaId,
       'titulo':           _tituloCtrl.text.trim(),
       'categoria':        _categoria,
-      'data_validade':    _dataValCtrl.text.trim().isEmpty ? null : _dataValCtrl.text.trim(),
+      'tipo':             _tipo,
+      'data_expedicao':   _dataEmissao != null ? '${_dataEmissao!.year}-${_dataEmissao!.month.toString().padLeft(2, '0')}-${_dataEmissao!.day.toString().padLeft(2, '0')}' : null,
+      'data_validade':    _dataValidade != null ? '${_dataValidade!.year}-${_dataValidade!.month.toString().padLeft(2, '0')}-${_dataValidade!.day.toString().padLeft(2, '0')}' : null,
       'arquivo_url':      arquivoUrl,
       'arquivo_nome':     arquivoNome,
       'mostrar_moradores': _mostrarMoradores,
@@ -617,6 +681,12 @@ class _DocFormScreenState extends State<_DocFormScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
+            // ── Tipo de Documento ──
+            const Text('Tipo de Documento', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13)),
+            const SizedBox(height: 8),
+            _buildTipoRadios(),
+            const SizedBox(height: 20),
+
             _field('Título *', _tituloCtrl, hint: 'Ex: Regulamento Interno'),
             const SizedBox(height: 16),
 
@@ -671,7 +741,14 @@ class _DocFormScreenState extends State<_DocFormScreen> {
             ),
             const SizedBox(height: 16),
 
-            _field('Data de validade', _dataValCtrl, hint: 'YYYY-MM-DD', keyboardType: TextInputType.datetime),
+            // ── Datas com calendário ──
+            Row(
+              children: [
+                Expanded(child: _datePickerField('Data Emissão', _dataEmissao, isEmissao: true)),
+                const SizedBox(width: 12),
+                Expanded(child: _datePickerField('Data Validade', _dataValidade, isEmissao: false)),
+              ],
+            ),
             const SizedBox(height: 16),
 
             // Arquivo
@@ -746,6 +823,76 @@ class _DocFormScreenState extends State<_DocFormScreen> {
           ],
         ),
       ),
+    );
+  }
+
+  Widget _buildTipoRadios() {
+    return RadioGroup<String>(
+      groupValue: _tipo,
+      onChanged: (v) { if (v != null) setState(() => _tipo = v); },
+      child: Row(
+        children: [
+          _radioOption('obrigatorio', 'Obrigatórios'),
+          const SizedBox(width: 12),
+          _radioOption('manutencao', 'Manutenção'),
+          const SizedBox(width: 12),
+          _radioOption('outros', 'Outros...'),
+        ],
+      ),
+    );
+  }
+
+  Widget _radioOption(String value, String label) {
+    return GestureDetector(
+      onTap: () => setState(() => _tipo = value),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Radio<String>(
+            value: value,
+            activeColor: AppColors.primary,
+            materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+            visualDensity: VisualDensity.compact,
+          ),
+          Text(label, style: const TextStyle(fontSize: 13)),
+        ],
+      ),
+    );
+  }
+
+  Widget _datePickerField(String label, DateTime? date, {required bool isEmissao}) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(label, style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13)),
+        const SizedBox(height: 6),
+        InkWell(
+          onTap: () => _pickDate(isEmissao: isEmissao),
+          borderRadius: BorderRadius.circular(12),
+          child: Container(
+            width: double.infinity,
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+            decoration: BoxDecoration(
+              border: Border.all(color: Colors.grey.shade300),
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    date != null ? _formatDateBR(date) : 'DD/MM/AAAA',
+                    style: TextStyle(
+                      fontSize: 14,
+                      color: date != null ? Colors.black87 : Colors.grey,
+                    ),
+                  ),
+                ),
+                Icon(Icons.calendar_today, size: 18, color: Colors.grey.shade500),
+              ],
+            ),
+          ),
+        ),
+      ],
     );
   }
 
