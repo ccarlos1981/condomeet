@@ -225,7 +225,7 @@ class _CartaoEconomiaScreenState extends State<CartaoEconomiaScreen> {
         ),
         borderRadius: BorderRadius.circular(24),
         boxShadow: [
-          BoxShadow(color: Colors.black.withOpacity(0.15), blurRadius: 20, offset: const Offset(0, 8)),
+          BoxShadow(color: Colors.black.withValues(alpha: 0.15), blurRadius: 20, offset: const Offset(0, 8)),
         ],
       ),
       child: Column(
@@ -246,9 +246,9 @@ class _CartaoEconomiaScreenState extends State<CartaoEconomiaScreen> {
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                 decoration: BoxDecoration(
-                  color: const Color(0xFF00C853).withOpacity(0.2),
+                  color: const Color(0xFF00C853).withValues(alpha: 0.2),
                   borderRadius: BorderRadius.circular(20),
-                  border: Border.all(color: const Color(0xFF00C853).withOpacity(0.4)),
+                  border: Border.all(color: const Color(0xFF00C853).withValues(alpha: 0.4)),
                 ),
                 child: Icon(_getRankIcon(), color: const Color(0xFF00C853), size: 20),
               ),
@@ -257,7 +257,7 @@ class _CartaoEconomiaScreenState extends State<CartaoEconomiaScreen> {
           const SizedBox(height: 20),
 
           // Divider
-          Container(height: 1, color: Colors.white.withOpacity(0.1)),
+          Container(height: 1, color: Colors.white.withValues(alpha: 0.1)),
           const SizedBox(height: 20),
 
           // User name + rank
@@ -268,8 +268,8 @@ class _CartaoEconomiaScreenState extends State<CartaoEconomiaScreen> {
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
             decoration: BoxDecoration(
               gradient: LinearGradient(colors: [
-                const Color(0xFF00C853).withOpacity(0.3),
-                const Color(0xFF00E676).withOpacity(0.3),
+                const Color(0xFF00C853).withValues(alpha: 0.3),
+                const Color(0xFF00E676).withValues(alpha: 0.3),
               ]),
               borderRadius: BorderRadius.circular(20),
             ),
@@ -312,13 +312,13 @@ class _CartaoEconomiaScreenState extends State<CartaoEconomiaScreen> {
           const SizedBox(height: 20),
 
           // Footer
-          Container(height: 1, color: Colors.white.withOpacity(0.1)),
+          Container(height: 1, color: Colors.white.withValues(alpha: 0.1)),
           const SizedBox(height: 12),
           Row(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
               Text('Baixe o Condomeet e economize também! ',
-                  style: TextStyle(color: Colors.white.withOpacity(0.3), fontSize: 10)),
+                  style: TextStyle(color: Colors.white.withValues(alpha: 0.3), fontSize: 10)),
               const Icon(Icons.rocket_launch, color: Colors.white38, size: 12),
             ],
           ),
@@ -331,7 +331,7 @@ class _CartaoEconomiaScreenState extends State<CartaoEconomiaScreen> {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
       decoration: BoxDecoration(
-        color: Colors.white.withOpacity(0.06),
+        color: Colors.white.withValues(alpha: 0.06),
         borderRadius: BorderRadius.circular(12),
       ),
       child: Column(
@@ -339,7 +339,7 @@ class _CartaoEconomiaScreenState extends State<CartaoEconomiaScreen> {
           Icon(icon, color: Colors.white70, size: 16),
           const SizedBox(height: 2),
           Text(value, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 14)),
-          Text(label, style: TextStyle(color: Colors.white.withOpacity(0.3), fontSize: 9)),
+          Text(label, style: TextStyle(color: Colors.white.withValues(alpha: 0.3), fontSize: 9)),
         ],
       ),
     );

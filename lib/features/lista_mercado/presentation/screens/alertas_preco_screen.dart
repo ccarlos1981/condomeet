@@ -31,7 +31,6 @@ class _AlertasPrecoScreenState extends State<AlertasPrecoScreen> {
   }
 
   Future<void> _showCreateAlertDialog() async {
-    String searchText = '';
     List<Map<String, dynamic>> searchResults = [];
     Map<String, dynamic>? selectedVariant;
     String? selectedMarketId;
@@ -67,7 +66,6 @@ class _AlertasPrecoScreenState extends State<AlertasPrecoScreen> {
                 if (selectedVariant == null) ...[
                   TextField(
                     onChanged: (v) async {
-                      searchText = v;
                       if (v.length >= 2) {
                         final results = await _service.searchProducts(v);
                         setModalState(() => searchResults = results);
@@ -108,9 +106,9 @@ class _AlertasPrecoScreenState extends State<AlertasPrecoScreen> {
                   Container(
                     padding: const EdgeInsets.all(12),
                     decoration: BoxDecoration(
-                      color: const Color(0xFF2E7D32).withOpacity(0.08),
+                      color: const Color(0xFF2E7D32).withValues(alpha: 0.08),
                       borderRadius: BorderRadius.circular(12),
-                      border: Border.all(color: const Color(0xFF2E7D32).withOpacity(0.3)),
+                      border: Border.all(color: const Color(0xFF2E7D32).withValues(alpha: 0.3)),
                     ),
                     child: Row(
                       children: [

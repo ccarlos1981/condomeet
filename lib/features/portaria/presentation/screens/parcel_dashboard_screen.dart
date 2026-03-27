@@ -59,6 +59,7 @@ class _ParcelDashboardScreenState extends State<ParcelDashboardScreen>
     super.dispose();
   }
 
+  // ignore: unused_element
   void _showDarBaixaModal(Parcel parcel) {
     showModalBottomSheet(
       context: context,

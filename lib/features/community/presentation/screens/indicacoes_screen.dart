@@ -408,7 +408,7 @@ class _IndicacoesScreenState extends State<IndicacoesScreen> {
                             const Text('UF', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13)),
                             const SizedBox(height: 6),
                             DropdownButtonFormField<String>(
-                              value: selectedUf,
+                              initialValue: selectedUf,
                               isDense: true,
                               isExpanded: true,
                               hint: const Text('UF', style: TextStyle(fontSize: 13)),
@@ -444,7 +444,7 @@ class _IndicacoesScreenState extends State<IndicacoesScreen> {
                             const Text('Cidade', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13)),
                             const SizedBox(height: 6),
                             DropdownButtonFormField<String>(
-                              value: selectedCidade,
+                              initialValue: selectedCidade,
                               isDense: true,
                               isExpanded: true,
                               hint: Text(
@@ -511,7 +511,7 @@ class _IndicacoesScreenState extends State<IndicacoesScreen> {
                         border: Border.all(color: Colors.grey.shade200),
                         borderRadius: BorderRadius.circular(12),
                         color: Colors.white,
-                        boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.06), blurRadius: 8)],
+                        boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.06), blurRadius: 8)],
                       ),
                       constraints: const BoxConstraints(maxHeight: 160),
                       child: ListView.builder(
@@ -739,7 +739,7 @@ class _IndicacoesScreenState extends State<IndicacoesScreen> {
                   Container(
                     padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                     decoration: BoxDecoration(
-                      color: AppColors.primary.withOpacity(0.1),
+                      color: AppColors.primary.withValues(alpha: 0.1),
                       borderRadius: BorderRadius.circular(20),
                     ),
                     child: Row(
@@ -810,7 +810,7 @@ class _IndicacoesScreenState extends State<IndicacoesScreen> {
         color: Colors.white,
         borderRadius: BorderRadius.circular(20),
         boxShadow: [
-          BoxShadow(color: Colors.black.withOpacity(0.06), blurRadius: 10, offset: const Offset(0, 3)),
+          BoxShadow(color: Colors.black.withValues(alpha: 0.06), blurRadius: 10, offset: const Offset(0, 3)),
         ],
       ),
       child: Padding(
@@ -826,7 +826,7 @@ class _IndicacoesScreenState extends State<IndicacoesScreen> {
                 Container(
                   width: 60, height: 60,
                   decoration: BoxDecoration(
-                    color: AppColors.primary.withOpacity(0.08),
+                    color: AppColors.primary.withValues(alpha: 0.08),
                     borderRadius: BorderRadius.circular(16),
                   ),
                   child: fotoUrl != null
@@ -848,7 +848,7 @@ class _IndicacoesScreenState extends State<IndicacoesScreen> {
                       Container(
                         padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
                         decoration: BoxDecoration(
-                          color: AppColors.primary.withOpacity(0.08),
+                          color: AppColors.primary.withValues(alpha: 0.08),
                           borderRadius: BorderRadius.circular(20),
                         ),
                         child: Text('$emoji $esp',

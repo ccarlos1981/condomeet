@@ -191,7 +191,7 @@ class ListaSubscriptionService {
   static Future<bool> purchasePackage(Package package) async {
     if (kIsWeb) return false;
     try {
-      final result = await Purchases.purchasePackage(package);
+      final result = await Purchases.purchase(PurchaseParams.package(package));
       final isPremiumNow = result.customerInfo.entitlements.active.containsKey(entitlementId);
 
       if (isPremiumNow) {

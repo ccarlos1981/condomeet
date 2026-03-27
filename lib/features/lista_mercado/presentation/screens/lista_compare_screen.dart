@@ -107,7 +107,7 @@ class _ListaCompareScreenState extends State<ListaCompareScreen> {
       decoration: BoxDecoration(
         gradient: const LinearGradient(colors: [Color(0xFF2E7D32), Color(0xFF43A047)]),
         borderRadius: BorderRadius.circular(18),
-        boxShadow: [BoxShadow(color: const Color(0xFF2E7D32).withOpacity(0.3), blurRadius: 16, offset: const Offset(0, 6))],
+        boxShadow: [BoxShadow(color: const Color(0xFF2E7D32).withValues(alpha: 0.3), blurRadius: 16, offset: const Offset(0, 6))],
       ),
       child: Column(
         children: [
@@ -152,7 +152,7 @@ class _ListaCompareScreenState extends State<ListaCompareScreen> {
         color: Colors.white,
         borderRadius: BorderRadius.circular(16),
         border: Border.all(color: Colors.amber.shade200),
-        boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.04), blurRadius: 8, offset: const Offset(0, 2))],
+        boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.04), blurRadius: 8, offset: const Offset(0, 2))],
       ),
       child: Row(
         children: [
@@ -190,8 +190,8 @@ class _ListaCompareScreenState extends State<ListaCompareScreen> {
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: isFirst ? const Color(0xFF2E7D32).withOpacity(0.4) : Colors.grey.shade200),
-        boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.03), blurRadius: 4, offset: const Offset(0, 1))],
+        border: Border.all(color: isFirst ? const Color(0xFF2E7D32).withValues(alpha: 0.4) : Colors.grey.shade200),
+        boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.03), blurRadius: 4, offset: const Offset(0, 1))],
       ),
       child: Row(
         children: [
@@ -199,7 +199,7 @@ class _ListaCompareScreenState extends State<ListaCompareScreen> {
           Container(
             width: 32, height: 32,
             decoration: BoxDecoration(
-              color: isFirst ? const Color(0xFF2E7D32).withOpacity(0.1) : Colors.grey.shade100,
+              color: isFirst ? const Color(0xFF2E7D32).withValues(alpha: 0.1) : Colors.grey.shade100,
               borderRadius: BorderRadius.circular(8),
             ),
             child: Center(

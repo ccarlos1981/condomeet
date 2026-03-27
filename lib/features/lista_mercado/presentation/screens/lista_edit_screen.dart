@@ -298,8 +298,8 @@ class _ListaEditScreenState extends State<ListaEditScreen> {
           decoration: BoxDecoration(
             color: Colors.white,
             borderRadius: BorderRadius.circular(14),
-            border: Border.all(color: const Color(0xFF2E7D32).withOpacity(0.4)),
-            boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 8, offset: const Offset(0, 2))],
+            border: Border.all(color: const Color(0xFF2E7D32).withValues(alpha: 0.4)),
+            boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.05), blurRadius: 8, offset: const Offset(0, 2))],
           ),
           child: Row(
             children: [
@@ -362,7 +362,7 @@ class _ListaEditScreenState extends State<ListaEditScreen> {
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(12),
-        boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.04), blurRadius: 6, offset: const Offset(0, 2))],
+        boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.04), blurRadius: 6, offset: const Offset(0, 2))],
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -397,7 +397,7 @@ class _ListaEditScreenState extends State<ListaEditScreen> {
                       Container(
                         width: 28, height: 28,
                         decoration: BoxDecoration(
-                          color: const Color(0xFF2E7D32).withOpacity(0.1),
+                          color: const Color(0xFF2E7D32).withValues(alpha: 0.1),
                           borderRadius: BorderRadius.circular(8),
                         ),
                         child: const Icon(Icons.add, color: Color(0xFF2E7D32), size: 18),
@@ -449,7 +449,7 @@ class _ListaEditScreenState extends State<ListaEditScreen> {
           color: isChecked ? Colors.grey.shade100 : Colors.white,
           borderRadius: BorderRadius.circular(12),
           border: Border.all(color: isChecked ? Colors.green.shade200 : Colors.grey.shade200),
-          boxShadow: isChecked ? null : [BoxShadow(color: Colors.black.withOpacity(0.03), blurRadius: 4, offset: const Offset(0, 1))],
+          boxShadow: isChecked ? null : [BoxShadow(color: Colors.black.withValues(alpha: 0.03), blurRadius: 4, offset: const Offset(0, 1))],
         ),
         child: Row(
           children: [
@@ -511,7 +511,7 @@ class _ListaEditScreenState extends State<ListaEditScreen> {
                   onTap: () => _updateQuantity(item['id'], qty + 1),
                   child: Container(
                     width: 28, height: 28,
-                    decoration: BoxDecoration(color: const Color(0xFF2E7D32).withOpacity(0.1), borderRadius: BorderRadius.circular(8)),
+                    decoration: BoxDecoration(color: const Color(0xFF2E7D32).withValues(alpha: 0.1), borderRadius: BorderRadius.circular(8)),
                     child: const Icon(Icons.add, color: Color(0xFF2E7D32), size: 16),
                   ),
                 ),

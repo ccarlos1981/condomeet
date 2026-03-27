@@ -188,7 +188,7 @@ class _ReportarPrecoScreenState extends State<ReportarPrecoScreen> with SingleTi
                   Container(
                     padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                     decoration: BoxDecoration(
-                      color: const Color(0xFF2E7D32).withOpacity(0.1),
+                      color: const Color(0xFF2E7D32).withValues(alpha: 0.1),
                       borderRadius: BorderRadius.circular(20),
                     ),
                     child: Text('+10 por reporte', style: TextStyle(color: Colors.green.shade700, fontSize: 11, fontWeight: FontWeight.bold)),
@@ -254,7 +254,7 @@ class _ReportarPrecoScreenState extends State<ReportarPrecoScreen> with SingleTi
                         leading: Container(
                           width: 28, height: 28,
                           decoration: BoxDecoration(
-                            color: const Color(0xFF2E7D32).withOpacity(0.1),
+                            color: const Color(0xFF2E7D32).withValues(alpha: 0.1),
                             borderRadius: BorderRadius.circular(8),
                           ),
                           child: const Icon(Icons.add, color: Color(0xFF2E7D32), size: 18),
@@ -276,9 +276,9 @@ class _ReportarPrecoScreenState extends State<ReportarPrecoScreen> with SingleTi
             Container(
               padding: const EdgeInsets.all(12),
               decoration: BoxDecoration(
-                color: const Color(0xFF2E7D32).withOpacity(0.08),
+                color: const Color(0xFF2E7D32).withValues(alpha: 0.08),
                 borderRadius: BorderRadius.circular(12),
-                border: Border.all(color: const Color(0xFF2E7D32).withOpacity(0.25)),
+                border: Border.all(color: const Color(0xFF2E7D32).withValues(alpha: 0.25)),
               ),
               child: Row(
                 children: [

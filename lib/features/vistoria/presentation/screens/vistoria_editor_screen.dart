@@ -1167,7 +1167,7 @@ class _VistoriaEditorScreenState extends State<VistoriaEditorScreen> {
       final package = offering.availablePackages.first;
 
       // Purchase
-      final result = await Purchases.purchasePackage(package);
+      final result = await Purchases.purchase(PurchaseParams.package(package));
       
       // Check if purchase was successful
       if (result.customerInfo.nonSubscriptionTransactions.isNotEmpty) {

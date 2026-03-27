@@ -430,4 +430,381 @@ So that I am always up-to-date with condominium governance.
 **And** access must be logged for the manager's oversight.
 
 ---
-*Documento Finalizado e Validado para Desenvolvimento.*
+*Épicos 1–7: Documento Original Finalizado e Validado.*
+
+---
+
+## Épicos Retroativos (8–15) — Funcionalidades construídas além do PRD original
+
+*Adicionados em 2026-03-26 para documentar features implementadas pós-planejamento.*
+
+### Epic 8: Enquetes & Votações
+
+Sistema de criação de enquetes pelo admin com votação em tempo real pelos moradores.
+
+### Story 8.1: Criação de Enquetes (Admin)
+
+As an admin/síndico,
+I want to create polls with multiple options and optional deadlines,
+So that I can collect resident opinions on condo matters.
+
+**Acceptance Criteria:**
+
+**Given** the admin panel (mobile + web)
+**When** I create a poll with title, options, and deadline
+**Then** residents see it in their menu and can vote
+**And** push notifications are sent via `enquete-push-notify`.
+
+### Story 8.2: Votação de Enquetes (Morador)
+
+As a resident,
+I want to vote on active polls and see live results,
+So that I can participate in condominium decisions.
+
+**Acceptance Criteria:**
+
+**Given** an active poll
+**When** I select my option and confirm
+**Then** my vote is recorded and results update in real-time.
+
+---
+
+### Epic 9: Comunidade (Classificados, Indicações & Álbum)
+
+Módulos comunitários para compra/venda entre moradores, indicações de serviços e álbum de fotos.
+
+### Story 9.1: Classificados (Compra/Venda)
+
+As a resident,
+I want to post items for sale and browse listings from neighbors,
+So that I can buy/sell within the condominium community.
+
+**Acceptance Criteria:**
+
+**Given** the classificados screen
+**When** I create a listing with photos, price, and description
+**Then** it appears for all residents and notifies via `classificados-notify`.
+
+### Story 9.2: Indicações do Síndico
+
+As a síndico,
+I want to recommend trusted service providers with UF/city filtering,
+So that residents can find vetted professionals.
+
+**Acceptance Criteria:**
+
+**Given** the indicações screen
+**When** I filter by UF and city
+**Then** only relevant recommendations appear
+**And** new indicações trigger `indicacoes-notify`.
+
+### Story 9.3: Álbum de Fotos do Condomínio
+
+As an admin,
+I want to upload community event photos organized by albums,
+So that residents can view and relive shared moments.
+
+**Acceptance Criteria:**
+
+**Given** the album admin screen
+**When** I create an album and upload photos
+**Then** residents see the album in their menu with push notification via `album-push-notify`.
+
+---
+
+### Epic 10: Gestão de Contratos
+
+Controle de contratos do condomínio com alertas automáticos de vencimento.
+
+### Story 10.1: Central de Contratos (Admin & Morador)
+
+As an admin,
+I want to upload and manage condominium contracts with expiry dates,
+So that all stakeholders have visibility and no contract expires unnoticed.
+
+**Acceptance Criteria:**
+
+**Given** the contratos admin screen
+**When** I upload a contract with expiry date
+**Then** it's visible to authorized residents
+**And** `contratos-vencimento-check` triggers alerts before expiry
+**And** `contratos-push-notify` notifies relevant parties.
+
+---
+
+### Epic 11: Meu Bolso (Dinglo) — Gestão Financeira Pessoal
+
+App financeiro pessoal completo integrado ao ecossistema Condomeet, com monetização via RevenueCat.
+
+### Story 11.1: Contas & Cartões
+
+As a user,
+I want to register my bank accounts and credit cards,
+So that I can track my finances in one place.
+
+**Acceptance Criteria:**
+
+**Given** the Dinglo module
+**When** I register accounts and cards
+**Then** they appear on the home dashboard with balances.
+
+### Story 11.2: Lançamentos & Movimentos
+
+As a user,
+I want to record income and expenses categorized by type,
+So that I can understand my spending patterns.
+
+**Acceptance Criteria:**
+
+**Given** registered accounts
+**When** I create a transaction with category, amount, and date
+**Then** it appears in the movements timeline with running balance.
+
+### Story 11.3: Metas, Indicadores & Despesas Fixas
+
+As a user,
+I want to set savings goals, view financial indicators, and manage recurring expenses,
+So that I can plan my financial future.
+
+**Acceptance Criteria:**
+
+**Given** existing transactions
+**When** I create goals and fixed expenses
+**Then** indicators show progress and projections.
+
+### Story 11.4: Monetização (Planos Premium)
+
+As a user,
+I want to access premium features via subscription,
+So that I get advanced financial tools.
+
+**Acceptance Criteria:**
+
+**Given** free tier limitations
+**When** I subscribe via RevenueCat paywall
+**Then** premium features unlock (onboarding + planos screens).
+
+---
+
+### Epic 12: Lista Inteligente de Supermercado
+
+Comparador de preços com OCR de cupom fiscal, gamificação comunitária e monetização.
+
+### Story 12.1: Criação & Edição de Listas
+
+As a user,
+I want to create shopping lists and add products,
+So that I can organize my grocery shopping.
+
+**Acceptance Criteria:**
+
+**Given** the lista-mercado module
+**When** I create a list and add items
+**Then** items are saved with quantities and categories.
+
+### Story 12.2: Comparador de Preços
+
+As a user,
+I want to compare prices across stores for my list items,
+So that I can save money on groceries.
+
+**Acceptance Criteria:**
+
+**Given** a list with items
+**When** I open the compare screen
+**Then** I see prices from different stores ranked by total cost.
+
+### Story 12.3: Scanner OCR de Cupom Fiscal
+
+As a user,
+I want to scan receipt photos to extract prices automatically,
+So that I contribute price data without manual entry.
+
+**Acceptance Criteria:**
+
+**Given** a receipt photo
+**When** I scan via `lista-ocr-receipt` edge function
+**Then** products and prices are extracted and saved.
+
+### Story 12.4: Gamificação & Ranking
+
+As a user,
+I want to earn points for contributing prices and see community rankings,
+So that price sharing becomes rewarding and fun.
+
+**Acceptance Criteria:**
+
+**Given** price contributions
+**When** I report prices or scan receipts
+**Then** points accumulate and my ranking updates.
+
+### Story 12.5: Monetização (Paywall & Cartão Economia)
+
+As a user,
+I want to access premium features like savings card and unlimited lists,
+So that I get maximum value from the platform.
+
+**Acceptance Criteria:**
+
+**Given** free tier limitations
+**When** I subscribe via RevenueCat
+**Then** premium features unlock including cartão economia.
+
+---
+
+### Epic 13: Garagem Inteligente (Aluguel de Vagas)
+
+Sistema completo de aluguel de vagas de garagem entre moradores com trial e notificações.
+
+### Story 13.1: Cadastro & Listagem de Vagas
+
+As a resident,
+I want to list my parking spot for rent with availability and pricing,
+So that I can earn income from unused garage space.
+
+**Acceptance Criteria:**
+
+**Given** the garagem module
+**When** I register a spot with photo, price, and availability
+**Then** it appears in the community listing.
+
+### Story 13.2: Reserva & Confirmação
+
+As a resident,
+I want to reserve available parking spots from neighbors,
+So that I can park when I need extra space.
+
+**Acceptance Criteria:**
+
+**Given** an available spot
+**When** I request a reservation
+**Then** the owner is notified via `garagem-notify`
+**And** can confirm or reject with real-time status updates.
+
+### Story 13.3: Trial por Condomínio & Onboarding
+
+As a system,
+I want to manage trial periods per condominium,
+So that condos can try the feature before committing.
+
+**Acceptance Criteria:**
+
+**Given** a new condominium accessing garagem
+**When** no trial record exists
+**Then** auto-create trial with configurable duration
+**And** show onboarding for first-time users.
+
+---
+
+### Epic 14: Vistoria Digital (Checklist de Imóvel)
+
+Checklist digital com análise IA, timeline histórica e monetização.
+
+### Story 14.1: Criação & Edição de Vistorias
+
+As a user,
+I want to create property inspection checklists with photos and notes,
+So that I have documented proof of property condition.
+
+**Acceptance Criteria:**
+
+**Given** the vistoria module
+**When** I create a vistoria and add items with photos
+**Then** items are saved with timestamps and location.
+
+### Story 14.2: Análise IA & Timeline
+
+As a user,
+I want AI analysis of inspection photos and historical timeline,
+So that I can track property condition over time.
+
+**Acceptance Criteria:**
+
+**Given** a completed vistoria
+**When** I request AI analysis via `vistoria-ai-analyze`
+**Then** the system generates condition assessment
+**And** the timeline screen shows all vistorias for an address chronologically.
+
+### Story 14.3: Monetização & Onboarding
+
+As a user,
+I want to access premium vistoria features via subscription,
+So that I get AI analysis and unlimited inspections.
+
+**Acceptance Criteria:**
+
+**Given** free tier limitations
+**When** I subscribe via RevenueCat
+**Then** premium features unlock (onboarding + paywall).
+
+---
+
+### Epic 15: Infraestrutura & Plataforma
+
+Features transversais de plataforma: WhatsApp Chatbot IA, Push Universal, Menu Dinâmico, Propaganda, e Visita Proprietário.
+
+### Story 15.1: WhatsApp Chatbot IA
+
+As a system,
+I want an AI chatbot that answers resident questions via WhatsApp,
+So that common inquiries are resolved 24/7 without admin intervention.
+
+**Acceptance Criteria:**
+
+**Given** a WhatsApp message from a resident
+**When** the `whatsapp-chatbot` edge function receives it
+**Then** it responds using the system prompt with condo-specific context
+**And** `whatsapp-health-check` monitors availability.
+
+### Story 15.2: Push Universal & Avisos Admin
+
+As an admin,
+I want to send custom push notifications and manage official announcements,
+So that I can communicate with residents through multiple channels.
+
+**Acceptance Criteria:**
+
+**Given** the admin panel
+**When** I compose a push notification or announcement
+**Then** it's delivered via `universal-push-notify` to targeted audiences.
+
+### Story 15.3: Menu Dinâmico por Condomínio
+
+As an admin,
+I want to configure which menu items appear for each role in my condominium,
+So that the app experience is customized per community.
+
+**Acceptance Criteria:**
+
+**Given** the configure-menu screen
+**When** I toggle features on/off for each role
+**Then** residents/porters see only enabled menu items.
+
+### Story 15.4: Propaganda & Empresas Parceiras
+
+As a super-admin,
+I want to manage partner companies and their logos on the resident dashboard,
+So that the platform generates revenue from local business promotion.
+
+**Acceptance Criteria:**
+
+**Given** the super-admin propaganda panel
+**When** I create a partner entry with logo and details
+**Then** it appears on the home screen for residents in that region.
+
+### Story 15.5: Visita Proprietário
+
+As a property owner,
+I want to schedule visits to my property with notifications to the porter,
+So that my access is pre-authorized without calling ahead.
+
+**Acceptance Criteria:**
+
+**Given** the visita-proprietário screen
+**When** I schedule a visit
+**Then** the porter is notified via `visita-proprietario-push-notify`
+**And** my visit appears on their approval queue.
+
+---
+*Documento Atualizado em 2026-03-26 — Épicos 8–15 adicionados retroativamente.*
+

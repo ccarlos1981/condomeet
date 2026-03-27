@@ -1095,6 +1095,7 @@ class _HomeScreenState extends State<HomeScreen> {
     if (mounted) setState(() => _showPartnersChecklist = false);
   }
 
+  // ignore: unused_element
   Future<void> _showPartnersChecklistAgain() async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.remove('partners_checklist_dismissed');
@@ -1318,6 +1319,7 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
+  // ignore: unused_element
   Widget _buildPlaceholderPartner({
     required LinearGradient gradient,
     IconData? icon,

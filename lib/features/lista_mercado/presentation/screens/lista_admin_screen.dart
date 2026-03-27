@@ -236,7 +236,6 @@ class _ListaAdminScreenState extends State<ListaAdminScreen> {
           final sku = p['lista_products_sku'] as Map<String, dynamic>?;
           final variant = sku?['lista_product_variants'] as Map<String, dynamic>?;
           final base = variant?['lista_products_base'] as Map<String, dynamic>?;
-          final market = p['lista_supermarkets'] as Map<String, dynamic>?;
           final price = (p['price'] as num?)?.toDouble() ?? 0;
           final source = p['source'] ?? '';
 
@@ -425,7 +424,7 @@ class _ListaAdminScreenState extends State<ListaAdminScreen> {
                   child: Container(
                     width: 36, height: 36,
                     decoration: BoxDecoration(
-                      color: selectedEmoji == e ? const Color(0xFF2E7D32).withOpacity(0.15) : Colors.grey.shade100,
+                      color: selectedEmoji == e ? const Color(0xFF2E7D32).withValues(alpha: 0.15) : Colors.grey.shade100,
                       borderRadius: BorderRadius.circular(8),
                       border: Border.all(color: selectedEmoji == e ? const Color(0xFF2E7D32) : Colors.transparent),
                     ),

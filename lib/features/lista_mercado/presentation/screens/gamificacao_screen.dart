@@ -136,8 +136,8 @@ class _GamificacaoScreenState extends State<GamificacaoScreen> with SingleTicker
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(18),
-        border: Border.all(color: Color(rank['color'] as int).withOpacity(0.3)),
-        boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 10, offset: const Offset(0, 4))],
+        border: Border.all(color: Color(rank['color'] as int).withValues(alpha: 0.3)),
+        boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.05), blurRadius: 10, offset: const Offset(0, 4))],
       ),
       child: Column(
         children: [
@@ -147,7 +147,7 @@ class _GamificacaoScreenState extends State<GamificacaoScreen> with SingleTicker
               Container(
                 width: 56, height: 56,
                 decoration: BoxDecoration(
-                  color: Color(rank['color'] as int).withOpacity(0.15),
+                  color: Color(rank['color'] as int).withValues(alpha: 0.15),
                   borderRadius: BorderRadius.circular(16),
                 ),
                 child: Center(child: Icon(rank['icon'] as IconData, color: Color(rank['color'] as int), size: 30)),
@@ -331,9 +331,9 @@ class _GamificacaoScreenState extends State<GamificacaoScreen> with SingleTicker
         margin: const EdgeInsets.only(bottom: 6),
         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
         decoration: BoxDecoration(
-          color: isMe ? const Color(0xFF2E7D32).withOpacity(0.06) : Colors.white,
+          color: isMe ? const Color(0xFF2E7D32).withValues(alpha: 0.06) : Colors.white,
           borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: isMe ? const Color(0xFF2E7D32).withOpacity(0.3) : Colors.grey.shade200),
+          border: Border.all(color: isMe ? const Color(0xFF2E7D32).withValues(alpha: 0.3) : Colors.grey.shade200),
         ),
         child: Row(
           children: [
@@ -357,7 +357,7 @@ class _GamificacaoScreenState extends State<GamificacaoScreen> with SingleTicker
                     isMe ? '$name (você)' : _anonymizeName(name),
                     style: TextStyle(color: isMe ? const Color(0xFF2E7D32) : Colors.grey.shade900, fontWeight: FontWeight.w600, fontSize: 14),
                   ),
-                  Text(rankTitle, style: TextStyle(color: Color(rank['color'] as int).withOpacity(0.8), fontSize: 11)),
+                  Text(rankTitle, style: TextStyle(color: Color(rank['color'] as int).withValues(alpha: 0.8), fontSize: 11)),
                 ],
               ),
             ),

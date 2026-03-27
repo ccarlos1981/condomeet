@@ -338,14 +338,11 @@ class GaragemService {
         .eq('condominio_id', condominioId)
         .maybeSingle();
 
-    if (trial == null) {
-      // Criar trial automaticamente ao primeiro acesso
-      trial = await _supabase
-          .from('garage_condo_trial')
-          .insert({'condominio_id': condominioId})
-          .select()
-          .single();
-    }
+    trial ??= await _supabase
+        .from('garage_condo_trial')
+        .insert({'condominio_id': condominioId})
+        .select()
+        .single();
 
     final endsAt = DateTime.parse(trial['trial_ends_at']);
     final daysLeft = endsAt.difference(DateTime.now()).inDays;

@@ -245,6 +245,7 @@ class _PortariaVisitorApprovalScreenState
     );
   }
 
+  // ignore: unused_element
   void _clearFilters() {
     _codeCtrl.clear();
     _blocoCtrl.clear();

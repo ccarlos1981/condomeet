@@ -672,7 +672,7 @@ class _VistoriaHomeScreenState extends State<VistoriaHomeScreen> {
 
                   // Tipo de bem
                   DropdownButtonFormField<String>(
-                    value: tipoBem,
+                    initialValue: tipoBem,
                     decoration: InputDecoration(
                       labelText: 'Tipo de Bem',
                       border: OutlineInputBorder(
@@ -713,7 +713,7 @@ class _VistoriaHomeScreenState extends State<VistoriaHomeScreen> {
                   // Template
                   if (_templates.isNotEmpty) ...[
                     DropdownButtonFormField<String>(
-                      value: templateId.isEmpty ? null : templateId,
+                      initialValue: templateId.isEmpty ? null : templateId,
                       decoration: InputDecoration(
                         labelText: 'Template (opcional)',
                         border: OutlineInputBorder(

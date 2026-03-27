@@ -189,7 +189,7 @@ class _ScannerReceiptScreenState extends State<ScannerReceiptScreen> {
             Container(
               width: 120, height: 120,
               decoration: BoxDecoration(
-                color: const Color(0xFF2E7D32).withOpacity(0.08),
+                color: const Color(0xFF2E7D32).withValues(alpha: 0.08),
                 borderRadius: BorderRadius.circular(30),
               ),
               child: Center(child: Icon(Icons.receipt_long, size: 60, color: Colors.green.shade700)),
@@ -359,7 +359,7 @@ class _ScannerReceiptScreenState extends State<ScannerReceiptScreen> {
                 children: [
                   Container(
                     padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                    decoration: BoxDecoration(color: const Color(0xFF2E7D32).withOpacity(0.1), borderRadius: BorderRadius.circular(8)),
+                    decoration: BoxDecoration(color: const Color(0xFF2E7D32).withValues(alpha: 0.1), borderRadius: BorderRadius.circular(8)),
                     child: Text('${_extractedItems.length} itens encontrados', style: TextStyle(color: Colors.green.shade700, fontSize: 12, fontWeight: FontWeight.bold)),
                   ),
                   const Spacer(),
@@ -449,7 +449,7 @@ class _ScannerReceiptScreenState extends State<ScannerReceiptScreen> {
       decoration: BoxDecoration(
         color: isSelected ? Colors.white : Colors.grey.shade100,
         borderRadius: BorderRadius.circular(10),
-        border: Border.all(color: isSelected ? const Color(0xFF2E7D32).withOpacity(0.3) : Colors.grey.shade200),
+        border: Border.all(color: isSelected ? const Color(0xFF2E7D32).withValues(alpha: 0.3) : Colors.grey.shade200),
       ),
       child: Row(
         children: [

@@ -82,3 +82,57 @@ development_status:
   7-2-gestao-inventario: done
   7-3-assembleias-virtuais: done
   epic-7-retrospective: done
+
+  # ── Épicos Retroativos (8–15) ─────────────────────────
+  # Adicionados em 2026-03-26 para documentar features
+  # construídas além do PRD original.
+
+  epic-8: done
+  8-1-criacao-enquetes-admin: done
+  8-2-votacao-enquetes-morador: done
+  epic-8-retrospective: optional
+
+  epic-9: done
+  9-1-classificados: done
+  9-2-indicacoes-sindico: done
+  9-3-album-fotos: done
+  epic-9-retrospective: optional
+
+  epic-10: done
+  10-1-central-contratos: done
+  epic-10-retrospective: optional
+
+  epic-11: done
+  11-1-contas-cartoes: done
+  11-2-lancamentos-movimentos: done
+  11-3-metas-indicadores-despesas: done
+  11-4-monetizacao-planos: done
+  epic-11-retrospective: optional
+
+  epic-12: done
+  12-1-criacao-edicao-listas: done
+  12-2-comparador-precos: done
+  12-3-scanner-ocr-cupom: done
+  12-4-gamificacao-ranking: done
+  12-5-monetizacao-paywall: done
+  epic-12-retrospective: optional
+
+  epic-13: done
+  13-1-cadastro-listagem-vagas: done
+  13-2-reserva-confirmacao: done
+  13-3-trial-onboarding: done
+  epic-13-retrospective: optional
+
+  epic-14: done
+  14-1-criacao-edicao-vistorias: done
+  14-2-analise-ia-timeline: done
+  14-3-monetizacao-onboarding: done
+  epic-14-retrospective: optional
+
+  epic-15: done
+  15-1-whatsapp-chatbot-ia: done
+  15-2-push-universal-avisos: done
+  15-3-menu-dinamico: done
+  15-4-propaganda-parceiros: done
+  15-5-visita-proprietario: done
+  epic-15-retrospective: optional

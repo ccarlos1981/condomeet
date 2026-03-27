@@ -92,9 +92,8 @@ class RevenueCatService {
   static Future<bool> purchasePackage(Package package) async {
     if (kIsWeb) return false;
     try {
-      final result = await Purchases.purchasePackage(package);
-      final customerInfo = result.customerInfo;
-      final isPremiumNow = customerInfo.entitlements.active.containsKey(entitlementId);
+      final result = await Purchases.purchase(PurchaseParams.package(package));
+      final isPremiumNow = result.customerInfo.entitlements.active.containsKey(entitlementId);
 
       if (isPremiumNow) {
         // Sync with Supabase
