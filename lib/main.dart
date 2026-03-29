@@ -215,6 +215,7 @@ class AuthRootGate extends StatelessWidget {
           case AuthStatus.authenticating:
           case AuthStatus.unauthenticated:
           case AuthStatus.needsPasswordSetup:
+          case AuthStatus.forgotPasswordCodeSent:
             return const LoginScreen();
           case AuthStatus.otpSent:
             // Obsolete for Schema 2.0 unless we keep phone fallback

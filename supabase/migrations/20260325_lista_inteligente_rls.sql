@@ -11,6 +11,8 @@ CREATE POLICY "Variantes: leitura pública" ON lista_product_variants FOR SELECT
 
 ALTER TABLE lista_products_sku ENABLE ROW LEVEL SECURITY;
 CREATE POLICY "SKUs: leitura pública" ON lista_products_sku FOR SELECT USING (true);
+CREATE POLICY "SKUs: insert autenticado" ON lista_products_sku FOR INSERT TO authenticated WITH CHECK (true);
+
 
 ALTER TABLE lista_product_aliases ENABLE ROW LEVEL SECURITY;
 CREATE POLICY "Aliases: leitura pública" ON lista_product_aliases FOR SELECT USING (true);

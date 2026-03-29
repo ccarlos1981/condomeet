@@ -116,6 +116,26 @@ class AuthPasswordSetupSubmitted extends AuthEvent {
   List<Object> get props => [email, newPassword];
 }
 
+/// Disparado quando morador clica "Esqueci a senha" e envia o email
+class AuthForgotPasswordRequested extends AuthEvent {
+  final String email;
+  const AuthForgotPasswordRequested({required this.email});
+
+  @override
+  List<Object> get props => [email];
+}
+
+/// Disparado quando morador submete código + nova senha
+class AuthResetCodeSubmitted extends AuthEvent {
+  final String email;
+  final String code;
+  final String newPassword;
+  const AuthResetCodeSubmitted({required this.email, required this.code, required this.newPassword});
+
+  @override
+  List<Object> get props => [email, code, newPassword];
+}
+
 /// Dev-only: Long-press bypass on the welcome screen (skips OTP for testing)
 class AuthDevBypassRequested extends AuthEvent {
   const AuthDevBypassRequested();

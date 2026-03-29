@@ -51,3 +51,5 @@ app.*.map.json
 *.zip
 *.bak
 
+.env*.local
+.mcp.json

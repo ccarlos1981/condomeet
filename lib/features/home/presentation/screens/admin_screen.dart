@@ -145,9 +145,9 @@ class _AdminScreenState extends State<AdminScreen> {
               _buildAdminItem(
                 context: context,
                 icon: Icons.handshake_outlined,
-                label: 'Aprovar e consultar reserva de espaço',
+                label: 'Configurar Reservas',
                 badgeCount: _pendingReservas,
-                onTap: () => Navigator.of(context).pushNamed('/area-booking').then((_) => _loadPendingCounts()),
+                onTap: () => Navigator.of(context).pushNamed('/admin-areas-comuns').then((_) => _loadPendingCounts()),
               ),
               _buildAdminItem(
                 context: context,

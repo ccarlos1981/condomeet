@@ -13,6 +13,7 @@ enum AuthStatus {
   rejected,
   locked,
   needsPasswordSetup,  // moradores migrados precisam definir senha
+  forgotPasswordCodeSent, // código enviado via WhatsApp
 }
 
 class AuthState extends Equatable {
@@ -28,6 +29,7 @@ class AuthState extends Equatable {
   final bool isUnitBlocked;
   final String? profileStatus; // 'active', 'pending', 'rejected'
   final bool isUnlocked;
+  final String? maskedWhatsapp; // WhatsApp mascarado para tela de reset
 
   const AuthState({
     this.status = AuthStatus.unknown,
@@ -42,6 +44,7 @@ class AuthState extends Equatable {
     this.isUnitBlocked = false,
     this.profileStatus,
     this.isUnlocked = false,
+    this.maskedWhatsapp,
   });
 
   const AuthState.unknown() : this();
@@ -85,8 +88,12 @@ class AuthState extends Equatable {
   const AuthState.needsPasswordSetup({required String email})
     : this(status: AuthStatus.needsPasswordSetup, phoneNumber: email);
 
+  /// Código de reset de senha enviado via WhatsApp
+  const AuthState.forgotPasswordCodeSent({required String email, String? maskedWhatsapp})
+    : this(status: AuthStatus.forgotPasswordCodeSent, phoneNumber: email, maskedWhatsapp: maskedWhatsapp);
+
   @override
-  List<Object?> get props => [status, phoneNumber, errorMessage, userId, condominiumId, role, userName, tipoEstrutura, unitId, isUnitBlocked, profileStatus, isUnlocked];
+  List<Object?> get props => [status, phoneNumber, errorMessage, userId, condominiumId, role, userName, tipoEstrutura, unitId, isUnitBlocked, profileStatus, isUnlocked, maskedWhatsapp];
 
   AuthState copyWith({
     AuthStatus? status,
@@ -101,6 +108,7 @@ class AuthState extends Equatable {
     bool? isUnitBlocked,
     String? profileStatus,
     bool? isUnlocked,
+    String? maskedWhatsapp,
   }) {
     return AuthState(
       status: status ?? this.status,
@@ -115,6 +123,7 @@ class AuthState extends Equatable {
       isUnitBlocked: isUnitBlocked ?? this.isUnitBlocked,
       profileStatus: profileStatus ?? this.profileStatus,
       isUnlocked: isUnlocked ?? this.isUnlocked,
+      maskedWhatsapp: maskedWhatsapp ?? this.maskedWhatsapp,
     );
   }
 }

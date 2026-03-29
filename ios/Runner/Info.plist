@@ -72,6 +72,12 @@
 	<string>Para anexar foto da encomenda</string>
 	<key>NSFaceIDUsageDescription</key>
 	<string>Para autenticar sua identidade de forma segura no Condomeet</string>
+	<key>NSLocationWhenInUseUsageDescription</key>
+	<string>A Smart List precisa da sua localização para buscar supermercados ao seu redor.</string>
+	<key>NSLocationAlwaysUsageDescription</key>
+	<string>A Smart List precisa da sua localização para buscar supermercados ao seu redor.</string>
+	<key>NSLocationAlwaysAndWhenInUseUsageDescription</key>
+	<string>A Smart List precisa da sua localização para buscar supermercados ao seu redor.</string>
 	<key>ITSAppUsesNonExemptEncryption</key>
 	<false/>
 </dict>

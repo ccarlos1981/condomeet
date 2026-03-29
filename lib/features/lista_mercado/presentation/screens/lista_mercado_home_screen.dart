@@ -19,7 +19,7 @@ class _ListaMercadoHomeScreenState extends State<ListaMercadoHomeScreen> {
   bool _loading = true;
   bool _hasPremium = true;
   bool _inTrial = false;
-  int _daysRemaining = 45;
+  int _daysRemaining = 60;
   bool _showGuide = true;
   static const _guidePrefKey = 'lista_mercado_guide_dismissed';
 
@@ -44,7 +44,14 @@ class _ListaMercadoHomeScreenState extends State<ListaMercadoHomeScreen> {
       await ListaSubscriptionService.ensureTrialStarted();
 
       final lists = await _service.getMyLists();
-      final promos = await _service.getActivePromotions(limit: 5);
+      debugPrint('📋 getMyLists returned ${lists.length} lists | userId: ${_service.currentUserId}');
+      
+      List<Map<String, dynamic>> promos = [];
+      try {
+        promos = await _service.getActivePromotions(limit: 5);
+      } catch (e) {
+        debugPrint('⚠️ getActivePromotions error (non-fatal): $e');
+      }
       final hasPremium = await ListaSubscriptionService.hasAccess();
       final inTrial = await ListaSubscriptionService.isInTrial();
       final daysRemaining = await ListaSubscriptionService.getDaysRemaining();
@@ -58,7 +65,8 @@ class _ListaMercadoHomeScreenState extends State<ListaMercadoHomeScreen> {
           _loading = false;
         });
       }
-    } catch (e) {
+    } catch (e, st) {
+      debugPrint('❌ _loadData error: $e\n$st');
       if (mounted) setState(() => _loading = false);
     }
   }
@@ -155,8 +163,22 @@ class _ListaMercadoHomeScreenState extends State<ListaMercadoHomeScreen> {
       final parts = name.split('|');
       final listName = parts[0].isEmpty ? 'Minha Lista' : parts[0];
       final listType = parts[1];
-      await _service.createList(name: listName, listType: listType);
-      _loadData();
+      try {
+        await _service.createList(name: listName, listType: listType);
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('Lista "$listName" criada! ✅'), backgroundColor: _accent),
+          );
+        }
+        _loadData();
+      } catch (e) {
+        debugPrint('❌ createList error: $e');
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('Erro ao criar lista: $e'), backgroundColor: Colors.redAccent),
+          );
+        }
+      }
     }
   }
 
@@ -394,6 +416,7 @@ class _ListaMercadoHomeScreenState extends State<ListaMercadoHomeScreen> {
       _QuickAction('Ranking', Icons.emoji_events_rounded, const Color(0xFFF9A825), '/lista-mercado/ranking', false),
       _QuickAction('Alertas\nde Preço', Icons.notifications_active_rounded, const Color(0xFFE53935), '/lista-mercado/alertas', true),
       _QuickAction('Compartilhar\nEconomia', Icons.share_rounded, const Color(0xFF43A047), '/lista-mercado/cartao', true),
+      _QuickAction('Dashboard', Icons.insights_rounded, const Color(0xFF673AB7), '/lista-mercado/global-dashboard', true),
     ];
 
     return Column(

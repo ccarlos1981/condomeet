@@ -1,0 +1,692 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Condomeet — Como Cadastrar seu Condomínio</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --primary: #FC5931;
+    --primary-dark: #D42F1D;
+    --navy: #1a2535;
+    --bg: #f8f9fb;
+    --card: #ffffff;
+    --text: #1e293b;
+    --text-secondary: #64748b;
+    --border: #e2e8f0;
+    --success: #22c55e;
+    --warning: #f59e0b;
+    --info: #3b82f6;
+    --accent: #FC5931;
+    --accent-light: rgba(252,89,49,0.08);
+    --accent-glow: rgba(252,89,49,0.3);
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html { scroll-behavior: smooth; }
+  body { font-family: 'Inter', -apple-system, sans-serif; background: var(--bg); color: var(--text); line-height: 1.7; -webkit-font-smoothing: antialiased; }
+
+  /* ── COVER ── */
+  .cover {
+    min-height: 100vh;
+    background: linear-gradient(160deg, #0c1222 0%, #1a1a3e 25%, #301b56 45%, #4c1d95 65%, #6d28d9 85%, #7c3aed 100%);
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    text-align: center; color: white; padding: 60px 24px; position: relative; overflow: hidden;
+  }
+  .cover::before {
+    content: ''; position: absolute; top: -300px; right: -200px;
+    width: 800px; height: 800px; border-radius: 50%;
+    background: radial-gradient(circle, rgba(252,89,49,0.15) 0%, transparent 60%);
+    animation: orbMove 12s ease-in-out infinite;
+  }
+  .cover::after {
+    content: ''; position: absolute; bottom: -200px; left: -150px;
+    width: 600px; height: 600px; border-radius: 50%;
+    background: radial-gradient(circle, rgba(124,58,237,0.2) 0%, transparent 60%);
+    animation: orbMove 16s ease-in-out infinite reverse;
+  }
+  @keyframes orbMove {
+    0%,100% { transform: translate(0,0); }
+    33% { transform: translate(40px, -30px); }
+    66% { transform: translate(-20px, 20px); }
+  }
+  .cover-sparkles {
+    position: absolute; top: 0; left: 0; right: 0; bottom: 0; overflow: hidden; z-index: 0;
+  }
+  .sparkle {
+    position: absolute; width: 4px; height: 4px; background: white; border-radius: 50%;
+    opacity: 0; animation: twinkle var(--dur, 3s) var(--delay, 0s) infinite;
+  }
+  @keyframes twinkle {
+    0%,100% { opacity: 0; transform: scale(0); }
+    50% { opacity: 0.8; transform: scale(1); }
+  }
+
+  .cover-badge {
+    background: rgba(252,89,49,0.12); border: 1px solid rgba(252,89,49,0.35);
+    color: #fdba74; font-size: 11px; font-weight: 700; text-transform: uppercase;
+    letter-spacing: 3px; padding: 8px 28px; border-radius: 50px; margin-bottom: 36px;
+    position: relative; z-index: 1; backdrop-filter: blur(4px);
+  }
+  .cover-icon {
+    font-size: 100px; margin-bottom: 20px; position: relative; z-index: 1;
+    animation: float 4s ease-in-out infinite;
+    filter: drop-shadow(0 8px 24px rgba(252,89,49,0.3));
+  }
+  @keyframes float { 0%,100%{ transform: translateY(0) rotate(0); } 50%{ transform: translateY(-14px) rotate(2deg); } }
+  .cover h1 {
+    font-size: clamp(32px, 6vw, 52px); font-weight: 900; line-height: 1.08;
+    background: linear-gradient(135deg, #fff 0%, #fdba74 50%, #FC5931 100%);
+    -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+    margin-bottom: 14px; position: relative; z-index: 1;
+  }
+  .cover h2 {
+    font-size: clamp(15px, 2.5vw, 20px); font-weight: 400;
+    color: rgba(255,255,255,0.55); margin-bottom: 36px;
+    position: relative; z-index: 1; max-width: 460px;
+  }
+  .cover-steps-preview {
+    display: flex; gap: 12px; flex-wrap: wrap; justify-content: center;
+    position: relative; z-index: 1; margin-bottom: 32px;
+  }
+  .cover-step-pill {
+    display: flex; align-items: center; gap: 8px;
+    background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.1);
+    padding: 10px 20px; border-radius: 50px; font-size: 13px; color: rgba(255,255,255,0.7);
+    font-weight: 500; backdrop-filter: blur(4px);
+    transition: all 0.3s;
+  }
+  .cover-step-pill:hover { background: rgba(255,255,255,0.12); transform: translateY(-2px); }
+  .cover-step-num {
+    width: 22px; height: 22px; border-radius: 50%;
+    background: linear-gradient(135deg, var(--primary), #e74c27);
+    color: white; font-size: 11px; font-weight: 800;
+    display: flex; align-items: center; justify-content: center;
+  }
+  .cover-platform {
+    display: inline-flex; align-items: center; gap: 8px;
+    background: rgba(255,255,255,0.08); border: 1px solid rgba(255,255,255,0.12);
+    color: rgba(255,255,255,0.7); font-size: 14px; font-weight: 600;
+    padding: 10px 24px; border-radius: 12px; position: relative; z-index: 1;
+  }
+  .cover-version { font-size: 13px; color: rgba(255,255,255,0.25); margin-top: 28px; position: relative; z-index: 1; }
+
+  /* ── TOC ── */
+  .toc { max-width: 800px; margin: 60px auto; padding: 0 24px; }
+  .toc h2 { font-size: 28px; font-weight: 800; color: var(--navy); margin-bottom: 32px; display: flex; align-items: center; gap: 12px; }
+  .toc-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+  .toc-item {
+    display: flex; align-items: center; gap: 12px;
+    padding: 14px 18px; border-radius: 14px; text-decoration: none;
+    color: var(--text); font-weight: 500; font-size: 14px;
+    border: 1px solid var(--border); background: var(--card); transition: all 0.2s;
+  }
+  .toc-item:hover { border-color: var(--accent); color: var(--accent); transform: translateY(-2px); box-shadow: 0 4px 12px var(--accent-glow); }
+  .toc-num { width: 32px; height: 32px; border-radius: 8px; background: linear-gradient(135deg, var(--accent), var(--primary-dark)); color: white; font-size: 13px; font-weight: 700; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+
+  /* ── SECTIONS ── */
+  .container { max-width: 860px; margin: 0 auto; padding: 0 24px; }
+  .section { margin-bottom: 80px; page-break-before: always; }
+  .section:first-of-type { page-break-before: auto; }
+  .section-header { text-align: center; margin-bottom: 48px; padding-top: 60px; }
+  .section-icon { font-size: 48px; margin-bottom: 12px; display: block; }
+  .section-num { font-size: 12px; font-weight: 700; letter-spacing: 2px; text-transform: uppercase; color: var(--accent); margin-bottom: 8px; }
+  .section-title { font-size: 32px; font-weight: 800; color: var(--navy); line-height: 1.2; margin-bottom: 8px; }
+  .section-desc { font-size: 15px; color: var(--text-secondary); max-width: 500px; margin: 0 auto; }
+
+  /* ── TIMELINE ── */
+  .timeline { position: relative; padding-left: 44px; }
+  .timeline::before { content: ''; position: absolute; left: 15px; top: 8px; bottom: 8px; width: 2px; background: linear-gradient(to bottom, var(--accent), var(--border)); border-radius: 2px; }
+  .step { position: relative; margin-bottom: 28px; }
+  .step-dot { position: absolute; left: -44px; top: 4px; width: 30px; height: 30px; border-radius: 50%; background: linear-gradient(135deg, var(--accent), var(--primary-dark)); color: white; font-size: 12px; font-weight: 800; display: flex; align-items: center; justify-content: center; box-shadow: 0 2px 8px var(--accent-glow); z-index: 1; }
+  .step h4 { font-size: 16px; font-weight: 700; color: var(--navy); margin-bottom: 6px; }
+  .step p { font-size: 14px; color: var(--text-secondary); }
+
+  /* ── CARDS ── */
+  .card { background: var(--card); border: 1px solid var(--border); border-radius: 16px; padding: 28px; margin-bottom: 20px; box-shadow: 0 1px 4px rgba(0,0,0,0.04); }
+  .card h3 { font-size: 18px; font-weight: 700; color: var(--navy); margin-bottom: 12px; display: flex; align-items: center; gap: 10px; }
+
+  /* ── PHONE FRAME ── */
+  .phone-frame {
+    max-width: 320px; margin: 28px auto; border-radius: 32px; overflow: hidden;
+    border: 6px solid #1a1a2e; box-shadow: 0 20px 60px rgba(0,0,0,0.18), 0 0 0 1px rgba(255,255,255,0.05) inset;
+    background: #000; position: relative;
+  }
+  .phone-frame img { width: 100%; display: block; border-radius: 0; }
+  .phone-duo {
+    display: grid; grid-template-columns: 1fr 1fr; gap: 20px;
+    max-width: 680px; margin: 28px auto;
+  }
+  .phone-duo .phone-frame { margin: 0; max-width: 100%; }
+  .phone-trio {
+    display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 16px;
+    max-width: 860px; margin: 28px auto;
+  }
+  .phone-trio .phone-frame { margin: 0; max-width: 100%; border-width: 4px; border-radius: 24px; }
+  .phone-caption {
+    text-align: center; margin-top: 10px;
+    font-size: 12px; font-weight: 600; color: var(--text-secondary);
+    letter-spacing: 0.5px;
+  }
+
+  /* ── TIPS ── */
+  .tip { display: flex; gap: 14px; padding: 18px 20px; border-radius: 12px; margin: 20px 0; font-size: 14px; }
+  .tip-icon { font-size: 22px; flex-shrink: 0; }
+  .tip-info { background: #eff6ff; border: 1px solid #bfdbfe; color: #1e40af; }
+  .tip-success { background: #f0fdf4; border: 1px solid #bbf7d0; color: #166534; }
+  .tip-warning { background: #fffbeb; border: 1px solid #fde68a; color: #92400e; }
+  .tip-fire { background: #fff1f2; border: 1px solid #fecdd3; color: #9f1239; }
+
+  /* ── CHECKLIST ── */
+  .checklist { list-style: none; padding: 0; }
+  .checklist li {
+    padding: 14px 18px; border-radius: 12px; margin-bottom: 8px;
+    background: var(--bg); border: 1px solid var(--border);
+    display: flex; align-items: flex-start; gap: 12px; font-size: 14px;
+  }
+  .checklist li::before { content: '☐'; font-size: 18px; color: var(--accent); flex-shrink: 0; }
+
+  /* ── FLOW DIAGRAM ── */
+  .flow-diagram {
+    display: flex; align-items: center; justify-content: center;
+    gap: 0; flex-wrap: wrap; margin: 24px 0; padding: 20px;
+    background: linear-gradient(135deg, var(--accent-light), rgba(124,58,237,0.04));
+    border-radius: 16px; border: 1px solid var(--border);
+  }
+  .flow-box {
+    padding: 12px 18px; border-radius: 12px; font-size: 13px; font-weight: 600;
+    background: var(--card); border: 2px solid var(--accent);
+    color: var(--navy); text-align: center; min-width: 100px;
+  }
+  .flow-arrow { font-size: 20px; color: var(--accent); padding: 0 6px; font-weight: 700; }
+
+  /* ── FOOTER ── */
+  .footer {
+    text-align: center; padding: 48px 24px;
+    background: var(--navy); color: rgba(255,255,255,0.4); font-size: 13px;
+  }
+  .footer strong { color: var(--accent); }
+
+  /* ── RESPONSIVE ── */
+  @media (max-width: 640px) {
+    .toc-grid { grid-template-columns: 1fr; }
+    .phone-duo { grid-template-columns: 1fr; max-width: 320px; }
+    .phone-trio { grid-template-columns: 1fr; max-width: 320px; }
+    .cover-steps-preview { flex-direction: column; align-items: center; }
+    .flow-diagram { flex-direction: column; }
+    .flow-arrow { transform: rotate(90deg); }
+  }
+
+  /* ── PRINT ── */
+  @media print {
+    .cover { min-height: auto; padding: 40px 20px; }
+    .toc { page-break-after: always; }
+    .section { page-break-before: always; }
+    body { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  }
+</style>
+</head>
+<body>
+
+<!-- ============================================================ -->
+<!--  COVER                                                        -->
+<!-- ============================================================ -->
+<div class="cover">
+  <div class="cover-sparkles">
+    <div class="sparkle" style="top:12%;left:8%;--dur:2.5s;--delay:0s"></div>
+    <div class="sparkle" style="top:25%;left:85%;--dur:3.2s;--delay:0.8s"></div>
+    <div class="sparkle" style="top:55%;left:15%;--dur:2.8s;--delay:1.4s"></div>
+    <div class="sparkle" style="top:70%;left:75%;--dur:3.5s;--delay:0.3s"></div>
+    <div class="sparkle" style="top:40%;left:50%;--dur:4s;--delay:2s"></div>
+    <div class="sparkle" style="top:80%;left:35%;--dur:2.2s;--delay:1.1s"></div>
+    <div class="sparkle" style="top:15%;left:60%;--dur:3.8s;--delay:0.5s"></div>
+    <div class="sparkle" style="top:90%;left:90%;--dur:2.6s;--delay:1.7s"></div>
+  </div>
+
+  <div class="cover-badge">📖 Guia Passo a Passo</div>
+  <div class="cover-icon">🏗️</div>
+  <h1>Como Cadastrar<br>seu Condomínio</h1>
+  <h2>Do zero ao painel administrativo completo em poucos minutos</h2>
+
+  <div class="cover-steps-preview">
+    <div class="cover-step-pill"><span class="cover-step-num">1</span> Cadastrar</div>
+    <div class="cover-step-pill"><span class="cover-step-num">2</span> Estrutura</div>
+    <div class="cover-step-pill"><span class="cover-step-num">3</span> Reservas</div>
+    <div class="cover-step-pill"><span class="cover-step-num">4</span> Acesso</div>
+  </div>
+
+  <div class="cover-platform">📱 App Mobile — Condomeet</div>
+  <div class="cover-version">Versão 2.0 · Março 2026</div>
+</div>
+
+<!-- ============================================================ -->
+<!--  TABLE OF CONTENTS                                            -->
+<!-- ============================================================ -->
+<div class="toc">
+  <h2>📋 Índice Rápido</h2>
+  <div class="toc-grid">
+    <a href="#visao-geral" class="toc-item"><span class="toc-num">1</span> Visão Geral do Fluxo</a>
+    <a href="#cadastro" class="toc-item"><span class="toc-num">2</span> Cadastrar o Condomínio</a>
+    <a href="#endereco" class="toc-item"><span class="toc-num">3</span> Nome e Endereço</a>
+    <a href="#acesso" class="toc-item"><span class="toc-num">4</span> Dados de Acesso</a>
+    <a href="#estrutura" class="toc-item"><span class="toc-num">5</span> Configurar Estrutura</a>
+    <a href="#reservas" class="toc-item"><span class="toc-num">6</span> Configurar Reservas</a>
+    <a href="#menu-acesso" class="toc-item"><span class="toc-num">7</span> Configurar Acesso/Menu</a>
+    <a href="#checklist" class="toc-item"><span class="toc-num">✓</span> Checklist Final</a>
+  </div>
+</div>
+
+<!-- ============================================================ -->
+<!--  1 · VISÃO GERAL                                             -->
+<!-- ============================================================ -->
+<div class="container">
+  <div class="section" id="visao-geral">
+    <div class="section-header">
+      <span class="section-icon">🗺️</span>
+      <div class="section-num">Capítulo 1</div>
+      <h2 class="section-title">Visão Geral do Fluxo</h2>
+      <p class="section-desc">Entenda as 4 etapas para deixar seu condomínio 100% operacional</p>
+    </div>
+
+    <div class="flow-diagram">
+      <div class="flow-box">📝 Cadastrar<br><small>Condomínio</small></div>
+      <span class="flow-arrow">→</span>
+      <div class="flow-box">🏢 Estrutura<br><small>Blocos & Aptos</small></div>
+      <span class="flow-arrow">→</span>
+      <div class="flow-box">📅 Reservas<br><small>Áreas Comuns</small></div>
+      <span class="flow-arrow">→</span>
+      <div class="flow-box">🔐 Acesso<br><small>Por Perfil</small></div>
+    </div>
+
+    <div class="card">
+      <h3>⏱️ Tempo Estimado</h3>
+      <p>O cadastro completo leva aproximadamente <strong>5 a 10 minutos</strong>, dependendo do tamanho do condomínio.</p>
+    </div>
+
+    <div class="tip tip-info">
+      <span class="tip-icon">💡</span>
+      <div><strong>Pré-requisito:</strong> Você precisa ter o app Condomeet instalado e estar logado com uma conta que tenha perfil de Síndico.</div>
+    </div>
+  </div>
+
+  <!-- ============================================================ -->
+  <!--  2 · CADASTRAR CONDOMÍNIO                                    -->
+  <!-- ============================================================ -->
+  <div class="section" id="cadastro">
+    <div class="section-header">
+      <span class="section-icon">🏠</span>
+      <div class="section-num">Capítulo 2</div>
+      <h2 class="section-title">Cadastrar o Condomínio</h2>
+      <p class="section-desc">Inicie o processo pela tela inicial do app</p>
+    </div>
+
+    <div class="card">
+      <h3>📱 Tela Inicial</h3>
+      <div class="timeline">
+        <div class="step">
+          <div class="step-dot">1</div>
+          <h4>Abra o App Condomeet</h4>
+          <p>Na tela inicial, você verá a opção <strong>"Cadastrar Condomínio"</strong>.</p>
+        </div>
+        <div class="step">
+          <div class="step-dot">2</div>
+          <h4>Toque em "Cadastrar Condomínio"</h4>
+          <p>O botão abrirá o formulário de cadastro, guiando você por cada etapa.</p>
+        </div>
+      </div>
+    </div>
+
+    <div class="phone-frame">
+      <img src="imagens/mobile/como%20cadastrar%20um%20condominio/1_home_cad_condominio.png" alt="Tela inicial - Cadastrar Condomínio">
+    </div>
+    <div class="phone-caption">Tela Inicial — Botão "Cadastrar Condomínio"</div>
+
+    <div class="tip tip-info">
+      <span class="tip-icon">ℹ️</span>
+      <div><strong>Primeira vez?</strong> Se ainda não tem conta, toque em "Criar Conta" primeiro. Depois de logado, a opção de cadastrar condomínio aparecerá na home.</div>
+    </div>
+  </div>
+
+  <!-- ============================================================ -->
+  <!--  3 · NOME E ENDEREÇO                                        -->
+  <!-- ============================================================ -->
+  <div class="section" id="endereco">
+    <div class="section-header">
+      <span class="section-icon">📍</span>
+      <div class="section-num">Capítulo 3</div>
+      <h2 class="section-title">Nome e Endereço</h2>
+      <p class="section-desc">Preencha os dados do condomínio</p>
+    </div>
+
+    <div class="card">
+      <h3>📝 Formulário de Dados</h3>
+      <div class="timeline">
+        <div class="step">
+          <div class="step-dot">1</div>
+          <h4>Nome do Condomínio</h4>
+          <p>Informe o nome oficial. Ex: <em>"Residencial Real Park"</em>, <em>"Edifício Aurora"</em>.</p>
+        </div>
+        <div class="step">
+          <div class="step-dot">2</div>
+          <h4>Endereço Completo</h4>
+          <p>CEP, rua, número, bairro, cidade e estado. O CEP preenche automaticamente os demais campos.</p>
+        </div>
+        <div class="step">
+          <div class="step-dot">3</div>
+          <h4>CNPJ (Opcional)</h4>
+          <p>Se o condomínio possui CNPJ, informe aqui para facilitar futuras integrações.</p>
+        </div>
+      </div>
+    </div>
+
+    <div class="phone-frame">
+      <img src="imagens/mobile/como%20cadastrar%20um%20condominio/2_cad%20nome%20e%20endereco.png" alt="Formulário de Nome e Endereço">
+    </div>
+    <div class="phone-caption">Formulário — Nome e Endereço do Condomínio</div>
+
+    <div class="tip tip-success">
+      <span class="tip-icon">✅</span>
+      <div><strong>Dica:</strong> Use o nome oficial do condomínio como aparece nos documentos. Os moradores irão pesquisar por esse nome ao se cadastrar.</div>
+    </div>
+  </div>
+
+  <!-- ============================================================ -->
+  <!--  4 · DADOS DE ACESSO                                        -->
+  <!-- ============================================================ -->
+  <div class="section" id="acesso">
+    <div class="section-header">
+      <span class="section-icon">🔑</span>
+      <div class="section-num">Capítulo 4</div>
+      <h2 class="section-title">Dados de Acesso</h2>
+      <p class="section-desc">Configure quem terá acesso administrativo</p>
+    </div>
+
+    <div class="card">
+      <h3>🔐 Configuração de Acesso</h3>
+      <div class="timeline">
+        <div class="step">
+          <div class="step-dot">1</div>
+          <h4>Código de Acesso</h4>
+          <p>Defina um código que os moradores usarão para vincular sua conta ao condomínio.</p>
+        </div>
+        <div class="step">
+          <div class="step-dot">2</div>
+          <h4>Seu Perfil</h4>
+          <p>Você será automaticamente vinculado como <strong>Síndico</strong> do condomínio.</p>
+        </div>
+        <div class="step">
+          <div class="step-dot">3</div>
+          <h4>Confirme e avance</h4>
+          <p>Revise os dados e toque em <strong>"Cadastrar"</strong> para criar o condomínio.</p>
+        </div>
+      </div>
+    </div>
+
+    <div class="phone-frame">
+      <img src="imagens/mobile/como%20cadastrar%20um%20condominio/3_dados%20de%20acesso.png" alt="Dados de Acesso">
+    </div>
+    <div class="phone-caption">Configuração — Dados de Acesso</div>
+
+    <div class="tip tip-warning">
+      <span class="tip-icon">⚠️</span>
+      <div><strong>Importante:</strong> Guarde o código de acesso! Ele será necessário para que moradores e funcionários vinculem suas contas ao condomínio.</div>
+    </div>
+  </div>
+
+  <!-- ============================================================ -->
+  <!--  5 · CONFIGURAR ESTRUTURA                                   -->
+  <!-- ============================================================ -->
+  <div class="section" id="estrutura">
+    <div class="section-header">
+      <span class="section-icon">🏢</span>
+      <div class="section-num">Capítulo 5</div>
+      <h2 class="section-title">Configurar Estrutura</h2>
+      <p class="section-desc">Cadastre blocos, torres e apartamentos</p>
+    </div>
+
+    <div class="card">
+      <h3>🏗️ Por que configurar a estrutura?</h3>
+      <p>A estrutura permite que o sistema identifique cada unidade do condomínio. Isso é essencial para:</p>
+      <ul style="padding-left: 20px; margin-top: 10px; color: var(--text-secondary);">
+        <li>Vincular moradores às unidades corretas</li>
+        <li>Direcionar encomendas ao apartamento certo</li>
+        <li>Organizar avisos por bloco ou andar</li>
+        <li>Controle de visitantes por unidade</li>
+      </ul>
+    </div>
+
+    <div class="card">
+      <h3>📋 Passo 1: Cadastrar Blocos / Torres</h3>
+      <div class="timeline">
+        <div class="step">
+          <div class="step-dot">1</div>
+          <h4>Acesse "Estrutura" no Painel Admin</h4>
+          <p>No painel administrativo, toque em <strong>Estrutura do Condomínio</strong>.</p>
+        </div>
+        <div class="step">
+          <div class="step-dot">2</div>
+          <h4>Adicione um Bloco</h4>
+          <p>Toque no botão <strong>"+"</strong> para adicionar um novo bloco. Ex: <em>"Bloco A"</em>, <em>"Torre Norte"</em>.</p>
+        </div>
+      </div>
+    </div>
+
+    <div class="phone-frame">
+      <img src="imagens/mobile/como%20cadastrar%20um%20condominio/4_0_estrutura%20cond_bloco.png" alt="Cadastrar Bloco">
+    </div>
+    <div class="phone-caption">Passo 1 — Cadastrar Blocos</div>
+
+    <div class="card" style="margin-top: 32px;">
+      <h3>📋 Passo 2: Cadastrar Apartamentos</h3>
+      <div class="timeline">
+        <div class="step">
+          <div class="step-dot">1</div>
+          <h4>Selecione o Bloco</h4>
+          <p>Toque no bloco desejado para abrir a lista de unidades.</p>
+        </div>
+        <div class="step">
+          <div class="step-dot">2</div>
+          <h4>Adicione os Apartamentos</h4>
+          <p>Cadastre as unidades individualmente ou use a geração automática.</p>
+        </div>
+      </div>
+    </div>
+
+    <div class="phone-duo">
+      <div>
+        <div class="phone-frame">
+          <img src="imagens/mobile/como%20cadastrar%20um%20condominio/4_1_estrutura%20cond_apto.png" alt="Cadastrar Apartamento">
+        </div>
+        <div class="phone-caption">Cadastrar Apartamentos</div>
+      </div>
+      <div>
+        <div class="phone-frame">
+          <img src="imagens/mobile/como%20cadastrar%20um%20condominio/4_2_estrutura%20cond_gerar_unidades.png" alt="Gerar Unidades">
+        </div>
+        <div class="phone-caption">Gerar Unidades em Lote</div>
+      </div>
+    </div>
+
+    <div class="tip tip-success">
+      <span class="tip-icon">🚀</span>
+      <div><strong>Dica Pro:</strong> Use a opção <strong>"Gerar Unidades"</strong> para cadastrar todos os apartamentos de uma vez! Basta informar o intervalo (ex: 101 a 404) e o sistema cria automaticamente.</div>
+    </div>
+  </div>
+
+  <!-- ============================================================ -->
+  <!--  6 · CONFIGURAR RESERVAS                                    -->
+  <!-- ============================================================ -->
+  <div class="section" id="reservas">
+    <div class="section-header">
+      <span class="section-icon">📅</span>
+      <div class="section-num">Capítulo 6</div>
+      <h2 class="section-title">Configurar Reservas</h2>
+      <p class="section-desc">Cadastre as áreas comuns disponíveis para reserva</p>
+    </div>
+
+    <div class="card">
+      <h3>🎉 Áreas Comuns</h3>
+      <p>Cadastre os espaços que os moradores poderão reservar pelo app. Exemplos comuns:</p>
+      <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 12px;">
+        <div style="padding: 10px; background: var(--bg); border-radius: 10px; text-align: center; font-size: 13px;">🎊 Salão de Festa</div>
+        <div style="padding: 10px; background: var(--bg); border-radius: 10px; text-align: center; font-size: 13px;">🍖 Churrasqueira</div>
+        <div style="padding: 10px; background: var(--bg); border-radius: 10px; text-align: center; font-size: 13px;">🏊 Piscina</div>
+        <div style="padding: 10px; background: var(--bg); border-radius: 10px; text-align: center; font-size: 13px;">🏋️ Academia</div>
+        <div style="padding: 10px; background: var(--bg); border-radius: 10px; text-align: center; font-size: 13px;">🧖 Sauna</div>
+        <div style="padding: 10px; background: var(--bg); border-radius: 10px; text-align: center; font-size: 13px;">🎾 Quadra Esportiva</div>
+      </div>
+    </div>
+
+    <div class="card">
+      <h3>📋 Como Cadastrar</h3>
+      <div class="timeline">
+        <div class="step">
+          <div class="step-dot">1</div>
+          <h4>Acesse "Configurar Reservas"</h4>
+          <p>No painel admin, toque em <strong>Configurar Reservas</strong>.</p>
+        </div>
+        <div class="step">
+          <div class="step-dot">2</div>
+          <h4>Toque no botão "+"</h4>
+          <p>O botão flutuante abrirá o formulário de cadastro da área.</p>
+        </div>
+        <div class="step">
+          <div class="step-dot">3</div>
+          <h4>Preencha os Dados</h4>
+          <p>Nome, localização, capacidade, tipo de reserva (por dia ou por hora), taxa e regra de aprovação.</p>
+        </div>
+      </div>
+    </div>
+
+    <div class="phone-duo">
+      <div>
+        <div class="phone-frame">
+          <img src="imagens/mobile/como%20cadastrar%20um%20condominio/6_0_configurar%20reserva.png" alt="Tela de Reservas">
+        </div>
+        <div class="phone-caption">Lista de Áreas Comuns</div>
+      </div>
+      <div>
+        <div class="phone-frame">
+          <img src="imagens/mobile/como%20cadastrar%20um%20condominio/6_1_config%20area.png" alt="Formulário de Área">
+        </div>
+        <div class="phone-caption">Formulário — Nova Área Comum</div>
+      </div>
+    </div>
+
+    <div class="tip tip-info">
+      <span class="tip-icon">💡</span>
+      <div><strong>Aprovação Manual vs. Automática:</strong> Com aprovação manual, o síndico precisa aprovar cada reserva. Com automática, a reserva é confirmada instantaneamente.</div>
+    </div>
+  </div>
+
+  <!-- ============================================================ -->
+  <!--  7 · CONFIGURAR ACESSO / MENU                               -->
+  <!-- ============================================================ -->
+  <div class="section" id="menu-acesso">
+    <div class="section-header">
+      <span class="section-icon">🔐</span>
+      <div class="section-num">Capítulo 7</div>
+      <h2 class="section-title">Configurar Acesso</h2>
+      <p class="section-desc">Controle quais funções cada perfil pode ver no app</p>
+    </div>
+
+    <div class="card">
+      <h3>👥 Por que configurar?</h3>
+      <p>Cada condomínio tem necessidades diferentes. A tela de <strong>Configurar Menu</strong> permite que você personalize quais funcionalidades ficam visíveis para cada tipo de perfil:</p>
+      <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 10px; margin-top: 12px;">
+        <div style="padding: 10px; background: #f0fdf4; border: 1px solid #bbf7d0; border-radius: 10px; text-align: center; font-size: 12px; font-weight: 600; color: #166534;">🏠 Morador</div>
+        <div style="padding: 10px; background: #eff6ff; border: 1px solid #bfdbfe; border-radius: 10px; text-align: center; font-size: 12px; font-weight: 600; color: #1e40af;">🔑 Porteiro</div>
+        <div style="padding: 10px; background: #fef3c7; border: 1px solid #fde68a; border-radius: 10px; text-align: center; font-size: 12px; font-weight: 600; color: #92400e;">👔 Síndico</div>
+        <div style="padding: 10px; background: #fce7f3; border: 1px solid #fbcfe8; border-radius: 10px; text-align: center; font-size: 12px; font-weight: 600; color: #9d174d;">🧹 Zelador</div>
+      </div>
+    </div>
+
+    <div class="card">
+      <h3>📋 Como Funciona</h3>
+      <div class="timeline">
+        <div class="step">
+          <div class="step-dot">1</div>
+          <h4>Acesse "Configurar Menu"</h4>
+          <p>No painel admin, na seção <strong>Parametrização</strong>, toque em <strong>Configurar Menu</strong>.</p>
+        </div>
+        <div class="step">
+          <div class="step-dot">2</div>
+          <h4>Selecione a Função</h4>
+          <p>Use o dropdown para navegar entre funções (ex: Reservas, Documentos, Encomendas).</p>
+        </div>
+        <div class="step">
+          <div class="step-dot">3</div>
+          <h4>Marque os Perfis</h4>
+          <p>Ative/desative a visibilidade para cada perfil. Ex: <em>Reservas → apenas Morador e Síndico</em>.</p>
+        </div>
+        <div class="step">
+          <div class="step-dot">4</div>
+          <h4>Salve</h4>
+          <p>Toque em <strong>Salvar</strong> no topo da tela. A configuração é aplicada imediatamente.</p>
+        </div>
+      </div>
+    </div>
+
+    <div class="phone-frame">
+      <img src="imagens/mobile/como%20cadastrar%20um%20condominio/5_configurar%20acesso.png" alt="Configurar Acesso por Perfil">
+    </div>
+    <div class="phone-caption">Configurar Menu — Acesso por Perfil</div>
+
+    <div class="tip tip-success">
+      <span class="tip-icon">✅</span>
+      <div><strong>Dica:</strong> A aba <strong>"Ordem"</strong> permite reorganizar a posição dos botões no menu do app. Menor número = aparece primeiro.</div>
+    </div>
+  </div>
+
+  <!-- ============================================================ -->
+  <!--  ✓ · CHECKLIST FINAL                                        -->
+  <!-- ============================================================ -->
+  <div class="section" id="checklist">
+    <div class="section-header">
+      <span class="section-icon">✅</span>
+      <div class="section-num">Checklist Final</div>
+      <h2 class="section-title">Tudo Pronto?</h2>
+      <p class="section-desc">Verifique se completou todas as etapas</p>
+    </div>
+
+    <div class="card">
+      <h3>📋 Lista de Verificação</h3>
+      <ul class="checklist">
+        <li>Condomínio cadastrado com nome e endereço corretos</li>
+        <li>Código de acesso definido e anotado em local seguro</li>
+        <li>Blocos / Torres cadastrados</li>
+        <li>Apartamentos / Unidades criados (manualmente ou em lote)</li>
+        <li>Áreas comuns cadastradas (Salão, Churrasqueira, etc.)</li>
+        <li>Regras de aprovação definidas (manual ou automática)</li>
+        <li>Menu configurado por perfil (Morador, Porteiro, Síndico)</li>
+        <li>Primeiro morador convidado a se cadastrar usando o código de acesso</li>
+      </ul>
+    </div>
+
+    <div class="tip tip-fire">
+      <span class="tip-icon">🎉</span>
+      <div><strong>Parabéns!</strong> Seu condomínio está configurado e pronto para receber moradores! Compartilhe o código de acesso com os moradores para que eles vinculem suas contas.</div>
+    </div>
+
+    <div class="card">
+      <h3>📚 Próximos Passos</h3>
+      <p>Agora que o condomínio está configurado, explore os outros manuais:</p>
+      <ul style="padding-left: 20px; margin-top: 10px; color: var(--text-secondary); font-size: 14px;">
+        <li><strong>Manual do Síndico (Mobile)</strong> — Aprenda a gerenciar o painel administrativo</li>
+        <li><strong>Manual do Morador (Mobile)</strong> — Compartilhe com os moradores</li>
+        <li><strong>Manual do Síndico (Web)</strong> — Funções avançadas pelo navegador</li>
+      </ul>
+    </div>
+  </div>
+</div>
+
+<!-- ============================================================ -->
+<!--  FOOTER                                                       -->
+<!-- ============================================================ -->
+<div class="footer">
+  <p>📄 <strong>Manual de Cadastro de Condomínio</strong> — Condomeet v2.0</p>
+  <p style="margin-top: 6px;">Última atualização: Março 2026</p>
+</div>
+
+</body>
+</html>

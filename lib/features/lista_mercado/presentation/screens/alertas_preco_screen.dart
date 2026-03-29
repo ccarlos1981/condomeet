@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:condomeet/features/lista_mercado/lista_mercado_service.dart';
+import 'package:geolocator/geolocator.dart';
 
 class AlertasPrecoScreen extends StatefulWidget {
   const AlertasPrecoScreen({super.key});
@@ -14,10 +15,14 @@ class _AlertasPrecoScreenState extends State<AlertasPrecoScreen> {
   List<Map<String, dynamic>> _alerts = [];
   bool _loading = true;
 
+  // Nearby supermarkets cache
+  List<Map<String, dynamic>> _nearbyMarkets = [];
+
   @override
   void initState() {
     super.initState();
     _loadAlerts();
+    _loadNearbyMarkets();
   }
 
   Future<void> _loadAlerts() async {
@@ -26,8 +31,57 @@ class _AlertasPrecoScreenState extends State<AlertasPrecoScreen> {
       final data = await _service.getMyAlerts();
       if (mounted) setState(() { _alerts = data; _loading = false; });
     } catch (e) {
+      debugPrint('❌ _loadAlerts error: $e');
       if (mounted) setState(() => _loading = false);
     }
+  }
+
+  Future<void> _loadNearbyMarkets() async {
+    try {
+      bool serviceEnabled = await Geolocator.isLocationServiceEnabled();
+      if (!serviceEnabled) return;
+
+      LocationPermission permission = await Geolocator.checkPermission();
+      if (permission == LocationPermission.denied) {
+        permission = await Geolocator.requestPermission();
+        if (permission == LocationPermission.denied) return;
+      }
+      if (permission == LocationPermission.deniedForever) return;
+
+      final position = await Geolocator.getCurrentPosition(
+        desiredAccuracy: LocationAccuracy.medium,
+        timeLimit: const Duration(seconds: 10),
+      );
+
+      final markets = await _service.getNearbySupermarkets(position.latitude, position.longitude);
+
+      for (final m in markets) {
+        final lat = m['latitude'] as num?;
+        final lng = m['longitude'] as num?;
+        if (lat != null && lng != null) {
+          final dist = Geolocator.distanceBetween(position.latitude, position.longitude, lat.toDouble(), lng.toDouble());
+          m['_distance'] = dist;
+        } else {
+          m['_distance'] = double.infinity;
+        }
+      }
+      markets.sort((a, b) =>
+          ((a['_distance'] as double?) ?? double.infinity)
+              .compareTo((b['_distance'] as double?) ?? double.infinity));
+
+      if (mounted) setState(() => _nearbyMarkets = markets.take(10).toList());
+    } catch (e) {
+      debugPrint('Erro GPS Alertas: $e');
+      try {
+        final markets = await _service.getSupermarkets();
+        if (mounted) setState(() => _nearbyMarkets = markets.take(10).toList());
+      } catch (_) {}
+    }
+  }
+
+  String _formatDistance(double meters) {
+    if (meters >= 1000) return '${(meters / 1000).toStringAsFixed(1)} km';
+    return '${meters.round()} m';
   }
 
   Future<void> _showCreateAlertDialog() async {
@@ -35,9 +89,6 @@ class _AlertasPrecoScreenState extends State<AlertasPrecoScreen> {
     Map<String, dynamic>? selectedVariant;
     String? selectedMarketId;
     final priceController = TextEditingController();
-    List<Map<String, dynamic>> markets = [];
-
-    try { markets = await _service.getSupermarkets(); } catch (_) {}
 
     if (!mounted) return;
     await showModalBottomSheet(
@@ -132,7 +183,7 @@ class _AlertasPrecoScreenState extends State<AlertasPrecoScreen> {
                   ),
                   const SizedBox(height: 14),
 
-                  // Supermarket selector (optional)
+                  // Supermarket selector — nearby with distance
                   Container(
                     padding: const EdgeInsets.symmetric(horizontal: 12),
                     decoration: BoxDecoration(
@@ -147,10 +198,14 @@ class _AlertasPrecoScreenState extends State<AlertasPrecoScreen> {
                       underline: const SizedBox.shrink(),
                       items: [
                         DropdownMenuItem<String>(value: null, child: Text('Qualquer mercado', style: TextStyle(color: Colors.grey.shade600, fontSize: 13))),
-                        ...markets.map((m) => DropdownMenuItem<String>(
-                          value: m['id'] as String,
-                          child: Text(m['name'] ?? '', style: TextStyle(color: Colors.grey.shade900, fontSize: 13)),
-                        )),
+                        ..._nearbyMarkets.map((m) {
+                          final dist = m['_distance'] as double?;
+                          final distText = (dist != null && dist != double.infinity) ? ' (${_formatDistance(dist)})' : '';
+                          return DropdownMenuItem<String>(
+                            value: m['id'] as String,
+                            child: Text('${m['name'] ?? ''}$distText', style: TextStyle(color: Colors.grey.shade900, fontSize: 13), overflow: TextOverflow.ellipsis),
+                          );
+                        }),
                       ],
                       onChanged: (v) => setModalState(() => selectedMarketId = v),
                     ),
@@ -184,13 +239,27 @@ class _AlertasPrecoScreenState extends State<AlertasPrecoScreen> {
                       onPressed: () async {
                         final price = double.tryParse(priceController.text.replaceAll(',', '.'));
                         if (price == null || price <= 0) return;
-                        await _service.createPriceAlert(
-                          variantId: selectedVariant!['id'],
-                          supermarketId: selectedMarketId,
-                          targetPrice: price,
-                        );
-                        if (ctx.mounted) Navigator.pop(ctx);
-                        _loadAlerts();
+                        try {
+                          await _service.createPriceAlert(
+                            variantId: selectedVariant!['id'],
+                            supermarketId: selectedMarketId,
+                            targetPrice: price,
+                          );
+                          if (ctx.mounted) Navigator.pop(ctx);
+                          _loadAlerts();
+                          if (mounted) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(content: Text('Alerta criado com sucesso! 🔔'), backgroundColor: Color(0xFF2E7D32)),
+                            );
+                          }
+                        } catch (e) {
+                          debugPrint('❌ createPriceAlert error: $e');
+                          if (mounted) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(content: Text('Erro ao criar alerta: $e'), backgroundColor: Colors.red),
+                            );
+                          }
+                        }
                       },
                       style: ElevatedButton.styleFrom(
                         backgroundColor: const Color(0xFF2E7D32),
@@ -217,9 +286,8 @@ class _AlertasPrecoScreenState extends State<AlertasPrecoScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final activeAlerts = _alerts.where((a) => a['is_active'] == true && a['is_triggered'] != true).toList();
-    final triggeredAlerts = _alerts.where((a) => a['is_triggered'] == true).toList();
-    final inactiveAlerts = _alerts.where((a) => a['is_active'] != true && a['is_triggered'] != true).toList();
+    final activeAlerts = _alerts.where((a) => a['is_active'] == true).toList();
+    final inactiveAlerts = _alerts.where((a) => a['is_active'] != true).toList();
 
     return Scaffold(
       backgroundColor: Colors.grey.shade50,
@@ -274,13 +342,6 @@ class _AlertasPrecoScreenState extends State<AlertasPrecoScreen> {
                         if (activeAlerts.isNotEmpty) ...[
                           _buildSectionHeader(Icons.hourglass_top, 'Monitorando', activeAlerts.length),
                           ...activeAlerts.map((a) => _buildAlertCard(a, 'active')),
-                          const SizedBox(height: 16),
-                        ],
-
-                        // Triggered
-                        if (triggeredAlerts.isNotEmpty) ...[
-                          _buildSectionHeader(Icons.celebration, 'Preço atingido!', triggeredAlerts.length),
-                          ...triggeredAlerts.map((a) => _buildAlertCard(a, 'triggered')),
                           const SizedBox(height: 16),
                         ],
 
@@ -349,22 +410,15 @@ class _AlertasPrecoScreenState extends State<AlertasPrecoScreen> {
   Widget _buildAlertCard(Map<String, dynamic> alert, String status) {
     final variant = alert['lista_product_variants'] as Map<String, dynamic>?;
     final base = variant?['lista_products_base'] as Map<String, dynamic>?;
-    final market = alert['lista_supermarkets'] as Map<String, dynamic>?;
     final emoji = base?['icon_emoji'] ?? '📦';
     final productName = base?['name'] ?? '';
     final variantName = variant?['variant_name'] ?? '';
     final targetPrice = (alert['target_price'] as num?)?.toDouble() ?? 0;
-    final currentPrice = (alert['current_price'] as num?)?.toDouble();
-    final isTriggered = alert['is_triggered'] == true;
-    final marketName = market?['name'];
+    final isActive = alert['is_active'] == true;
 
     Color borderColor;
     Color bgColor;
     switch (status) {
-      case 'triggered':
-        borderColor = Colors.green.shade200;
-        bgColor = Colors.green.shade50;
-        break;
       case 'inactive':
         borderColor = Colors.grey.shade200;
         bgColor = Colors.grey.shade50;
@@ -392,30 +446,13 @@ class _AlertasPrecoScreenState extends State<AlertasPrecoScreen> {
               children: [
                 Text('$productName $variantName', style: TextStyle(color: Colors.grey.shade900, fontWeight: FontWeight.w600, fontSize: 14)),
                 const SizedBox(height: 2),
-                Row(
-                  children: [
-                    Text('Meta: R\$ ${targetPrice.toStringAsFixed(2)}',
-                        style: TextStyle(color: Colors.amber.shade800, fontSize: 12, fontWeight: FontWeight.bold)),
-                    if (currentPrice != null) ...[
-                      Text(' → ', style: TextStyle(color: Colors.grey.shade400, fontSize: 12)),
-                      Text('R\$ ${currentPrice.toStringAsFixed(2)}',
-                          style: TextStyle(color: Colors.green.shade700, fontSize: 12, fontWeight: FontWeight.bold)),
-                    ],
-                  ],
-                ),
-                if (marketName != null)
-                  Row(
-                    children: [
-                      Icon(Icons.store, size: 12, color: Colors.grey.shade400),
-                      const SizedBox(width: 4),
-                      Text(marketName, style: TextStyle(color: Colors.grey.shade500, fontSize: 11)),
-                    ],
-                  ),
+                Text('Meta: R\$ ${targetPrice.toStringAsFixed(2)}',
+                    style: TextStyle(color: Colors.amber.shade800, fontSize: 12, fontWeight: FontWeight.bold)),
               ],
             ),
           ),
           // Actions
-          if (isTriggered)
+          if (!isActive)
             IconButton(
               icon: const Icon(Icons.refresh, color: Color(0xFF2E7D32)),
               tooltip: 'Reativar',

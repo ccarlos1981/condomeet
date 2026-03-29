@@ -3,6 +3,8 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:supabase_flutter/supabase_flutter.dart' hide AuthState;
+import 'package:geolocator/geolocator.dart';
+import 'package:shimmer/shimmer.dart';
 import 'package:condomeet/features/lista_mercado/lista_mercado_service.dart';
 
 class ScannerReceiptScreen extends StatefulWidget {
@@ -33,6 +35,180 @@ class _ScannerReceiptScreenState extends State<ScannerReceiptScreen> {
   // Selected items for import
   final Set<int> _selectedItems = {};
 
+  // Location/Supermarket state
+  List<Map<String, dynamic>> _supermarkets = [];
+  bool _loadingSupermarkets = true;
+  double? _userLat;
+  double? _userLng;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadSupermarketsWithLocation();
+  }
+
+  Future<void> _loadSupermarketsWithLocation() async {
+    setState(() {
+      _loadingSupermarkets = true;
+    });
+
+    try {
+      bool serviceEnabled = await Geolocator.isLocationServiceEnabled();
+      if (!serviceEnabled) {
+        throw Exception('Serviço de localização desativado.');
+      }
+
+      LocationPermission permission = await Geolocator.checkPermission();
+      if (permission == LocationPermission.denied) {
+        permission = await Geolocator.requestPermission();
+        if (permission == LocationPermission.denied) {
+          throw Exception('Permissão negada.');
+        }
+      }
+
+      if (permission == LocationPermission.deniedForever) {
+        throw Exception('Permissão negada permanentemente.');
+      }
+
+      final position = await Geolocator.getCurrentPosition(
+        desiredAccuracy: LocationAccuracy.medium,
+        timeLimit: const Duration(seconds: 10),
+      );
+
+      _userLat = position.latitude;
+      _userLng = position.longitude;
+
+      final markets = await _service.getNearbySupermarkets(position.latitude, position.longitude);
+      _sortByDistance(markets);
+      
+      if (mounted) {
+        setState(() {
+          _supermarkets = markets.take(15).toList();
+          _loadingSupermarkets = false;
+        });
+      }
+    } catch (e) {
+      debugPrint('Erro GPS/Places: $e');
+      try {
+        final markets = await _service.getSupermarkets();
+        if (mounted) {
+          setState(() {
+            _supermarkets = markets;
+            _loadingSupermarkets = false;
+          });
+        }
+      } catch (_) {
+        if (mounted) setState(() { _loadingSupermarkets = false; });
+      }
+    }
+  }
+
+  void _sortByDistance(List<Map<String, dynamic>> markets) {
+    if (_userLat == null || _userLng == null) return;
+    for (final m in markets) {
+      final lat = m['latitude'] as num?;
+      final lng = m['longitude'] as num?;
+      if (lat != null && lng != null) {
+        final dist = Geolocator.distanceBetween(
+          _userLat!, _userLng!, lat.toDouble(), lng.toDouble(),
+        );
+        m['_distance'] = dist;
+      } else {
+        m['_distance'] = double.infinity;
+      }
+    }
+    markets.sort((a, b) =>
+      ((a['_distance'] as double?) ?? double.infinity)
+          .compareTo((b['_distance'] as double?) ?? double.infinity));
+  }
+
+  String _formatDistance(double meters) {
+    if (meters >= 1000) return '${(meters / 1000).toStringAsFixed(1)} km';
+    return '${meters.round()} m';
+  }
+
+  void _showMarketSelector() {
+    String localSearch = '';
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (ctx) {
+        return StatefulBuilder(
+          builder: (BuildContext context, StateSetter setModalState) {
+            final filteredMarkets = _supermarkets.where((m) {
+              final name = (m['name'] as String?)?.toLowerCase() ?? '';
+              return name.contains(localSearch.toLowerCase().trim());
+            }).toList();
+
+            return Padding(
+              padding: EdgeInsets.only(bottom: MediaQuery.of(context).viewInsets.bottom),
+              child: Container(
+                height: MediaQuery.of(context).size.height * 0.55,
+                decoration: const BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+                ),
+              child: Column(
+                children: [
+                  Container(
+                    margin: const EdgeInsets.only(top: 12, bottom: 8),
+                    width: 40, height: 4,
+                    decoration: BoxDecoration(color: Colors.grey.shade300, borderRadius: BorderRadius.circular(2)),
+                  ),
+                  Padding(
+                    padding: const EdgeInsets.all(16),
+                    child: TextField(
+                      autofocus: true,
+                      decoration: InputDecoration(
+                        hintText: 'Buscar mercado...',
+                        prefixIcon: Icon(Icons.search, color: Colors.grey.shade500),
+                        filled: true,
+                        fillColor: Colors.grey.shade100,
+                        border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
+                      ),
+                      onChanged: (v) => setModalState(() => localSearch = v),
+                    ),
+                  ),
+                  Expanded(
+                    child: ListView.builder(
+                      itemCount: filteredMarkets.length,
+                      itemBuilder: (context, index) {
+                        final m = filteredMarkets[index];
+                        final dist = m['_distance'] as double?;
+                        final distText = dist != null && dist != double.infinity ? _formatDistance(dist) : null;
+                        
+                        return ListTile(
+                          dense: true,
+                          title: Text(m['name'] ?? '', style: TextStyle(color: Colors.grey.shade900, fontWeight: FontWeight.w600)),
+                          trailing: distText != null 
+                            ? Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                                decoration: BoxDecoration(
+                                  color: const Color(0xFF2E7D32).withValues(alpha: 0.12),
+                                  borderRadius: BorderRadius.circular(12),
+                                ),
+                                child: Text(distText, style: const TextStyle(color: Color(0xFF2E7D32), fontWeight: FontWeight.bold, fontSize: 12)),
+                              )
+                            : null,
+                          onTap: () {
+                            setState(() { _matchedMarketId = m['id']; });
+                            Navigator.pop(ctx);
+                          },
+                        );
+                      },
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          );
+        },
+      );
+    },
+  );
+}
+
   Future<void> _captureImage(ImageSource source) async {
     final picked = await _picker.pickImage(
       source: source,
@@ -60,6 +236,7 @@ class _ScannerReceiptScreenState extends State<ScannerReceiptScreen> {
       // Convert to base64
       final bytes = await _imageFile!.readAsBytes();
       final base64Image = base64Encode(bytes);
+      debugPrint('[OCR] Image size: ${bytes.length} bytes, base64 length: ${base64Image.length}');
 
       // Call OCR edge function
       final response = await _client.functions.invoke(
@@ -67,9 +244,18 @@ class _ScannerReceiptScreenState extends State<ScannerReceiptScreen> {
         body: {'image_base64': base64Image},
       );
 
+      debugPrint('[OCR] Response status: ${response.status}');
+
       if (response.status != 200) {
+        final errorData = response.data;
+        String errorMsg = 'Erro no OCR';
+        if (errorData is Map) {
+          errorMsg = errorData['error']?.toString() ?? 'desconhecido';
+          final debug = errorData['debug'];
+          if (debug != null) errorMsg += ' (debug: $debug)';
+        }
         setState(() {
-          _errorMessage = 'Erro no OCR: ${response.data?['error'] ?? 'desconhecido'}';
+          _errorMessage = errorMsg;
           _processing = false;
         });
         return;
@@ -77,8 +263,21 @@ class _ScannerReceiptScreenState extends State<ScannerReceiptScreen> {
 
       final data = response.data as Map<String, dynamic>;
 
+      final rawItems = List<Map<String, dynamic>>.from(data['items'] ?? []);
+      
+      // Validação imediata: busca prévia no catálogo para saber quem ganha check verde vs novo
+      for (var item in rawItems) {
+        final results = await _service.searchProducts(item['name'] ?? '');
+        if (results.isNotEmpty) {
+          final variants = List<Map<String, dynamic>>.from(results.first['lista_product_variants'] ?? []);
+          if (variants.isNotEmpty) {
+            item['matched_variant_id'] = variants.first['id'];
+          }
+        }
+      }
+
       setState(() {
-        _extractedItems = List<Map<String, dynamic>>.from(data['items'] ?? []);
+        _extractedItems = rawItems;
         _supermarketName = data['supermarket_name'];
         _matchedMarketId = data['matched_supermarket_id'];
         _cnpj = data['cnpj'];
@@ -112,6 +311,7 @@ class _ScannerReceiptScreenState extends State<ScannerReceiptScreen> {
 
     setState(() => _saving = true);
     int importedCount = 0;
+    int suggestionsCount = 0;
 
     try {
       for (final idx in _selectedItems) {
@@ -119,30 +319,43 @@ class _ScannerReceiptScreenState extends State<ScannerReceiptScreen> {
         final price = (item['unit_price'] as num?)?.toDouble() ?? (item['total_price'] as num?)?.toDouble();
         if (price == null || price <= 0) continue;
 
-        // Search for matching variant by name
-        final results = await _service.searchProducts(item['name'] ?? '');
-        if (results.isNotEmpty) {
-          final variants = List<Map<String, dynamic>>.from(results.first['lista_product_variants'] ?? []);
-          if (variants.isNotEmpty) {
-            await _service.submitPriceReport(
-              variantId: variants.first['id'],
-              supermarketId: marketId,
-              price: price,
-            );
-            importedCount++;
-          }
+        final brand = item['brand'] as String?;
+        final weightLabel = item['weight_label'] as String?;
+
+        if (item['matched_variant_id'] != null) {
+          await _service.submitPriceReport(
+            variantId: item['matched_variant_id'],
+            supermarketId: marketId,
+            price: price,
+            brand: brand,
+            weightLabel: weightLabel,
+          );
+          importedCount++;
+        } else {
+          await _service.submitProductSuggestion(
+            rawName: item['name'] ?? 'Desconhecido',
+            supermarketId: marketId,
+            unitPrice: (item['unit_price'] as num?)?.toDouble(),
+            totalPrice: (item['total_price'] as num?)?.toDouble(),
+            quantity: (item['quantity'] as num?)?.toDouble(),
+            brand: brand,
+            weightLabel: weightLabel,
+          );
+          suggestionsCount++;
         }
       }
+
+      int totalHandled = importedCount + suggestionsCount;
 
       if (mounted) {
         setState(() => _saving = false);
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('$importedCount preços importados! +${importedCount * 10} pontos'),
+            content: Text('$totalHandled itens processados! +${totalHandled * 10} pontos'),
             backgroundColor: const Color(0xFF2E7D32),
           ),
         );
-        if (importedCount > 0) Navigator.pop(context, importedCount);
+        if (totalHandled > 0) Navigator.pop(context, totalHandled);
       }
     } catch (e) {
       if (mounted) {
@@ -322,37 +535,48 @@ class _ScannerReceiptScreenState extends State<ScannerReceiptScreen> {
               const SizedBox(height: 10),
               // Market selection if not matched
               if (_matchedMarketId == null)
-                FutureBuilder<List<Map<String, dynamic>>>(
-                  future: _service.getSupermarkets(),
-                  builder: (ctx, snap) {
-                    final markets = snap.data ?? [];
-                    return Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 12),
-                      decoration: BoxDecoration(
-                        color: Colors.orange.shade50,
-                        borderRadius: BorderRadius.circular(10),
-                        border: Border.all(color: Colors.orange.shade200),
-                      ),
-                      child: DropdownButton<String>(
-                        value: _matchedMarketId,
-                        hint: Row(
-                          children: [
-                            Icon(Icons.warning_amber, color: Colors.orange.shade700, size: 16),
-                            const SizedBox(width: 6),
-                            Text('Selecione o mercado', style: TextStyle(color: Colors.orange.shade700, fontSize: 13)),
-                          ],
+                AnimatedSwitcher(
+                  duration: const Duration(milliseconds: 600),
+                  child: _loadingSupermarkets
+                      ? Shimmer.fromColors(
+                          baseColor: Colors.grey.shade200,
+                          highlightColor: Colors.white,
+                          child: Container(
+                            height: 48,
+                            decoration: BoxDecoration(
+                              color: Colors.white,
+                              borderRadius: BorderRadius.circular(10),
+                              border: Border.all(color: Colors.grey.shade300),
+                            ),
+                          ),
+                        )
+                      : GestureDetector(
+                          onTap: _showMarketSelector,
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+                            decoration: BoxDecoration(
+                              color: Colors.orange.shade50,
+                              borderRadius: BorderRadius.circular(10),
+                              border: Border.all(color: Colors.orange.shade200),
+                            ),
+                            child: Row(
+                              children: [
+                                Icon(Icons.warning_amber, color: Colors.orange.shade700, size: 16),
+                                const SizedBox(width: 6),
+                                Expanded(
+                                  child: Text(
+                                    _matchedMarketId == null 
+                                      ? 'Selecione o mercado' 
+                                      : (_supermarkets.firstWhere((m) => m['id'] == _matchedMarketId, orElse: () => {'name': 'Mercado alterado'})['name'] ?? ''),
+                                    style: TextStyle(color: _matchedMarketId == null ? Colors.orange.shade700 : Colors.grey.shade900, 
+                                    fontSize: 13, fontWeight: _matchedMarketId == null ? FontWeight.normal : FontWeight.w600),
+                                  ),
+                                ),
+                                Icon(Icons.keyboard_arrow_down, color: Colors.orange.shade700, size: 20),
+                              ],
+                            ),
+                          ),
                         ),
-                        dropdownColor: Colors.white,
-                        isExpanded: true,
-                        underline: const SizedBox.shrink(),
-                        items: markets.map((m) => DropdownMenuItem<String>(
-                          value: m['id'] as String,
-                          child: Text(m['name'] ?? '', style: TextStyle(color: Colors.grey.shade900, fontSize: 13)),
-                        )).toList(),
-                        onChanged: (v) => setState(() => _matchedMarketId = v),
-                      ),
-                    );
-                  },
                 ),
               const SizedBox(height: 8),
               Row(
@@ -442,6 +666,7 @@ class _ScannerReceiptScreenState extends State<ScannerReceiptScreen> {
     final qty = item['quantity'] ?? 1;
     final unitPrice = (item['unit_price'] as num?)?.toDouble() ?? 0;
     final totalPrice = (item['total_price'] as num?)?.toDouble() ?? 0;
+    final isMatched = item['matched_variant_id'] != null;
 
     return Container(
       margin: const EdgeInsets.only(bottom: 6),
@@ -476,7 +701,21 @@ class _ScannerReceiptScreenState extends State<ScannerReceiptScreen> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(name, style: TextStyle(color: isSelected ? Colors.grey.shade900 : Colors.grey.shade600, fontWeight: FontWeight.w600, fontSize: 13)),
+                Row(
+                  children: [
+                    Flexible(
+                      child: Text(name, 
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(color: isSelected ? Colors.grey.shade900 : Colors.grey.shade600, fontWeight: FontWeight.w600, fontSize: 13),
+                      ),
+                    ),
+                    const SizedBox(width: 4),
+                    if (isMatched)
+                      const Tooltip(message: 'Item reconhecido no catálogo', child: Icon(Icons.check_circle_rounded, color: Color(0xFF2E7D32), size: 14))
+                    else
+                      const Tooltip(message: 'Item novo! Envie para catalogar', child: Icon(Icons.new_releases_rounded, color: Colors.orange, size: 14)),
+                  ],
+                ),
                 Text('${qty}x • R\$ ${unitPrice.toStringAsFixed(2)}/un',
                     style: TextStyle(color: isSelected ? Colors.grey.shade500 : Colors.grey.shade400, fontSize: 11)),
               ],

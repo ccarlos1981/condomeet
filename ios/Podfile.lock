@@ -74,6 +74,9 @@ PODS:
     - Flutter
   - flutter_secure_storage (6.0.0):
     - Flutter
+  - geolocator_apple (1.2.0):
+    - Flutter
+    - FlutterMacOS
   - GoogleDataTransport (10.1.0):
     - nanopb (~> 3.30910.0)
     - PromisesObjC (~> 2.4)
@@ -111,11 +114,15 @@ PODS:
     - nanopb/encode (= 3.30910.0)
   - nanopb/decode (3.30910.0)
   - nanopb/encode (3.30910.0)
-  - powersync-sqlite-core (0.4.11)
+  - package_info_plus (0.4.5):
+    - Flutter
+  - powersync-sqlite-core (0.4.12)
   - powersync_flutter_libs (0.0.1):
     - Flutter
     - FlutterMacOS
     - powersync-sqlite-core (~> 0.4.10)
+  - printing (1.0.0):
+    - Flutter
   - PromisesObjC (2.4.0)
   - purchases_flutter (9.15.1):
     - Flutter
@@ -169,9 +176,12 @@ DEPENDENCIES:
   - Flutter (from `Flutter`)
   - flutter_local_notifications (from `.symlinks/plugins/flutter_local_notifications/ios`)
   - flutter_secure_storage (from `.symlinks/plugins/flutter_secure_storage/ios`)
+  - geolocator_apple (from `.symlinks/plugins/geolocator_apple/darwin`)
   - image_picker_ios (from `.symlinks/plugins/image_picker_ios/ios`)
   - local_auth_darwin (from `.symlinks/plugins/local_auth_darwin/darwin`)
+  - package_info_plus (from `.symlinks/plugins/package_info_plus/ios`)
   - powersync_flutter_libs (from `.symlinks/plugins/powersync_flutter_libs/darwin`)
+  - printing (from `.symlinks/plugins/printing/ios`)
   - purchases_flutter (from `.symlinks/plugins/purchases_flutter/ios`)
   - share_plus (from `.symlinks/plugins/share_plus/ios`)
   - shared_preferences_foundation (from `.symlinks/plugins/shared_preferences_foundation/darwin`)
@@ -215,12 +225,18 @@ EXTERNAL SOURCES:
     :path: ".symlinks/plugins/flutter_local_notifications/ios"
   flutter_secure_storage:
     :path: ".symlinks/plugins/flutter_secure_storage/ios"
+  geolocator_apple:
+    :path: ".symlinks/plugins/geolocator_apple/darwin"
   image_picker_ios:
     :path: ".symlinks/plugins/image_picker_ios/ios"
   local_auth_darwin:
     :path: ".symlinks/plugins/local_auth_darwin/darwin"
+  package_info_plus:
+    :path: ".symlinks/plugins/package_info_plus/ios"
   powersync_flutter_libs:
     :path: ".symlinks/plugins/powersync_flutter_libs/darwin"
+  printing:
+    :path: ".symlinks/plugins/printing/ios"
   purchases_flutter:
     :path: ".symlinks/plugins/purchases_flutter/ios"
   share_plus:
@@ -248,13 +264,16 @@ SPEC CHECKSUMS:
   Flutter: cabc95a1d2626b1b06e7179b784ebcf0c0cde467
   flutter_local_notifications: 643a3eda1ce1c0599413ca31672536d423dee214
   flutter_secure_storage: 1ed9476fba7e7a782b22888f956cce43e2c62f13
+  geolocator_apple: ab36aa0e8b7d7a2d7639b3b4e48308394e8cef5e
   GoogleDataTransport: aae35b7ea0c09004c3797d53c8c41f66f219d6a7
   GoogleUtilities: 00c88b9a86066ef77f0da2fab05f65d7768ed8e1
   image_picker_ios: e0ece4aa2a75771a7de3fa735d26d90817041326
   local_auth_darwin: c3ee6cce0a8d56be34c8ccb66ba31f7f180aaebb
   nanopb: fad817b59e0457d11a5dfbde799381cd727c1275
-  powersync-sqlite-core: aae0128de5f062c8e5a6bc450090ebba0b398222
+  package_info_plus: af8e2ca6888548050f16fa2f1938db7b5a5df499
+  powersync-sqlite-core: 116ecf3391859445f1477f8c230914e04d9874e7
   powersync_flutter_libs: 1e296b482926ebb5a993d287a59fae1df91caf44
+  printing: 54ff03f28fe9ba3aa93358afb80a8595a071dd07
   PromisesObjC: f5707f49cb48b9636751c5b2e7d227e43fba9f47
   purchases_flutter: eaa65afecf3a856e8729efceab7a01b8685e2eab
   PurchasesHybridCommon: 53d966ac5c39df13c3c759289bb3ef3e2f9f1622

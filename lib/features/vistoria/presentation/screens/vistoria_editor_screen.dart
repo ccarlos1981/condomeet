@@ -3,9 +3,13 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:purchases_flutter/purchases_flutter.dart';
+import 'package:share_plus/share_plus.dart';
+import 'package:printing/printing.dart';
 import 'package:condomeet/core/design_system/app_colors.dart';
 import 'package:condomeet/features/auth/presentation/bloc/auth_bloc.dart';
 import 'package:condomeet/features/vistoria/vistoria_service.dart';
+import 'package:condomeet/features/vistoria/vistoria_pdf_generator.dart';
+import 'package:condomeet/features/vistoria/presentation/screens/vistoria_assinatura_screen.dart';
 
 class VistoriaEditorScreen extends StatefulWidget {
   final String vistoriaId;
@@ -40,6 +44,12 @@ class _VistoriaEditorScreenState extends State<VistoriaEditorScreen> {
       VistoriaService.getLimits(_vistoria['plano'] as String? ?? 'free');
   bool get _isPlus => (_vistoria['plano'] as String? ?? 'free') == 'plus';
 
+  /// Vistoria is locked (read-only) after conclusion or signing
+  bool get _isLocked {
+    final status = _vistoria['status'] as String? ?? 'rascunho';
+    return status == 'concluida' || status == 'assinada';
+  }
+
   @override
   void initState() {
     super.initState();
@@ -65,6 +75,39 @@ class _VistoriaEditorScreenState extends State<VistoriaEditorScreen> {
       _itens = await _service.listItens(secIds);
       final itemIds = _itens.map((i) => i['id'] as String).toList();
       _fotos = await _service.listFotos(itemIds);
+      
+      // Feature: Se é vistoria de SAÍDA, busca as fotos da ENTRADA para servir de referência
+      if (_vistoria['tipo_vistoria'] == 'saida') {
+        final entradas = vistorias.where((v) => 
+            v['titulo'] == _vistoria['titulo'] && 
+            v['tipo_bem'] == _vistoria['tipo_bem'] && 
+            v['tipo_vistoria'] == 'entrada'
+        ).toList();
+        
+        if (entradas.isNotEmpty) {
+           entradas.sort((a,b) => (b['created_at'] ?? '').toString().compareTo((a['created_at'] ?? '').toString()));
+           final eId = entradas.first['id'] as String;
+           final eSecoes = await _service.listSecoes(eId);
+           final eSecIds = eSecoes.map((s) => s['id'] as String).toList();
+           final eItens = await _service.listItens(eSecIds);
+           final eItemIds = eItens.map((i) => i['id'] as String).toList();
+           final eFotos = await _service.listFotos(eItemIds);
+           
+           for (var item in _itens) {
+             final sec = _secoes.firstWhere((s) => s['id'] == item['secao_id']);
+             final eSec = eSecoes.firstWhere((s) => s['nome'] == sec['nome'], orElse: () => {});
+             if (eSec.isNotEmpty) {
+               final eItem = eItens.firstWhere((i) => i['secao_id'] == eSec['id'] && i['nome'] == item['nome'], orElse: () => {});
+               if (eItem.isNotEmpty) {
+                 item['fotos_referencia'] = eFotos
+                    .where((f) => f['item_id'] == eItem['id'])
+                    .map((f) => f['foto_url'] as String)
+                    .toList();
+               }
+             }
+           }
+        }
+      }
 
       if (_secoes.isNotEmpty && _activeSecaoId == null) {
         _activeSecaoId = _secoes.first['id'] as String;
@@ -124,6 +167,31 @@ class _VistoriaEditorScreenState extends State<VistoriaEditorScreen> {
       appBar: _buildAppBar(),
       body: Column(
         children: [
+          // Locked banner
+          if (_isLocked)
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+              color: const Color(0xFFFEF3C7),
+              child: Row(
+                children: [
+                  const Icon(Icons.lock, size: 16, color: Color(0xFFD97706)),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      _vistoria['status'] == 'assinada'
+                          ? '🔒 Vistoria assinada — somente leitura'
+                          : '🔒 Vistoria concluída — somente leitura',
+                      style: const TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w600,
+                        color: Color(0xFFD97706),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
           // Section tabs
           _buildSecaoTabs(),
           // Items list
@@ -139,7 +207,7 @@ class _VistoriaEditorScreenState extends State<VistoriaEditorScreen> {
           ),
         ],
       ),
-      floatingActionButton: _buildFAB(),
+      floatingActionButton: _isLocked ? null : _buildFAB(),
     );
   }
 
@@ -162,12 +230,32 @@ class _VistoriaEditorScreenState extends State<VistoriaEditorScreen> {
               fontSize: 16,
             ),
           ),
-          Text(
-            '#${_vistoria['cod_interno'] ?? ''} · ${(_vistoria['tipo_vistoria'] as String? ?? 'entrada').toUpperCase()}',
-            style: TextStyle(
-              color: Colors.grey.shade500,
-              fontSize: 11,
-            ),
+          Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(
+                '#${_vistoria['cod_interno'] ?? ''} · ',
+                style: TextStyle(color: Colors.grey.shade500, fontSize: 11),
+              ),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1),
+                decoration: BoxDecoration(
+                  color: (_vistoria['tipo_vistoria'] as String? ?? '') == 'saida'
+                      ? const Color(0xFF8B5CF6)
+                      : const Color(0xFF10B981),
+                  borderRadius: BorderRadius.circular(4),
+                ),
+                child: Text(
+                  (_vistoria['tipo_vistoria'] as String? ?? 'entrada').toUpperCase(),
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 9,
+                    fontWeight: FontWeight.w800,
+                    letterSpacing: 0.5,
+                  ),
+                ),
+              ),
+            ],
           ),
         ],
       ),
@@ -189,10 +277,21 @@ class _VistoriaEditorScreenState extends State<VistoriaEditorScreen> {
           icon: const Icon(Icons.more_vert, color: AppColors.textMain),
           onSelected: _handleMenuAction,
           itemBuilder: (_) => [
-            const PopupMenuItem(value: 'add_secao', child: Text('➕ Adicionar seção')),
-            const PopupMenuItem(value: 'add_item', child: Text('➕ Adicionar item')),
+            const PopupMenuItem(value: 'assinaturas', child: Text('✍️ Assinaturas')),
+            const PopupMenuItem(value: 'pdf', child: Text('📄 Exportar PDF')),
+            const PopupMenuItem(value: 'share_whatsapp', child: Text('📲 Enviar por WhatsApp')),
+            const PopupMenuDivider(),
+            if (!_isLocked) const PopupMenuItem(value: 'add_secao', child: Text('➕ Adicionar seção')),
+            if (!_isLocked) const PopupMenuItem(value: 'add_item', child: Text('➕ Adicionar item')),
+            if (_isLocked && (_vistoria['tipo_vistoria'] as String? ?? '') == 'entrada')
+              const PopupMenuItem(
+                value: 'criar_saida',
+                child: Text('📋 Realizar Vistoria de Saída',
+                  style: TextStyle(color: Color(0xFF8B5CF6), fontWeight: FontWeight.bold),
+                ),
+              ),
             const PopupMenuItem(value: 'timeline', child: Text('📊 Timeline do imóvel')),
-            const PopupMenuItem(value: 'share', child: Text('🔗 Compartilhar')),
+            const PopupMenuItem(value: 'share', child: Text('🔗 Link público')),
           ],
         ),
       ],
@@ -376,7 +475,7 @@ class _VistoriaEditorScreenState extends State<VistoriaEditorScreen> {
                       final selected = status == opt['value'];
                       return Expanded(
                         child: GestureDetector(
-                          onTap: () => _updateItemStatus(
+                          onTap: _isLocked ? null : () => _updateItemStatus(
                             item['id'] as String,
                             opt['value'] as String,
                           ),
@@ -425,7 +524,8 @@ class _VistoriaEditorScreenState extends State<VistoriaEditorScreen> {
                     controller: TextEditingController(
                       text: item['observacao'] as String? ?? '',
                     ),
-                    onChanged: (v) => _updateItemObs(item['id'] as String, v),
+                    onChanged: _isLocked ? null : (v) => _updateItemObs(item['id'] as String, v),
+                    readOnly: _isLocked,
                     maxLines: 2,
                     decoration: InputDecoration(
                       hintText: 'Observação...',
@@ -439,13 +539,58 @@ class _VistoriaEditorScreenState extends State<VistoriaEditorScreen> {
                     style: const TextStyle(fontSize: 13),
                   ),
 
+                  // Fotos Referência (Entrada)
+                  if ((item['fotos_referencia'] as List<dynamic>? ?? []).isNotEmpty) ...[
+                    const SizedBox(height: 14),
+                    const Text(
+                      'Referência (Entrada)',
+                      style: TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.bold,
+                        color: Color(0xFF10B981),
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    SizedBox(
+                      height: 60,
+                      child: ListView.builder(
+                        scrollDirection: Axis.horizontal,
+                        itemCount: (item['fotos_referencia'] as List).length,
+                        itemBuilder: (_, i) {
+                          final String url = item['fotos_referencia'][i];
+                          return Padding(
+                            padding: const EdgeInsets.only(right: 6),
+                            child: GestureDetector(
+                              onTap: () => setState(() => _lightboxUrl = url),
+                              child: ClipRRect(
+                                borderRadius: BorderRadius.circular(8),
+                                child: Image.network(
+                                  url,
+                                  width: 60,
+                                  height: 60,
+                                  fit: BoxFit.cover,
+                                  errorBuilder: (_, __, ___) => Container(
+                                    width: 60,
+                                    height: 60,
+                                    color: Colors.grey.shade200,
+                                    child: const Icon(Icons.broken_image, size: 20),
+                                  ),
+                                ),
+                              ),
+                            ),
+                          );
+                        },
+                      ),
+                    ),
+                  ],
+
                   // Photos
                   const SizedBox(height: 14),
                   Row(
                     children: [
-                      const Text(
-                        'Fotos',
-                        style: TextStyle(
+                      Text(
+                        _vistoria['tipo_vistoria'] == 'saida' ? 'Fotos de Saída' : 'Fotos de Entrada',
+                        style: const TextStyle(
                           fontSize: 12,
                           fontWeight: FontWeight.bold,
                           color: AppColors.textSecondary,
@@ -453,7 +598,7 @@ class _VistoriaEditorScreenState extends State<VistoriaEditorScreen> {
                       ),
                       const Spacer(),
                       // Camera button
-                      GestureDetector(
+                      if (!_isLocked) GestureDetector(
                         onTap: () => _takePhoto(item['id'] as String),
                         child: Container(
                           padding: const EdgeInsets.symmetric(
@@ -481,7 +626,7 @@ class _VistoriaEditorScreenState extends State<VistoriaEditorScreen> {
                         ),
                       ),
                       const SizedBox(width: 6),
-                      // Gallery button
+                      if (!_isLocked) // Gallery button
                       GestureDetector(
                         onTap: () => _pickPhoto(item['id'] as String),
                         child: Container(
@@ -648,6 +793,15 @@ class _VistoriaEditorScreenState extends State<VistoriaEditorScreen> {
       case 'add_item':
         _showAddItemDialog();
         break;
+      case 'assinaturas':
+        _openAssinaturas();
+        break;
+      case 'pdf':
+        _exportPdf();
+        break;
+      case 'share_whatsapp':
+        _shareViaWhatsApp();
+        break;
       case 'timeline':
         final endereco = _vistoria['endereco'] as String? ?? '';
         if (endereco.isNotEmpty) {
@@ -664,6 +818,244 @@ class _VistoriaEditorScreenState extends State<VistoriaEditorScreen> {
       case 'share':
         _shareVistoria();
         break;
+      case 'criar_saida':
+        _criarVistoriaSaida();
+        break;
+    }
+  }
+
+  Future<void> _criarVistoriaSaida() async {
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: const Row(
+          children: [
+            Icon(Icons.exit_to_app, color: Color(0xFF8B5CF6)),
+            SizedBox(width: 8),
+            Expanded(child: Text('Vistoria de Saída', style: TextStyle(fontSize: 16))),
+          ],
+        ),
+        content: const Text(
+          'Será criada uma nova vistoria de SAÍDA com as mesmas seções e itens '
+          'da entrada.\n\nVocê poderá re-inspecionar cada item, tirar novas fotos '
+          'e registrar o estado atual do imóvel para comparação.',
+          style: TextStyle(fontSize: 13),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('Cancelar'),
+          ),
+          FilledButton.icon(
+            style: FilledButton.styleFrom(
+              backgroundColor: const Color(0xFF8B5CF6),
+            ),
+            onPressed: () => Navigator.pop(ctx, true),
+            icon: const Icon(Icons.add_task),
+            label: const Text('Criar Vistoria de Saída'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirm != true || !mounted) return;
+
+    // Show loading
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (_) => const Center(child: CircularProgressIndicator()),
+    );
+
+    try {
+      final saida = await VistoriaService().criarVistoriaSaida(widget.vistoriaId);
+      if (!mounted) return;
+      Navigator.pop(context); // close loading
+      Navigator.pop(context); // go back to list
+      // Navigate to new saida vistoria
+      Navigator.pushNamed(context, '/vistoria-editor', arguments: saida['id']);
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('✅ Vistoria de Saída criada! Inspecione cada item.'),
+          behavior: SnackBarBehavior.floating,
+          backgroundColor: Color(0xFF8B5CF6),
+        ),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      Navigator.pop(context); // close loading
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Erro ao criar: $e'),
+          backgroundColor: Colors.red,
+        ),
+      );
+    }
+  }
+
+  Future<void> _openAssinaturas() async {
+    final result = await Navigator.push<List<Map<String, dynamic>>>(
+      context,
+      MaterialPageRoute(
+        builder: (_) => VistoriaAssinaturaScreen(
+          vistoriaId: widget.vistoriaId,
+          vistoria: _vistoria,
+        ),
+      ),
+    );
+    // If all signed, update status
+    if (result != null && result.isNotEmpty) {
+      final allSigned = result.every((a) =>
+          a['assinatura_url'] != null &&
+          (a['assinatura_url'] as String).isNotEmpty);
+      if (allSigned && _vistoria['status'] == 'concluida') {
+        await _service.updateStatus(widget.vistoriaId, 'assinada');
+        setState(() => _vistoria['status'] = 'assinada');
+      }
+    }
+  }
+
+  Future<void> _exportPdf() async {
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text('📄 Gerando PDF...'),
+        backgroundColor: AppColors.info,
+        behavior: SnackBarBehavior.floating,
+        duration: Duration(seconds: 30),
+      ),
+    );
+    try {
+      final assinaturas = await _service.listAssinaturas(widget.vistoriaId);
+      final pdfFile = await VistoriaPdfGenerator.generate(
+        vistoria: _vistoria,
+        secoes: _secoes,
+        itens: _itens,
+        fotos: _fotos,
+        assinaturas: assinaturas,
+      );
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).hideCurrentSnackBar();
+
+      // Show share dialog
+      showModalBottomSheet(
+        context: context,
+        backgroundColor: Colors.transparent,
+        builder: (ctx) => Container(
+          padding: const EdgeInsets.all(24),
+          decoration: const BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Text(
+                '📄 PDF Gerado com Sucesso!',
+                style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+              ),
+              const SizedBox(height: 20),
+              // Share button
+              SizedBox(
+                width: double.infinity,
+                child: ElevatedButton.icon(
+                  onPressed: () async {
+                    Navigator.pop(ctx);
+                    await SharePlus.instance.share(
+                      ShareParams(
+                        files: [XFile(pdfFile.path)],
+                        text: 'Relatório de Vistoria - ${_vistoria['titulo']}',
+                      ),
+                    );
+                  },
+                  icon: const Icon(Icons.share, color: Colors.white),
+                  label: const Text(
+                    'Compartilhar PDF',
+                    style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+                  ),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: AppColors.primary,
+                    padding: const EdgeInsets.symmetric(vertical: 16),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(14),
+                    ),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 10),
+              // Print button
+              SizedBox(
+                width: double.infinity,
+                child: OutlinedButton.icon(
+                  onPressed: () async {
+                    Navigator.pop(ctx);
+                    await Printing.layoutPdf(
+                      onLayout: (_) => pdfFile.readAsBytes(),
+                    );
+                  },
+                  icon: const Icon(Icons.print),
+                  label: const Text(
+                    'Imprimir',
+                    style: TextStyle(fontWeight: FontWeight.bold),
+                  ),
+                  style: OutlinedButton.styleFrom(
+                    padding: const EdgeInsets.symmetric(vertical: 16),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(14),
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      );
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).hideCurrentSnackBar();
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Erro ao gerar PDF: $e'), backgroundColor: Colors.red),
+        );
+      }
+    }
+  }
+
+  Future<void> _shareViaWhatsApp() async {
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text('📄 Gerando PDF para WhatsApp...'),
+        backgroundColor: AppColors.info,
+        behavior: SnackBarBehavior.floating,
+        duration: Duration(seconds: 30),
+      ),
+    );
+    try {
+      final assinaturas = await _service.listAssinaturas(widget.vistoriaId);
+      final pdfFile = await VistoriaPdfGenerator.generate(
+        vistoria: _vistoria,
+        secoes: _secoes,
+        itens: _itens,
+        fotos: _fotos,
+        assinaturas: assinaturas,
+      );
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).hideCurrentSnackBar();
+
+      await SharePlus.instance.share(
+        ShareParams(
+          files: [XFile(pdfFile.path)],
+          text: 'Relatório de Vistoria - ${_vistoria['titulo']}\n'
+              'Tipo: ${(_vistoria['tipo_vistoria'] as String? ?? 'entrada').toUpperCase()}\n'
+              'Endereço: ${_vistoria['endereco'] ?? 'N/A'}',
+        ),
+      );
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).hideCurrentSnackBar();
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Erro: $e'), backgroundColor: Colors.red),
+        );
+      }
     }
   }
 
@@ -904,7 +1296,7 @@ class _VistoriaEditorScreenState extends State<VistoriaEditorScreen> {
       builder: (ctx) => AlertDialog(
         title: const Text('Concluir Vistoria?'),
         content: const Text(
-            'A vistoria será marcada como concluída e poderá ser compartilhada.'),
+            'A vistoria será marcada como concluída. Você poderá coletar assinaturas e gerar o PDF.'),
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
         actions: [
           TextButton(
@@ -927,19 +1319,102 @@ class _VistoriaEditorScreenState extends State<VistoriaEditorScreen> {
 
     if (confirm != true) return;
 
+    setState(() => _saving = true);
     try {
       await _service.updateStatus(widget.vistoriaId, 'concluida');
-      setState(() => _vistoria['status'] = 'concluida');
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('✅ Vistoria concluída!'),
-            backgroundColor: AppColors.success,
-            behavior: SnackBarBehavior.floating,
+      setState(() {
+        _vistoria['status'] = 'concluida';
+        _saving = false;
+      });
+      if (!mounted) return;
+
+      // Show next-steps bottom sheet
+      showModalBottomSheet(
+        context: context,
+        backgroundColor: Colors.transparent,
+        builder: (ctx) => Container(
+          padding: const EdgeInsets.all(24),
+          decoration: const BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
           ),
-        );
-      }
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Icon(Icons.check_circle, size: 56, color: AppColors.success),
+              const SizedBox(height: 12),
+              const Text(
+                'Vistoria Concluída! ✅',
+                style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+              ),
+              const SizedBox(height: 8),
+              Text(
+                'O que deseja fazer agora?',
+                style: TextStyle(color: Colors.grey.shade600),
+              ),
+              const SizedBox(height: 20),
+              // Collect signatures
+              SizedBox(
+                width: double.infinity,
+                child: ElevatedButton.icon(
+                  onPressed: () {
+                    Navigator.pop(ctx);
+                    _openAssinaturas();
+                  },
+                  icon: const Icon(Icons.draw_rounded, color: Colors.white),
+                  label: const Text(
+                    'Coletar Assinaturas',
+                    style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+                  ),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xFF8B5CF6),
+                    padding: const EdgeInsets.symmetric(vertical: 16),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(14),
+                    ),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 10),
+              // Export PDF
+              SizedBox(
+                width: double.infinity,
+                child: OutlinedButton.icon(
+                  onPressed: () {
+                    Navigator.pop(ctx);
+                    _exportPdf();
+                  },
+                  icon: const Icon(Icons.picture_as_pdf),
+                  label: const Text(
+                    'Exportar PDF',
+                    style: TextStyle(fontWeight: FontWeight.bold),
+                  ),
+                  style: OutlinedButton.styleFrom(
+                    padding: const EdgeInsets.symmetric(vertical: 16),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(14),
+                    ),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 10),
+              // Go back
+              TextButton(
+                onPressed: () {
+                  Navigator.pop(ctx);
+                  Navigator.pop(context, true);
+                },
+                child: Text(
+                  'Voltar para lista',
+                  style: TextStyle(color: Colors.grey.shade500),
+                ),
+              ),
+            ],
+          ),
+        ),
+      );
     } catch (e) {
+      setState(() => _saving = false);
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text('Erro: $e'), backgroundColor: Colors.red),
@@ -955,16 +1430,19 @@ class _VistoriaEditorScreenState extends State<VistoriaEditorScreen> {
         token = await _service.gerarLinkPublico(widget.vistoriaId);
         setState(() => _vistoria['link_publico_token'] = token);
       }
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('🔗 Link: condomeet.app/vistoria/$token'),
-            backgroundColor: AppColors.info,
-            behavior: SnackBarBehavior.floating,
-            duration: const Duration(seconds: 5),
-          ),
-        );
-      }
+
+      // TODO: Replace with production URL when deploying
+      const String baseUrl = 'https://web-app-mu-rouge.vercel.app';
+      final url = '$baseUrl/vistoria/$token';
+      final titulo = _vistoria['titulo'] ?? 'Vistoria';
+      final tipo = _vistoria['tipo_vistoria'] == 'saida' ? 'Saída' : 'Entrada';
+
+      final message = '📋 *Vistoria de $tipo - $titulo*\n\n'
+          'Visualize o laudo completo da vistoria digital:\n'
+          '$url\n\n'
+          '_Condomeet Check_';
+
+      await SharePlus.instance.share(ShareParams(text: message));
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(

@@ -80,6 +80,7 @@ import 'package:condomeet/features/lista_mercado/presentation/screens/lista_admi
 import 'package:condomeet/features/lista_mercado/presentation/screens/cartao_economia_screen.dart';
 import 'package:condomeet/features/lista_mercado/presentation/screens/lista_paywall_screen.dart';
 import 'package:condomeet/features/lista_mercado/presentation/screens/lista_onboarding_screen.dart';
+import 'package:condomeet/features/lista_mercado/presentation/screens/global_dashboard_screen.dart';
 import 'package:condomeet/features/garagem/presentation/screens/garagem_home_screen.dart';
 import 'package:condomeet/features/garagem/presentation/screens/garagem_detail_screen.dart';
 import 'package:condomeet/features/garagem/presentation/screens/garagem_reservation_screen.dart';
@@ -233,6 +234,7 @@ class AppRouter {
       '/lista-mercado/cartao': (context) => const CartaoEconomiaScreen(),
       '/lista-mercado/paywall': (context) => const ListaPaywallScreen(),
       '/lista-mercado/onboarding': (context) => const ListaOnboardingScreen(),
+      '/lista-mercado/global-dashboard': (context) => const GlobalDashboardScreen(),
       // Garagem (Aluguel de Vaga)
       '/garagem': (context) => const GaragemHomeScreen(),
       '/garagem/onboarding': (context) => const GaragemOnboardingScreen(),

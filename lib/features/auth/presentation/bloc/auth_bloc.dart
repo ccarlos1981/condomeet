@@ -35,6 +35,8 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
     on<AuthPinUnlocked>(_onAuthPinUnlocked, transformer: concurrent());
     on<AuthPasswordSetupSubmitted>(_onAuthPasswordSetupSubmitted, transformer: droppable());
     on<AuthDevBypassRequested>(_onAuthDevBypassRequested, transformer: droppable());
+    on<AuthForgotPasswordRequested>(_onAuthForgotPasswordRequested, transformer: droppable());
+    on<AuthResetCodeSubmitted>(_onAuthResetCodeSubmitted, transformer: droppable());
   }
 
   bool _isSessionUnlocked = false;
@@ -383,6 +385,72 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
     } catch (e) {
       print('❌ Erro ao configurar senha: $e');
       emit(AuthState.unauthenticated(error: 'Erro ao definir senha. Tente novamente.'));
+    }
+  }
+
+  Future<void> _onAuthForgotPasswordRequested(AuthForgotPasswordRequested event, Emitter<AuthState> emit) async {
+    print('🔑 Solicitando reset via WhatsApp para ${event.email}');
+    emit(state.copyWith(status: AuthStatus.authenticating));
+    try {
+      final result = await Supabase.instance.client.rpc(
+        'request_password_reset_whatsapp',
+        params: {'user_email': event.email},
+      );
+      if (result != null && result['success'] == true) {
+        print('✅ Código enviado para WhatsApp ${result['whatsapp_masked']}');
+        emit(AuthState.forgotPasswordCodeSent(
+          email: event.email,
+          maskedWhatsapp: result['whatsapp_masked'] as String?,
+        ));
+      } else {
+        final error = result?['error'] ?? 'Erro ao enviar código.';
+        if (error == 'no_whatsapp') {
+          emit(AuthState.unauthenticated(error: 'Seu cadastro não possui WhatsApp. Procure o síndico para redefinir sua senha.'));
+        } else {
+          emit(AuthState.unauthenticated(error: error));
+        }
+      }
+    } catch (e) {
+      print('❌ Forgot password error: $e');
+      emit(AuthState.unauthenticated(error: 'Erro ao solicitar código. Tente novamente.'));
+    }
+  }
+
+  Future<void> _onAuthResetCodeSubmitted(AuthResetCodeSubmitted event, Emitter<AuthState> emit) async {
+    print('🔑 Verificando código de reset para ${event.email}');
+    emit(state.copyWith(status: AuthStatus.authenticating));
+    try {
+      final result = await Supabase.instance.client.rpc(
+        'verify_reset_code_and_update_password',
+        params: {
+          'user_email': event.email,
+          'reset_code': event.code,
+          'new_password': event.newPassword,
+        },
+      );
+      if (result != null && result['success'] == true) {
+        print('✅ Senha atualizada. Fazendo login automático...');
+        // Login automático com a nova senha
+        await _authRepository.signInWithEmail(event.email, event.newPassword);
+        add(const AuthCheckRequested());
+      } else {
+        final error = result?['error'] ?? 'Código inválido.';
+        emit(AuthState.forgotPasswordCodeSent(
+          email: event.email,
+          maskedWhatsapp: state.maskedWhatsapp,
+        ));
+        // Re-emit with error after a small delay so BlocListener catches both states
+        await Future.delayed(const Duration(milliseconds: 50));
+        emit(AuthState(
+          status: AuthStatus.forgotPasswordCodeSent,
+          phoneNumber: event.email,
+          maskedWhatsapp: state.maskedWhatsapp,
+          errorMessage: error,
+        ));
+      }
+    } catch (e) {
+      print('❌ Reset code error: $e');
+      emit(AuthState.unauthenticated(error: 'Erro ao redefinir senha. Tente novamente.'));
     }
   }
 

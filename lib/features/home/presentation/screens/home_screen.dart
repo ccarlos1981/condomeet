@@ -20,6 +20,7 @@ import 'package:condomeet/features/portaria/domain/entities/parcel.dart';
 import 'package:condomeet/features/security/presentation/bloc/sos_bloc.dart';
 import 'package:condomeet/features/security/presentation/bloc/sos_event.dart';
 import 'package:condomeet/features/auth/presentation/screens/edit_profile_screen.dart';
+import 'package:condomeet/features/auth/presentation/screens/change_password_sheet.dart';
 import 'package:condomeet/features/community/presentation/screens/empresa_detalhe_screen.dart';
 import 'package:supabase_flutter/supabase_flutter.dart' hide AuthState;
 import 'package:condomeet/main.dart';
@@ -523,15 +524,15 @@ class _HomeScreenState extends State<HomeScreen> {
     const double itemMainAxisExtent =
         90.0; // largura (e altura do ícone, por AspectRatio 1:1)
     const double itemCrossAxisExtent =
-        115.0; // altura total: 64 ícone + 6 espaço + ~28 label
-    const double spacing = 10.0;
+        94.0; // altura total: 64 ícone + 6 espaço + ~24 label
+    const double spacing = 6.0;
     // Altura total = 2 linhas + espaço entre elas + padding vertical
-    const double sectionHeight = itemCrossAxisExtent * 2 + spacing + 8;
+    const double sectionHeight = itemCrossAxisExtent * 2 + spacing + 2;
 
     return Container(
       color: Colors.white,
       margin: const EdgeInsets.only(top: 8),
-      padding: const EdgeInsets.fromLTRB(16, 16, 0, 16),
+      padding: const EdgeInsets.fromLTRB(16, 8, 0, 8),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -933,6 +934,14 @@ class _HomeScreenState extends State<HomeScreen> {
                       }
                     },
                   ),
+                  _drawerItem(
+                    Icons.lock_outline,
+                    'Alterar senha',
+                    onTap: () {
+                      Navigator.pop(context);
+                      ChangePasswordSheet.show(context);
+                    },
+                  ),
                   _drawerItem(Icons.home_outlined, 'Minha unidade'),
                   _drawerItem(
                     Icons.emergency_outlined,
@@ -1102,6 +1111,11 @@ class _HomeScreenState extends State<HomeScreen> {
     if (mounted) setState(() => _showPartnersChecklist = true);
   }
 
+  bool get _isAppTestAllowed {
+    final userEmail = Supabase.instance.client.auth.currentUser?.email ?? '';
+    return userEmail == 'cristiano.santos@gmx.com' || userEmail == 'erikaosc+real@gmail.com';
+  }
+
   Widget _buildPartnersChecklistWidget() {
     final steps = [
       {
@@ -1110,20 +1124,23 @@ class _HomeScreenState extends State<HomeScreen> {
         'desc': 'Gerencie suas finanças pessoais',
         'color': const Color(0xFF1D4ED8),
         'route': '/dinglo',
+        'enabled': true,
       },
       {
         'icon': Icons.shopping_cart,
         'title': 'Use a Lista Inteligente',
-        'desc': 'Compare preços de supermercados',
+        'desc': 'Sua Lista Inteligente',
         'color': const Color(0xFF00C853),
         'route': '/lista-mercado',
+        'enabled': _isAppTestAllowed,
       },
       {
         'icon': Icons.local_parking,
-        'title': 'Descubra a Garagem',
+        'title': 'Use a Smart Garage',
         'desc': 'Alugue ou reserve vagas',
         'color': const Color(0xFF7B2FF7),
         'route': '/garagem',
+        'enabled': _isAppTestAllowed,
       },
       {
         'icon': Icons.checklist_rounded,
@@ -1131,6 +1148,7 @@ class _HomeScreenState extends State<HomeScreen> {
         'desc': 'Vistorias digitais para seu imóvel',
         'color': const Color(0xFFFF6D00),
         'route': '/vistorias',
+        'enabled': _isAppTestAllowed,
       },
     ];
 
@@ -1179,56 +1197,79 @@ class _HomeScreenState extends State<HomeScreen> {
             ),
             const SizedBox(height: 10),
             ...steps.map(
-              (s) => GestureDetector(
-                onTap: () => Navigator.pushNamed(context, s['route'] as String),
-                child: Padding(
-                  padding: const EdgeInsets.only(bottom: 6),
-                  child: Row(
-                    children: [
-                      Container(
-                        width: 28,
-                        height: 28,
-                        decoration: BoxDecoration(
-                          color: (s['color'] as Color).withValues(alpha: 0.12),
-                          borderRadius: BorderRadius.circular(8),
-                        ),
-                        child: Icon(
-                          s['icon'] as IconData,
-                          size: 16,
-                          color: s['color'] as Color,
-                        ),
-                      ),
-                      const SizedBox(width: 10),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              s['title'] as String,
-                              style: const TextStyle(
-                                fontSize: 12,
-                                fontWeight: FontWeight.w600,
-                              ),
+              (s) {
+                final isEnabled = s['enabled'] as bool;
+                return GestureDetector(
+                  onTap: isEnabled ? () => Navigator.pushNamed(context, s['route'] as String) : null,
+                  child: Opacity(
+                    opacity: isEnabled ? 1.0 : 0.45,
+                    child: Padding(
+                      padding: const EdgeInsets.only(bottom: 6),
+                      child: Row(
+                        children: [
+                          Container(
+                            width: 28,
+                            height: 28,
+                            decoration: BoxDecoration(
+                              color: (s['color'] as Color).withValues(alpha: 0.12),
+                              borderRadius: BorderRadius.circular(8),
                             ),
-                            Text(
-                              s['desc'] as String,
-                              style: TextStyle(
-                                fontSize: 10,
-                                color: Colors.grey.shade500,
-                              ),
+                            child: Icon(
+                              s['icon'] as IconData,
+                              size: 16,
+                              color: s['color'] as Color,
                             ),
-                          ],
-                        ),
+                          ),
+                          const SizedBox(width: 10),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  s['title'] as String,
+                                  style: const TextStyle(
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                ),
+                                Text(
+                                  s['desc'] as String,
+                                  style: TextStyle(
+                                    fontSize: 10,
+                                    color: Colors.grey.shade500,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                          if (!isEnabled)
+                            Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                              decoration: BoxDecoration(
+                                color: const Color(0xFFFF6D00),
+                                borderRadius: BorderRadius.circular(4),
+                              ),
+                              child: const Text(
+                                'Em breve',
+                                style: TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 8,
+                                  fontWeight: FontWeight.w700,
+                                ),
+                              ),
+                            )
+                          else
+                            Icon(
+                              Icons.chevron_right,
+                              size: 16,
+                              color: Colors.grey.shade400,
+                            ),
+                        ],
                       ),
-                      Icon(
-                        Icons.chevron_right,
-                        size: 16,
-                        color: Colors.grey.shade400,
-                      ),
-                    ],
+                    ),
                   ),
-                ),
-              ),
+                );
+              },
             ),
           ],
         ),
@@ -1242,24 +1283,75 @@ class _HomeScreenState extends State<HomeScreen> {
       route: '/dinglo',
       assetPath: 'assets/images/meu_bolso_icon.png',
       label: 'Meu\nBolso',
+      prefKey: 'partner_intro_dinglo',
+      onboardingRoute: '/dinglo/onboarding',
+      introTitle: '💰 Meu Bolso',
+      introSubtitle: 'Sua bússola financeira pessoal',
+      introColor: const Color(0xFF1D4ED8),
+      introIcon: Icons.account_balance_wallet_rounded,
+      introFeatures: const [
+        {'icon': Icons.swap_horiz_rounded, 'text': 'Controle receitas e despesas'},
+        {'icon': Icons.flag_rounded, 'text': 'Defina metas de economia'},
+        {'icon': Icons.bar_chart_rounded, 'text': 'Relatórios visuais simples'},
+        {'icon': Icons.notifications_active_rounded, 'text': 'Alertas de contas a pagar'},
+      ],
     ),
     // Smart List
     _buildAppIcon(
       route: '/lista-mercado',
       assetPath: 'assets/images/smart_list_icon.png',
       label: 'Smart\nList',
+      enabled: _isAppTestAllowed,
+      prefKey: 'partner_intro_lista',
+      onboardingRoute: '/lista-mercado/onboarding',
+      introTitle: '🛒 Smart List',
+      introSubtitle: 'Lista de compras inteligente',
+      introColor: const Color(0xFF00C853),
+      introIcon: Icons.shopping_cart_rounded,
+      introFeatures: const [
+        {'icon': Icons.compare_arrows_rounded, 'text': 'Compare preços entre mercados'},
+        {'icon': Icons.savings_rounded, 'text': 'Descubra onde economizar'},
+        {'icon': Icons.history_rounded, 'text': 'Histórico de compras'},
+        {'icon': Icons.share_rounded, 'text': 'Compartilhe listas com vizinhos'},
+      ],
     ),
     // Smart Garage
     _buildAppIcon(
       route: '/garagem',
       assetPath: 'assets/images/garagem_icon.png',
       label: 'Smart\nGarage',
+      enabled: _isAppTestAllowed,
+      prefKey: 'partner_intro_garagem',
+      onboardingRoute: '/garagem/onboarding',
+      introTitle: '🅿️ Smart Garage',
+      introSubtitle: 'Garagem inteligente do condomínio',
+      introColor: const Color(0xFF7B2FF7),
+      introIcon: Icons.local_parking_rounded,
+      introFeatures: const [
+        {'icon': Icons.calendar_month_rounded, 'text': 'Reserve vagas disponíveis'},
+        {'icon': Icons.attach_money_rounded, 'text': 'Alugue sua vaga e ganhe'},
+        {'icon': Icons.notifications_rounded, 'text': 'Notificações em tempo real'},
+        {'icon': Icons.handshake_rounded, 'text': 'Negocie direto com vizinhos'},
+      ],
     ),
     // Checklist
     _buildAppIcon(
       route: '/vistorias',
       assetPath: 'assets/images/checklist_icon.png',
       label: 'Check\nList',
+      enabled: _isAppTestAllowed,
+      prefKey: 'partner_intro_vistoria',
+      onboardingRoute: '/vistoria/onboarding',
+      introTitle: '✅ Check List',
+      introSubtitle: 'Vistorias digitais do seu imóvel',
+      introColor: const Color(0xFFFF6D00),
+      introIcon: Icons.checklist_rounded,
+      introFeatures: const [
+        {'icon': Icons.camera_alt_rounded, 'text': 'Registre fotos de cada cômodo'},
+        {'icon': Icons.edit_note_rounded, 'text': 'Anote observações detalhadas'},
+        {'icon': Icons.picture_as_pdf_rounded, 'text': 'Gere relatório em PDF'},
+        {'icon': Icons.history_rounded, 'text': 'Histórico completo de vistorias'},
+      ],
     ),
   ];
 
@@ -1267,37 +1359,130 @@ class _HomeScreenState extends State<HomeScreen> {
     required String route,
     required String assetPath,
     required String label,
+    bool enabled = true,
+    String? prefKey,
+    String? onboardingRoute,
+    String? introTitle,
+    String? introSubtitle,
+    Color? introColor,
+    IconData? introIcon,
+    List<Map<String, dynamic>>? introFeatures,
   }) {
     return GestureDetector(
-      onTap: () => Navigator.pushNamed(context, route),
+      onTap: enabled
+          ? () async {
+              if (prefKey != null && introTitle != null) {
+                final prefs = await SharedPreferences.getInstance();
+                final dismissed = prefs.getBool(prefKey) ?? false;
+                if (!dismissed && mounted) {
+                  _showPartnerIntroPopup(
+                    prefKey: prefKey,
+                    route: route,
+                    onboardingRoute: onboardingRoute,
+                    title: introTitle,
+                    subtitle: introSubtitle ?? '',
+                    color: introColor ?? AppColors.primary,
+                    icon: introIcon ?? Icons.apps,
+                    features: introFeatures ?? [],
+                  );
+                  return;
+                }
+              }
+              if (mounted) Navigator.pushNamed(context, route);
+            }
+          : null,
       child: LayoutBuilder(
         builder: (context, constraints) {
           final iconSize = (constraints.maxWidth * 0.78).clamp(48.0, 72.0);
           return Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Container(
-                width: iconSize,
-                height: iconSize,
-                decoration: BoxDecoration(
-                  borderRadius: BorderRadius.circular(iconSize * 0.22),
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.black.withValues(alpha: 0.08),
-                      blurRadius: 8,
-                      offset: const Offset(0, 2),
+              Stack(
+                clipBehavior: Clip.none,
+                children: [
+                  Opacity(
+                    opacity: enabled ? 1.0 : 0.4,
+                    child: Container(
+                      width: iconSize,
+                      height: iconSize,
+                      decoration: BoxDecoration(
+                        borderRadius: BorderRadius.circular(iconSize * 0.22),
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.black.withValues(alpha: 0.08),
+                            blurRadius: 8,
+                            offset: const Offset(0, 2),
+                          ),
+                        ],
+                      ),
+                      child: ClipRRect(
+                        borderRadius: BorderRadius.circular(iconSize * 0.22),
+                        child: Image.asset(
+                          assetPath,
+                          width: iconSize,
+                          height: iconSize,
+                          fit: BoxFit.cover,
+                        ),
+                      ),
                     ),
-                  ],
-                ),
-                child: ClipRRect(
-                  borderRadius: BorderRadius.circular(iconSize * 0.22),
-                  child: Image.asset(
-                    assetPath,
-                    width: iconSize,
-                    height: iconSize,
-                    fit: BoxFit.cover,
                   ),
-                ),
+                  if (!enabled)
+                    Positioned(
+                      top: -4,
+                      right: -8,
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFFF6D00),
+                          borderRadius: BorderRadius.circular(6),
+                          boxShadow: [
+                            BoxShadow(
+                              color: const Color(0xFFFF6D00).withValues(alpha: 0.3),
+                              blurRadius: 4,
+                              offset: const Offset(0, 1),
+                            ),
+                          ],
+                        ),
+                        child: const Text(
+                          'Em breve',
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontSize: 7,
+                            fontWeight: FontWeight.w800,
+                            letterSpacing: 0.3,
+                          ),
+                        ),
+                      ),
+                    ),
+                  if (enabled && route != '/dinglo')
+                    Positioned(
+                      top: -4,
+                      right: -8,
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFF00C853),
+                          borderRadius: BorderRadius.circular(6),
+                          boxShadow: [
+                            BoxShadow(
+                              color: const Color(0xFF00C853).withValues(alpha: 0.3),
+                              blurRadius: 4,
+                              offset: const Offset(0, 1),
+                            ),
+                          ],
+                        ),
+                        child: const Text(
+                          'New',
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontSize: 7,
+                            fontWeight: FontWeight.w800,
+                            letterSpacing: 0.3,
+                          ),
+                        ),
+                      ),
+                    ),
+                ],
               ),
               const SizedBox(height: 6),
               Text(
@@ -1306,7 +1491,7 @@ class _HomeScreenState extends State<HomeScreen> {
                 maxLines: 2,
                 overflow: TextOverflow.ellipsis,
                 style: TextStyle(
-                  color: Colors.grey.shade800,
+                  color: enabled ? Colors.grey.shade800 : Colors.grey.shade400,
                   fontSize: 10.5,
                   fontWeight: FontWeight.w600,
                   height: 1.2,
@@ -1316,6 +1501,238 @@ class _HomeScreenState extends State<HomeScreen> {
           );
         },
       ),
+    );
+  }
+
+  void _showPartnerIntroPopup({
+    required String prefKey,
+    required String route,
+    String? onboardingRoute,
+    required String title,
+    required String subtitle,
+    required Color color,
+    required IconData icon,
+    required List<Map<String, dynamic>> features,
+  }) {
+    bool dontShowAgain = false;
+
+    showGeneralDialog(
+      context: context,
+      barrierDismissible: true,
+      barrierLabel: 'dismiss',
+      barrierColor: Colors.black54,
+      transitionDuration: const Duration(milliseconds: 350),
+      transitionBuilder: (_, anim, __, child) {
+        return ScaleTransition(
+          scale: CurvedAnimation(parent: anim, curve: Curves.elasticOut),
+          child: child,
+        );
+      },
+      pageBuilder: (dialogContext, _, __) {
+        return StatefulBuilder(
+          builder: (ctx, setDialogState) {
+            return Center(
+              child: Container(
+                margin: const EdgeInsets.symmetric(horizontal: 28),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(24),
+                  boxShadow: [
+                    BoxShadow(
+                      color: color.withValues(alpha: 0.25),
+                      blurRadius: 30,
+                      offset: const Offset(0, 12),
+                    ),
+                  ],
+                ),
+                child: ClipRRect(
+                  borderRadius: BorderRadius.circular(24),
+                  child: Material(
+                    color: Colors.transparent,
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        // ── Header gradient ──
+                        Container(
+                          width: double.infinity,
+                          padding: const EdgeInsets.fromLTRB(24, 28, 24, 22),
+                          decoration: BoxDecoration(
+                            gradient: LinearGradient(
+                              colors: [color, color.withValues(alpha: 0.8)],
+                              begin: Alignment.topLeft,
+                              end: Alignment.bottomRight,
+                            ),
+                          ),
+                          child: Column(
+                            children: [
+                              Container(
+                                width: 60,
+                                height: 60,
+                                decoration: BoxDecoration(
+                                  color: Colors.white.withValues(alpha: 0.15),
+                                  shape: BoxShape.circle,
+                                  border: Border.all(color: Colors.white.withValues(alpha: 0.3), width: 2),
+                                ),
+                                child: Icon(icon, color: Colors.white, size: 30),
+                              ),
+                              const SizedBox(height: 12),
+                              Text(
+                                title,
+                                style: const TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 24,
+                                  fontWeight: FontWeight.w900,
+                                  letterSpacing: -0.5,
+                                ),
+                              ),
+                              const SizedBox(height: 4),
+                              Text(
+                                subtitle,
+                                textAlign: TextAlign.center,
+                                style: TextStyle(
+                                  color: Colors.white.withValues(alpha: 0.9),
+                                  fontSize: 14,
+                                  fontWeight: FontWeight.w500,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+
+                        // ── Features list ──
+                        Padding(
+                          padding: const EdgeInsets.fromLTRB(20, 18, 20, 0),
+                          child: Column(
+                            children: [
+                              ...features.map((f) => Padding(
+                                padding: const EdgeInsets.only(bottom: 10),
+                                child: Row(
+                                  children: [
+                                    Container(
+                                      width: 34,
+                                      height: 34,
+                                      decoration: BoxDecoration(
+                                        color: color.withValues(alpha: 0.1),
+                                        borderRadius: BorderRadius.circular(10),
+                                      ),
+                                      child: Icon(f['icon'] as IconData, color: color, size: 18),
+                                    ),
+                                    const SizedBox(width: 12),
+                                    Expanded(
+                                      child: Text(
+                                        f['text'] as String,
+                                        style: const TextStyle(
+                                          fontSize: 13,
+                                          fontWeight: FontWeight.w600,
+                                          color: Color(0xFF1F2937),
+                                        ),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              )),
+                            ],
+                          ),
+                        ),
+
+                        // ── Checkbox ──
+                        Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 12),
+                          child: GestureDetector(
+                            onTap: () => setDialogState(() => dontShowAgain = !dontShowAgain),
+                            child: Row(
+                              children: [
+                                Checkbox(
+                                  value: dontShowAgain,
+                                  onChanged: (v) => setDialogState(() => dontShowAgain = v ?? false),
+                                  activeColor: color,
+                                  visualDensity: VisualDensity.compact,
+                                ),
+                                Text(
+                                  'Não mostrar mais',
+                                  style: TextStyle(
+                                    fontSize: 12,
+                                    color: Colors.grey.shade600,
+                                    fontWeight: FontWeight.w500,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+
+                        // ── Buttons ──
+                        Padding(
+                          padding: const EdgeInsets.fromLTRB(20, 4, 20, 20),
+                          child: Column(
+                            children: [
+                              // Primary CTA: go to onboarding carousel
+                              if (onboardingRoute != null)
+                                SizedBox(
+                                  width: double.infinity,
+                                  child: ElevatedButton.icon(
+                                    onPressed: () async {
+                                      if (dontShowAgain) {
+                                        final prefs = await SharedPreferences.getInstance();
+                                        await prefs.setBool(prefKey, true);
+                                      }
+                                      if (ctx.mounted) {
+                                        Navigator.pop(ctx);
+                                        Navigator.pushNamed(ctx, onboardingRoute);
+                                      }
+                                    },
+                                    icon: const Icon(Icons.play_circle_outline_rounded, size: 20),
+                                    label: const Text(
+                                      'Ver passo a passo',
+                                      style: TextStyle(fontWeight: FontWeight.w700, fontSize: 14),
+                                    ),
+                                    style: ElevatedButton.styleFrom(
+                                      backgroundColor: color,
+                                      foregroundColor: Colors.white,
+                                      padding: const EdgeInsets.symmetric(vertical: 14),
+                                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                                      elevation: 3,
+                                      shadowColor: color.withValues(alpha: 0.4),
+                                    ),
+                                  ),
+                                ),
+                              const SizedBox(height: 8),
+                              // Secondary: go directly to app
+                              SizedBox(
+                                width: double.infinity,
+                                child: TextButton(
+                                  onPressed: () async {
+                                    if (dontShowAgain) {
+                                      final prefs = await SharedPreferences.getInstance();
+                                      await prefs.setBool(prefKey, true);
+                                    }
+                                    if (ctx.mounted) {
+                                      Navigator.pop(ctx);
+                                      Navigator.pushNamed(ctx, route);
+                                    }
+                                  },
+                                  child: Text(
+                                    'Ir direto para o app',
+                                    style: TextStyle(
+                                      color: color,
+                                      fontWeight: FontWeight.w600,
+                                      fontSize: 13,
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+            );
+          },
+        );
+      },
     );
   }
 

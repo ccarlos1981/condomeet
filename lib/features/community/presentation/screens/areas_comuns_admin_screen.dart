@@ -99,6 +99,247 @@ class _AreasComunsAdminScreenState extends State<AreasComunsAdminScreen> {
     }
   }
 
+  Future<void> _showCreateForm() async {
+    final user = _supabase.auth.currentUser;
+    if (user == null) return;
+    final profile = await _supabase
+        .from('perfil')
+        .select('condominio_id')
+        .eq('id', user.id)
+        .maybeSingle();
+    final condoId = profile?['condominio_id'] as String?;
+    if (condoId == null) return;
+
+    final tipoCtrl = TextEditingController();
+    final localCtrl = TextEditingController(text: 'Bloco A');
+    final capacidadeCtrl = TextEditingController(text: '10');
+    final limiteCtrl = TextEditingController(text: '1');
+    final hrsCancelarCtrl = TextEditingController(text: '48');
+    final taxaCtrl = TextEditingController(text: '0');
+    String tipoReserva = 'por_dia';
+    bool aprovAuto = false;
+
+    final result = await showModalBottomSheet<bool>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setSheetState) {
+          return Container(
+            padding: EdgeInsets.only(
+              bottom: MediaQuery.of(ctx).viewInsets.bottom,
+            ),
+            decoration: const BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+            ),
+            child: SingleChildScrollView(
+              padding: const EdgeInsets.fromLTRB(20, 16, 20, 24),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // Handle bar
+                  Center(
+                    child: Container(
+                      width: 40, height: 4,
+                      margin: const EdgeInsets.only(bottom: 16),
+                      decoration: BoxDecoration(
+                        color: Colors.grey.shade300,
+                        borderRadius: BorderRadius.circular(2),
+                      ),
+                    ),
+                  ),
+                  const Text(
+                    'Nova Área Comum',
+                    style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: AppColors.textMain),
+                  ),
+                  const SizedBox(height: 16),
+
+                  // Tipo (nome)
+                  TextField(
+                    controller: tipoCtrl,
+                    decoration: InputDecoration(
+                      labelText: 'Nome da Área *',
+                      hintText: 'Ex: Salão de Festa, Churrasqueira...',
+                      prefixIcon: const Icon(Icons.celebration, size: 20),
+                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+
+                  // Local
+                  TextField(
+                    controller: localCtrl,
+                    decoration: InputDecoration(
+                      labelText: 'Localização',
+                      hintText: 'Ex: Bloco A, Térreo...',
+                      prefixIcon: const Icon(Icons.location_on, size: 20),
+                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+
+                  // Tipo Reserva
+                  Row(
+                    children: [
+                      const Text('Tipo de Reserva:', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
+                      const SizedBox(width: 12),
+                      ChoiceChip(
+                        label: const Text('Por Dia'),
+                        selected: tipoReserva == 'por_dia',
+                        selectedColor: AppColors.primary.withValues(alpha: 0.2),
+                        onSelected: (_) => setSheetState(() => tipoReserva = 'por_dia'),
+                      ),
+                      const SizedBox(width: 8),
+                      ChoiceChip(
+                        label: const Text('Por Hora'),
+                        selected: tipoReserva == 'por_hora',
+                        selectedColor: Colors.blue.withValues(alpha: 0.2),
+                        onSelected: (_) => setSheetState(() => tipoReserva = 'por_hora'),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 12),
+
+                  // Capacidade + Limite + Hrs cancelar
+                  Row(
+                    children: [
+                      Expanded(
+                        child: TextField(
+                          controller: capacidadeCtrl,
+                          keyboardType: TextInputType.number,
+                          decoration: InputDecoration(
+                            labelText: 'Capacidade',
+                            prefixIcon: const Icon(Icons.people, size: 18),
+                            border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                            isDense: true,
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: TextField(
+                          controller: limiteCtrl,
+                          keyboardType: TextInputType.number,
+                          decoration: InputDecoration(
+                            labelText: 'Limite/Dia',
+                            prefixIcon: const Icon(Icons.event_repeat, size: 18),
+                            border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                            isDense: true,
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: TextField(
+                          controller: hrsCancelarCtrl,
+                          keyboardType: TextInputType.number,
+                          decoration: InputDecoration(
+                            labelText: 'Hrs Cancelar',
+                            prefixIcon: const Icon(Icons.timer, size: 18),
+                            border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                            isDense: true,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 12),
+
+                  // Taxa
+                  TextField(
+                    controller: taxaCtrl,
+                    keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                    decoration: InputDecoration(
+                      labelText: 'Taxa (R\$)',
+                      hintText: '0 = sem taxa',
+                      prefixIcon: const Icon(Icons.attach_money, size: 20),
+                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+
+                  // Aprovação automática toggle
+                  SwitchListTile(
+                    contentPadding: EdgeInsets.zero,
+                    title: const Text('Aprovação automática', style: TextStyle(fontSize: 14)),
+                    subtitle: Text(
+                      aprovAuto
+                          ? 'Reservas serão aprovadas automaticamente'
+                          : 'Síndico precisa aprovar cada reserva',
+                      style: TextStyle(fontSize: 11, color: Colors.grey.shade600),
+                    ),
+                    value: aprovAuto,
+                    activeThumbColor: AppColors.primary,
+                    onChanged: (v) => setSheetState(() => aprovAuto = v),
+                  ),
+                  const SizedBox(height: 16),
+
+                  // Botão Criar
+                  SizedBox(
+                    width: double.infinity,
+                    height: 48,
+                    child: ElevatedButton.icon(
+                      onPressed: () async {
+                        final nome = tipoCtrl.text.trim();
+                        if (nome.isEmpty) {
+                          ScaffoldMessenger.of(ctx).showSnackBar(
+                            const SnackBar(content: Text('Informe o nome da área'), backgroundColor: Colors.orange),
+                          );
+                          return;
+                        }
+
+                        final taxa = double.tryParse(taxaCtrl.text.replaceAll(',', '.')) ?? 0;
+                        final precos = taxa > 0
+                            ? [{'perfil': 'morador', 'valor': taxa}]
+                            : <Map<String, dynamic>>[];
+
+                        try {
+                          await _supabase.from('areas_comuns').insert({
+                            'condominio_id': condoId,
+                            'tipo_agenda': nome,
+                            'local': localCtrl.text.trim().isEmpty ? 'Espaço comum' : localCtrl.text.trim(),
+                            'tipo_reserva': tipoReserva,
+                            'capacidade': int.tryParse(capacidadeCtrl.text) ?? 0,
+                            'limite_acesso': int.tryParse(limiteCtrl.text) ?? 1,
+                            'hrs_cancelar': int.tryParse(hrsCancelarCtrl.text) ?? 24,
+                            'precos': precos,
+                            'aprovacao_automatica': aprovAuto,
+                            'ativo': true,
+                          });
+                          if (ctx.mounted) Navigator.pop(ctx, true);
+                        } catch (e) {
+                          if (ctx.mounted) {
+                            ScaffoldMessenger.of(ctx).showSnackBar(
+                              SnackBar(content: Text('Erro: $e'), backgroundColor: Colors.red),
+                            );
+                          }
+                        }
+                      },
+                      icon: const Icon(Icons.add_circle_outline, size: 20),
+                      label: const Text('Criar Área Comum', style: TextStyle(fontWeight: FontWeight.bold)),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: AppColors.primary,
+                        foregroundColor: Colors.white,
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          );
+        },
+      ),
+    );
+
+    if (result == true) {
+      setState(() => _loading = true);
+      _load();
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -121,6 +362,11 @@ class _AreasComunsAdminScreenState extends State<AreasComunsAdminScreen> {
           ),
         ],
       ),
+      floatingActionButton: FloatingActionButton(
+        onPressed: _showCreateForm,
+        backgroundColor: AppColors.primary,
+        child: const Icon(Icons.add, color: Colors.white),
+      ),
       body: _loading
           ? const Center(child: CircularProgressIndicator(color: AppColors.primary))
           : RefreshIndicator(
@@ -132,7 +378,7 @@ class _AreasComunsAdminScreenState extends State<AreasComunsAdminScreen> {
                       const Icon(Icons.location_city, size: 56, color: AppColors.disabledIcon),
                       const SizedBox(height: 16),
                       const Text(
-                        'Nenhuma área comum cadastrada.\nCadastre pelo painel web.',
+                        'Nenhuma área comum cadastrada.\nToque no + para criar.',
                         textAlign: TextAlign.center,
                         style: TextStyle(color: AppColors.textHint, fontSize: 14),
                       ),

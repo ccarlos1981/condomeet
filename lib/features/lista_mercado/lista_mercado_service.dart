@@ -1,5 +1,5 @@
+import 'package:flutter/foundation.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
-
 class ListaMercadoService {
   final _client = Supabase.instance.client;
 
@@ -11,13 +11,31 @@ class ListaMercadoService {
   // ══════════════════════════════════════════
 
   /// Busca produtos base por texto (full-text search com unaccent)
+  String _removeAccents(String str) {
+    var withDia = 'ÀÁÂÃÄÅàáâãäåÒÓÔÕÕÖØòóôõöøÈÉÊËèéêëðÇçÐÌÍÎÏìíîïÙÚÛÜùúûüÑñŠšŸÿýŽž';
+    var withoutDia = 'AAAAAAaaaaaaOOOOOOOooooooEEEEeeeeeCcDIIIIiiiiUUUUuuuuNnSsYyyZz';
+    for (int i = 0; i < withDia.length; i++) {
+      str = str.replaceAll(withDia[i], withoutDia[i]);
+    }
+    return str;
+  }
+
   Future<List<Map<String, dynamic>>> searchProducts(String query) async {
     if (query.trim().length < 2) return [];
+
+    // Remove acentos para bater com o to_tsvector do Supabase que armazenou sem acento
+    final unaccented = _removeAccents(query.trim());
+    
+    // Cria formato de prefix search do tsquery: "feijão preto" -> "feijao:* & preto:*"
+    final words = unaccented.toLowerCase().split(RegExp(r'\s+')).where((w) => w.isNotEmpty).toList();
+    final ftsQuery = words.isEmpty ? '' : words.map((w) => "'$w':*").join(' & ');
+
+    if (ftsQuery.isEmpty) return [];
 
     final data = await _client
         .from('lista_products_base')
         .select('id, name, category, icon_emoji, lista_product_variants(id, variant_name, unit, default_weight)')
-        .textSearch('search_tokens', "'${query.trim()}'", config: 'portuguese')
+        .textSearch('search_tokens', ftsQuery, config: 'portuguese', type: TextSearchType.plain)
         .limit(10);
 
     return List<Map<String, dynamic>>.from(data);
@@ -44,7 +62,7 @@ class ListaMercadoService {
   Future<List<Map<String, dynamic>>> getMyLists() async {
     final data = await _client
         .from('lista_shopping_lists')
-        .select('*, lista_shopping_list_items(id, variant_id, quantity, is_checked, lista_product_variants(id, variant_name, unit, lista_products_base(name, icon_emoji)))')
+        .select('*, lista_shopping_list_items(id, variant_id, quantity, is_checked, custom_name, custom_note, unit_amount, unit_type, lista_product_variants(id, variant_name, unit, lista_products_base(name, icon_emoji)))')
         .eq('user_id', _userId!)
         .order('created_at', ascending: false);
 
@@ -93,7 +111,8 @@ class ListaMercadoService {
   Future<Map<String, dynamic>> addItem({
     required String listId,
     required String variantId,
-    int quantity = 1,
+    String unitType = 'un',
+    double unitAmount = 1.0,
   }) async {
     // Incrementar popularidade da variante
     await _client.rpc('lista_increment_variant_popularity', params: {
@@ -105,7 +124,8 @@ class ListaMercadoService {
         .insert({
           'list_id': listId,
           'variant_id': variantId,
-          'quantity': quantity,
+          'unit_type': unitType,
+          'unit_amount': unitAmount,
         })
         .select('*, lista_product_variants(id, variant_name, unit, lista_products_base(name, icon_emoji))')
         .single();
@@ -113,11 +133,38 @@ class ListaMercadoService {
     return data;
   }
 
-  /// Atualizar quantidade de item
-  Future<void> updateItemQuantity(String itemId, int quantity) async {
+  /// Adicionar item de texto livre (Bring!-style)
+  Future<Map<String, dynamic>> addFreeTextItem({
+    required String listId,
+    required String customName,
+    String unitType = 'un',
+    double unitAmount = 1.0,
+    String? note,
+  }) async {
+    // Normalização básica client-side
+    final trimmed = customName.trim();
+    final displayName = trimmed.isEmpty ? '' : '${trimmed[0].toUpperCase()}${trimmed.substring(1)}';
+
+    final data = await _client
+        .from('lista_shopping_list_items')
+        .insert({
+          'list_id': listId,
+          'custom_name': displayName,
+          'unit_type': unitType,
+          'unit_amount': unitAmount,
+          'custom_note': note,
+        })
+        .select()
+        .single();
+
+    return data;
+  }
+
+  /// Atualizar quantidade/unidade de um item
+  Future<void> updateItemUnit(String itemId, double amount) async {
     await _client
         .from('lista_shopping_list_items')
-        .update({'quantity': quantity})
+        .update({'unit_amount': amount})
         .eq('id', itemId);
   }
 
@@ -270,13 +317,38 @@ class ListaMercadoService {
   // CROWDSOURCING
   // ══════════════════════════════════════════
 
-  /// Listar supermercados para seleção
+  // ══════════════════════════════════════════
+  // SUPERS / SUPERMERCADOS (COM GEOLOCALIZAÇÃO)
+  // ══════════════════════════════════════════
+
   Future<List<Map<String, dynamic>>> getSupermarkets() async {
     final data = await _client
         .from('lista_supermarkets')
-        .select('id, name, is_chain')
+        .select('*')
         .order('name');
     return List<Map<String, dynamic>>.from(data);
+  }
+
+  /// Busca supermercados nas redondezas via GPS chamando a Edge Function.
+  /// A Function faz UPSERT automático na base para futuros acessos!
+  Future<List<Map<String, dynamic>>> getNearbySupermarkets(double lat, double lng) async {
+    try {
+      final response = await _client.functions.invoke(
+        'lista-supermarkets-nearby',
+        body: {'lat': lat, 'lng': lng, 'radius': 5000},
+      );
+      
+      if (response.status == 200 && response.data != null) {
+        final List lists = response.data as List;
+        return List<Map<String, dynamic>>.from(lists);
+      } else {
+        throw Exception('Erro ao buscar locais próximos: ${response.status}');
+      }
+    } catch (e) {
+      // Fallback para os mercados hardcoded se a Edge Function falhar
+      debugPrint('Falha ao buscar GPS Google Places, fazendo fallback: $e');
+      return getSupermarkets();
+    }
   }
 
   /// Buscar variantes populares (para seleção rápida)
@@ -290,24 +362,70 @@ class ListaMercadoService {
   }
 
   /// Reportar preço (crowdsourcing)
+  /// Buscar marcas por categoria do produto
+  Future<List<Map<String, dynamic>>> getBrandsByCategory(String category) async {
+    final data = await _client
+        .from('lista_brands')
+        .select('id, name')
+        .eq('category', category)
+        .order('name');
+    return List<Map<String, dynamic>>.from(data);
+  }
+
   Future<void> submitPriceReport({
     required String variantId,
     required String supermarketId,
     required double price,
     String? receiptPhotoUrl,
+    String? brand,
+    String? weightLabel,
   }) async {
-    // 1) Buscar ou criar SKU genérico para a variante
-    var skuData = await _client
+    final brandName = (brand != null && brand.isNotEmpty) ? brand : 'Genérico';
+
+    if (brandName != 'Genérico') {
+      try {
+        final variantData = await _client
+            .from('lista_product_variants')
+            .select('lista_products_base(category)')
+            .eq('id', variantId)
+            .single();
+        
+        final categoryMap = variantData['lista_products_base'];
+        if (categoryMap != null && categoryMap is Map) {
+          final category = categoryMap['category'];
+          if (category != null) {
+            await _client.from('lista_brands').upsert({
+              'name': brandName,
+              'category': category
+            }, onConflict: 'name');
+          }
+        }
+      } catch (e) {
+        print('Erro ao persistir marca customizada: $e');
+      }
+    }
+
+    // 1) Buscar ou criar SKU para variante+marca
+    var query = _client
         .from('lista_products_sku')
         .select('id')
         .eq('variant_id', variantId)
-        .limit(1);
+        .eq('brand', brandName);
+    
+    var skuData = await query.limit(1);
 
     String skuId;
     if (skuData.isEmpty) {
+      final insertData = <String, dynamic>{
+        'variant_id': variantId,
+        'brand': brandName,
+      };
+      if (weightLabel != null && weightLabel.isNotEmpty) {
+        insertData['weight_label'] = weightLabel;
+      }
       final newSku = await _client
           .from('lista_products_sku')
-          .insert({'variant_id': variantId, 'brand': 'Genérico'})
+          .insert(insertData)
           .select('id')
           .single();
       skuId = newSku['id'];
@@ -352,13 +470,57 @@ class ListaMercadoService {
     });
   }
 
+  /// Salva itens identificados no OCR, mas que não foram encontrados no catálogo
+  Future<void> submitProductSuggestion({
+    required String rawName,
+    required String supermarketId,
+    double? unitPrice,
+    double? totalPrice,
+    double? quantity,
+    String? brand,
+    String? weightLabel,
+  }) async {
+    final _userId = _client.auth.currentUser?.id;
+    if (_userId == null) return;
+
+    await _client.from('lista_product_suggestions').insert({
+      'user_id': _userId,
+      'raw_name': rawName,
+      'supermarket_id': supermarketId,
+      'unit_price': unitPrice,
+      'total_price': totalPrice,
+      'quantity': quantity,
+      'brand': brand,
+      'weight_label': weightLabel,
+      'status': 'pending',
+    });
+
+    // Recompensar contribuição (ex: 10 pontos)
+    await _client.rpc('lista_add_points', params: {
+      'p_user_id': _userId,
+      'p_points': 10,
+    });
+  }
+
   /// Buscar preços recentes (feed para votar)
-  Future<List<Map<String, dynamic>>> getRecentPrices({int limit = 20}) async {
-    final data = await _client
-        .from('lista_prices_raw')
-        .select('id, price, source, confidence_score, confirmations, created_at, lista_products_sku(brand, weight_label, lista_product_variants(variant_name, lista_products_base(name, icon_emoji))), lista_supermarkets(name)')
-        .order('created_at', ascending: false)
-        .limit(limit);
+  Future<List<Map<String, dynamic>>> getRecentPrices({int limit = 50, String? marketId}) async {
+    final selectStr = 'id, price, source, confidence_score, confirmations, created_at, supermarket_id, sku_id, reported_by, lista_products_sku(brand, weight_label, lista_product_variants(variant_name, lista_products_base(name, icon_emoji))), lista_supermarkets(name)';
+    
+    dynamic data;
+    if (marketId != null && marketId.isNotEmpty) {
+      data = await _client
+          .from('lista_prices_raw')
+          .select(selectStr)
+          .eq('supermarket_id', marketId)
+          .order('created_at', ascending: false)
+          .limit(limit);
+    } else {
+      data = await _client
+          .from('lista_prices_raw')
+          .select(selectStr)
+          .order('created_at', ascending: false)
+          .limit(limit);
+    }
     return List<Map<String, dynamic>>.from(data);
   }
 
@@ -392,7 +554,7 @@ class ListaMercadoService {
   Future<List<Map<String, dynamic>>> getWeeklyLeaderboard({int limit = 20}) async {
     final data = await _client
         .from('lista_user_points')
-        .select('user_id, total_points, weekly_points, reports_count, rank_title, confirmations_given')
+        .select('user_id, total_points, weekly_points, reports_count, rank_title')
         .order('weekly_points', ascending: false)
         .limit(limit);
     return List<Map<String, dynamic>>.from(data);
@@ -402,7 +564,7 @@ class ListaMercadoService {
   Future<List<Map<String, dynamic>>> getAllTimeLeaderboard({int limit = 20}) async {
     final data = await _client
         .from('lista_user_points')
-        .select('user_id, total_points, weekly_points, reports_count, rank_title, confirmations_given')
+        .select('user_id, total_points, weekly_points, reports_count, rank_title')
         .order('total_points', ascending: false)
         .limit(limit);
     return List<Map<String, dynamic>>.from(data);
@@ -441,7 +603,7 @@ class ListaMercadoService {
   Future<List<Map<String, dynamic>>> getMyAlerts() async {
     final data = await _client
         .from('lista_price_alerts')
-        .select('*, lista_product_variants(id, variant_name, unit, lista_products_base(name, icon_emoji)), lista_supermarkets(name)')
+        .select('*, lista_product_variants(id, variant_name, unit, lista_products_base(name, icon_emoji))')
         .eq('user_id', _userId!)
         .order('created_at', ascending: false);
     return List<Map<String, dynamic>>.from(data);
@@ -456,10 +618,8 @@ class ListaMercadoService {
     await _client.from('lista_price_alerts').insert({
       'user_id': _userId,
       'variant_id': variantId,
-      'supermarket_id': supermarketId,
       'target_price': targetPrice,
       'is_active': true,
-      'is_triggered': false,
     });
   }
 
@@ -471,12 +631,48 @@ class ListaMercadoService {
   /// Reativar alerta (resetar triggered)
   Future<void> reactivatePriceAlert(String alertId) async {
     await _client.from('lista_price_alerts').update({
-      'is_triggered': false,
       'is_active': true,
-      'triggered_at': null,
-      'current_price': null,
-      'updated_at': DateTime.now().toIso8601String(),
     }).eq('id', alertId);
   }
-}
 
+  // ══════════════════════════════════════════
+  // DASHBOARD E HISTÓRICO 
+  // ══════════════════════════════════════════
+
+  /// Busca o histórico de preços de um determinado SKU (variante + marca)
+  Future<List<Map<String, dynamic>>> getProductPriceHistory(String skuId) async {
+    final data = await _client
+        .from('lista_prices_raw')
+        .select('price, created_at, lista_supermarkets!inner(name)')
+        .eq('sku_id', skuId)
+        .order('created_at');
+    
+    return List<Map<String, dynamic>>.from(data);
+  }
+
+  /// Busca dados agregados para o Dashboard Global
+  Future<List<Map<String, dynamic>>> getGlobalDashboardData({String? skuId, String? marketName, int days = 30}) async {
+    final threshold = DateTime.now().subtract(Duration(days: days)).toIso8601String();
+    var query = _client
+        .from('lista_prices_raw')
+        .select('price, created_at, sku_id, lista_products_sku!inner(lista_product_variants(variant_name, lista_products_base(name, icon_emoji)), brand, weight_label), lista_supermarkets!inner(name, latitude, longitude)')
+        .gte('created_at', threshold);
+
+    if (skuId != null && skuId.isNotEmpty) {
+      query = query.eq('sku_id', skuId);
+    }
+
+    final data = await query.order('created_at', ascending: true);
+    final list = List<Map<String, dynamic>>.from(data);
+
+    if (marketName != null && marketName.isNotEmpty) {
+      return list.where((item) {
+        final rawName = item['lista_supermarkets']?['name'] as String? ?? '';
+        final cleanName = rawName.split('-').first.split(':').first.trim();
+        return cleanName.toLowerCase() == marketName.toLowerCase();
+      }).toList();
+    }
+
+    return list;
+  }
+}

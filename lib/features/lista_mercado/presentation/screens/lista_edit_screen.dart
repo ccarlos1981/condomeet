@@ -20,8 +20,9 @@ class _ListaEditScreenState extends State<ListaEditScreen> {
   List<Map<String, dynamic>> _searchResults = [];
   bool _loading = true;
   bool _searching = false;
-  bool _showSearch = false;
   Timer? _debounce;
+  String _selectedUnit = 'un';
+  final _amountController = TextEditingController(text: '1');
 
   // Estimativas por variante
   final Map<String, Map<String, dynamic>> _priceEstimates = {};
@@ -35,6 +36,7 @@ class _ListaEditScreenState extends State<ListaEditScreen> {
   @override
   void dispose() {
     _searchController.dispose();
+    _amountController.dispose();
     _searchFocus.dispose();
     _debounce?.cancel();
     super.dispose();
@@ -93,10 +95,40 @@ class _ListaEditScreenState extends State<ListaEditScreen> {
   }
 
   Future<void> _addVariantToList(String variantId) async {
+    final amount = double.tryParse(_amountController.text.replaceAll(',', '.')) ?? 1.0;
     try {
-      await _service.addItem(listId: widget.listId, variantId: variantId);
+      await _service.addItem(
+        listId: widget.listId, 
+        variantId: variantId,
+        unitType: _selectedUnit,
+        unitAmount: amount,
+      );
       _searchController.clear();
-      setState(() { _searchResults = []; _showSearch = false; });
+      _amountController.text = '1';
+      setState(() { _searchResults = []; _selectedUnit = 'un'; });
+      _loadList();
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Erro ao adicionar: $e'), backgroundColor: Colors.redAccent),
+        );
+      }
+    }
+  }
+
+  Future<void> _addFreeTextItem(String customName) async {
+    if (customName.trim().isEmpty) return;
+    final amount = double.tryParse(_amountController.text.replaceAll(',', '.')) ?? 1.0;
+    try {
+      await _service.addFreeTextItem(
+        listId: widget.listId, 
+        customName: customName.trim(),
+        unitType: _selectedUnit,
+        unitAmount: amount,
+      );
+      _searchController.clear();
+      _amountController.text = '1';
+      setState(() { _searchResults = []; _selectedUnit = 'un'; });
       _loadList();
     } catch (e) {
       if (mounted) {
@@ -121,12 +153,12 @@ class _ListaEditScreenState extends State<ListaEditScreen> {
     });
   }
 
-  Future<void> _updateQuantity(String itemId, int newQty) async {
-    if (newQty < 1) return;
-    await _service.updateItemQuantity(itemId, newQty);
+  Future<void> _updateQuantity(String itemId, double newAmount) async {
+    if (newAmount <= 0) return;
+    await _service.updateItemUnit(itemId, newAmount);
     setState(() {
       final idx = _items.indexWhere((i) => i['id'] == itemId);
-      if (idx != -1) _items[idx]['quantity'] = newQty;
+      if (idx != -1) _items[idx]['unit_amount'] = newAmount;
     });
   }
 
@@ -134,7 +166,7 @@ class _ListaEditScreenState extends State<ListaEditScreen> {
     double total = 0;
     for (final item in _items) {
       final variantId = item['variant_id'];
-      final qty = item['quantity'] as int? ?? 1;
+      final qty = (item['unit_amount'] as num?)?.toDouble() ?? 1.0;
       final estimate = _priceEstimates[variantId];
       if (estimate != null) {
         total += (estimate['avg_price'] as double) * qty;
@@ -228,63 +260,60 @@ class _ListaEditScreenState extends State<ListaEditScreen> {
 
                 // ── Lista de itens ──
                 Expanded(
-                  child: _items.isEmpty && !_showSearch
-                      ? Center(
-                          child: Column(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: [
-                              Icon(Icons.receipt_long, size: 64, color: Colors.grey.shade300),
-                              const SizedBox(height: 12),
-                              Text('Lista vazia', style: TextStyle(color: Colors.grey.shade600, fontSize: 18, fontWeight: FontWeight.w600)),
-                              const SizedBox(height: 8),
-                              Text('Toque + para adicionar produtos', style: TextStyle(color: Colors.grey.shade400, fontSize: 14)),
-                            ],
+                  child: ListView(
+                    padding: const EdgeInsets.all(12),
+                    children: [
+                      // Barra de search sempre visível
+                      _buildSearchSection(),
+
+                      if (_items.isEmpty)
+                        Padding(
+                          padding: const EdgeInsets.only(top: 40),
+                          child: Center(
+                            child: Column(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                Icon(Icons.receipt_long, size: 64, color: Colors.grey.shade300),
+                                const SizedBox(height: 12),
+                                Text('Lista vazia', style: TextStyle(color: Colors.grey.shade600, fontSize: 18, fontWeight: FontWeight.w600)),
+                                const SizedBox(height: 8),
+                                Text('Busque ou digite um produto acima', style: TextStyle(color: Colors.grey.shade400, fontSize: 14)),
+                              ],
+                            ),
                           ),
-                        )
-                      : ListView(
-                          padding: const EdgeInsets.all(12),
-                          children: [
-                            // Barra de search quando expandida
-                            if (_showSearch) _buildSearchSection(),
+                        ),
 
-                            // Itens pendentes
-                            ...uncheckedItems.map((item) => _buildItemTile(item)),
+                      // Itens pendentes
+                      ...uncheckedItems.map((item) => _buildItemTile(item)),
 
-                            // Separador de comprados
-                            if (checkedItems.isNotEmpty) ...[
+                      // Separador de comprados
+                      if (checkedItems.isNotEmpty) ...[
+                        Padding(
+                          padding: const EdgeInsets.symmetric(vertical: 12),
+                          child: Row(
+                            children: [
+                              Expanded(child: Divider(color: Colors.grey.shade300)),
                               Padding(
-                                padding: const EdgeInsets.symmetric(vertical: 12),
+                                padding: const EdgeInsets.symmetric(horizontal: 12),
                                 child: Row(
                                   children: [
-                                    Expanded(child: Divider(color: Colors.grey.shade300)),
-                                    Padding(
-                                      padding: const EdgeInsets.symmetric(horizontal: 12),
-                                      child: Row(
-                                        children: [
-                                          Icon(Icons.check_circle, size: 16, color: Colors.green.shade600),
-                                          const SizedBox(width: 6),
-                                          Text('Comprados (${checkedItems.length})', style: TextStyle(color: Colors.grey.shade500, fontSize: 13)),
-                                        ],
-                                      ),
-                                    ),
-                                    Expanded(child: Divider(color: Colors.grey.shade300)),
+                                    Icon(Icons.check_circle, size: 16, color: Colors.green.shade600),
+                                    const SizedBox(width: 6),
+                                    Text('Comprados (${checkedItems.length})', style: TextStyle(color: Colors.grey.shade500, fontSize: 13)),
                                   ],
                                 ),
                               ),
-                              ...checkedItems.map((item) => _buildItemTile(item)),
+                              Expanded(child: Divider(color: Colors.grey.shade300)),
                             ],
-                          ],
+                          ),
                         ),
+                        ...checkedItems.map((item) => _buildItemTile(item)),
+                      ],
+                    ],
+                  ),
                 ),
               ],
             ),
-      floatingActionButton: !_showSearch
-          ? FloatingActionButton(
-              onPressed: () => setState(() { _showSearch = true; }),
-              backgroundColor: const Color(0xFF2E7D32),
-              child: const Icon(Icons.add, color: Colors.white, size: 28),
-            )
-          : null,
     );
   }
 
@@ -292,42 +321,80 @@ class _ListaEditScreenState extends State<ListaEditScreen> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        // Search bar
-        Container(
-          margin: const EdgeInsets.only(bottom: 8),
-          decoration: BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.circular(14),
-            border: Border.all(color: const Color(0xFF2E7D32).withValues(alpha: 0.4)),
-            boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.05), blurRadius: 8, offset: const Offset(0, 2))],
-          ),
-          child: Row(
-            children: [
-              const Padding(
-                padding: EdgeInsets.only(left: 14),
-                child: Icon(Icons.search, color: Color(0xFF2E7D32), size: 22),
-              ),
-              Expanded(
-                child: TextField(
-                  controller: _searchController,
-                  focusNode: _searchFocus,
-                  autofocus: true,
-                  style: TextStyle(color: Colors.grey.shade900),
-                  decoration: InputDecoration(
-                    hintText: 'Buscar produto... Ex: arroz, leite',
-                    hintStyle: TextStyle(color: Colors.grey.shade400),
-                    border: InputBorder.none,
-                    contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 14),
-                  ),
-                  onChanged: _onSearchChanged,
+        // 1. Campo de Busca (Sempre visível)
+        Row(
+          children: [
+            Expanded(
+              child: Container(
+                height: 48,
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(14),
+                  border: Border.all(color: Colors.grey.shade300),
+                  boxShadow: [
+                    BoxShadow(color: Colors.black.withValues(alpha: 0.02), blurRadius: 4, offset: const Offset(0, 2)),
+                  ],
+                ),
+                child: Row(
+                  children: [
+                    const Padding(
+                      padding: EdgeInsets.only(left: 12),
+                      child: Icon(Icons.search, color: Colors.grey),
+                    ),
+                    Expanded(
+                      child: TextField(
+                        controller: _searchController,
+                        focusNode: _searchFocus,
+                        style: TextStyle(color: Colors.grey.shade900),
+                        decoration: InputDecoration(
+                          hintText: 'Digite o nome do produto...',
+                          hintStyle: TextStyle(color: Colors.grey.shade400),
+                          border: InputBorder.none,
+                          contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 14),
+                        ),
+                        onChanged: _onSearchChanged,
+                      ),
+                    ),
+                    if (_searchController.text.isNotEmpty)
+                      IconButton(
+                        icon: Icon(Icons.close, color: Colors.grey.shade500),
+                        onPressed: () {
+                          _searchController.clear();
+                          setState(() { _searchResults = []; });
+                        },
+                      ),
+                  ],
                 ),
               ),
-              IconButton(
-                icon: Icon(Icons.close, color: Colors.grey.shade500),
-                onPressed: () {
-                  _searchController.clear();
-                  setState(() { _showSearch = false; _searchResults = []; });
-                },
+            ),
+          ],
+        ),
+        
+        // 2. Fileira de Quantidade
+        Padding(
+          padding: const EdgeInsets.only(top: 12, bottom: 8),
+          child: Row(
+            children: [
+              Text('Quantidade:', style: TextStyle(color: Colors.grey.shade700, fontWeight: FontWeight.w600)),
+              const SizedBox(width: 12),
+              Container(
+                width: 80,
+                height: 48,
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(14),
+                  border: Border.all(color: Colors.grey.shade300),
+                ),
+                child: TextField(
+                  controller: _amountController,
+                  keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                  textAlign: TextAlign.center,
+                  style: TextStyle(color: Colors.grey.shade900, fontWeight: FontWeight.bold, fontSize: 16),
+                  decoration: const InputDecoration(
+                    border: InputBorder.none,
+                    contentPadding: EdgeInsets.zero,
+                  ),
+                ),
               ),
             ],
           ),
@@ -340,15 +407,23 @@ class _ListaEditScreenState extends State<ListaEditScreen> {
             child: Center(child: CircularProgressIndicator(color: Color(0xFF2E7D32), strokeWidth: 2)),
           )
         else if (_searchResults.isNotEmpty) ...[
-          ..._searchResults.map((product) => _buildProductResult(product)),
           const SizedBox(height: 16),
-        ] else if (_searchController.text.length >= 2)
+          ..._searchResults.map((product) => _buildProductResult(product)),
+          // Bring!-style: always show free-text option below results
+          if (_searchController.text.length >= 2)
+            _buildFreeTextButton(_searchController.text),
+          const SizedBox(height: 16),
+        ] else if (_searchController.text.length >= 2) ...[
+          const SizedBox(height: 16),
+          // No results: prominent free-text add
+          _buildFreeTextButton(_searchController.text),
           Padding(
-            padding: const EdgeInsets.all(16),
+            padding: const EdgeInsets.only(top: 8, bottom: 8),
             child: Center(
-              child: Text('Nenhum produto encontrado', style: TextStyle(color: Colors.grey.shade500, fontSize: 14)),
+              child: Text('Produto não encontrado no catálogo', style: TextStyle(color: Colors.grey.shade400, fontSize: 12)),
             ),
           ),
+        ],
       ],
     );
   }
@@ -418,13 +493,64 @@ class _ListaEditScreenState extends State<ListaEditScreen> {
     );
   }
 
+  Widget _buildFreeTextButton(String text) {
+    final capitalized = text.trim();
+    if (capitalized.isEmpty) return const SizedBox.shrink();
+    final displayName = '${capitalized[0].toUpperCase()}${capitalized.substring(1)}';
+    
+    return Container(
+      margin: const EdgeInsets.only(top: 6, bottom: 2),
+      decoration: BoxDecoration(
+        color: const Color(0xFF2E7D32).withValues(alpha: 0.06),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: const Color(0xFF2E7D32).withValues(alpha: 0.3)),
+      ),
+      child: InkWell(
+        onTap: () => _addFreeTextItem(displayName),
+        borderRadius: BorderRadius.circular(12),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+          child: Row(
+            children: [
+              Container(
+                width: 32, height: 32,
+                decoration: BoxDecoration(
+                  color: const Color(0xFF2E7D32).withValues(alpha: 0.15),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: const Icon(Icons.add, color: Color(0xFF2E7D32), size: 20),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text('Adicionar "$displayName"', style: TextStyle(color: const Color(0xFF2E7D32), fontWeight: FontWeight.w600, fontSize: 14)),
+                    Text('Texto livre • ${_amountController.text} $_selectedUnit', style: TextStyle(color: Colors.grey.shade500, fontSize: 11)),
+                  ],
+                ),
+              ),
+              const Icon(Icons.edit_note, color: Color(0xFF2E7D32), size: 20),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
   Widget _buildItemTile(Map<String, dynamic> item) {
     final isChecked = item['is_checked'] == true;
     final variant = item['lista_product_variants'];
     final base = variant?['lista_products_base'];
-    final emoji = base?['icon_emoji'] ?? '🛒';
-    final name = variant?['variant_name'] ?? 'Produto';
-    final qty = item['quantity'] as int? ?? 1;
+    final customName = item['custom_name'] as String?;
+    final isCustom = customName != null && customName.isNotEmpty;
+    final emoji = isCustom ? '✏️' : (base?['icon_emoji'] ?? '🛒');
+    final name = isCustom ? customName : (variant?['variant_name'] ?? 'Produto');
+    
+    // Novas colunas de unidade
+    final amount = (item['unit_amount'] as num?)?.toDouble() ?? 1.0;
+    final unitType = item['unit_type'] as String? ?? 'un';
+    
     final variantId = item['variant_id'];
     final estimate = _priceEstimates[variantId];
 
@@ -483,6 +609,8 @@ class _ListaEditScreenState extends State<ListaEditScreen> {
                       decoration: isChecked ? TextDecoration.lineThrough : null,
                     ),
                   ),
+                  if (isCustom && !isChecked)
+                    Text('Texto livre', style: TextStyle(color: Colors.orange.shade400, fontSize: 10)),
                   if (estimate != null)
                     Text(
                       '≈ R\$ ${(estimate['avg_price'] as double).toStringAsFixed(2)} • ${estimate['cheapest_market']}',
@@ -496,7 +624,7 @@ class _ListaEditScreenState extends State<ListaEditScreen> {
               mainAxisSize: MainAxisSize.min,
               children: [
                 GestureDetector(
-                  onTap: () => _updateQuantity(item['id'], qty - 1),
+                  onTap: () => _updateQuantity(item['id'], (amount - 1).clamp(0.1, 999.0)),
                   child: Container(
                     width: 28, height: 28,
                     decoration: BoxDecoration(color: Colors.grey.shade100, borderRadius: BorderRadius.circular(8)),
@@ -505,10 +633,19 @@ class _ListaEditScreenState extends State<ListaEditScreen> {
                 ),
                 Padding(
                   padding: const EdgeInsets.symmetric(horizontal: 10),
-                  child: Text('$qty', style: TextStyle(color: Colors.grey.shade900, fontSize: 15, fontWeight: FontWeight.bold)),
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Text(
+                        amount == amount.truncateToDouble() ? amount.toInt().toString() : amount.toString(),
+                        style: TextStyle(color: Colors.grey.shade900, fontSize: 15, fontWeight: FontWeight.bold)
+                      ),
+                      Text(unitType, style: TextStyle(color: Colors.grey.shade500, fontSize: 10)),
+                    ],
+                  ),
                 ),
                 GestureDetector(
-                  onTap: () => _updateQuantity(item['id'], qty + 1),
+                  onTap: () => _updateQuantity(item['id'], amount + 1),
                   child: Container(
                     width: 28, height: 28,
                     decoration: BoxDecoration(color: const Color(0xFF2E7D32).withValues(alpha: 0.1), borderRadius: BorderRadius.circular(8)),

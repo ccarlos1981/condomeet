@@ -490,13 +490,37 @@ class _VistoriaHomeScreenState extends State<VistoriaHomeScreen> {
                           color: AppColors.textMain,
                         ),
                       ),
-                      const SizedBox(height: 2),
-                      Text(
-                        tipoBem,
-                        style: TextStyle(
-                          fontSize: 12,
-                          color: Colors.grey.shade500,
-                        ),
+                      Row(
+                        children: [
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                            decoration: BoxDecoration(
+                              color: (v['tipo_vistoria'] as String? ?? '') == 'saida'
+                                  ? const Color(0xFF8B5CF6).withValues(alpha: 0.15)
+                                  : const Color(0xFF10B981).withValues(alpha: 0.15),
+                              borderRadius: BorderRadius.circular(4),
+                            ),
+                            child: Text(
+                              (v['tipo_vistoria'] as String? ?? 'entrada').toUpperCase(),
+                              style: TextStyle(
+                                color: (v['tipo_vistoria'] as String? ?? '') == 'saida'
+                                    ? const Color(0xFF8B5CF6)
+                                    : const Color(0xFF10B981),
+                                fontSize: 9,
+                                fontWeight: FontWeight.w800,
+                                letterSpacing: 0.5,
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: 6),
+                          Text(
+                            tipoBem,
+                            style: TextStyle(
+                              fontSize: 12,
+                              color: Colors.grey.shade500,
+                            ),
+                          ),
+                        ],
                       ),
                     ],
                   ),
@@ -599,6 +623,7 @@ class _VistoriaHomeScreenState extends State<VistoriaHomeScreen> {
     String templateId = '';
     String endereco = '';
     String plano = 'free';
+    String? selectedEntradaId;
 
     showModalBottomSheet(
       context: context,
@@ -642,53 +667,7 @@ class _VistoriaHomeScreenState extends State<VistoriaHomeScreen> {
                   ),
                   const SizedBox(height: 16),
 
-                  // Título
-                  TextField(
-                    onChanged: (v) => titulo = v,
-                    decoration: InputDecoration(
-                      labelText: 'Título *',
-                      hintText: 'Ex: Vistoria Apto 302',
-                      border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-                    ),
-                  ),
-                  const SizedBox(height: 12),
-
-                  // Endereço
-                  TextField(
-                    onChanged: (v) => endereco = v,
-                    decoration: InputDecoration(
-                      labelText: 'Endereço',
-                      hintText: 'Ex: Rua das Flores, 123 - Apto 302',
-                      border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-                    ),
-                  ),
-                  const SizedBox(height: 12),
-
-                  // Tipo de bem
-                  DropdownButtonFormField<String>(
-                    initialValue: tipoBem,
-                    decoration: InputDecoration(
-                      labelText: 'Tipo de Bem',
-                      border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-                    ),
-                    items: _tiposBem.entries.map((e) => DropdownMenuItem(
-                      value: e.key,
-                      child: Text(e.value, style: const TextStyle(fontSize: 14)),
-                    )).toList(),
-                    onChanged: (v) => setModalState(() => tipoBem = v!),
-                  ),
-                  const SizedBox(height: 12),
-
-                  // Tipo de vistoria
+                  // Tipo de vistoria (FIRST THING)
                   Row(
                     children: [
                       Expanded(
@@ -703,80 +682,212 @@ class _VistoriaHomeScreenState extends State<VistoriaHomeScreen> {
                         child: _radioCard(
                           '📤 Saída',
                           tipoVistoria == 'saida',
-                          () => setModalState(() => tipoVistoria = 'saida'),
+                          () {
+                            setModalState(() {
+                              tipoVistoria = 'saida';
+                              // Pre-check if there's any valid list
+                              final valid = _vistorias.where((v) => v['tipo_vistoria'] == 'entrada' && (v['status'] == 'concluida')).toList();
+                              if (valid.isNotEmpty) {
+                                selectedEntradaId = valid.first['id'] as String;
+                              }
+                            });
+                          },
                         ),
                       ),
                     ],
                   ),
-                  const SizedBox(height: 12),
+                  const SizedBox(height: 16),
 
-                  // Template
-                  if (_templates.isNotEmpty) ...[
-                    DropdownButtonFormField<String>(
-                      initialValue: templateId.isEmpty ? null : templateId,
+                  if (tipoVistoria == 'saida') ...[
+                    // Select Vistoria de Entrada for cloning
+                    Builder(builder: (_) {
+                       final entries = _vistorias.where((v) => 
+                           v['tipo_vistoria'] == 'entrada' && 
+                           (v['status'] == 'concluida')
+                       ).toList();
+                       
+                       if (entries.isEmpty) {
+                         return Container(
+                           width: double.infinity,
+                           padding: const EdgeInsets.all(12),
+                           decoration: BoxDecoration(
+                             color: Colors.orange.shade50,
+                             borderRadius: BorderRadius.circular(12),
+                             border: Border.all(color: Colors.orange.shade200),
+                           ),
+                           child: Row(
+                             children: [
+                               const Icon(Icons.warning_amber_rounded, color: Colors.orange, size: 20),
+                               const SizedBox(width: 10),
+                               Expanded(
+                                 child: Text(
+                                   'Nenhuma vistoria de ENTRADA concluída. Você precisa finalizar uma Entrada para realizar a Saída.',
+                                   style: TextStyle(color: Colors.orange.shade900, fontSize: 13),
+                                 ),
+                               ),
+                             ],
+                           ),
+                         );
+                       }
+                       
+                       // Ensure selectedEntradaId is still valid
+                       if (selectedEntradaId != null && !entries.any((e) => e['id'] == selectedEntradaId)) {
+                         selectedEntradaId = null;
+                       }
+                       if (selectedEntradaId == null && entries.isNotEmpty) {
+                         selectedEntradaId = entries.first['id'] as String;
+                       }
+
+                       return Column(
+                         crossAxisAlignment: CrossAxisAlignment.start,
+                         children: [
+                           const Text(
+                             'Selecione a Vistoria de Entrada:',
+                             style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: AppColors.textSecondary),
+                           ),
+                           const SizedBox(height: 8),
+                           DropdownButtonFormField<String>(
+                             isExpanded: true,
+                             menuMaxHeight: 250, // Limita visualização para aprox 5 itens
+                             initialValue: selectedEntradaId,
+                             decoration: InputDecoration(
+                               border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                               contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                             ),
+                             items: entries.map((v) => DropdownMenuItem(
+                               value: v['id'] as String,
+                               child: Text(
+                                 '${v['titulo']} ${v['endereco'] != null && (v['endereco'] as String).isNotEmpty ? '- ${v['endereco']}' : ''}',
+                                 style: const TextStyle(fontSize: 14),
+                                 maxLines: 1,
+                                 overflow: TextOverflow.ellipsis,
+                               ),
+                             )).toList(),
+                             onChanged: (v) => setModalState(() => selectedEntradaId = v),
+                           ),
+                         ],
+                       );
+                    }),
+                    const SizedBox(height: 16),
+                  ] else ...[
+                    // Título
+                    TextField(
+                      onChanged: (v) => titulo = v,
                       decoration: InputDecoration(
-                        labelText: 'Template (opcional)',
+                        labelText: 'Título *',
+                        hintText: 'Ex: Vistoria Apto 302',
                         border: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(12),
                         ),
                         contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
                       ),
-                      items: [
-                        const DropdownMenuItem(
-                          value: '',
-                          child: Text('Sem template (em branco)', style: TextStyle(fontSize: 14)),
-                        ),
-                        ..._templates.map((t) => DropdownMenuItem(
-                          value: t['id'] as String,
-                          child: Text(
-                            '${t['icone_emoji'] ?? '📋'} ${t['nome']}',
-                            style: const TextStyle(fontSize: 14),
-                          ),
-                        )),
-                      ],
-                      onChanged: (v) => setModalState(() => templateId = v ?? ''),
                     ),
                     const SizedBox(height: 12),
-                  ],
 
-                  // Plano
-                  Row(
-                    children: [
-                      Expanded(
-                        child: _radioCard(
-                          '🆓 Free',
-                          plano == 'free',
-                          () => setModalState(() => plano = 'free'),
+                    // Endereço
+                    TextField(
+                      onChanged: (v) => endereco = v,
+                      decoration: InputDecoration(
+                        labelText: 'Endereço',
+                        hintText: 'Ex: Rua das Flores, 123 - Apto 302',
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(12),
                         ),
+                        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
                       ),
-                      const SizedBox(width: 8),
-                      Expanded(
-                        child: _radioCard(
-                          '⭐ Plus (R\$50)',
-                          plano == 'plus',
-                          () => setModalState(() => plano = 'plus'),
+                    ),
+                    const SizedBox(height: 12),
+
+                    // Tipo de bem
+                    DropdownButtonFormField<String>(
+                      initialValue: tipoBem,
+                      decoration: InputDecoration(
+                        labelText: 'Tipo de Bem',
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(12),
                         ),
+                        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
                       ),
+                      items: _tiposBem.entries.map((e) => DropdownMenuItem(
+                        value: e.key,
+                        child: Text(e.value, style: const TextStyle(fontSize: 14)),
+                      )).toList(),
+                      onChanged: (v) => setModalState(() => tipoBem = v!),
+                    ),
+                    const SizedBox(height: 12),
+
+                    // Template
+                    if (_templates.isNotEmpty) ...[
+                      DropdownButtonFormField<String>(
+                        initialValue: templateId.isEmpty ? null : templateId,
+                        decoration: InputDecoration(
+                          labelText: 'Template (opcional)',
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                        ),
+                        items: [
+                          const DropdownMenuItem(
+                            value: '',
+                            child: Text('Sem template (em branco)', style: TextStyle(fontSize: 14)),
+                          ),
+                          ..._templates.map((t) => DropdownMenuItem(
+                            value: t['id'] as String,
+                            child: Text(
+                              '${t['icone_emoji'] ?? '📋'} ${t['nome']}',
+                              style: const TextStyle(fontSize: 14),
+                            ),
+                          )),
+                        ],
+                        onChanged: (v) => setModalState(() => templateId = v ?? ''),
+                      ),
+                      const SizedBox(height: 12),
                     ],
-                  ),
-                  const SizedBox(height: 20),
+
+                    // Plano
+                    Row(
+                      children: [
+                        Expanded(
+                          child: _radioCard(
+                            '🆓 Free',
+                            plano == 'free',
+                            () => setModalState(() => plano = 'free'),
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: _radioCard(
+                            '⭐ Plus (R\$50)',
+                            plano == 'plus',
+                            () => setModalState(() => plano = 'plus'),
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 20),
+                  ],
 
                   // Create button
                   SizedBox(
                     width: double.infinity,
                     child: ElevatedButton(
-                      onPressed: titulo.isEmpty
+                      onPressed: (tipoVistoria == 'saida' && selectedEntradaId == null) || (tipoVistoria == 'entrada' && titulo.isEmpty)
                           ? null
                           : () async {
                               Navigator.pop(ctx);
-                              await _createVistoria(
-                                titulo: titulo,
-                                tipoBem: tipoBem,
-                                tipoVistoria: tipoVistoria,
-                                templateId: templateId,
-                                endereco: endereco,
-                                plano: plano,
-                              );
+                              if (tipoVistoria == 'saida') {
+                                await _createSaidaFromHome(selectedEntradaId!);
+                              } else {
+                                await _createVistoria(
+                                  titulo: titulo,
+                                  tipoBem: tipoBem,
+                                  tipoVistoria: tipoVistoria,
+                                  templateId: templateId,
+                                  endereco: endereco,
+                                  plano: plano,
+                                );
+                              }
                             },
                       style: ElevatedButton.styleFrom(
                         backgroundColor: AppColors.primary,
@@ -786,9 +897,9 @@ class _VistoriaHomeScreenState extends State<VistoriaHomeScreen> {
                         ),
                         elevation: 0,
                       ),
-                      child: const Text(
-                        'Criar Vistoria',
-                        style: TextStyle(
+                      child: Text(
+                        tipoVistoria == 'saida' ? 'Prosseguir para Saída' : 'Criar Vistoria',
+                        style: const TextStyle(
                           color: Colors.white,
                           fontWeight: FontWeight.bold,
                           fontSize: 15,
@@ -854,9 +965,10 @@ class _VistoriaHomeScreenState extends State<VistoriaHomeScreen> {
         endereco: endereco,
         plano: plano,
       );
-      await _loadData();
       if (mounted) {
-        Navigator.pushNamed(context, '/vistoria-editor', arguments: vistoria['id']);
+        // Navega imediatamente pro editor
+        Navigator.pushNamed(context, '/vistoria-editor', arguments: vistoria['id'])
+            .then((_) => _loadData()); // Recarrega lista ao voltar
       }
     } catch (e) {
       if (mounted) {
@@ -864,6 +976,26 @@ class _VistoriaHomeScreenState extends State<VistoriaHomeScreen> {
           SnackBar(content: Text('Erro ao criar: $e'), backgroundColor: Colors.red),
         );
       }
+    }
+  }
+
+  Future<void> _createSaidaFromHome(String entradaId) async {
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (_) => const Center(child: CircularProgressIndicator()),
+    );
+    try {
+      final saida = await _service.criarVistoriaSaida(entradaId);
+      if (!mounted) return;
+      Navigator.pop(context); // fecha o loading
+      Navigator.pushNamed(context, '/vistoria-editor', arguments: saida['id']).then((_) => _loadData());
+    } catch (e) {
+      if (!mounted) return;
+      Navigator.pop(context); // fecha o loading
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Erro ao criar saída: $e'), backgroundColor: Colors.red),
+      );
     }
   }
 }

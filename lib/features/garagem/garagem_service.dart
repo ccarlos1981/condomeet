@@ -60,7 +60,7 @@ class GaragemService {
         .from('garages')
         .select('''
           *,
-          perfil!garages_owner_id_fkey(nome_completo, foto_url, bloco_txt, apartamento_txt),
+          perfil!garages_owner_id_fkey(nome_completo, foto_url, bloco_txt, apto_txt),
           garage_availability(*),
           garage_reviews(rating)
         ''')

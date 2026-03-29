@@ -3,6 +3,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:condomeet/core/design_system/app_colors.dart';
 import 'package:condomeet/features/auth/presentation/bloc/auth_bloc.dart';
 import 'package:condomeet/features/vistoria/vistoria_service.dart';
+import 'package:condomeet/features/vistoria/presentation/screens/vistoria_comparacao_screen.dart';
 
 class VistoriaTimelineScreen extends StatefulWidget {
   final String endereco;
@@ -108,7 +109,119 @@ class _VistoriaTimelineScreenState extends State<VistoriaTimelineScreen> {
                   itemCount: _timeline.length,
                   itemBuilder: (ctx, idx) => _buildTimelineItem(idx),
                 ),
+      floatingActionButton: _buildCompareFab(),
     );
+  }
+
+  Widget? _buildCompareFab() {
+    final entrada = _timeline.where(
+        (v) => (v['tipo_vistoria'] as String? ?? '') == 'entrada').toList();
+    final saida = _timeline.where(
+        (v) => (v['tipo_vistoria'] as String? ?? '') == 'saida').toList();
+
+    // Case 1: Both entrada and saida exist → show compare button
+    if (entrada.isNotEmpty && saida.isNotEmpty) {
+      return FloatingActionButton.extended(
+        backgroundColor: const Color(0xFF8B5CF6),
+        icon: const Icon(Icons.compare_arrows, color: Colors.white),
+        label: const Text(
+          'Comparar Entrada vs Saída',
+          style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+        ),
+        onPressed: () {
+          Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (_) => VistoriaComparacaoScreen(
+                entradaId: entrada.first['id'] as String,
+                saidaId: saida.first['id'] as String,
+              ),
+            ),
+          );
+        },
+      );
+    }
+
+    // Case 2: Only entrada exists & is concluded → show "Criar Saída"
+    if (entrada.isNotEmpty && saida.isEmpty) {
+      final entradaStatus = entrada.first['status'] as String? ?? '';
+      if (entradaStatus == 'concluida' || entradaStatus == 'assinada') {
+        return FloatingActionButton.extended(
+          backgroundColor: const Color(0xFFFF6D00),
+          icon: const Icon(Icons.exit_to_app, color: Colors.white),
+          label: const Text(
+            'Realizar Vistoria de Saída',
+            style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+          ),
+          onPressed: () => _criarVistoriaSaidaFromTimeline(entrada.first['id'] as String),
+        );
+      }
+    }
+
+    return null;
+  }
+
+  Future<void> _criarVistoriaSaidaFromTimeline(String entradaId) async {
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: const Row(
+          children: [
+            Icon(Icons.exit_to_app, color: Color(0xFFFF6D00)),
+            SizedBox(width: 8),
+            Expanded(child: Text('Vistoria de Saída', style: TextStyle(fontSize: 16))),
+          ],
+        ),
+        content: const Text(
+          'Será criada uma nova vistoria de SAÍDA com as mesmas seções e itens '
+          'da entrada.\n\nVocê poderá re-inspecionar cada item, tirar novas fotos '
+          'e registrar o estado atual do imóvel.',
+          style: TextStyle(fontSize: 13),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('Cancelar'),
+          ),
+          FilledButton.icon(
+            style: FilledButton.styleFrom(backgroundColor: const Color(0xFFFF6D00)),
+            onPressed: () => Navigator.pop(ctx, true),
+            icon: const Icon(Icons.add_task),
+            label: const Text('Criar Saída'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirm != true || !mounted) return;
+
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (_) => const Center(child: CircularProgressIndicator()),
+    );
+
+    try {
+      final saida = await VistoriaService().criarVistoriaSaida(entradaId);
+      if (!mounted) return;
+      Navigator.pop(context); // close loading
+      Navigator.pop(context); // go back to list
+      Navigator.pushNamed(context, '/vistoria-editor', arguments: saida['id']);
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('✅ Vistoria de Saída criada! Inspecione cada item.'),
+          behavior: SnackBarBehavior.floating,
+          backgroundColor: Color(0xFFFF6D00),
+        ),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      Navigator.pop(context);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Erro: $e'), backgroundColor: Colors.red),
+      );
+    }
   }
 
   Widget _buildTimelineItem(int index) {
@@ -208,7 +321,9 @@ class _VistoriaTimelineScreenState extends State<VistoriaTimelineScreen> {
                           padding: const EdgeInsets.symmetric(
                               horizontal: 8, vertical: 3),
                           decoration: BoxDecoration(
-                            color: color.withValues(alpha: 0.1),
+                            color: tipo == 'saida'
+                                ? const Color(0xFF8B5CF6).withValues(alpha: 0.15)
+                                : const Color(0xFF10B981).withValues(alpha: 0.15),
                             borderRadius: BorderRadius.circular(12),
                           ),
                           child: Text(
@@ -216,7 +331,9 @@ class _VistoriaTimelineScreenState extends State<VistoriaTimelineScreen> {
                             style: TextStyle(
                               fontSize: 10,
                               fontWeight: FontWeight.bold,
-                              color: color,
+                              color: tipo == 'saida'
+                                  ? const Color(0xFF8B5CF6)
+                                  : const Color(0xFF10B981),
                             ),
                           ),
                         ),

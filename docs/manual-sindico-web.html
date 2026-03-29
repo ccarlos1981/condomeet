@@ -1,0 +1,944 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Condomeet — Bem-Vindo Síndico (Web)</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --primary: #FC5931;
+    --primary-dark: #D42F1D;
+    --navy: #1a2535;
+    --navy-light: #243347;
+    --bg: #f8f9fb;
+    --card: #ffffff;
+    --text: #1e293b;
+    --text-secondary: #64748b;
+    --border: #e2e8f0;
+    --success: #22c55e;
+    --warning: #f59e0b;
+    --info: #3b82f6;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html { scroll-behavior: smooth; }
+  body {
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    line-height: 1.7;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  /* ── COVER ─────────────────────── */
+  .cover {
+    min-height: 100vh;
+    background: linear-gradient(135deg, var(--navy) 0%, #0f172a 50%, var(--primary-dark) 100%);
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    text-align: center; color: white; padding: 60px 24px; position: relative; overflow: hidden;
+  }
+  .cover::before {
+    content: ''; position: absolute; top: -200px; right: -200px;
+    width: 600px; height: 600px; border-radius: 50%;
+    background: radial-gradient(circle, rgba(252,89,49,0.15) 0%, transparent 70%);
+  }
+  .cover::after {
+    content: ''; position: absolute; bottom: -150px; left: -100px;
+    width: 400px; height: 400px; border-radius: 50%;
+    background: radial-gradient(circle, rgba(252,89,49,0.1) 0%, transparent 70%);
+  }
+  .cover-badge {
+    background: rgba(252,89,49,0.15); border: 1px solid rgba(252,89,49,0.3);
+    color: var(--primary); font-size: 11px; font-weight: 700; text-transform: uppercase;
+    letter-spacing: 3px; padding: 8px 24px; border-radius: 50px; margin-bottom: 40px;
+    backdrop-filter: blur(10px); position: relative; z-index: 1;
+  }
+  .cover-icon {
+    font-size: 80px; margin-bottom: 24px; position: relative; z-index: 1;
+    animation: float 4s ease-in-out infinite;
+  }
+  @keyframes float { 0%,100%{ transform: translateY(0); } 50%{ transform: translateY(-12px); } }
+  .cover h1 {
+    font-size: 52px; font-weight: 900; line-height: 1.1;
+    background: linear-gradient(135deg, #fff, #cbd5e1);
+    -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+    margin-bottom: 16px; position: relative; z-index: 1;
+  }
+  .cover h2 {
+    font-size: 22px; font-weight: 400; color: rgba(255,255,255,0.6);
+    margin-bottom: 40px; position: relative; z-index: 1;
+  }
+  .cover-version {
+    font-size: 13px; color: rgba(255,255,255,0.3); position: relative; z-index: 1;
+    margin-top: 30px;
+  }
+  .cover-platform {
+    display: inline-flex; align-items: center; gap: 8px;
+    background: rgba(255,255,255,0.08); border: 1px solid rgba(255,255,255,0.12);
+    color: rgba(255,255,255,0.7); font-size: 14px; font-weight: 600;
+    padding: 10px 24px; border-radius: 12px; position: relative; z-index: 1;
+  }
+
+  /* ── TABLE OF CONTENTS ──────────── */
+  .toc {
+    max-width: 800px; margin: 60px auto; padding: 0 24px;
+  }
+  .toc h2 {
+    font-size: 28px; font-weight: 800; color: var(--navy); margin-bottom: 32px;
+    display: flex; align-items: center; gap: 12px;
+  }
+  .toc-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+  .toc-item {
+    display: flex; align-items: center; gap: 12px;
+    padding: 14px 18px; border-radius: 14px; text-decoration: none;
+    color: var(--text); font-weight: 500; font-size: 14px;
+    border: 1px solid var(--border); background: var(--card);
+    transition: all 0.2s;
+  }
+  .toc-item:hover { border-color: var(--primary); color: var(--primary); transform: translateY(-2px); box-shadow: 0 4px 12px rgba(252,89,49,0.1); }
+  .toc-num {
+    width: 32px; height: 32px; border-radius: 8px;
+    background: linear-gradient(135deg, var(--primary), var(--primary-dark));
+    color: white; font-size: 13px; font-weight: 700;
+    display: flex; align-items: center; justify-content: center; flex-shrink: 0;
+  }
+
+  /* ── SECTION CONTAINER ──────── */
+  .container { max-width: 860px; margin: 0 auto; padding: 0 24px; }
+  .section {
+    margin-bottom: 80px;
+    page-break-before: always;
+  }
+  .section:first-of-type { page-break-before: auto; }
+
+  .section-header {
+    text-align: center; margin-bottom: 48px; padding-top: 60px;
+  }
+  .section-icon { font-size: 48px; margin-bottom: 12px; display: block; }
+  .section-num {
+    font-size: 12px; font-weight: 700; letter-spacing: 2px; text-transform: uppercase;
+    color: var(--primary); margin-bottom: 8px;
+  }
+  .section-title {
+    font-size: 32px; font-weight: 800; color: var(--navy); line-height: 1.2;
+    margin-bottom: 8px;
+  }
+  .section-desc {
+    font-size: 15px; color: var(--text-secondary); max-width: 500px; margin: 0 auto;
+  }
+
+  /* ── STEP TIMELINE ─────────── */
+  .timeline { position: relative; padding-left: 44px; }
+  .timeline::before {
+    content: ''; position: absolute; left: 15px; top: 8px; bottom: 8px;
+    width: 2px; background: linear-gradient(to bottom, var(--primary), var(--border));
+    border-radius: 2px;
+  }
+  .step { position: relative; margin-bottom: 28px; }
+  .step-dot {
+    position: absolute; left: -44px; top: 4px;
+    width: 30px; height: 30px; border-radius: 50%;
+    background: linear-gradient(135deg, var(--primary), var(--primary-dark));
+    color: white; font-size: 12px; font-weight: 800;
+    display: flex; align-items: center; justify-content: center;
+    box-shadow: 0 2px 8px rgba(252,89,49,0.3);
+    z-index: 1;
+  }
+  .step h4 {
+    font-size: 16px; font-weight: 700; color: var(--navy); margin-bottom: 6px;
+  }
+  .step p { font-size: 14px; color: var(--text-secondary); }
+
+  /* ── CARDS ──────────────────── */
+  .card {
+    background: var(--card); border: 1px solid var(--border);
+    border-radius: 16px; padding: 28px; margin-bottom: 20px;
+    box-shadow: 0 1px 4px rgba(0,0,0,0.04);
+  }
+  .card h3 {
+    font-size: 18px; font-weight: 700; color: var(--navy); margin-bottom: 12px;
+    display: flex; align-items: center; gap: 10px;
+  }
+
+  /* ── FEATURE GRID ──────────── */
+  .feat-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 14px; margin-top: 16px; }
+  .feat {
+    background: var(--bg); border: 1px solid var(--border); border-radius: 12px;
+    padding: 16px; text-align: center;
+  }
+  .feat-icon { font-size: 28px; margin-bottom: 8px; display: block; }
+  .feat-name { font-size: 13px; font-weight: 600; color: var(--navy); margin-bottom: 4px; }
+  .feat-desc { font-size: 11px; color: var(--text-secondary); }
+
+  /* ── TABLES ────────────────── */
+  .table-wrap { overflow-x: auto; margin: 16px 0; border-radius: 12px; border: 1px solid var(--border); }
+  table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  thead { background: var(--navy); color: white; }
+  th { padding: 12px 16px; font-weight: 600; text-align: left; font-size: 12px; text-transform: uppercase; letter-spacing: 0.5px; }
+  td { padding: 12px 16px; border-bottom: 1px solid var(--border); }
+  tbody tr:nth-child(even) { background: var(--bg); }
+  tbody tr:hover { background: #fef2f0; }
+
+  /* ── TIPS ───────────────────── */
+  .tip {
+    display: flex; gap: 14px; padding: 18px 20px; border-radius: 12px;
+    margin: 20px 0; font-size: 14px;
+  }
+  .tip-icon { font-size: 22px; flex-shrink: 0; }
+  .tip-info { background: #eff6ff; border: 1px solid #bfdbfe; color: #1e40af; }
+  .tip-success { background: #f0fdf4; border: 1px solid #bbf7d0; color: #166534; }
+  .tip-warning { background: #fffbeb; border: 1px solid #fde68a; color: #92400e; }
+
+  /* ── CHECKLIST ──────────────── */
+  .checklist { list-style: none; padding: 0; }
+  .checklist li {
+    padding: 10px 14px; font-size: 14px; display: flex; align-items: center; gap: 10px;
+    border-bottom: 1px solid var(--border);
+  }
+  .checklist li:last-child { border-bottom: none; }
+  .check { color: var(--success); font-size: 18px; flex-shrink: 0; }
+
+  /* ── MENU MAP GRID ─────────── */
+  .menu-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 14px; }
+  .menu-item {
+    display: flex; align-items: center; gap: 12px;
+    background: var(--bg); border: 1px solid var(--border); border-radius: 12px;
+    padding: 14px 16px;
+  }
+  .menu-icon { font-size: 24px; flex-shrink: 0; }
+  .menu-label { font-weight: 600; font-size: 13px; color: var(--navy); }
+  .menu-sub { font-size: 11px; color: var(--text-secondary); }
+
+  /* ── FOOTER ────────────────── */
+  .footer {
+    text-align: center; padding: 60px 24px 40px; color: var(--text-secondary);
+    font-size: 13px; border-top: 1px solid var(--border); margin-top: 80px;
+  }
+  .footer a { color: var(--primary); text-decoration: none; font-weight: 600; }
+
+  /* ── PRINT ─────────────────── */
+  @media print {
+    body { background: white; }
+    .cover { min-height: auto; padding: 80px 40px; page-break-after: always; }
+    .toc { page-break-after: always; }
+    .section { page-break-before: always; }
+    .tip, .card { break-inside: avoid; }
+    .no-print { display: none; }
+  }
+</style>
+</head>
+<body>
+
+<!-- ═══════════════ COVER ═══════════════ -->
+<div class="cover">
+  <div class="cover-badge">Manual Oficial do Síndico</div>
+  <div class="cover-icon">🏢</div>
+  <h1>Bem-Vindo,<br>Síndico!</h1>
+  <h2>Guia Completo do Painel Web</h2>
+  <div class="cover-platform">🖥️ Versão Web — Painel Administrativo</div>
+  <div class="cover-version">Condomeet v2 • Março 2026</div>
+</div>
+
+<!-- ═══════════════ TOC ═══════════════ -->
+<div class="toc">
+  <h2>📑 Índice</h2>
+  <div class="toc-grid">
+    <a href="#primeiros-passos" class="toc-item"><span class="toc-num">1</span> Primeiros Passos</a>
+    <a href="#estrutura" class="toc-item"><span class="toc-num">2</span> Cadastrar Estrutura</a>
+    <a href="#unidades" class="toc-item"><span class="toc-num">3</span> Gerar Unidades</a>
+    <a href="#areas-comuns" class="toc-item"><span class="toc-num">4</span> Áreas Comuns</a>
+    <a href="#aprovar-moradores" class="toc-item"><span class="toc-num">5</span> Aprovar Moradores</a>
+    <a href="#avisos" class="toc-item"><span class="toc-num">6</span> Avisos e Comunicados</a>
+    <a href="#encomendas" class="toc-item"><span class="toc-num">7</span> Encomendas</a>
+    <a href="#ocorrencias" class="toc-item"><span class="toc-num">8</span> Ocorrências</a>
+    <a href="#reservas" class="toc-item"><span class="toc-num">9</span> Reservas</a>
+    <a href="#fale-conosco" class="toc-item"><span class="toc-num">10</span> Fale Conosco</a>
+    <a href="#documentos" class="toc-item"><span class="toc-num">11</span> Documentos e Contratos</a>
+    <a href="#configurar-menu" class="toc-item"><span class="toc-num">12</span> Configurar Menu</a>
+    <a href="#mais-funcoes" class="toc-item"><span class="toc-num">13</span> Mais Funções</a>
+    <a href="#checklist" class="toc-item"><span class="toc-num">14</span> Checklist Final</a>
+  </div>
+</div>
+
+<!-- ═══════════════ 1. PRIMEIROS PASSOS ═══════════════ -->
+<div class="container">
+  <div class="section" id="primeiros-passos">
+    <div class="section-header">
+      <span class="section-icon">🚀</span>
+      <div class="section-num">Etapa 1</div>
+      <h2 class="section-title">Primeiros Passos</h2>
+      <p class="section-desc">Como acessar o painel web e navegar pelo sistema</p>
+    </div>
+
+    <div class="card">
+      <h3>🌐 Acessando o Painel Web</h3>
+      <div class="timeline">
+        <div class="step"><div class="step-dot">1</div>
+          <h4>Abra o navegador</h4>
+          <p>Acesse <strong>www.condomeet.app.br</strong> no Chrome, Safari ou Firefox.</p>
+        </div>
+        <div class="step"><div class="step-dot">2</div>
+          <h4>Faça Login</h4>
+          <p>Digite seu <strong>e-mail</strong> e <strong>senha</strong> cadastrados. Se esqueceu a senha, clique em "Esqueci minha senha" para receber um código no WhatsApp.</p>
+        </div>
+        <div class="step"><div class="step-dot">3</div>
+          <h4>Acesse o Painel Admin</h4>
+          <p>No menu lateral esquerdo, clique no botão laranja <strong>"Painel Admin"</strong> que aparece apenas para síndicos e sub-síndicos.</p>
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <h3>🧭 Conhecendo a Navegação</h3>
+      <p style="font-size:14px; color:var(--text-secondary); margin-bottom:16px;">O painel web possui duas áreas principais:</p>
+      <div class="feat-grid">
+        <div class="feat">
+          <span class="feat-icon">📋</span>
+          <span class="feat-name">Menu do Morador</span>
+          <span class="feat-desc">Barra lateral esquerda com funções do dia a dia (visitantes, encomendas, reservas, etc.)</span>
+        </div>
+        <div class="feat">
+          <span class="feat-icon">🛡️</span>
+          <span class="feat-name">Painel Admin</span>
+          <span class="feat-desc">Área exclusiva do síndico para gerenciar estrutura, aprovações, avisos e configurações</span>
+        </div>
+      </div>
+
+      <div class="tip tip-info" style="margin-top:20px;">
+        <span class="tip-icon">💡</span>
+        <div>O botão <strong>"Painel Admin"</strong> fica sempre visível no menu lateral para perfis de Síndico e Sub-Síndico.</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══════════════ 2. ESTRUTURA ═══════════════ -->
+  <div class="section" id="estrutura">
+    <div class="section-header">
+      <span class="section-icon">🏗️</span>
+      <div class="section-num">Etapa 2</div>
+      <h2 class="section-title">Cadastrar Estrutura</h2>
+      <p class="section-desc">Blocos e Apartamentos — a base do seu condomínio</p>
+    </div>
+
+    <div class="card">
+      <h3>📍 Como chegar</h3>
+      <p style="font-size:14px; color:var(--text-secondary);">
+        <strong>Painel Admin</strong> → aba <strong>"Estrutura"</strong> → clique em <strong>"Estrutura do Condomínio"</strong>
+      </p>
+    </div>
+
+    <div class="card">
+      <h3>🏢 Passo 1: Cadastrar Blocos (ou Torres)</h3>
+      <div class="timeline">
+        <div class="step"><div class="step-dot">1</div>
+          <h4>Clique na aba "Blocos"</h4>
+          <p>É a primeira aba da tela de Estrutura. Aqui você vê todos os blocos já cadastrados.</p>
+        </div>
+        <div class="step"><div class="step-dot">2</div>
+          <h4>Clique em "+ Adicionar Bloco"</h4>
+          <p>Um campo de texto aparece. Digite o nome ou número do bloco (ex: <strong>A</strong>, <strong>B</strong>, <strong>Torre 1</strong>, <strong>Torre 2</strong>).</p>
+        </div>
+        <div class="step"><div class="step-dot">3</div>
+          <h4>Clique em "Salvar"</h4>
+          <p>O bloco será adicionado à lista. Repita para cada bloco do condomínio.</p>
+        </div>
+      </div>
+
+      <div class="tip tip-info">
+        <span class="tip-icon">ℹ️</span>
+        <div>O sistema se adapta ao tipo de condomínio: <strong>Prédio</strong> usa "Bloco/Apto", <strong>Horizontal</strong> usa "Quadra/Lote", <strong>Comercial</strong> usa "Andar/Sala".</div>
+      </div>
+    </div>
+
+    <div class="card">
+      <h3>🏠 Passo 2: Cadastrar Apartamentos</h3>
+      <div class="timeline">
+        <div class="step"><div class="step-dot">1</div>
+          <h4>Clique na aba "Aptos"</h4>
+          <p>Aqui ficam todos os números de apartamento do condomínio (ex: 101, 102, 201, 202...).</p>
+        </div>
+        <div class="step"><div class="step-dot">2</div>
+          <h4>Clique em "+ Adicionar Apto"</h4>
+          <p>Digite o número do apartamento e clique em <strong>"Salvar"</strong>.</p>
+        </div>
+        <div class="step"><div class="step-dot">3</div>
+          <h4>Repita para todos os apartamentos</h4>
+          <p>Cadastre todos os números únicos. Exemplo: se o condomínio tem andares de 01 a 04 com 4 aptos cada, cadastre 101, 102, 103, 104, 201, 202, etc.</p>
+        </div>
+      </div>
+
+      <div class="tip tip-warning">
+        <span class="tip-icon">⚠️</span>
+        <div><strong>Não repita números!</strong> O número do apto é único no condomínio. A diferenciação é feita pela combinação Bloco + Apto na próxima etapa.</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══════════════ 3. UNIDADES ═══════════════ -->
+  <div class="section" id="unidades">
+    <div class="section-header">
+      <span class="section-icon">✨</span>
+      <div class="section-num">Etapa 3</div>
+      <h2 class="section-title">Gerar Unidades</h2>
+      <p class="section-desc">Unificar Blocos + Apartamentos automaticamente</p>
+    </div>
+
+    <div class="card">
+      <h3>⚡ Unificando Bloco + Apto = Unidade</h3>
+      <p style="font-size:14px; color:var(--text-secondary); margin-bottom:16px;">Após cadastrar os blocos e apartamentos, é hora de <strong>combinar</strong> eles para criar as unidades. Cada unidade é um endereço único dentro do condomínio.</p>
+
+      <div class="timeline">
+        <div class="step"><div class="step-dot">1</div>
+          <h4>Clique na aba "Unidades"</h4>
+          <p>A terceira aba da tela de Estrutura.</p>
+        </div>
+        <div class="step"><div class="step-dot">2</div>
+          <h4>Clique em "✨ Gerar Unidades"</h4>
+          <p>Uma janela aparece listando todos os blocos e apartamentos cadastrados.</p>
+        </div>
+        <div class="step"><div class="step-dot">3</div>
+          <h4>Selecione os blocos</h4>
+          <p>Marque os blocos que possuem os mesmos apartamentos. Exemplo: se Bloco A e Bloco B têm os mesmos aptos (101 a 104), selecione ambos.</p>
+        </div>
+        <div class="step"><div class="step-dot">4</div>
+          <h4>Selecione os apartamentos</h4>
+          <p>Marque quais números de apto existem nos blocos selecionados.</p>
+        </div>
+        <div class="step"><div class="step-dot">5</div>
+          <h4>Clique em "Gerar"</h4>
+          <p>O sistema cria automaticamente todas as combinações: Bloco A-101, Bloco A-102, Bloco B-101, Bloco B-102, etc.</p>
+        </div>
+      </div>
+
+      <div class="tip tip-success">
+        <span class="tip-icon">✅</span>
+        <div><strong>Exemplo prático:</strong> Condomínio com 3 blocos (A, B, C) e aptos 101 a 404 → selecione os 3 blocos e todos os aptos → o sistema gera <strong>48 unidades</strong> automaticamente!</div>
+      </div>
+    </div>
+
+    <div class="card">
+      <h3>📊 Gerenciando Unidades</h3>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>Coluna</th><th>Descrição</th></tr></thead>
+          <tbody>
+            <tr><td><strong>Bloco</strong></td><td>Nome ou número do bloco/torre</td></tr>
+            <tr><td><strong>Apto</strong></td><td>Número do apartamento</td></tr>
+            <tr><td><strong>Status</strong></td><td>🟢 Ativa (disponível) ou 🔴 Bloqueada (indisponível)</td></tr>
+            <tr><td><strong>Ações</strong></td><td>Excluir unidade individualmente</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══════════════ 4. ÁREAS COMUNS ═══════════════ -->
+  <div class="section" id="areas-comuns">
+    <div class="section-header">
+      <span class="section-icon">🏊</span>
+      <div class="section-num">Etapa 4</div>
+      <h2 class="section-title">Configurar Áreas Comuns</h2>
+      <p class="section-desc">Espaços para reserva dos moradores</p>
+    </div>
+
+    <div class="card">
+      <h3>📍 Como chegar</h3>
+      <p style="font-size:14px; color:var(--text-secondary);">
+        <strong>Painel Admin</strong> → aba <strong>"Áreas Comuns"</strong>
+      </p>
+    </div>
+
+    <div class="card">
+      <h3>➕ Cadastrando uma Nova Área</h3>
+      <div class="timeline">
+        <div class="step"><div class="step-dot">1</div>
+          <h4>Clique em "Nova Área"</h4>
+          <p>O formulário de cadastro aparece abaixo da lista.</p>
+        </div>
+        <div class="step"><div class="step-dot">2</div>
+          <h4>Escolha o tipo de reserva</h4>
+          <p><strong>Por Dia</strong> (dia inteiro, ex: Salão de Festa) ou <strong>Por Hora</strong> (com horários, ex: Academia).</p>
+        </div>
+        <div class="step"><div class="step-dot">3</div>
+          <h4>Preencha os dados</h4>
+          <p>Tipo de agenda, local, capacidade, limite de acessos e horas para cancelamento.</p>
+        </div>
+        <div class="step"><div class="step-dot">4</div>
+          <h4>Configure preços (opcional)</h4>
+          <p>Até 3 faixas de preço com regras. Exemplo: <em>"R$ 200 para até 2 reservas/ano, R$ 300 a partir da 3ª"</em>.</p>
+        </div>
+        <div class="step"><div class="step-dot">5</div>
+          <h4>Adicione instruções de uso</h4>
+          <p>Regras e orientações (ex: <em>"Não é permitido som alto após 22h"</em>).</p>
+        </div>
+        <div class="step"><div class="step-dot">6</div>
+          <h4>Clique em "Salvar"</h4>
+          <p>A área aparece na tabela principal com todas as informações.</p>
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <h3>📋 Tipos de Agenda Disponíveis</h3>
+      <div class="feat-grid">
+        <div class="feat"><span class="feat-icon">🎉</span><span class="feat-name">Salão de Festa</span></div>
+        <div class="feat"><span class="feat-icon">🍖</span><span class="feat-name">Churrasqueira</span></div>
+        <div class="feat"><span class="feat-icon">♨️</span><span class="feat-name">Sauna</span></div>
+        <div class="feat"><span class="feat-icon">🎾</span><span class="feat-name">Quadra de Tênis</span></div>
+        <div class="feat"><span class="feat-icon">🏊</span><span class="feat-name">Piscina</span></div>
+        <div class="feat"><span class="feat-icon">⚽</span><span class="feat-name">Campo de Futebol</span></div>
+        <div class="feat"><span class="feat-icon">🏋️</span><span class="feat-name">Academia</span></div>
+        <div class="feat"><span class="feat-icon">🎮</span><span class="feat-name">Sala de Jogos</span></div>
+        <div class="feat"><span class="feat-icon">🍽️</span><span class="feat-name">Espaço Gourmet</span></div>
+        <div class="feat"><span class="feat-icon">💻</span><span class="feat-name">Coworking</span></div>
+        <div class="feat"><span class="feat-icon">🧸</span><span class="feat-name">Brinquedoteca</span></div>
+        <div class="feat"><span class="feat-icon">🧺</span><span class="feat-name">Lavanderia</span></div>
+      </div>
+    </div>
+
+    <div class="card">
+      <h3>⚙️ Ações de Gerenciamento</h3>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>Ação</th><th>O que faz</th></tr></thead>
+          <tbody>
+            <tr><td>✏️ <strong>Editar</strong></td><td>Altera dados da área (preço, capacidade, regras)</td></tr>
+            <tr><td>🗑️ <strong>Apagar</strong></td><td>Remove a área permanentemente</td></tr>
+            <tr><td>⏰ <strong>Horários</strong></td><td>Configure horários disponíveis (somente para reservas "Por Hora")</td></tr>
+            <tr><td>🟢 <strong>Ativar/Desativar</strong></td><td>Torna a área visível ou invisível para os moradores</td></tr>
+            <tr><td>✅ <strong>Aprovação Automática</strong></td><td>Ligada: reserva é aprovada imediatamente. Desligada: síndico precisa aprovar.</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══════════════ 5. APROVAR MORADORES ═══════════════ -->
+  <div class="section" id="aprovar-moradores">
+    <div class="section-header">
+      <span class="section-icon">👥</span>
+      <div class="section-num">Etapa 5</div>
+      <h2 class="section-title">Aprovar Moradores</h2>
+      <p class="section-desc">Valide quem pode acessar o sistema do condomínio</p>
+    </div>
+
+    <div class="card">
+      <h3>📍 Como chegar</h3>
+      <p style="font-size:14px; color:var(--text-secondary);">
+        <strong>Painel Admin</strong> → <strong>"Aprovações"</strong>
+      </p>
+    </div>
+
+    <div class="card">
+      <h3>🔄 Como funciona o fluxo</h3>
+      <div class="timeline">
+        <div class="step"><div class="step-dot">1</div>
+          <h4>Morador faz o cadastro</h4>
+          <p>Pelo app ou pelo site, o morador preenche nome, unidade (bloco + apto), e-mail e senha.</p>
+        </div>
+        <div class="step"><div class="step-dot">2</div>
+          <h4>Status fica "Pendente"</h4>
+          <p>O cadastro aparece na sua tela de aprovações com o status 🟡 <strong>Pendente</strong>.</p>
+        </div>
+        <div class="step"><div class="step-dot">3</div>
+          <h4>Você verifica os dados</h4>
+          <p>Confirme se o nome e a unidade informados correspondem a um morador real.</p>
+        </div>
+        <div class="step"><div class="step-dot">4</div>
+          <h4>Aprove ou rejeite</h4>
+          <p>Clique em ✅ <strong>Aprovar</strong> para liberar o acesso ou ❌ <strong>Rejeitar</strong> se os dados não conferem.</p>
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <h3>📊 Status de Aprovação</h3>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>Status</th><th>Cor</th><th>Significado</th></tr></thead>
+          <tbody>
+            <tr><td><strong>Pendente</strong></td><td>🟡 Amarelo</td><td>Aguardando sua aprovação</td></tr>
+            <tr><td><strong>Aprovado</strong></td><td>🟢 Verde</td><td>Morador com acesso liberado ao sistema</td></tr>
+            <tr><td><strong>Rejeitado</strong></td><td>🔴 Vermelho</td><td>Cadastro negado — o morador é notificado</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div class="tip tip-warning">
+        <span class="tip-icon">⚠️</span>
+        <div><strong>Importante:</strong> Enquanto o morador não for aprovado, ele não consegue acessar nenhuma função do condomínio no app ou no site.</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══════════════ 6. AVISOS ═══════════════ -->
+  <div class="section" id="avisos">
+    <div class="section-header">
+      <span class="section-icon">📢</span>
+      <div class="section-num">Etapa 6</div>
+      <h2 class="section-title">Avisos e Comunicados</h2>
+      <p class="section-desc">Comunique-se com todos os moradores de forma eficiente</p>
+    </div>
+
+    <div class="card">
+      <h3>📍 Como chegar</h3>
+      <p style="font-size:14px; color:var(--text-secondary);">
+        <strong>Painel Admin</strong> → <strong>"Avisos"</strong>
+      </p>
+    </div>
+
+    <div class="card">
+      <h3>📝 Criando um Aviso</h3>
+      <div class="timeline">
+        <div class="step"><div class="step-dot">1</div>
+          <h4>Clique em "Novo Aviso"</h4>
+          <p>Abre o formulário de criação de aviso.</p>
+        </div>
+        <div class="step"><div class="step-dot">2</div>
+          <h4>Preencha título e mensagem</h4>
+          <p>Use um título claro (ex: <em>"Manutenção do elevador"</em>) e escreva a mensagem completa. Suporta formatação HTML.</p>
+        </div>
+        <div class="step"><div class="step-dot">3</div>
+          <h4>Publique o aviso</h4>
+          <p>Todos os moradores recebem uma <strong>notificação push</strong> no celular e podem ver o aviso no app e no site.</p>
+        </div>
+      </div>
+
+      <div class="tip tip-success">
+        <span class="tip-icon">📱</span>
+        <div>Os avisos geram <strong>notificações push automáticas</strong> para todos os moradores aprovados, garantindo que a informação chegue imediatamente.</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══════════════ 7. ENCOMENDAS ═══════════════ -->
+  <div class="section" id="encomendas">
+    <div class="section-header">
+      <span class="section-icon">📦</span>
+      <div class="section-num">Etapa 7</div>
+      <h2 class="section-title">Encomendas</h2>
+      <p class="section-desc">Registro e controle de entregas do condomínio</p>
+    </div>
+
+    <div class="card">
+      <h3>📍 Como chegar</h3>
+      <p style="font-size:14px; color:var(--text-secondary);">
+        <strong>Painel Admin</strong> → <strong>"Encomendas do Cond."</strong>
+      </p>
+    </div>
+
+    <div class="card">
+      <h3>🔄 Fluxo de Encomendas</h3>
+      <div class="timeline">
+        <div class="step"><div class="step-dot">1</div>
+          <h4>Porteiro registra a encomenda</h4>
+          <p>Quando uma encomenda chega, o porteiro seleciona o morador destinatário e registra no sistema.</p>
+        </div>
+        <div class="step"><div class="step-dot">2</div>
+          <h4>Morador recebe notificação</h4>
+          <p>Push no celular + WhatsApp informando que há uma encomenda pendente na portaria.</p>
+        </div>
+        <div class="step"><div class="step-dot">3</div>
+          <h4>Morador retira com assinatura</h4>
+          <p>Ao retirar, o porteiro confirma e o morador pode assinar digitalmente.</p>
+        </div>
+      </div>
+
+      <div class="tip tip-info">
+        <span class="tip-icon">🔢</span>
+        <div>O badge 🔴 no menu mostra quantas encomendas estão <strong>pendentes</strong> de retirada.</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══════════════ 8. OCORRÊNCIAS ═══════════════ -->
+  <div class="section" id="ocorrencias">
+    <div class="section-header">
+      <span class="section-icon">⚠️</span>
+      <div class="section-num">Etapa 8</div>
+      <h2 class="section-title">Livro de Ocorrências</h2>
+      <p class="section-desc">Registro formal de incidentes e reclamações</p>
+    </div>
+
+    <div class="card">
+      <h3>📋 Como funciona</h3>
+      <p style="font-size:14px; color:var(--text-secondary); margin-bottom:16px;">Os moradores registram ocorrências pelo app (barulho, problemas de infraestrutura, segurança, etc.) e você gerencia todas no painel.</p>
+
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>Status</th><th>Descrição</th></tr></thead>
+          <tbody>
+            <tr><td>🟡 <strong>Pendente</strong></td><td>Nova ocorrência registrada pelo morador, aguardando análise</td></tr>
+            <tr><td>🔵 <strong>Em andamento</strong></td><td>Ocorrência sendo tratada pela administração</td></tr>
+            <tr><td>🟢 <strong>Resolvida</strong></td><td>Problema solucionado — o morador é notificado</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══════════════ 9. RESERVAS ═══════════════ -->
+  <div class="section" id="reservas">
+    <div class="section-header">
+      <span class="section-icon">📅</span>
+      <div class="section-num">Etapa 9</div>
+      <h2 class="section-title">Gerenciar Reservas</h2>
+      <p class="section-desc">Aprovar e acompanhar reservas de áreas comuns</p>
+    </div>
+
+    <div class="card">
+      <h3>📍 Como chegar</h3>
+      <p style="font-size:14px; color:var(--text-secondary);">
+        <strong>Painel Admin</strong> → <strong>"Reservas"</strong>
+      </p>
+    </div>
+
+    <div class="card">
+      <h3>📊 Status das Reservas</h3>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>Status</th><th>Descrição</th></tr></thead>
+          <tbody>
+            <tr><td>🟡 <strong>Pendente</strong></td><td>Morador solicitou — aguardando aprovação do síndico</td></tr>
+            <tr><td>🟢 <strong>Aprovada</strong></td><td>Reserva confirmada pelo síndico</td></tr>
+            <tr><td>🔴 <strong>Rejeitada</strong></td><td>Reserva negada (motivo informado ao morador)</td></tr>
+            <tr><td>⚫ <strong>Cancelada</strong></td><td>Reserva cancelada pelo morador ou síndico</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div class="tip tip-info">
+        <span class="tip-icon">⚡</span>
+        <div>Se você ativou <strong>"Aprovação Automática"</strong> em uma área comum, as reservas são aprovadas instantaneamente sem precisar da sua ação.</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══════════════ 10. FALE CONOSCO ═══════════════ -->
+  <div class="section" id="fale-conosco">
+    <div class="section-header">
+      <span class="section-icon">💬</span>
+      <div class="section-num">Etapa 10</div>
+      <h2 class="section-title">Fale Conosco</h2>
+      <p class="section-desc">Canal de comunicação direta entre moradores e síndico</p>
+    </div>
+
+    <div class="card">
+      <h3>📱 Como funciona</h3>
+      <div class="timeline">
+        <div class="step"><div class="step-dot">1</div>
+          <h4>Morador envia mensagem</h4>
+          <p>Pelo app ou site, o morador abre um "ticket" com assunto e mensagem — similar a um chat do WhatsApp.</p>
+        </div>
+        <div class="step"><div class="step-dot">2</div>
+          <h4>Você recebe a notificação</h4>
+          <p>O badge 🔴 mostra quantas conversas estão abertas no menu.</p>
+        </div>
+        <div class="step"><div class="step-dot">3</div>
+          <h4>Responda diretamente</h4>
+          <p>Clique na conversa e responda. O morador recebe sua resposta no app.</p>
+        </div>
+        <div class="step"><div class="step-dot">4</div>
+          <h4>Feche a conversa</h4>
+          <p>Quando resolvido, marque como <strong>"Resolvido"</strong> para manter a organização.</p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══════════════ 11. DOCUMENTOS ═══════════════ -->
+  <div class="section" id="documentos">
+    <div class="section-header">
+      <span class="section-icon">📄</span>
+      <div class="section-num">Etapa 11</div>
+      <h2 class="section-title">Documentos e Contratos</h2>
+      <p class="section-desc">Disponibilize arquivos importantes para os moradores</p>
+    </div>
+
+    <div class="card">
+      <h3>📂 Tipos de documentos</h3>
+      <div class="feat-grid">
+        <div class="feat">
+          <span class="feat-icon">📄</span>
+          <span class="feat-name">Documentos</span>
+          <span class="feat-desc">Regimento, atas, manuais, normas internas — visíveis para todos os moradores</span>
+        </div>
+        <div class="feat">
+          <span class="feat-icon">📋</span>
+          <span class="feat-name">Contratos</span>
+          <span class="feat-desc">Contratos de prestação de serviço, manutenção, segurança, etc.</span>
+        </div>
+      </div>
+
+      <div class="tip tip-success" style="margin-top:20px;">
+        <span class="tip-icon">📎</span>
+        <div>Faça upload de arquivos PDF, imagens ou documentos Word. Os moradores podem baixar diretamente pelo app ou site.</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══════════════ 12. CONFIGURAR MENU ═══════════════ -->
+  <div class="section" id="configurar-menu">
+    <div class="section-header">
+      <span class="section-icon">⚙️</span>
+      <div class="section-num">Etapa 12</div>
+      <h2 class="section-title">Configurar Menu</h2>
+      <p class="section-desc">Personalize quais funções cada perfil pode ver</p>
+    </div>
+
+    <div class="card">
+      <h3>📍 Como chegar</h3>
+      <p style="font-size:14px; color:var(--text-secondary);">
+        <strong>Painel Admin</strong> → <strong>"Configurar Acesso"</strong>
+      </p>
+    </div>
+
+    <div class="card">
+      <h3>🔧 Matriz de Permissões</h3>
+      <p style="font-size:14px; color:var(--text-secondary); margin-bottom:16px;">A tela exibe uma tabela com todas as funções (linhas) e todos os perfis (colunas). Cada célula é um checkbox:</p>
+
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>Perfil</th><th>Descrição</th></tr></thead>
+          <tbody>
+            <tr><td>👤 <strong>Morador</strong></td><td>Residente comum do condomínio</td></tr>
+            <tr><td>🏠 <strong>Proprietário</strong></td><td>Dono do imóvel (residente)</td></tr>
+            <tr><td>🔑 <strong>Proprietário não morador</strong></td><td>Dono que não mora no condomínio</td></tr>
+            <tr><td>📝 <strong>Inquilino / Locatário</strong></td><td>Quem aluga o imóvel</td></tr>
+            <tr><td>🚪 <strong>Porteiro</strong></td><td>Controle de acesso e encomendas</td></tr>
+            <tr><td>🧹 <strong>Zelador</strong></td><td>Manutenção e limpeza</td></tr>
+            <tr><td>👔 <strong>Síndico / Sub-Síndico</strong></td><td>Administração do condomínio</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div class="tip tip-info">
+        <span class="tip-icon">💡</span>
+        <div>Marque ✅ para liberar uma função para determinado perfil, ou desmarque ☐ para esconder. Clique em <strong>"Salvar alterações"</strong> ao final. As mudanças refletem imediatamente no app e no site.</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══════════════ 13. MAIS FUNÇÕES ═══════════════ -->
+  <div class="section" id="mais-funcoes">
+    <div class="section-header">
+      <span class="section-icon">🎯</span>
+      <div class="section-num">Etapa 13</div>
+      <h2 class="section-title">Mais Funções</h2>
+      <p class="section-desc">Todas as ferramentas disponíveis no painel</p>
+    </div>
+
+    <div class="card">
+      <h3>🛡️ Funções do Painel Admin</h3>
+      <div class="menu-grid">
+        <div class="menu-item">
+          <span class="menu-icon">📦</span>
+          <div><div class="menu-label">Encomendas do Cond.</div><div class="menu-sub">Gerenciar entregas pendentes</div></div>
+        </div>
+        <div class="menu-item">
+          <span class="menu-icon">⚠️</span>
+          <div><div class="menu-label">Livro de Ocorrências</div><div class="menu-sub">Tratar reclamações dos moradores</div></div>
+        </div>
+        <div class="menu-item">
+          <span class="menu-icon">👥</span>
+          <div><div class="menu-label">Aprovações</div><div class="menu-sub">Aprovar/rejeitar cadastros</div></div>
+        </div>
+        <div class="menu-item">
+          <span class="menu-icon">📅</span>
+          <div><div class="menu-label">Reservas</div><div class="menu-sub">Aprovar reservas de áreas comuns</div></div>
+        </div>
+        <div class="menu-item">
+          <span class="menu-icon">🛒</span>
+          <div><div class="menu-label">Classificados</div><div class="menu-sub">Aprovar anúncios dos moradores</div></div>
+        </div>
+        <div class="menu-item">
+          <span class="menu-icon">📢</span>
+          <div><div class="menu-label">Avisos</div><div class="menu-sub">Enviar comunicados com push</div></div>
+        </div>
+        <div class="menu-item">
+          <span class="menu-icon">💬</span>
+          <div><div class="menu-label">Fale Conosco</div><div class="menu-sub">Chat com moradores</div></div>
+        </div>
+        <div class="menu-item">
+          <span class="menu-icon">📄</span>
+          <div><div class="menu-label">Documentos / Contratos</div><div class="menu-sub">Upload de arquivos para moradores</div></div>
+        </div>
+        <div class="menu-item">
+          <span class="menu-icon">🗳️</span>
+          <div><div class="menu-label">Assembleias Online</div><div class="menu-sub">Criar e gerenciar votações</div></div>
+        </div>
+        <div class="menu-item">
+          <span class="menu-icon">📸</span>
+          <div><div class="menu-label">Fotos / Eventos</div><div class="menu-sub">Álbum de fotos do condomínio</div></div>
+        </div>
+        <div class="menu-item">
+          <span class="menu-icon">📊</span>
+          <div><div class="menu-label">Enquetes</div><div class="menu-sub">Criar pesquisas de opinião</div></div>
+        </div>
+        <div class="menu-item">
+          <span class="menu-icon">🏢</span>
+          <div><div class="menu-label">Estrutura</div><div class="menu-sub">Blocos, aptos e unidades</div></div>
+        </div>
+        <div class="menu-item">
+          <span class="menu-icon">🔍</span>
+          <div><div class="menu-label">Busca Moradores</div><div class="menu-sub">Procurar moradores cadastrados</div></div>
+        </div>
+        <div class="menu-item">
+          <span class="menu-icon">📦</span>
+          <div><div class="menu-label">Almoxarifado / Estoque</div><div class="menu-sub">Controle de materiais</div></div>
+        </div>
+        <div class="menu-item">
+          <span class="menu-icon">⚙️</span>
+          <div><div class="menu-label">Configurar Menu</div><div class="menu-sub">Acesso por perfil</div></div>
+        </div>
+        <div class="menu-item">
+          <span class="menu-icon">📋</span>
+          <div><div class="menu-label">Registro de Turno</div><div class="menu-sub">Controle da portaria</div></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══════════════ 14. CHECKLIST ═══════════════ -->
+  <div class="section" id="checklist">
+    <div class="section-header">
+      <span class="section-icon">✅</span>
+      <div class="section-num">Etapa 14</div>
+      <h2 class="section-title">Checklist de Configuração</h2>
+      <p class="section-desc">Confirme que tudo está pronto para os moradores usarem</p>
+    </div>
+
+    <div class="card">
+      <h3>📝 Lista de Verificação</h3>
+      <ul class="checklist">
+        <li><span class="check">☐</span> Login no painel web com meu e-mail de síndico</li>
+        <li><span class="check">☐</span> Blocos/Torres cadastrados</li>
+        <li><span class="check">☐</span> Apartamentos cadastrados</li>
+        <li><span class="check">☐</span> Unidades geradas (Bloco + Apto combinados)</li>
+        <li><span class="check">☐</span> Áreas comuns cadastradas (preços, regras, horários)</li>
+        <li><span class="check">☐</span> Tipo de aprovação das áreas definido (automática ou manual)</li>
+        <li><span class="check">☐</span> Primeiros moradores aprovados para testar</li>
+        <li><span class="check">☐</span> Primeiro aviso de teste enviado</li>
+        <li><span class="check">☐</span> Menu configurado (perfis com as funções corretas)</li>
+        <li><span class="check">☐</span> Documentos importantes upados (regimento, atas, etc.)</li>
+        <li><span class="check">☐</span> Testei uma reserva de área comum</li>
+        <li><span class="check">☐</span> Testei o "Fale Conosco" com um morador</li>
+      </ul>
+    </div>
+
+    <div class="tip tip-success" style="margin:30px 0;">
+      <span class="tip-icon">🎉</span>
+      <div><strong>Parabéns!</strong> Seu condomínio está pronto para usar o Condomeet! Se precisar de ajuda, entre em contato pelo suporte dentro do app ou pelo WhatsApp.</div>
+    </div>
+  </div>
+
+  <!-- ═══════════════ FOOTER ═══════════════ -->
+  <div class="footer">
+    <p><strong>Condomeet</strong> — Seu condomínio digital</p>
+    <p style="margin-top:8px;"><a href="https://www.condomeet.app.br">www.condomeet.app.br</a></p>
+    <p style="margin-top:16px; font-size:11px; color:#94a3b8;">Manual do Síndico — Versão Web • Março 2026 • v2.0</p>
+  </div>
+</div>
+
+</body>
+</html>

@@ -1,0 +1,804 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Condomeet — Manual do Síndico (Mobile)</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --primary: #FC5931;
+    --primary-dark: #D42F1D;
+    --navy: #1a2535;
+    --bg: #f8f9fb;
+    --card: #ffffff;
+    --text: #1e293b;
+    --text-secondary: #64748b;
+    --border: #e2e8f0;
+    --success: #22c55e;
+    --warning: #f59e0b;
+    --info: #3b82f6;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html { scroll-behavior: smooth; }
+  body {
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+    background: var(--bg); color: var(--text); line-height: 1.7;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  /* ── COVER ─────── */
+  .cover {
+    min-height: 100vh;
+    background: linear-gradient(135deg, #0f172a 0%, var(--navy) 40%, #7c2d12 100%);
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    text-align: center; color: white; padding: 60px 24px; position: relative; overflow: hidden;
+  }
+  .cover::before {
+    content: ''; position: absolute; top: -150px; right: -150px;
+    width: 500px; height: 500px; border-radius: 50%;
+    background: radial-gradient(circle, rgba(252,89,49,0.2) 0%, transparent 70%);
+  }
+  .cover-badge {
+    background: rgba(252,89,49,0.15); border: 1px solid rgba(252,89,49,0.3);
+    color: var(--primary); font-size: 11px; font-weight: 700; text-transform: uppercase;
+    letter-spacing: 3px; padding: 8px 24px; border-radius: 50px; margin-bottom: 40px;
+    position: relative; z-index: 1;
+  }
+  .cover-icon { font-size: 80px; margin-bottom: 24px; position: relative; z-index: 1; animation: float 4s ease-in-out infinite; }
+  @keyframes float { 0%,100%{ transform: translateY(0); } 50%{ transform: translateY(-12px); } }
+  .cover h1 {
+    font-size: 52px; font-weight: 900; line-height: 1.1;
+    background: linear-gradient(135deg, #fff, #cbd5e1);
+    -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+    margin-bottom: 16px; position: relative; z-index: 1;
+  }
+  .cover h2 { font-size: 22px; font-weight: 400; color: rgba(255,255,255,0.6); margin-bottom: 40px; position: relative; z-index: 1; }
+  .cover-platform {
+    display: inline-flex; align-items: center; gap: 8px;
+    background: rgba(255,255,255,0.08); border: 1px solid rgba(255,255,255,0.12);
+    color: rgba(255,255,255,0.7); font-size: 14px; font-weight: 600;
+    padding: 10px 24px; border-radius: 12px; position: relative; z-index: 1;
+  }
+  .cover-version { font-size: 13px; color: rgba(255,255,255,0.3); margin-top: 30px; position: relative; z-index: 1; }
+
+  /* ── TOC ────────── */
+  .toc { max-width: 800px; margin: 60px auto; padding: 0 24px; }
+  .toc h2 { font-size: 28px; font-weight: 800; color: var(--navy); margin-bottom: 32px; display: flex; align-items: center; gap: 12px; }
+  .toc-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+  .toc-item {
+    display: flex; align-items: center; gap: 12px;
+    padding: 14px 18px; border-radius: 14px; text-decoration: none;
+    color: var(--text); font-weight: 500; font-size: 14px;
+    border: 1px solid var(--border); background: var(--card); transition: all 0.2s;
+  }
+  .toc-item:hover { border-color: var(--primary); color: var(--primary); transform: translateY(-2px); box-shadow: 0 4px 12px rgba(252,89,49,0.1); }
+  .toc-num {
+    width: 32px; height: 32px; border-radius: 8px;
+    background: linear-gradient(135deg, var(--primary), var(--primary-dark));
+    color: white; font-size: 13px; font-weight: 700;
+    display: flex; align-items: center; justify-content: center; flex-shrink: 0;
+  }
+
+  /* ── SECTION ────── */
+  .container { max-width: 860px; margin: 0 auto; padding: 0 24px; }
+  .section { margin-bottom: 80px; page-break-before: always; }
+  .section:first-of-type { page-break-before: auto; }
+  .section-header { text-align: center; margin-bottom: 48px; padding-top: 60px; }
+  .section-icon { font-size: 48px; margin-bottom: 12px; display: block; }
+  .section-num { font-size: 12px; font-weight: 700; letter-spacing: 2px; text-transform: uppercase; color: var(--primary); margin-bottom: 8px; }
+  .section-title { font-size: 32px; font-weight: 800; color: var(--navy); line-height: 1.2; margin-bottom: 8px; }
+  .section-desc { font-size: 15px; color: var(--text-secondary); max-width: 500px; margin: 0 auto; }
+
+  /* ── TIMELINE ───── */
+  .timeline { position: relative; padding-left: 44px; }
+  .timeline::before {
+    content: ''; position: absolute; left: 15px; top: 8px; bottom: 8px;
+    width: 2px; background: linear-gradient(to bottom, var(--primary), var(--border)); border-radius: 2px;
+  }
+  .step { position: relative; margin-bottom: 28px; }
+  .step-dot {
+    position: absolute; left: -44px; top: 4px; width: 30px; height: 30px; border-radius: 50%;
+    background: linear-gradient(135deg, var(--primary), var(--primary-dark));
+    color: white; font-size: 12px; font-weight: 800;
+    display: flex; align-items: center; justify-content: center;
+    box-shadow: 0 2px 8px rgba(252,89,49,0.3); z-index: 1;
+  }
+  .step h4 { font-size: 16px; font-weight: 700; color: var(--navy); margin-bottom: 6px; }
+  .step p { font-size: 14px; color: var(--text-secondary); }
+
+  /* ── CARDS ──────── */
+  .card {
+    background: var(--card); border: 1px solid var(--border); border-radius: 16px;
+    padding: 28px; margin-bottom: 20px; box-shadow: 0 1px 4px rgba(0,0,0,0.04);
+  }
+  .card h3 { font-size: 18px; font-weight: 700; color: var(--navy); margin-bottom: 12px; display: flex; align-items: center; gap: 10px; }
+
+  /* ── FEATURES ───── */
+  .feat-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 14px; margin-top: 16px; }
+  .feat { background: var(--bg); border: 1px solid var(--border); border-radius: 12px; padding: 16px; text-align: center; }
+  .feat-icon { font-size: 28px; margin-bottom: 8px; display: block; }
+  .feat-name { font-size: 13px; font-weight: 600; color: var(--navy); margin-bottom: 4px; }
+  .feat-desc { font-size: 11px; color: var(--text-secondary); }
+
+  /* ── SCREENSHOT ─── */
+  .screenshot-wrap { text-align: center; margin: 24px 0; }
+  .screenshot-wrap img {
+    max-width: 300px; width: 100%; border-radius: 24px;
+    box-shadow: 0 8px 40px rgba(0,0,0,0.13);
+  }
+  .screenshot-caption {
+    font-size: 12px; color: var(--text-secondary); margin-top: 12px;
+    font-style: italic;
+  }
+  .screenshot-row {
+    display: grid; grid-template-columns: 1fr 1fr; gap: 20px;
+    margin: 24px 0; align-items: start;
+  }
+  .screenshot-row .screenshot-wrap { margin: 0; }
+  @media (max-width: 600px) { .screenshot-row { grid-template-columns: 1fr; } }
+
+  /* ── TABLES ─────── */
+  .table-wrap { overflow-x: auto; margin: 16px 0; border-radius: 12px; border: 1px solid var(--border); }
+  table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  thead { background: var(--navy); color: white; }
+  th { padding: 12px 16px; font-weight: 600; text-align: left; font-size: 12px; text-transform: uppercase; letter-spacing: 0.5px; }
+  td { padding: 12px 16px; border-bottom: 1px solid var(--border); }
+  tbody tr:nth-child(even) { background: var(--bg); }
+  tbody tr:hover { background: #fef2f0; }
+
+  /* ── TIPS ────────── */
+  .tip { display: flex; gap: 14px; padding: 18px 20px; border-radius: 12px; margin: 20px 0; font-size: 14px; }
+  .tip-icon { font-size: 22px; flex-shrink: 0; }
+  .tip-info { background: #eff6ff; border: 1px solid #bfdbfe; color: #1e40af; }
+  .tip-success { background: #f0fdf4; border: 1px solid #bbf7d0; color: #166534; }
+  .tip-warning { background: #fffbeb; border: 1px solid #fde68a; color: #92400e; }
+
+  /* ── MENU GRID ──── */
+  .menu-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 14px; }
+  .menu-item {
+    display: flex; align-items: center; gap: 12px;
+    background: var(--bg); border: 1px solid var(--border); border-radius: 12px; padding: 14px 16px;
+  }
+  .menu-icon { font-size: 24px; flex-shrink: 0; }
+  .menu-label { font-weight: 600; font-size: 13px; color: var(--navy); }
+  .menu-sub { font-size: 11px; color: var(--text-secondary); }
+
+  /* ── CHECKLIST ───── */
+  .checklist { list-style: none; padding: 0; }
+  .checklist li { padding: 10px 14px; font-size: 14px; display: flex; align-items: center; gap: 10px; border-bottom: 1px solid var(--border); }
+  .checklist li:last-child { border-bottom: none; }
+  .check { color: var(--success); font-size: 18px; flex-shrink: 0; }
+
+  /* ── FOOTER ─────── */
+  .footer {
+    text-align: center; padding: 60px 24px 40px; color: var(--text-secondary);
+    font-size: 13px; border-top: 1px solid var(--border); margin-top: 80px;
+  }
+  .footer a { color: var(--primary); text-decoration: none; font-weight: 600; }
+
+  /* ── PRINT ──────── */
+  @media print {
+    body { background: white; }
+    .cover { min-height: auto; padding: 80px 40px; page-break-after: always; }
+    .toc { page-break-after: always; }
+    .section { page-break-before: always; }
+    .tip, .card { break-inside: avoid; }
+    .screenshot-wrap img { box-shadow: none; border: 2px solid var(--border); }
+  }
+</style>
+</head>
+<body>
+
+<!-- ═══════════════ COVER ═══════════════ -->
+<div class="cover">
+  <div class="cover-badge">Manual Oficial — Painel Administrativo</div>
+  <div class="cover-icon">🛡️</div>
+  <h1>Bem-Vindo,<br>Síndico!</h1>
+  <h2>Guia Completo do Painel Administrativo Mobile</h2>
+  <div class="cover-platform">📱 Versão Mobile — iOS & Android</div>
+  <div class="cover-version">Condomeet v2 • Março 2026</div>
+</div>
+
+<!-- ═══════════════ TOC ═══════════════ -->
+<div class="toc">
+  <h2>📑 Índice</h2>
+  <div class="toc-grid">
+    <a href="#instalacao" class="toc-item"><span class="toc-num">1</span> Instalando o App</a>
+    <a href="#login" class="toc-item"><span class="toc-num">2</span> Login e Tela Inicial</a>
+    <a href="#acesso-admin" class="toc-item"><span class="toc-num">3</span> Acessando o Painel Admin</a>
+    <a href="#home-admin" class="toc-item"><span class="toc-num">4</span> Home Administrativa</a>
+    <a href="#encomendas" class="toc-item"><span class="toc-num">5</span> Encomendas do Condomínio</a>
+    <a href="#ocorrencias" class="toc-item"><span class="toc-num">6</span> Livro de Ocorrências</a>
+    <a href="#aprovar-morador" class="toc-item"><span class="toc-num">7</span> Aprovar Cadastro</a>
+    <a href="#aprovar-classificados" class="toc-item"><span class="toc-num">8</span> Aprovar Classificados</a>
+    <a href="#avisos" class="toc-item"><span class="toc-num">9</span> Enviar Aviso</a>
+    <a href="#fale-conosco" class="toc-item"><span class="toc-num">10</span> Fale Conosco</a>
+    <a href="#documentos" class="toc-item"><span class="toc-num">11</span> Documentos</a>
+    <a href="#contratos" class="toc-item"><span class="toc-num">12</span> Contratos</a>
+    <a href="#album" class="toc-item"><span class="toc-num">13</span> Álbum de Fotos</a>
+    <a href="#estrutura" class="toc-item"><span class="toc-num">14</span> Estrutura do Condomínio</a>
+    <a href="#configurar-menu" class="toc-item"><span class="toc-num">15</span> Configurar Acesso/Menu</a>
+    <a href="#checklist" class="toc-item"><span class="toc-num">16</span> Checklist Final</a>
+  </div>
+</div>
+
+<div class="container">
+
+  <!-- ═══════════════ 1. INSTALAÇÃO ═══════════════ -->
+  <div class="section" id="instalacao">
+    <div class="section-header">
+      <span class="section-icon">📲</span>
+      <div class="section-num">Capítulo 1</div>
+      <h2 class="section-title">Instalando o App</h2>
+      <p class="section-desc">Baixe o Condomeet no seu celular</p>
+    </div>
+    <div class="card">
+      <h3>📱 Download</h3>
+      <div class="feat-grid">
+        <div class="feat">
+          <span class="feat-icon">🍎</span>
+          <span class="feat-name">iPhone (iOS)</span>
+          <span class="feat-desc">App Store → Pesquise "Condomeet" → Instalar</span>
+        </div>
+        <div class="feat">
+          <span class="feat-icon">🤖</span>
+          <span class="feat-name">Android</span>
+          <span class="feat-desc">Play Store → Pesquise "Condomeet" → Instalar</span>
+        </div>
+      </div>
+    </div>
+    <div class="tip tip-info">
+      <span class="tip-icon">💡</span>
+      <div><strong>Importante:</strong> Após instalar, permita as <strong>notificações push</strong> para receber alertas de novos cadastros, encomendas e mensagens dos moradores em tempo real.</div>
+    </div>
+  </div>
+
+  <!-- ═══════════════ 2. LOGIN ═══════════════ -->
+  <div class="section" id="login">
+    <div class="section-header">
+      <span class="section-icon">🔐</span>
+      <div class="section-num">Capítulo 2</div>
+      <h2 class="section-title">Login e Tela Inicial</h2>
+      <p class="section-desc">Acesse o app com suas credenciais de síndico</p>
+    </div>
+    <div class="card">
+      <h3>🚀 Fazendo Login</h3>
+      <div class="timeline">
+        <div class="step"><div class="step-dot">1</div>
+          <h4>Abra o aplicativo Condomeet</h4>
+          <p>Na tela inicial, você verá o logo, os campos de <strong>e-mail</strong> e <strong>senha</strong>, além do botão <strong>"Acessar"</strong>.</p>
+        </div>
+        <div class="step"><div class="step-dot">2</div>
+          <h4>Digite suas credenciais</h4>
+          <p>Use o e-mail e senha cadastrados. Marque <strong>"Lembrar Senha"</strong> para não precisar digitar novamente.</p>
+        </div>
+        <div class="step"><div class="step-dot">3</div>
+          <h4>Toque em "Acessar"</h4>
+          <p>Você será levado à <strong>tela principal</strong> com todos os botões de acesso rápido.</p>
+        </div>
+      </div>
+      <div class="screenshot-wrap">
+        <img src="imagens/mobile/Painel admin (sindico)/1_home inicio.png" alt="Tela de login do Condomeet">
+        <div class="screenshot-caption">Tela de login — Digite e-mail e senha para acessar</div>
+      </div>
+      <div class="tip tip-info">
+        <span class="tip-icon">🔑</span>
+        <div><strong>Esqueceu a senha?</strong> Toque em "Esqueci a senha" na tela de login. Você receberá um <strong>código por WhatsApp</strong> para criar uma nova senha.</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══════════════ 3. ACESSO AO PAINEL ADMIN ═══════════════ -->
+  <div class="section" id="acesso-admin">
+    <div class="section-header">
+      <span class="section-icon">🛡️</span>
+      <div class="section-num">Capítulo 3</div>
+      <h2 class="section-title">Acessando o Painel Admin</h2>
+      <p class="section-desc">Como encontrar e acessar a área exclusiva do síndico</p>
+    </div>
+    <div class="card">
+      <h3>📍 Onde encontrar o Painel Administrativo</h3>
+      <div class="timeline">
+        <div class="step"><div class="step-dot">1</div>
+          <h4>Na tela inicial, toque na sua foto de perfil</h4>
+          <p>Isso abrirá o <strong>Menu Lateral</strong> (drawer) com suas informações e opções.</p>
+        </div>
+        <div class="step"><div class="step-dot">2</div>
+          <h4>Observe o badge "ADMIN"</h4>
+          <p>Ao lado do seu nome, você verá a tag <strong>ADMIN</strong>, indicando que tem privilégios de síndico.</p>
+        </div>
+        <div class="step"><div class="step-dot">3</div>
+          <h4>Toque em "Página do Administrador"</h4>
+          <p>No rodapé do menu lateral, toque no botão rosa <strong>"Página do Administrador"</strong> para entrar no painel exclusivo.</p>
+        </div>
+      </div>
+      <div class="screenshot-row">
+        <div class="screenshot-wrap">
+          <img src="imagens/mobile/Painel admin (sindico)/9_ home (pagina principal).png" alt="Tela principal do app">
+          <div class="screenshot-caption">Tela principal — Toque na foto de perfil</div>
+        </div>
+        <div class="screenshot-wrap">
+          <img src="imagens/mobile/Painel admin (sindico)/9_1_menu lateral.png" alt="Menu lateral com botão Admin">
+          <div class="screenshot-caption">Menu lateral — Botão "Página do Administrador"</div>
+        </div>
+      </div>
+      <div class="tip tip-success">
+        <span class="tip-icon">✅</span>
+        <div><strong>Exclusivo para síndicos:</strong> O botão "Página do Administrador" só aparece para usuários com perfil de <strong>Síndico</strong> ou <strong>Sub Síndico</strong>. Moradores comuns não veem essa opção.</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══════════════ 4. HOME ADMIN ═══════════════ -->
+  <div class="section" id="home-admin">
+    <div class="section-header">
+      <span class="section-icon">🏠</span>
+      <div class="section-num">Capítulo 4</div>
+      <h2 class="section-title">Home Administrativa</h2>
+      <p class="section-desc">O painel central com todas as funções de gestão</p>
+    </div>
+    <div class="card">
+      <h3>📊 Visão Geral do Painel</h3>
+      <p style="font-size:14px; color:var(--text-secondary); margin-bottom:16px;">Ao acessar o Painel Administrativo, você verá uma grade organizada com todos os botões de gestão. Cada botão leva a uma função específica:</p>
+      <div class="screenshot-wrap">
+        <img src="imagens/mobile/Painel admin (sindico)/10_Home admin princ.png" alt="Home do Painel Administrativo">
+        <div class="screenshot-caption">Home do Painel Administrativo — Todos os botões de gestão</div>
+      </div>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>Botão</th><th>Função</th></tr></thead>
+          <tbody>
+            <tr><td>📦 <strong>Encomendas do Cond.</strong></td><td>Gerenciar todas as encomendas do condomínio</td></tr>
+            <tr><td>📖 <strong>Livro de Ocorrência</strong></td><td>Visualizar e responder ocorrências dos moradores</td></tr>
+            <tr><td>👥 <strong>Aprovar Cadastro</strong></td><td>Aprovar ou rejeitar moradores pendentes</td></tr>
+            <tr><td>🛒 <strong>Aprovar Classificados</strong></td><td>Moderar anúncios dos moradores</td></tr>
+            <tr><td>📢 <strong>Enviar Aviso</strong></td><td>Enviar comunicados para todos os moradores</td></tr>
+            <tr><td>💬 <strong>Fale Conosco</strong></td><td>Responder mensagens dos moradores</td></tr>
+            <tr><td>📄 <strong>Documentos</strong></td><td>Upload de documentos do condomínio</td></tr>
+            <tr><td>📋 <strong>Contratos</strong></td><td>Gerenciar contratos de prestadores</td></tr>
+            <tr><td>📸 <strong>Álbum de Fotos</strong></td><td>Criar álbuns de eventos e melhorias</td></tr>
+            <tr><td>🏢 <strong>Estrutura</strong></td><td>Gerenciar blocos, apartamentos e unidades</td></tr>
+            <tr><td>⚙️ <strong>Configurar Menu</strong></td><td>Controlar quais perfis têm acesso a cada função</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══════════════ 5. ENCOMENDAS ═══════════════ -->
+  <div class="section" id="encomendas">
+    <div class="section-header">
+      <span class="section-icon">📦</span>
+      <div class="section-num">Capítulo 5</div>
+      <h2 class="section-title">Encomendas do Condomínio</h2>
+      <p class="section-desc">Visualize e gerencie todas as encomendas recebidas</p>
+    </div>
+    <div class="card">
+      <h3>📦 Como gerenciar encomendas</h3>
+      <div class="timeline">
+        <div class="step"><div class="step-dot">1</div>
+          <h4>Toque em "Encomendas do Cond."</h4>
+          <p>Você verá a lista completa das encomendas recebidas no condomínio.</p>
+        </div>
+        <div class="step"><div class="step-dot">2</div>
+          <h4>Verifique os dados de cada encomenda</h4>
+          <p>Cada item mostra: <strong>destinatário</strong>, <strong>bloco/apto</strong>, <strong>data de chegada</strong>, <strong>tipo</strong> (Caixa, Envelope, Sacola...) e <strong>status</strong>.</p>
+        </div>
+        <div class="step"><div class="step-dot">3</div>
+          <h4>Confirme a retirada</h4>
+          <p>Quando o morador retirar a encomenda, toque para confirmar a entrega. O morador recebe a notificação.</p>
+        </div>
+      </div>
+      <div class="screenshot-wrap">
+        <img src="imagens/mobile/Painel admin (sindico)/11_encomendas do condominio.png" alt="Encomendas do Condomínio">
+        <div class="screenshot-caption">Lista de encomendas — Pendentes, entregues e histórico</div>
+      </div>
+      <div class="tip tip-success">
+        <span class="tip-icon">🔔</span>
+        <div><strong>Notificação automática:</strong> Quando uma encomenda é registrada, o morador recebe automaticamente uma notificação push e via WhatsApp avisando que possui uma encomenda na portaria.</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══════════════ 6. OCORRÊNCIAS ═══════════════ -->
+  <div class="section" id="ocorrencias">
+    <div class="section-header">
+      <span class="section-icon">📖</span>
+      <div class="section-num">Capítulo 6</div>
+      <h2 class="section-title">Livro de Ocorrências</h2>
+      <p class="section-desc">Registros de incidentes e problemas do condomínio</p>
+    </div>
+    <div class="card">
+      <h3>📖 Como gerenciar ocorrências</h3>
+      <div class="timeline">
+        <div class="step"><div class="step-dot">1</div>
+          <h4>Toque em "Livro de Ocorrência"</h4>
+          <p>Veja todas as ocorrências registradas pelos moradores e funcionários.</p>
+        </div>
+        <div class="step"><div class="step-dot">2</div>
+          <h4>Analise cada ocorrência</h4>
+          <p>Cada registro mostra: <strong>data</strong>, <strong>hora</strong>, <strong>descrição do ocorrido</strong> e <strong>quem registrou</strong>.</p>
+        </div>
+        <div class="step"><div class="step-dot">3</div>
+          <h4>Registre sua resposta</h4>
+          <p>Adicione observações, altere o status e tomem as providências necessárias.</p>
+        </div>
+      </div>
+      <div class="screenshot-wrap">
+        <img src="imagens/mobile/Painel admin (sindico)/12_Livro ocorrencia.png" alt="Livro de Ocorrências">
+        <div class="screenshot-caption">Livro de Ocorrências — Registros detalhados com data e hora</div>
+      </div>
+      <div class="tip tip-warning">
+        <span class="tip-icon">⚠️</span>
+        <div><strong>Dica:</strong> Responda as ocorrências o mais rápido possível. Isso demonstra proatividade na gestão e aumenta a confiança dos moradores no síndico.</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══════════════ 7. APROVAR CADASTRO ═══════════════ -->
+  <div class="section" id="aprovar-morador">
+    <div class="section-header">
+      <span class="section-icon">👥</span>
+      <div class="section-num">Capítulo 7</div>
+      <h2 class="section-title">Aprovar Cadastro de Morador</h2>
+      <p class="section-desc">Valide e libere o acesso de novos moradores ao sistema</p>
+    </div>
+    <div class="card">
+      <h3>👥 Como aprovar novos moradores</h3>
+      <div class="timeline">
+        <div class="step"><div class="step-dot">1</div>
+          <h4>Toque em "Aprovar Cadastro de Morador"</h4>
+          <p>Veja a lista de moradores com cadastro <strong>Pendente</strong>.</p>
+        </div>
+        <div class="step"><div class="step-dot">2</div>
+          <h4>Verifique os dados do morador</h4>
+          <p>Confira: <strong>nome completo</strong>, <strong>bloco</strong>, <strong>apartamento</strong> e <strong>perfil</strong> (Morador, Proprietário, Inquilino, etc.).</p>
+        </div>
+        <div class="step"><div class="step-dot">3</div>
+          <h4>Aprove ou Rejeite</h4>
+          <p>✅ <strong>Aprovar</strong>: o morador passa a ter acesso completo ao sistema.<br>
+          ❌ <strong>Rejeitar</strong>: o acesso é negado e o morador é notificado.</p>
+        </div>
+      </div>
+      <div class="screenshot-wrap">
+        <img src="imagens/mobile/Painel admin (sindico)/13_aprovar cadastro.png" alt="Aprovar Cadastro de Morador">
+        <div class="screenshot-caption">Aprovar Cadastro — Lista de moradores pendentes com opção de aprovar ou rejeitar</div>
+      </div>
+      <div class="tip tip-warning">
+        <span class="tip-icon">🔒</span>
+        <div><strong>Segurança:</strong> Sempre confirme se a pessoa realmente mora no endereço informado antes de aprovar. Isso garante a segurança de todo o condomínio.</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══════════════ 8. APROVAR CLASSIFICADOS ═══════════════ -->
+  <div class="section" id="aprovar-classificados">
+    <div class="section-header">
+      <span class="section-icon">🛒</span>
+      <div class="section-num">Capítulo 8</div>
+      <h2 class="section-title">Aprovar Classificados</h2>
+      <p class="section-desc">Modere os anúncios publicados pelos moradores</p>
+    </div>
+    <div class="card">
+      <h3>🛒 Como moderar classificados</h3>
+      <div class="timeline">
+        <div class="step"><div class="step-dot">1</div>
+          <h4>Toque em "Aprovar Classificados"</h4>
+          <p>Veja os anúncios organizados por abas: <strong>Pendente</strong>, <strong>Aprovado</strong> e <strong>Rejeitado</strong>.</p>
+        </div>
+        <div class="step"><div class="step-dot">2</div>
+          <h4>Analise o anúncio</h4>
+          <p>Cada anúncio mostra: <strong>foto do produto</strong>, <strong>nome</strong>, <strong>dono</strong>, <strong>bloco/apto</strong>, <strong>preço</strong> e <strong>data</strong>.</p>
+        </div>
+        <div class="step"><div class="step-dot">3</div>
+          <h4>Aprove ou Rejeite</h4>
+          <p>Aprove se o anúncio respeita as regras do condomínio. Rejeite anúncios impróprios ou que violem as normas.</p>
+        </div>
+      </div>
+      <div class="screenshot-wrap">
+        <img src="imagens/mobile/Painel admin (sindico)/15_aprovar classificados.png" alt="Aprovar Classificados">
+        <div class="screenshot-caption">Aprovar Classificados — Abas Pendente / Aprovado / Rejeitado</div>
+      </div>
+      <div class="tip tip-info">
+        <span class="tip-icon">💡</span>
+        <div><strong>Dica:</strong> A moderação evita anúncios impróprios e mantém o ambiente dos classificados organizado e seguro para todos os moradores.</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══════════════ 9. ENVIAR AVISO ═══════════════ -->
+  <div class="section" id="avisos">
+    <div class="section-header">
+      <span class="section-icon">📢</span>
+      <div class="section-num">Capítulo 9</div>
+      <h2 class="section-title">Enviar Aviso</h2>
+      <p class="section-desc">Comunique-se com todos os moradores instantaneamente</p>
+    </div>
+    <div class="card">
+      <h3>📢 Como enviar um aviso</h3>
+      <div class="timeline">
+        <div class="step"><div class="step-dot">1</div>
+          <h4>Toque em "Enviar Aviso"</h4>
+          <p>Acesse a tela de criação de avisos com um formulário simples.</p>
+        </div>
+        <div class="step"><div class="step-dot">2</div>
+          <h4>Preencha o Título e a Mensagem</h4>
+          <p>Escreva um <strong>título claro</strong> (até 40 caracteres) e uma <strong>mensagem detalhada</strong>. Exemplo: <em>"Manutenção da piscina dia 15/04"</em>.</p>
+        </div>
+        <div class="step"><div class="step-dot">3</div>
+          <h4>Toque em "Enviar Aviso"</h4>
+          <p>Todos os moradores recebem <strong>notificação push</strong> instantaneamente no celular.</p>
+        </div>
+      </div>
+      <div class="screenshot-wrap">
+        <img src="imagens/mobile/Painel admin (sindico)/16_enviar aviso.png" alt="Enviar Aviso">
+        <div class="screenshot-caption">Enviar Aviso — Formulário de criação e histórico de avisos enviados</div>
+      </div>
+      <div class="tip tip-success">
+        <span class="tip-icon">📋</span>
+        <div><strong>Histórico:</strong> Abaixo do formulário, você verá a seção <strong>"Avisos enviados"</strong> com todo o histórico. Você pode excluir avisos antigos tocando no ícone de lixeira 🗑️.</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══════════════ 10. FALE CONOSCO ═══════════════ -->
+  <div class="section" id="fale-conosco">
+    <div class="section-header">
+      <span class="section-icon">💬</span>
+      <div class="section-num">Capítulo 10</div>
+      <h2 class="section-title">Fale Conosco</h2>
+      <p class="section-desc">Canal de comunicação direta com os moradores</p>
+    </div>
+    <div class="card">
+      <h3>💬 Como responder mensagens</h3>
+      <div class="timeline">
+        <div class="step"><div class="step-dot">1</div>
+          <h4>Toque em "Fale Conosco"</h4>
+          <p>Veja a lista de mensagens dos moradores, organizadas por <strong>nome</strong>, <strong>bloco/apto</strong>, <strong>tipo</strong> (Reclamação, Elogio, etc.) e <strong>data</strong>.</p>
+        </div>
+        <div class="step"><div class="step-dot">2</div>
+          <h4>Toque na seta verde →</h4>
+          <p>Abra a conversa para ler a mensagem completa e responder ao morador.</p>
+        </div>
+        <div class="step"><div class="step-dot">3</div>
+          <h4>Responda e acompanhe</h4>
+          <p>Sua resposta chega como notificação ao morador. Funciona como um <strong>mini-chat</strong> organizado.</p>
+        </div>
+      </div>
+      <div class="screenshot-wrap">
+        <img src="imagens/mobile/Painel admin (sindico)/17_fale conosco.png" alt="Fale Conosco">
+        <div class="screenshot-caption">Fale Conosco — Mensagens dos moradores com tipo e data</div>
+      </div>
+      <div class="tip tip-info">
+        <span class="tip-icon">💡</span>
+        <div><strong>Organização:</strong> As mensagens são categorizadas por tipo (Reclamação, Sugestão, Elogio), facilitando a priorização e organização das respostas.</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══════════════ 11. DOCUMENTOS ═══════════════ -->
+  <div class="section" id="documentos">
+    <div class="section-header">
+      <span class="section-icon">📄</span>
+      <div class="section-num">Capítulo 11</div>
+      <h2 class="section-title">Documentos</h2>
+      <p class="section-desc">Compartilhe documentos importantes com os moradores</p>
+    </div>
+    <div class="card">
+      <h3>📄 Como gerenciar documentos</h3>
+      <div class="timeline">
+        <div class="step"><div class="step-dot">1</div>
+          <h4>Toque em "Documentos"</h4>
+          <p>Acesse a área de documentos com opções de <strong>Inserir documento</strong> e <strong>Criar pasta</strong>.</p>
+        </div>
+        <div class="step"><div class="step-dot">2</div>
+          <h4>Organize em pastas</h4>
+          <p>Crie pastas temáticas (ex: "Atas", "Normas", "Regulamento") e insira os documentos dentro delas.</p>
+        </div>
+        <div class="step"><div class="step-dot">3</div>
+          <h4>Faça upload de PDFs e imagens</h4>
+          <p>Os moradores poderão acessar esses documentos diretamente pelo app.</p>
+        </div>
+      </div>
+      <div class="screenshot-wrap">
+        <img src="imagens/mobile/Painel admin (sindico)/18_documento.png" alt="Documentos">
+        <div class="screenshot-caption">Documentos — Pastas e arquivos organizados</div>
+      </div>
+      <div class="tip tip-success">
+        <span class="tip-icon">📁</span>
+        <div><strong>Boas práticas:</strong> Use pastas para categorizar: <em>Atas de Assembleia</em>, <em>Regimento Interno</em>, <em>Prestação de Contas</em>, <em>Normas do Condomínio</em>.</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══════════════ 12. CONTRATOS ═══════════════ -->
+  <div class="section" id="contratos">
+    <div class="section-header">
+      <span class="section-icon">📋</span>
+      <div class="section-num">Capítulo 12</div>
+      <h2 class="section-title">Contratos</h2>
+      <p class="section-desc">Gerencie contratos de prestadores de serviço</p>
+    </div>
+    <div class="card">
+      <h3>📋 Como gerenciar contratos</h3>
+      <div class="timeline">
+        <div class="step"><div class="step-dot">1</div>
+          <h4>Toque em "Contratos"</h4>
+          <p>Acesse a área de contratos — funciona igual aos Documentos, com <strong>Inserir contrato</strong> e <strong>Criar pasta</strong>.</p>
+        </div>
+        <div class="step"><div class="step-dot">2</div>
+          <h4>Organize por prestador ou tipo</h4>
+          <p>Crie pastas por fornecedor (ex: "Segurança", "Limpeza", "Manutenção") para manter tudo organizado.</p>
+        </div>
+      </div>
+      <div class="screenshot-wrap">
+        <img src="imagens/mobile/Painel admin (sindico)/19_contrato.png" alt="Contratos">
+        <div class="screenshot-caption">Contratos — Área para upload e organização de contratos</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══════════════ 13. ÁLBUM DE FOTOS ═══════════════ -->
+  <div class="section" id="album">
+    <div class="section-header">
+      <span class="section-icon">📸</span>
+      <div class="section-num">Capítulo 13</div>
+      <h2 class="section-title">Álbum de Fotos</h2>
+      <p class="section-desc">Registre eventos e melhorias do condomínio</p>
+    </div>
+    <div class="card">
+      <h3>📸 Como criar um álbum</h3>
+      <div class="timeline">
+        <div class="step"><div class="step-dot">1</div>
+          <h4>Toque em "Álbum de Fotos"</h4>
+          <p>Acesse o formulário <strong>"Criar novo álbum"</strong> na parte superior da tela.</p>
+        </div>
+        <div class="step"><div class="step-dot">2</div>
+          <h4>Preencha os detalhes</h4>
+          <p>Informe o <strong>Nome do Evento</strong>, selecione o <strong>Tipo</strong> (Evento 🎉, Manutenção 🔧, Reunião 👥, Outros 📌), adicione uma <strong>descrição</strong> e <strong>data</strong>.</p>
+        </div>
+        <div class="step"><div class="step-dot">3</div>
+          <h4>Adicione fotos (máx. 5)</h4>
+          <p>Toque em <strong>"Adicionar fotos"</strong> para selecionar imagens da galeria.</p>
+        </div>
+        <div class="step"><div class="step-dot">4</div>
+          <h4>Toque em "Criar Álbum"</h4>
+          <p>O álbum fica visível para todos os moradores na seção <strong>"Álbuns publicados"</strong>.</p>
+        </div>
+      </div>
+      <div class="screenshot-wrap">
+        <img src="imagens/mobile/Painel admin (sindico)/20_album.png" alt="Álbum de Fotos">
+        <div class="screenshot-caption">Álbum de Fotos — Formulário de criação com tipo e fotos</div>
+      </div>
+      <div class="tip tip-info">
+        <span class="tip-icon">📷</span>
+        <div><strong>Dica:</strong> Registre eventos como festas juninas, reformas concluídas e melhorias. Isso fortalece o senso de comunidade e mantém todos informados!</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══════════════ 14. ESTRUTURA ═══════════════ -->
+  <div class="section" id="estrutura">
+    <div class="section-header">
+      <span class="section-icon">🏢</span>
+      <div class="section-num">Capítulo 14</div>
+      <h2 class="section-title">Estrutura do Condomínio</h2>
+      <p class="section-desc">Gerencie blocos, apartamentos e unidades</p>
+    </div>
+    <div class="card">
+      <h3>🏢 Gerenciar a estrutura</h3>
+      <p style="font-size:14px; color:var(--text-secondary); margin-bottom:16px;">A tela de Estrutura possui <strong>3 abas</strong>:</p>
+      <div class="feat-grid">
+        <div class="feat">
+          <span class="feat-icon">🏗️</span>
+          <span class="feat-name">Blocos</span>
+          <span class="feat-desc">Gerenciar os blocos/torres do condomínio</span>
+        </div>
+        <div class="feat">
+          <span class="feat-icon">🚪</span>
+          <span class="feat-name">Aptos</span>
+          <span class="feat-desc">Gerenciar os apartamentos de cada bloco</span>
+        </div>
+        <div class="feat">
+          <span class="feat-icon">🔲</span>
+          <span class="feat-name">Unidades</span>
+          <span class="feat-desc">Visualizar todas as unidades geradas</span>
+        </div>
+      </div>
+      <div class="screenshot-wrap">
+        <img src="imagens/mobile/Painel admin (sindico)/21_estrutura cond.png" alt="Estrutura do Condomínio">
+        <div class="screenshot-caption">Estrutura — Abas Blocos / Aptos / Unidades com botão de adicionar</div>
+      </div>
+      <div class="tip tip-info">
+        <span class="tip-icon">🖥️</span>
+        <div><strong>Recomendação:</strong> Para a configuração inicial (cadastrar muitos blocos e aptos), use o <strong>Painel Web</strong> no computador. O app é ideal para <strong>consultas rápidas</strong> e pequenos ajustes.</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══════════════ 15. CONFIGURAR MENU ═══════════════ -->
+  <div class="section" id="configurar-menu">
+    <div class="section-header">
+      <span class="section-icon">⚙️</span>
+      <div class="section-num">Capítulo 15</div>
+      <h2 class="section-title">Configurar Acesso / Menu</h2>
+      <p class="section-desc">Controle quais perfis podem acessar cada função do app</p>
+    </div>
+    <div class="card">
+      <h3>⚙️ Como configurar o acesso</h3>
+      <div class="timeline">
+        <div class="step"><div class="step-dot">1</div>
+          <h4>Toque em "Configurar Menu"</h4>
+          <p>Acesse a tela com duas abas: <strong>Acesso</strong> e <strong>Ordem</strong>.</p>
+        </div>
+        <div class="step"><div class="step-dot">2</div>
+          <h4>Navegue entre as funções</h4>
+          <p>Use as setas ◀ ▶ para navegar entre as funções (ex: Autorizar Visitante, Encomendas, Reservas, etc.).</p>
+        </div>
+        <div class="step"><div class="step-dot">3</div>
+          <h4>Marque/desmarque perfis</h4>
+          <p>Toque nos perfis para <strong>habilitar ✅</strong> ou <strong>desabilitar</strong> o acesso. Perfis disponíveis: Morador, Proprietário, Inquilino, Locatário, Funcionário, Porteiro, Zelador, Síndico, Sub Síndico.</p>
+        </div>
+        <div class="step"><div class="step-dot">4</div>
+          <h4>Toque em "Salvar"</h4>
+          <p>As alterações entram em vigor imediatamente para todos os usuários afetados.</p>
+        </div>
+      </div>
+      <div class="screenshot-wrap">
+        <img src="imagens/mobile/Painel admin (sindico)/22_configurar acesso.png" alt="Configurar Menu">
+        <div class="screenshot-caption">Configurar Menu — Escolha quais perfis podem ver cada função</div>
+      </div>
+      <div class="tip tip-warning">
+        <span class="tip-icon">⚠️</span>
+        <div><strong>Atenção:</strong> Desmarcar um perfil remove a função do menu daquele tipo de usuário automaticamente. Tenha cuidado para não remover acessos essenciais.</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══════════════ 16. CHECKLIST ═══════════════ -->
+  <div class="section" id="checklist">
+    <div class="section-header">
+      <span class="section-icon">✅</span>
+      <div class="section-num">Capítulo 16</div>
+      <h2 class="section-title">Checklist Final</h2>
+      <p class="section-desc">Confirme que seu painel administrativo está operacional</p>
+    </div>
+    <div class="card">
+      <h3>📝 Lista de Verificação — Painel Admin Mobile</h3>
+      <ul class="checklist">
+        <li><span class="check">☐</span> App Condomeet instalado no celular</li>
+        <li><span class="check">☐</span> Login realizado com meu e-mail de síndico</li>
+        <li><span class="check">☐</span> Permiti notificações push no celular</li>
+        <li><span class="check">☐</span> Acessei a "Página do Administrador" pelo menu lateral</li>
+        <li><span class="check">☐</span> Aprovei um morador pendente de teste</li>
+        <li><span class="check">☐</span> Enviei um aviso de teste para os moradores</li>
+        <li><span class="check">☐</span> Respondi uma mensagem no "Fale Conosco"</li>
+        <li><span class="check">☐</span> Verifiquei as encomendas pendentes</li>
+        <li><span class="check">☐</span> Revisou o livro de ocorrências</li>
+        <li><span class="check">☐</span> Upload de um documento de teste</li>
+        <li><span class="check">☐</span> Configurei os acessos do menu para cada perfil</li>
+      </ul>
+    </div>
+
+    <div class="tip tip-success" style="margin:30px 0;">
+      <span class="tip-icon">🎉</span>
+      <div><strong>Painel configurado!</strong> Use o app mobile para o gerenciamento diário (aprovações, avisos, fale conosco) e o painel web para configurações mais complexas (estrutura, áreas comuns, assembleias).</div>
+    </div>
+
+    <div class="tip tip-info">
+      <span class="tip-icon">🖥️</span>
+      <div>Para funções mais avançadas como cadastrar estrutura completa, configurar áreas comuns com preço e regras, e gerenciar assembleias, consulte o <strong>Manual Web do Síndico</strong> (<em>manual-sindico-web.html</em>).</div>
+    </div>
+  </div>
+
+  <!-- ═══════════════ FOOTER ═══════════════ -->
+  <div class="footer">
+    <p><strong>Condomeet</strong> — Seu condomínio digital</p>
+    <p style="margin-top:8px;"><a href="https://www.condomeet.app.br">www.condomeet.app.br</a></p>
+    <p style="margin-top:16px; font-size:11px; color:#94a3b8;">Manual do Síndico — Painel Administrativo Mobile • Março 2026 • v2.0</p>
+  </div>
+
+</div>
+</body>
+</html>

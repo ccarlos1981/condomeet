@@ -117,7 +117,7 @@ class ListaSubscriptionService {
   /// Get days remaining in trial (0 if expired)
   static Future<int> getDaysRemaining() async {
     final sub = await getSubscription();
-    if (sub == null) return 45;
+    if (sub == null) return 60;
 
     final trialEnds = DateTime.tryParse(sub['trial_ends_at'] ?? '');
     if (trialEnds == null) return 0;

@@ -123,11 +123,11 @@ class _GaragemDetailScreenState extends State<GaragemDetailScreen> {
                         Text(perfil['nome_completo'] ?? 'Morador', style: const TextStyle(fontWeight: FontWeight.w600)),
                       ],
                     ),
-                    if (perfil['bloco_txt'] != null || perfil['apartamento_txt'] != null)
+                    if (perfil['bloco_txt'] != null || perfil['apto_txt'] != null)
                       Padding(
                         padding: const EdgeInsets.only(top: 4),
                         child: Text(
-                          '${perfil['bloco_txt'] ?? ''} ${perfil['apartamento_txt'] ?? ''}'.trim(),
+                          '${perfil['bloco_txt'] ?? ''} ${perfil['apto_txt'] ?? ''}'.trim(),
                           style: TextStyle(fontSize: 12, color: Colors.grey.shade500),
                         ),
                       ),

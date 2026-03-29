@@ -68,38 +68,58 @@ class VistoriaService {
         .select()
         .single();
 
-    // Carregar seções do template
+    // Carregar seções do template (batch optimizado)
     if (templateId.isNotEmpty) {
       final tmplSecoes = await _supabase
           .from('vistoria_template_secoes')
           .select('*')
           .eq('template_id', templateId)
           .order('posicao');
-      for (final s in tmplSecoes) {
-        final secao = await _supabase
-            .from('vistoria_secoes')
-            .insert({
-              'vistoria_id': vistoria['id'],
-              'nome': s['nome'],
-              'icone_emoji': s['icone_emoji'] ?? '🏠',
-              'posicao': s['posicao'],
-            })
-            .select()
-            .single();
 
+      if (tmplSecoes.isNotEmpty) {
+        // 1) Inserir todas as seções de uma vez
+        final secoesRows = tmplSecoes.map((s) => {
+          'vistoria_id': vistoria['id'],
+          'nome': s['nome'],
+          'icone_emoji': s['icone_emoji'] ?? '🏠',
+          'posicao': s['posicao'],
+        }).toList();
+        final secoesInseridas = await _supabase
+            .from('vistoria_secoes')
+            .insert(secoesRows)
+            .select();
+
+        // 2) Buscar todos os itens do template de uma vez
+        final tmplSecaoIds = tmplSecoes.map((s) => s['id'] as String).toList();
         final tmplItens = await _supabase
             .from('vistoria_template_itens')
             .select('*')
-            .eq('secao_id', s['id'])
+            .inFilter('secao_template_id', tmplSecaoIds)
             .order('posicao');
+
+        // 3) Mapear template_secao_id → secao real inserida (por posição)
         if (tmplItens.isNotEmpty) {
-          await _supabase.from('vistoria_itens').insert(
-            tmplItens.map((i) => {
-              'secao_id': secao['id'],
+          final posToSecaoId = <int, String>{};
+          for (final s in secoesInseridas) {
+            posToSecaoId[s['posicao'] as int] = s['id'] as String;
+          }
+          final tmplIdToPos = <String, int>{};
+          for (final s in tmplSecoes) {
+            tmplIdToPos[s['id'] as String] = s['posicao'] as int;
+          }
+
+          final itensRows = tmplItens.map((i) {
+            final tmplSecaoId = i['secao_template_id'] as String;
+            final pos = tmplIdToPos[tmplSecaoId] ?? 0;
+            final realSecaoId = posToSecaoId[pos];
+            return {
+              'secao_id': realSecaoId,
               'nome': i['nome'],
               'posicao': i['posicao'],
-            }).toList(),
-          );
+            };
+          }).toList();
+
+          await _supabase.from('vistoria_itens').insert(itensRows);
         }
       }
     }
@@ -314,7 +334,7 @@ class VistoriaService {
         .from('vistoria_assinaturas')
         .select('*')
         .eq('vistoria_id', vistoriaId)
-        .order('created_at');
+        .order('nome');
     return List<Map<String, dynamic>>.from(data);
   }
 
@@ -376,6 +396,110 @@ class VistoriaService {
         .ilike('endereco', '%$endereco%')
         .order('created_at', ascending: false);
     return List<Map<String, dynamic>>.from(data);
+  }
+
+  /// Load full vistoria data for comparison (sections + items + photos)
+  Future<Map<String, dynamic>> loadFullVistoria(String vistoriaId) async {
+    final vistoria = await _supabase
+        .from('vistorias')
+        .select('*')
+        .eq('id', vistoriaId)
+        .single();
+    final secoes = await listSecoes(vistoriaId);
+    final secaoIds = secoes.map((s) => s['id'] as String).toList();
+    final itens = secaoIds.isEmpty ? <Map<String, dynamic>>[] : await listItens(secaoIds);
+    final itemIds = itens.map((i) => i['id'] as String).toList();
+    final fotos = itemIds.isEmpty ? <Map<String, dynamic>>[] : await listFotos(itemIds);
+    return {
+      'vistoria': vistoria,
+      'secoes': secoes,
+      'itens': itens,
+      'fotos': fotos,
+    };
+  }
+
+  // ═══════════════════════════════════════════════════
+  // Criar Vistoria de Saída a partir de Entrada
+  // ═══════════════════════════════════════════════════
+
+  /// Clona a estrutura de uma vistoria de entrada em uma nova vistoria de saída
+  /// Copia todas as seções e itens, resetando status para permitir re-inspeção
+  Future<Map<String, dynamic>> criarVistoriaSaida(String entradaId) async {
+    // 1) Load original entrada
+    final entrada = await _supabase
+        .from('vistorias')
+        .select('*')
+        .eq('id', entradaId)
+        .single();
+
+    // 2) Create new vistoria as tipo_vistoria = 'saida'
+    final saida = await _supabase
+        .from('vistorias')
+        .insert({
+          'condominio_id': entrada['condominio_id'],
+          'criado_por': _userId,
+          'titulo': entrada['titulo'],
+          'tipo_bem': entrada['tipo_bem'],
+          'tipo_vistoria': 'saida',
+          'template_id': entrada['template_id'],
+          'endereco': entrada['endereco'],
+          'responsavel_nome': entrada['responsavel_nome'] ?? '',
+          'proprietario_nome': entrada['proprietario_nome'] ?? '',
+          'inquilino_nome': entrada['inquilino_nome'] ?? '',
+          'plano': entrada['plano'] ?? 'free',
+        })
+        .select()
+        .single();
+
+    final saidaId = saida['id'] as String;
+
+    // 3) Copy all sections from entrada
+    final secoes = await listSecoes(entradaId);
+    if (secoes.isNotEmpty) {
+      final secoesRows = secoes.map((s) => {
+        'vistoria_id': saidaId,
+        'nome': s['nome'],
+        'icone_emoji': s['icone_emoji'] ?? '🏠',
+        'posicao': s['posicao'],
+      }).toList();
+
+      final novasSecoes = await _supabase
+          .from('vistoria_secoes')
+          .insert(secoesRows)
+          .select();
+
+      // 4) Copy all items (with status reset)
+      final secaoIds = secoes.map((s) => s['id'] as String).toList();
+      final itens = await listItens(secaoIds);
+
+      if (itens.isNotEmpty) {
+        // Map old section position → new section ID
+        final posToNewSecaoId = <int, String>{};
+        for (final s in novasSecoes) {
+          posToNewSecaoId[s['posicao'] as int] = s['id'] as String;
+        }
+        final oldSecaoIdToPos = <String, int>{};
+        for (final s in secoes) {
+          oldSecaoIdToPos[s['id'] as String] = s['posicao'] as int;
+        }
+
+        final itensRows = itens.map((i) {
+          final oldSecaoId = i['secao_id'] as String;
+          final pos = oldSecaoIdToPos[oldSecaoId] ?? 0;
+          final newSecaoId = posToNewSecaoId[pos];
+          return {
+            'secao_id': newSecaoId,
+            'nome': i['nome'],
+            'posicao': i['posicao'],
+            // Status resetado para 'ok' (default) — o vistoriador vai re-inspecionar
+          };
+        }).toList();
+
+        await _supabase.from('vistoria_itens').insert(itensRows);
+      }
+    }
+
+    return saida;
   }
 
   // ═══════════════════════════════════════════════════
