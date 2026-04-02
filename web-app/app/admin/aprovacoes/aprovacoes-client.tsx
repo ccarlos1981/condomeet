@@ -19,23 +19,43 @@ type Filter = 'pendente' | 'aprovado' | 'bloqueado' | 'rejeitado' | 'todos'
 
 export default function AprovacoesClient({ profiles, tipoEstrutura }: { profiles: Profile[]; tipoEstrutura?: string }) {
   const [filter, setFilter] = useState<Filter>('pendente')
+  const [filterBloco, setFilterBloco] = useState<string>('')
+  const [filterApto, setFilterApto] = useState<string>('')
+
   const blocoLabel = getBlocoLabel(tipoEstrutura)
   const aptoLabel = getAptoLabel(tipoEstrutura)
+
+  const blocos = Array.from(new Set(profiles.map(p => p.bloco_txt).filter(Boolean) as string[]))
+  blocos.sort((a, b) => a.localeCompare(b, undefined, { numeric: true }))
+
+  const aptos = Array.from(new Set(
+    profiles
+      .filter(p => !filterBloco || p.bloco_txt === filterBloco)
+      .map(p => p.apto_txt)
+      .filter(Boolean) as string[]
+  ))
+  aptos.sort((a, b) => a.localeCompare(b, undefined, { numeric: true }))
 
   function isPending(p: Profile)  { return !p.status_aprovacao || p.status_aprovacao === 'pendente' }
   function isApproved(p: Profile) { return p.status_aprovacao === 'aprovado' }
   function isBlocked(p: Profile)  { return p.status_aprovacao === 'bloqueado' }
   function isRejected(p: Profile) { return p.status_aprovacao === 'rejeitado' }
 
+  const profilesByLocation = profiles.filter(p => {
+    if (filterBloco && p.bloco_txt !== filterBloco) return false
+    if (filterApto && p.apto_txt !== filterApto) return false
+    return true
+  })
+
   const counts = {
-    todos:     profiles.length,
-    pendente:  profiles.filter(isPending).length,
-    aprovado:  profiles.filter(isApproved).length,
-    bloqueado: profiles.filter(isBlocked).length,
-    rejeitado: profiles.filter(isRejected).length,
+    todos:     profilesByLocation.length,
+    pendente:  profilesByLocation.filter(isPending).length,
+    aprovado:  profilesByLocation.filter(isApproved).length,
+    bloqueado: profilesByLocation.filter(isBlocked).length,
+    rejeitado: profilesByLocation.filter(isRejected).length,
   }
 
-  const filtered = profiles.filter(p => {
+  const filtered = profilesByLocation.filter(p => {
     if (filter === 'todos')     return true
     if (filter === 'pendente')  return isPending(p)
     if (filter === 'aprovado')  return isApproved(p)
@@ -59,24 +79,58 @@ export default function AprovacoesClient({ profiles, tipoEstrutura }: { profiles
         <p className="text-gray-500 text-sm mt-1">Gerencie os cadastros do condomínio.</p>
       </div>
 
-      {/* Filter tabs */}
-      <div className="flex gap-2 flex-wrap mb-5">
-        {FILTERS.map(f => (
-          <button
-            key={f.key}
-            onClick={() => setFilter(f.key)}
-            className={`flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold transition-all ${
-              filter === f.key ? f.activeColor : f.color
-            }`}
+      <div className="flex flex-col md:flex-row gap-4 mb-5 justify-between">
+        {/* Filter tabs */}
+        <div className="flex gap-2 flex-wrap">
+          {FILTERS.map(f => (
+            <button
+              key={f.key}
+              onClick={() => setFilter(f.key)}
+              className={`flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold transition-all ${
+                filter === f.key ? f.activeColor : f.color
+              }`}
+            >
+              {f.label}
+              <span className={`text-xs px-1.5 py-0.5 rounded-full font-bold ${
+                filter === f.key ? 'bg-white/30' : 'bg-white/60'
+              }`}>
+                {counts[f.key]}
+              </span>
+            </button>
+          ))}
+        </div>
+
+        {/* Bloco/Apto Selects */}
+        <div className="flex gap-2">
+          <select
+            aria-label={`Filtrar por ${blocoLabel}`}
+            title={`Filtrar por ${blocoLabel}`}
+            value={filterBloco}
+            onChange={(e) => {
+              setFilterBloco(e.target.value)
+              setFilterApto('')
+            }}
+            className="px-3 py-2 border border-gray-200 rounded-xl text-sm font-medium text-gray-700 bg-white focus:outline-none focus:ring-2 focus:ring-[#FC5931]/20 focus:border-[#FC5931]"
           >
-            {f.label}
-            <span className={`text-xs px-1.5 py-0.5 rounded-full font-bold ${
-              filter === f.key ? 'bg-white/30' : 'bg-white/60'
-            }`}>
-              {counts[f.key]}
-            </span>
-          </button>
-        ))}
+            <option value="">Todos {blocoLabel}s</option>
+            {blocos.map(b => (
+              <option key={b} value={b}>{blocoLabel} {b}</option>
+            ))}
+          </select>
+
+          <select
+            aria-label={`Filtrar por ${aptoLabel}`}
+            title={`Filtrar por ${aptoLabel}`}
+            value={filterApto}
+            onChange={(e) => setFilterApto(e.target.value)}
+            className="px-3 py-2 border border-gray-200 rounded-xl text-sm font-medium text-gray-700 bg-white focus:outline-none focus:ring-2 focus:ring-[#FC5931]/20 focus:border-[#FC5931]"
+          >
+            <option value="">Todos {aptoLabel}s</option>
+            {aptos.map(a => (
+              <option key={a} value={a}>{aptoLabel} {a}</option>
+            ))}
+          </select>
+        </div>
       </div>
 
       {/* List */}
@@ -88,7 +142,6 @@ export default function AprovacoesClient({ profiles, tipoEstrutura }: { profiles
       ) : (
         <div className="grid gap-3">
           {filtered.map(p => {
-            const status = p.status_aprovacao ?? 'pendente'
             const pending   = isPending(p)
             const approved  = isApproved(p)
             const blocked   = isBlocked(p)
@@ -98,7 +151,7 @@ export default function AprovacoesClient({ profiles, tipoEstrutura }: { profiles
               <div key={p.id} className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
                 <div className="flex flex-col sm:flex-row sm:items-center gap-4">
                   {/* Avatar */}
-                  <div className={`w-12 h-12 rounded-xl flex items-center justify-center flex-shrink-0 ${
+                  <div className={`w-12 h-12 rounded-xl flex items-center justify-center shrink-0 ${
                     blocked ? 'bg-red-100' : 'bg-[#FC5931]/10'
                   }`}>
                     {blocked
@@ -131,7 +184,7 @@ export default function AprovacoesClient({ profiles, tipoEstrutura }: { profiles
                   </div>
 
                   {/* Status badge */}
-                  <span className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold flex-shrink-0 ${
+                  <span className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold shrink-0 ${
                     approved  ? 'bg-green-100 text-green-700'  :
                     blocked   ? 'bg-red-100 text-red-700'      :
                     rejected  ? 'bg-gray-100 text-gray-600'    :
@@ -144,7 +197,7 @@ export default function AprovacoesClient({ profiles, tipoEstrutura }: { profiles
                   </span>
 
                   {/* Action buttons — context sensitive */}
-                  <div className="flex gap-2 flex-shrink-0 flex-wrap">
+                  <div className="flex gap-2 shrink-0 flex-wrap">
                     {pending && (
                       <>
                         <ApproveButton profileId={p.id} action="approve" />
