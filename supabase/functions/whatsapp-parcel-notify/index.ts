@@ -133,8 +133,11 @@ Deno.serve(async (req) => {
         // Send photo on 'arrived' if available
         console.log(`Photo URL for parcel: ${parcelData?.photo_url ? 'PRESENT' : 'MISSING'}`)
         if (event === 'arrived' && result.success && parcelData?.photo_url) {
-          // Delay before sending photo (anti-spam + ensure upload complete)
-          await new Promise(res => setTimeout(res, 3000))
+          // Delay randomico (10 a 20s) before sending photo (anti-spam + ensure upload complete)
+          const delayObj = Math.floor(Math.random() * (20000 - 10000 + 1) + 10000)
+          console.log(`Waiting ${delayObj}ms before sending photo to bypass anti-spam...`)
+          await new Promise(res => setTimeout(res, delayObj))
+          
           const photoResult = await sendImageMessage(UAZAPI_URL, UAZAPI_TOKEN, phone, parcelData.photo_url as string, "📸 Foto da encomenda")
           console.log(`Photo to ${profile.nome_completo}: ${photoResult.success ? "✅" : "❌"} ${photoResult.error || ''}`)
         }

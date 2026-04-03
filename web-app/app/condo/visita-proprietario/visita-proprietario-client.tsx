@@ -40,7 +40,7 @@ export default function VisitaProprietarioClient({
   visitas: initialVisitas,
   condoId,
   currentUserId,
-  currentUserName,
+  // currentUserName,
   tipoEstrutura,
   blocos,
   aptosMap,
@@ -138,7 +138,7 @@ export default function VisitaProprietarioClient({
       }
     }, 500)
     return () => clearTimeout(timer)
-  }, [nameInput])
+  }, [nameInput, filterNome])
 
   const filteredVisitas = visitas
 
@@ -221,10 +221,10 @@ export default function VisitaProprietarioClient({
   }
 
   // ── Helpers ────────────────────────────────────────────────
-  function fmtDate(iso: string) {
+  /* function fmtDate(iso: string) {
     const d = new Date(iso)
     return d.toLocaleDateString('pt-BR') + ' – ' + d.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }) + 'h'
-  }
+  } */
 
   function fmtDateShort(iso: string) {
     const d = new Date(iso)
@@ -262,13 +262,13 @@ export default function VisitaProprietarioClient({
           <div className="text-2xl font-bold text-gray-800">{totalCount}</div>
           <div className="text-xs text-gray-500 font-medium mt-1">Total</div>
         </div>
-        <div className="bg-gradient-to-br from-emerald-50 to-emerald-100/50 rounded-2xl border border-emerald-200/50 p-4 text-center">
+        <div className="bg-linear-to-br from-emerald-50 to-emerald-100/50 rounded-2xl border border-emerald-200/50 p-4 text-center">
           <div className="text-2xl font-bold text-emerald-700">{countEntrada}</div>
           <div className="text-xs text-emerald-600 font-medium mt-1 flex items-center justify-center gap-1">
             <LogIn size={12} /> Entradas
           </div>
         </div>
-        <div className="bg-gradient-to-br from-orange-50 to-orange-100/50 rounded-2xl border border-orange-200/50 p-4 text-center">
+        <div className="bg-linear-to-br from-orange-50 to-orange-100/50 rounded-2xl border border-orange-200/50 p-4 text-center">
           <div className="text-2xl font-bold text-orange-700">{countSaida}</div>
           <div className="text-xs text-orange-600 font-medium mt-1 flex items-center justify-center gap-1">
             <LogOutIcon size={12} /> Saídas
@@ -399,7 +399,7 @@ export default function VisitaProprietarioClient({
                 className="bg-white rounded-xl border border-gray-100 p-4 flex items-center gap-4 shadow-sm hover:shadow-md transition-shadow"
               >
                 {/* Type badge */}
-                <div className={`w-11 h-11 rounded-xl flex items-center justify-center flex-shrink-0 ${
+                <div className={`w-11 h-11 rounded-xl flex items-center justify-center shrink-0 ${
                   isEntrada
                     ? 'bg-emerald-100 text-emerald-600'
                     : 'bg-orange-100 text-orange-600'
@@ -431,7 +431,7 @@ export default function VisitaProprietarioClient({
                 {/* Crachá badge — prominent center */}
                 {v.cracha_referencia && (
                   <div className="flex flex-col items-center gap-0.5 shrink-0 px-2">
-                    <div className="bg-gradient-to-br from-amber-100 to-amber-200 border border-amber-300 rounded-xl px-4 py-2 flex items-center gap-2 shadow-sm">
+                    <div className="bg-linear-to-br from-amber-100 to-amber-200 border border-amber-300 rounded-xl px-4 py-2 flex items-center gap-2 shadow-sm">
                       <span className="text-amber-600 text-base">🪪</span>
                       <span className="text-lg font-extrabold text-amber-800 tracking-wide">{v.cracha_referencia}</span>
                     </div>

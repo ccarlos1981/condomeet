@@ -37,11 +37,11 @@ export default async function EditProfilePage() {
       .order('nome_ou_numero')
   )
 
-  const blocos = (blocosData ?? []).map((b: any) => ({ id: b.id, nome_ou_numero: b.nome_ou_numero }))
+  const blocos = (blocosData as any[] ?? []).map((b: any) => ({ id: b.id, nome_ou_numero: b.nome_ou_numero }))
 
   // Find current bloco
   const currentBloco = blocos.find(
-    (b: any) => b.nome_ou_numero.toLowerCase().trim() === (profile.bloco_txt ?? '').toLowerCase().trim()
+    (b: { id: string; nome_ou_numero: string }) => b.nome_ou_numero.toLowerCase().trim() === (profile.bloco_txt ?? '').toLowerCase().trim()
   )
   const currentBlocoId = currentBloco?.id ?? ''
 
@@ -59,7 +59,7 @@ export default async function EditProfilePage() {
     )
 
     if (unidades && unidades.length > 0) {
-      const aptoIds = unidades.map((u: any) => u.apartamento_id)
+      const aptoIds = (unidades as any[]).map((u: any) => u.apartamento_id)
       const aptosData = await fetchAll(
         supabase
           .from('apartamentos')
@@ -68,7 +68,7 @@ export default async function EditProfilePage() {
           .order('numero')
       )
 
-      initialAptos = (aptosData ?? []).map((a: any) => ({ id: a.id, numero: String(a.numero) }))
+      initialAptos = (aptosData as any[] ?? []).map((a: any) => ({ id: a.id, numero: String(a.numero) }))
       initialAptos.sort((a, b) => a.numero.localeCompare(b.numero, undefined, { numeric: true }))
 
       // Find current apto

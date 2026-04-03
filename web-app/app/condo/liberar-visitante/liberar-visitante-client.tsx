@@ -1,7 +1,7 @@
 'use client'
 import { useState, useTransition } from 'react'
 import { createClient } from '@/lib/supabase/client'
-import { useRouter } from 'next/navigation'
+
 import { Clock, CheckCircle, Users, Search, LogOut } from 'lucide-react'
 import { getBlocoLabel, getAptoLabel } from '@/lib/labels'
 
@@ -33,12 +33,11 @@ interface Props {
 
 export default function LiberarVisitanteClient({
   visitantes: initialVisitantes,
-  condoId,
-  userId,
+  // condoId is not used
+  // userId is not used
   tipoEstrutura,
 }: Props) {
-  const router = useRouter()
-  const supabase = createClient()
+    const supabase = createClient()
   const [isPending, startTransition] = useTransition()
   const [visitantes, setVisitantes] = useState(initialVisitantes)
   const [activeTab, setActiveTab] = useState<FilterTab>('pendente')
@@ -152,7 +151,10 @@ export default function LiberarVisitanteClient({
               {/* Photo */}
               <div className="w-16 h-16 rounded-full bg-gray-200 overflow-hidden flex-shrink-0 ring-2 ring-gray-100">
                 {v.foto_url ? (
-                  <img src={v.foto_url} alt={v.nome} className="w-full h-full object-cover" />
+                  <><> <> {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img src={v.foto_url} alt={v.nome} className="w-full h-full object-cover" />
+                </>
+                </></>
                 ) : (
                   <div className="w-full h-full flex items-center justify-center text-gray-400 text-2xl">👤</div>
                 )}

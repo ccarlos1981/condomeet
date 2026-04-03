@@ -161,7 +161,10 @@ export default function ClassificadosAdminClient({
                   {/* Photo */}
                   <div className="w-20 h-20 rounded-xl bg-gray-100 flex-shrink-0 overflow-hidden flex items-center justify-center">
                     {c.foto_url ? (
-                      <img src={c.foto_url} alt={c.titulo} className="w-full h-full object-cover" />
+                      <><> <> {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img src={c.foto_url} alt={c.titulo} className="w-full h-full object-cover" />
+                      </>
+                      </></>
                     ) : (
                       <ImageIcon size={24} className="text-gray-300" />
                     )}

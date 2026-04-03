@@ -1,60 +1,97 @@
+import { createClient as createSupabaseClient } from '@supabase/supabase-js'
 import { createClient } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
-import ChecklistClient from './checklist-client'
+import ChecklistAdminClient from './checklist-client'
 
-export default async function ChecklistPage() {
+export const dynamic = 'force-dynamic'
+
+export default async function ChecklistAdminPage() {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) redirect('/login')
 
-  // Get user's condo
-  const { data: morador } = await supabase
-    .from('moradores')
-    .select('condominio_id')
-    .eq('user_id', user.id)
-    .single()
+  const SUPER_ADMIN_EMAILS = ['ccarlos1981+60@gmail.com', 'cristiano.santos@gmx.com']
+  const isSuperAdmin = SUPER_ADMIN_EMAILS.includes(user.email ?? '')
 
-  if (!morador) redirect('/login')
+  if (!isSuperAdmin) {
+    redirect('/admin')
+  }
 
-  // Load all features status
-  const condoId = morador.condominio_id
+  // 1. Fetch all Vistorias globally (with condo names)
+  const { data: vistoriasData } = await supabase
+    .from('vistorias')
+    .select(`
+      id,
+      condominio_id,
+      plano,
+      tipo_bem,
+      created_at,
+      status,
+      condominios ( nome )
+    `)
 
-  // Garagem: check for vagas
-  const { count: garagemCount } = await supabase
-    .from('garagem_vagas')
-    .select('id', { count: 'exact', head: true })
-    .eq('condominio_id', condoId)
+  const vistorias = vistoriasData || []
 
-  // Lista: check for mercados
-  const { count: mercadosCount } = await supabase
-    .from('lista_supermercados')
-    .select('id', { count: 'exact', head: true })
+  // Calculate Metrics
+  const totalChecklists = vistorias.length
+  
+  // Group by condo
+  const condosMap = new Map<string, { nome: string; count: number; plano: string; last_used: string }>()
+  let countPlus = 0
+  let countFree = 0
+  const tipoBemCounts: Record<string, number> = {}
 
-  // Lista: check for produtos
-  const { count: produtosCount } = await supabase
-    .from('lista_produtos')
-    .select('id', { count: 'exact', head: true })
+  vistorias.forEach(v => {
+    // Plans
+    if (v.plano === 'plus') countPlus++
+    else countFree++
 
-  // Dinglo: check for usuários
-  const { count: dingloUsersCount } = await supabase
-    .from('dinglo_usuarios')
-    .select('id', { count: 'exact', head: true })
+    // Tipos de Bem
+    if (!tipoBemCounts[v.tipo_bem]) tipoBemCounts[v.tipo_bem] = 0
+    tipoBemCounts[v.tipo_bem]++
 
-  // Propaganda: check for ads
-  const { count: propagandaCount } = await supabase
-    .from('propaganda')
-    .select('id', { count: 'exact', head: true })
-    .eq('condominio_id', condoId)
+    // By Condo
+    if (!condosMap.has(v.condominio_id)) {
+      // @ts-ignore
+      const condoName = v.condominios?.nome || 'Condomínio Desconhecido'
+      condosMap.set(v.condominio_id, {
+        nome: condoName,
+        count: 0,
+        plano: v.plano, // Will track the latest or any plan
+        last_used: v.created_at
+      })
+    }
+
+    const condoNode = condosMap.get(v.condominio_id)!
+    condoNode.count++
+    if (new Date(v.created_at) > new Date(condoNode.last_used)) {
+      condoNode.last_used = v.created_at
+      if (v.plano === 'plus') condoNode.plano = 'plus' // upgrade if any is plus
+    }
+  })
+
+  const condosAtivos = Array.from(condosMap.values()).sort((a, b) => b.count - a.count)
+
+  // 2. Fetch Global Templates
+  const { data: templatesData } = await supabase
+    .from('vistoria_templates')
+    .select('*')
+    .eq('is_public', true)
+    .order('created_at', { ascending: false })
+
+  const templatesGlobais = templatesData || []
 
   return (
-    <ChecklistClient
-      stats={{
-        garagem: garagemCount ?? 0,
-        mercados: mercadosCount ?? 0,
-        produtos: produtosCount ?? 0,
-        dingloUsers: dingloUsersCount ?? 0,
-        propaganda: propagandaCount ?? 0,
+    <ChecklistAdminClient
+      metrics={{
+        totalChecklists,
+        totalCondos: condosMap.size,
+        countPlus,
+        countFree,
+        tipoBemCounts
       }}
+      condosUsage={condosAtivos}
+      templates={templatesGlobais}
     />
   )
 }

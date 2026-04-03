@@ -54,7 +54,7 @@ export default async function EstruturaPage() {
       tipoEstrutura={tipoEstrutura}
       blocos={blocosData as { id: string; nome_ou_numero: string }[]}
       apartamentos={aptosData as { id: string; numero: string }[]}
-      unidades={unidadesData.map((u: Record<string, unknown>) => ({
+      unidades={unidadesData.map((u: any) => ({
         id: u.id as string,
         bloco_id: u.bloco_id as string,
         apartamento_id: u.apartamento_id as string,

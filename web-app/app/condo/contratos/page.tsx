@@ -26,11 +26,14 @@ export default async function CondoContratosPage() {
     .order('titulo')
 
   // Agrupa por pasta
+  type ContratoDoc = { id: string; titulo: string; categoria?: string; data_validade?: string; arquivo_url?: string; arquivo_nome?: string; contrato_pastas?: { nome: string } | null | { nome: string }[] }
   const grupos: Record<string, typeof docs> = {}
-  ;(docs ?? []).forEach((d: any) => {
-    const nomePasta = d.contrato_pastas?.nome ?? 'Sem pasta'
+  ;(docs ?? []).forEach((d: ContratoDoc) => {
+    const pastasList = Array.isArray(d.contrato_pastas) ? d.contrato_pastas : [d.contrato_pastas]
+    const nomePasta = pastasList[0]?.nome ?? 'Sem pasta'
     if (!grupos[nomePasta]) grupos[nomePasta] = []
-    grupos[nomePasta]!.push(d)
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    grupos[nomePasta]!.push(d as any)
   })
 
   return (
@@ -64,7 +67,7 @@ export default async function CondoContratosPage() {
                   </tr>
                 </thead>
                 <tbody>
-                  {docsNaPasta?.map((doc: any) => (
+                  {docsNaPasta?.map((doc: ContratoDoc) => (
                     <tr key={doc.id} className="border-t border-gray-50 hover:bg-gray-50/50 transition">
                       <td className="px-5 py-3 font-medium text-gray-800 flex items-center gap-2">
                         <FileText size={14} className="text-[#FC5931] flex-shrink-0" />

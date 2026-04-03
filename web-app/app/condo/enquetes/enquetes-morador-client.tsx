@@ -1,7 +1,7 @@
 'use client'
 import { useState, useMemo } from 'react'
 import { createClient } from '@/lib/supabase/client'
-import { useRouter } from 'next/navigation'
+
 import { X, ChevronRight, BarChart3, ListOrdered } from 'lucide-react'
 
 /* ================================================================
@@ -45,8 +45,7 @@ export default function EnquetesMoradorClient({
   apto,
 }: Props) {
   const supabase = createClient()
-  const router = useRouter()
-
+  
   // Track unit responses locally
   const [unitRespostas, setUnitRespostas] = useState(initialUnitRespostas)
   const [allRespostas, setAllRespostas] = useState(initialAllRespostas)
@@ -79,19 +78,6 @@ export default function EnquetesMoradorClient({
     } catch {
       return d
     }
-  }
-
-  // ── Chart data for an enquete ────────────────────────────
-  function chartDataFor(enquete: Enquete) {
-    const opcoes = [...(enquete.enquete_opcoes ?? [])].sort((a, b) => a.ordem - b.ordem)
-    const counts: Record<string, number> = {}
-    for (const r of allRespostas) {
-      if (r.enquete_id === enquete.id) {
-        counts[r.opcao_id] = (counts[r.opcao_id] || 0) + 1
-      }
-    }
-    const total = opcoes.reduce((s, o) => s + (counts[o.id] || 0), 0)
-    return { opcoes, counts, total }
   }
 
   // ── Open enquete modal ───────────────────────────────────

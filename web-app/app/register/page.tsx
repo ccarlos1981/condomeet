@@ -1,8 +1,8 @@
 'use client'
-import { useState, useCallback } from 'react'
+import { useState, useMemo } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { useRouter } from 'next/navigation'
-import { Search, ChevronLeft, Building2, Mail, Lock, User, Phone, Eye, EyeOff, Check, Loader2 } from 'lucide-react'
+import { Search, ChevronLeft, Building2, Mail, Lock, User, Phone, Eye, EyeOff, Check, Loader2, AlertTriangle } from 'lucide-react'
 import { fetchAll } from '@/lib/supabase/utils'
 
 const TIPO_USUARIO_OPTIONS = [
@@ -30,6 +30,9 @@ const PERFIL_USUARIO_OPTIONS = [
   'Financeiro',
   'Serviços',
 ]
+type Condominio = { id: string; nome: string; endereco?: string; tipo_estrutura?: string; cidade?: string; estado?: string }
+type Bloco = { id: string; nome_ou_numero: string }
+type Apartamento = { id: string; numero: string }
 
 function getNivel1Label(tipo: string) {
   if (tipo === 'casa_rua') return 'Rua'
@@ -53,8 +56,8 @@ export default function RegisterPage() {
   // Step 1: Condomínio
   const [searchQuery, setSearchQuery] = useState('')
   const [isSearching, setIsSearching] = useState(false)
-  const [condominios, setCondominios] = useState<any[]>([])
-  const [selectedCondo, setSelectedCondo] = useState<any>(null)
+  const [condominios, setCondominios] = useState<Condominio[]>([])
+  const [selectedCondo, setSelectedCondo] = useState<Condominio | null>(null)
   const [tipoEstrutura, setTipoEstrutura] = useState('predio')
 
   // Step 2: Conta
@@ -74,17 +77,20 @@ export default function RegisterPage() {
   const [consentimentoWhatsapp, setConsentimentoWhatsapp] = useState(true)
 
   // Step 4: Unidade
-  const [blocos, setBlocos] = useState<any[]>([])
-  const [apartamentos, setApartamentos] = useState<any[]>([])
+  const [blocos, setBlocos] = useState<Bloco[]>([])
+  const [apartamentos, setApartamentos] = useState<Apartamento[]>([])
   const [selectedBlocoId, setSelectedBlocoId] = useState('')
   const [selectedAptoId, setSelectedAptoId] = useState('')
+  const [unitLimitReached, setUnitLimitReached] = useState(false)
+  const [unitLimitMsg, setUnitLimitMsg] = useState('')
+  const [isCheckingUnit, setIsCheckingUnit] = useState(false)
 
   // Success modal
   const [showSuccess, setShowSuccess] = useState(false)
 
   // Debounced search
-  const searchCondominios = useCallback(
-    (() => {
+  const searchCondominios = useMemo(
+    () => {
       let timer: ReturnType<typeof setTimeout>
       return (query: string) => {
         clearTimeout(timer)
@@ -106,7 +112,7 @@ export default function RegisterPage() {
           setIsSearching(false)
         }, 500)
       }
-    })(),
+    },
     [supabase]
   )
 
@@ -118,7 +124,7 @@ export default function RegisterPage() {
         .eq('condominio_id', condoId)
         .order('nome_ou_numero')
     )
-    setBlocos((data || []).filter((b: any) => b.nome_ou_numero !== '0'))
+    setBlocos((data as any[] || []).filter((b: any) => b.nome_ou_numero !== '0'))
     setSelectedBlocoId('')
     setSelectedAptoId('')
     setApartamentos([])
@@ -134,22 +140,52 @@ export default function RegisterPage() {
         .order('apartamentos(numero)')
     )
 
-    const aptos = (data || []).map((e: any) => {
+    const aptos = (data as any[] || []).map((e: any) => {
       const aptoData = e.apartamentos
       let numero = '0'
       if (Array.isArray(aptoData) && aptoData.length > 0) {
         numero = String(aptoData[0].numero)
-      } else if (aptoData && typeof aptoData === 'object') {
-        numero = String(aptoData.numero)
+      } else if (aptoData && typeof aptoData === 'object' && !Array.isArray(aptoData)) {
+        numero = String((aptoData as { numero: string }).numero)
       }
       return { id: e.apartamento_id, numero }
     }).filter((e: any) => e.numero !== '0')
 
     setApartamentos(aptos)
     setSelectedAptoId('')
+    setUnitLimitReached(false)
+    setUnitLimitMsg('')
   }
 
-  function selectCondo(condo: any) {
+  async function checkUnitLimit(condoId: string, blocoId: string, aptoId: string) {
+    if (!condoId || !blocoId || !aptoId) return
+    setIsCheckingUnit(true)
+    setUnitLimitReached(false)
+    setUnitLimitMsg('')
+    try {
+      const { data, error } = await supabase.rpc('check_unit_user_limit', {
+        p_condominio_id: condoId,
+        p_bloco_id: blocoId,
+        p_apartamento_id: aptoId,
+      })
+      if (error) {
+        console.warn('Erro ao verificar limite da unidade:', error)
+      } else if (data && !data.allowed) {
+        setUnitLimitReached(true)
+        const blocoData = blocos.find((b) => b.id === blocoId)
+        const aptoData = apartamentos.find((a) => a.id === aptoId)
+        setUnitLimitMsg(
+          `Esta unidade (${getNivel1Label(tipoEstrutura)} ${blocoData?.nome_ou_numero || ''} / ${getNivel2Label(tipoEstrutura)} ${aptoData?.numero || ''}) já possui ${data.count} usuário(s) aprovado(s), atingindo o limite máximo de ${data.limit}. Não é possível realizar o cadastro nesta unidade.`
+        )
+      }
+    } catch (err) {
+      console.warn('Erro ao verificar limite da unidade:', err)
+    } finally {
+      setIsCheckingUnit(false)
+    }
+  }
+
+  function selectCondo(condo: Condominio) {
     setSelectedCondo(condo)
     setTipoEstrutura(condo.tipo_estrutura || 'predio')
     setCondominios([])
@@ -207,6 +243,10 @@ export default function RegisterPage() {
         setGlobalError(`Selecione ${getNivel1Label(tipoEstrutura)} e ${getNivel2Label(tipoEstrutura)}`)
         return
       }
+      if (unitLimitReached) {
+        setGlobalError('Não é possível cadastrar nesta unidade. O limite de moradores aprovados foi atingido.')
+        return
+      }
       await submitRegistration()
     }
   }
@@ -231,8 +271,8 @@ export default function RegisterPage() {
       }
 
       // Resolve bloco/apto text
-      const blocoData = blocos.find((b: any) => b.id === selectedBlocoId)
-      const aptoData = apartamentos.find((a: any) => a.id === selectedAptoId)
+      const blocoData = blocos.find((b) => b.id === selectedBlocoId)
+      const aptoData = apartamentos.find((a) => a.id === selectedAptoId)
 
       // 1. Create auth user
       const { data: signUpData, error: signUpError } = await supabase.auth.signUp({
@@ -274,8 +314,8 @@ export default function RegisterPage() {
 
       // Show success / pending approval
       setShowSuccess(true)
-    } catch (e: any) {
-      const msg = e?.message || String(e)
+    } catch (e: unknown) {
+      const msg = e instanceof Error ? e.message : String(e)
       if (msg.includes('already') || msg.includes('duplicate')) {
         setGlobalError('Este e-mail já existe. Tente fazer login.')
       } else {
@@ -324,7 +364,7 @@ export default function RegisterPage() {
     <div className="min-h-screen bg-[#f4f6f9] flex items-center justify-center p-4">
       <div className="bg-white rounded-3xl shadow-xl w-full max-w-lg overflow-hidden">
         {/* Header */}
-        <div className="bg-gradient-to-r from-[#FC5931] to-[#D42F1D] px-6 py-4 flex items-center gap-3">
+        <div className="bg-linear-to-r from-[#FC5931] to-[#D42F1D] px-6 py-4 flex items-center gap-3">
           <button onClick={() => currentStep > 0 ? setCurrentStep(currentStep - 1) : router.push('/login')} className="text-white hover:bg-white/20 rounded-full p-1 transition-colors" title="Voltar">
             <ChevronLeft size={22} />
           </button>
@@ -337,7 +377,7 @@ export default function RegisterPage() {
             {steps.map((step, i) => (
               <div key={i} className="flex-1">
                 <div className="flex items-center gap-2 mb-1">
-                  <div className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold flex-shrink-0 transition-all ${
+                  <div className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold shrink-0 transition-all ${
                     i < currentStep ? 'bg-green-500 text-white' :
                     i === currentStep ? 'bg-[#FC5931] text-white' :
                     'bg-gray-200 text-gray-400'
@@ -398,7 +438,7 @@ export default function RegisterPage() {
                           className="w-full text-left px-4 py-3 hover:bg-[#FC5931]/5 border-b border-gray-100 last:border-0 transition-colors"
                         >
                           <div className="flex items-center gap-3">
-                            <Building2 size={16} className="text-[#FC5931] flex-shrink-0" />
+                            <Building2 size={16} className="text-[#FC5931] shrink-0" />
                             <div>
                               <p className="text-sm font-medium text-gray-800">{c.nome}</p>
                               <p className="text-xs text-gray-400">{c.cidade} - {c.estado}</p>
@@ -558,7 +598,7 @@ export default function RegisterPage() {
                   title={getNivel1Label(tipoEstrutura)}
                 >
                   <option value="">Selecionar...</option>
-                  {blocos.map((b: any) => (
+                  {blocos.map((b) => (
                     <option key={b.id} value={b.id}>{getNivel1Label(tipoEstrutura)} {b.nome_ou_numero}</option>
                   ))}
                 </select>
@@ -569,20 +609,49 @@ export default function RegisterPage() {
                 </label>
                 <select
                   value={selectedAptoId}
-                  onChange={e => setSelectedAptoId(e.target.value)}
+                  onChange={e => {
+                    setSelectedAptoId(e.target.value)
+                    if (e.target.value) {
+                      checkUnitLimit(selectedCondo.id, selectedBlocoId, e.target.value)
+                    } else {
+                      setUnitLimitReached(false)
+                      setUnitLimitMsg('')
+                    }
+                  }}
                   disabled={!selectedBlocoId}
                   className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#FC5931] bg-gray-50 text-sm appearance-none disabled:opacity-50"
                   title={getNivel2Label(tipoEstrutura)}
                 >
                   <option value="">Selecionar...</option>
-                  {apartamentos.map((a: any) => (
+                  {apartamentos.map((a) => (
                     <option key={a.id} value={a.id}>{getNivel2Label(tipoEstrutura)} {a.numero}</option>
                   ))}
                 </select>
               </div>
-              <p className="text-xs text-gray-400 text-center mt-4">
-                Ao clicar em finalizar, seu cadastro será enviado para aprovação do Síndico ou Administradora responsável pelo condomínio.
-              </p>
+
+              {/* Verificando limite da unidade */}
+              {isCheckingUnit && (
+                <div className="flex items-center gap-2 text-xs text-gray-400 mt-2">
+                  <Loader2 size={14} className="animate-spin" /> Verificando disponibilidade da unidade...
+                </div>
+              )}
+
+              {/* Alerta: unidade lotada */}
+              {unitLimitReached && (
+                <div className="mt-3 p-4 bg-amber-50 border border-amber-300 rounded-xl flex items-start gap-3">
+                  <AlertTriangle size={20} className="text-amber-500 shrink-0 mt-0.5" />
+                  <div>
+                    <p className="text-sm font-semibold text-amber-700 mb-1">Limite atingido</p>
+                    <p className="text-xs text-amber-600">{unitLimitMsg}</p>
+                  </div>
+                </div>
+              )}
+
+              {!unitLimitReached && !isCheckingUnit && (
+                <p className="text-xs text-gray-400 text-center mt-4">
+                  Ao clicar em finalizar, seu cadastro será enviado para aprovação do Síndico ou Administradora responsável pelo condomínio.
+                </p>
+              )}
             </div>
           )}
 
@@ -598,7 +667,7 @@ export default function RegisterPage() {
         <div className="px-6 pb-6 space-y-3">
           <button
             onClick={handleNext}
-            disabled={loading}
+            disabled={loading || (currentStep === 3 && (unitLimitReached || isCheckingUnit))}
             className="w-full py-3 bg-[#FC5931] text-white rounded-xl font-bold text-sm hover:bg-[#D42F1D] transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
           >
             {loading ? (

@@ -62,12 +62,12 @@ export default async function RegistrarEncomendaPage() {
       .order('numero')
   )
 
-  const allBlocosDesc = blocos ? blocos.map(b => b.nome_ou_numero) : []
-  const allAptosDesc = rawAptos ? rawAptos.map(a => a.numero) : []
+  const allBlocosDesc = (blocos as any[]) ? (blocos as any[]).map((b: any) => b.nome_ou_numero) : []
+  const allAptosDesc = (rawAptos as any[]) ? (rawAptos as any[]).map((a: any) => a.numero) : []
 
   if (blocos && blocos.length > 0) {
     const blocoMap: Record<string, string> = {}
-    blocos.forEach(b => { blocoMap[b.id] = b.nome_ou_numero })
+    ;(blocos as any[]).forEach((b: any) => { blocoMap[b.id] = b.nome_ou_numero })
 
     const unidades = await fetchAll(
       supabase
@@ -84,7 +84,7 @@ export default async function RegistrarEncomendaPage() {
           .eq('condominio_id', condoId)
       )
       const aptoMap: Record<string, string> = {}
-      ;(aptos ?? []).forEach((a: any) => { aptoMap[a.id] = a.numero })
+      ;(aptos as any[] ?? []).forEach((a: any) => { aptoMap[a.id] = a.numero })
 
       // Fetch residents to map bloco_txt+apto_txt → profile
       const perfis = await fetchAll(
@@ -96,12 +96,12 @@ export default async function RegistrarEncomendaPage() {
       )
 
       const residentMap: Record<string, { id: string; nome: string }> = {}
-      ;(perfis ?? []).forEach((p: any) => {
+      ;(perfis as any[] ?? []).forEach((p: any) => {
         const key = `${p.bloco_txt}|${p.apto_txt}`
         residentMap[key] = { id: p.id, nome: p.nome_completo }
       })
 
-      units = unidades.map((u: any) => {
+      units = (unidades as any[]).map((u: any) => {
         const blocoNome = blocoMap[u.bloco_id] ?? '?'
         const aptoNumero = aptoMap[u.apartamento_id] ?? '?'
         const resident = residentMap[`${blocoNome}|${aptoNumero}`]
@@ -129,7 +129,7 @@ export default async function RegistrarEncomendaPage() {
         .order('apto_txt')
     )
 
-    units = (perfis ?? []).map((p: any) => ({
+    units = (perfis as any[] ?? []).map((p: any) => ({
       blocoNome: p.bloco_txt ?? '?',
       aptoNumero: p.apto_txt ?? '?',
       residentId: p.id,

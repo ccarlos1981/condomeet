@@ -206,8 +206,8 @@ function ThreadGroupListItem({
 export default function FaleConoscoAdminClient({
   initialThreads,
   adminId,
-  adminName,
-  condoId,
+  // adminName is not used
+  // condoId is not used
   tipoEstrutura,
 }: {
   initialThreads: AdminThread[]

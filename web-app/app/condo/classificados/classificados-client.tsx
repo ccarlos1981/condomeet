@@ -370,7 +370,10 @@ export default function ClassificadosClient({
               {/* Photo */}
               <div className="relative h-48 bg-gray-100 overflow-hidden">
                 {c.foto_url ? (
+                  <><> <> {/* eslint-disable-next-line @next/next/no-img-element */}
                   <img src={c.foto_url} alt={c.titulo} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" />
+                </>
+                </></>
                 ) : (
                   <div className="flex items-center justify-center h-full">
                     <ImageIcon size={40} className="text-gray-300" />
@@ -456,7 +459,10 @@ export default function ClassificadosClient({
         <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4" onClick={() => setSelectedAd(null)}>
           <div className="bg-white rounded-2xl max-w-lg w-full max-h-[90vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
             {selectedAd.foto_url && (
-              <img src={selectedAd.foto_url} alt={selectedAd.titulo} className="w-full h-64 object-cover rounded-t-2xl" />
+              <><> <> {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img src={selectedAd.foto_url} alt={selectedAd.titulo} className="w-full h-64 object-cover rounded-t-2xl" />
+              </>
+              </></>
             )}
             <div className="p-6">
               <div className="flex justify-between items-start">
@@ -600,7 +606,10 @@ export default function ClassificadosClient({
                   <div className="border-2 border-dashed border-gray-200 rounded-xl p-4 text-center">
                     {fotoPreview ? (
                       <div className="relative inline-block">
-                        <img src={fotoPreview} alt="Preview" className="h-32 rounded-lg object-cover" />
+                        <> <> {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img src={fotoPreview} alt="Preview" className="h-32 rounded-lg object-cover" />
+                        </>
+                        </>
                         <button
                           type="button"
                           onClick={() => { setFoto(null); setFotoPreview(null) }}

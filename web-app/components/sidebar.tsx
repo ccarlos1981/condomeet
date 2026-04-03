@@ -185,12 +185,13 @@ export default function Sidebar({ role, userName, condoName, unidade, featuresCo
     router.push('/login')
   }
 
-  const SidebarContent = () => (
+  const sidebarContent = (
     <div className="flex flex-col h-full bg-[#1a2535] text-white">
       {/* Logo + toggle */}
       <div className="flex items-center justify-between px-4 py-5 border-b border-white/10">
         <div className={`flex items-center gap-3 overflow-hidden transition-all ${collapsed ? 'w-0' : 'w-full'}`}>
-          <img src="/logo.png" alt="Condomeet" className="w-9 h-9 rounded-xl object-cover flex-shrink-0" />
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+<img src="/logo.png" alt="Condomeet" className="w-9 h-9 rounded-xl object-cover flex-shrink-0" />
           <div className="min-w-0">
             <p className="font-bold text-sm truncate">{condoName}</p>
             <p className="text-xs text-white/50 truncate">{userName} · {unidade}</p>
@@ -297,12 +298,12 @@ export default function Sidebar({ role, userName, condoName, unidade, featuresCo
 
       {/* Mobile sidebar */}
       <div className={`lg:hidden fixed top-0 left-0 h-full w-64 z-50 transition-transform duration-300 ${mobileOpen ? 'translate-x-0' : '-translate-x-full'}`}>
-        <SidebarContent />
+        {sidebarContent}
       </div>
 
       {/* Desktop sidebar */}
       <div className={`hidden lg:flex flex-col h-screen sticky top-0 transition-all duration-300 ${collapsed ? 'w-16' : 'w-60'} flex-shrink-0`}>
-        <SidebarContent />
+        {sidebarContent}
       </div>
     </>
   )

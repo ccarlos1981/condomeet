@@ -480,11 +480,11 @@ class ListaMercadoService {
     String? brand,
     String? weightLabel,
   }) async {
-    final _userId = _client.auth.currentUser?.id;
-    if (_userId == null) return;
+    final userId = _client.auth.currentUser?.id;
+    if (userId == null) return;
 
     await _client.from('lista_product_suggestions').insert({
-      'user_id': _userId,
+      'user_id': userId,
       'raw_name': rawName,
       'supermarket_id': supermarketId,
       'unit_price': unitPrice,
@@ -497,7 +497,7 @@ class ListaMercadoService {
 
     // Recompensar contribuição (ex: 10 pontos)
     await _client.rpc('lista_add_points', params: {
-      'p_user_id': _userId,
+      'p_user_id': userId,
       'p_points': 10,
     });
   }

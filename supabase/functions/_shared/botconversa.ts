@@ -133,3 +133,46 @@ export async function sendToRecipients(
 
   return results
 }
+
+// ── Webhook parsing (BotConversa format) ─────────────────────────
+
+export interface IncomingMessage {
+  phone: string
+  text: string
+  messageType: string
+  isGroup: boolean
+  fromMe: boolean
+  messageId: string
+  botconversa_id?: string
+}
+
+export function parseWebhook(body: any): IncomingMessage | null {
+  // Try Botconversa format
+  try {
+    const subscriber = body.subscriber || {};
+    const message = body.message || body.last_message || {};
+    
+    // Fallback parsing to handle different possible shapes of BotConversa webhook
+    const phone = subscriber.phone || body.phone;
+    const text = message.text || message.value || body.text || "";
+    const messageType = message.type || body.type || (text ? "text" : "unknown");
+    const isGroup = false; // Botconversa handles 1-1
+    const fromMe = body.direction === "outbound" || !!body.fromMe;
+    const messageId = message.id || body.id || String(Date.now());
+
+    if (!phone) return null;
+
+    return {
+      phone: String(phone).replace(/\D/g, ""), // clean phone
+      text: String(text),
+      messageType: String(messageType),
+      isGroup,
+      fromMe,
+      messageId: String(messageId),
+      botconversa_id: subscriber.id ? String(subscriber.id) : undefined
+    };
+  } catch (err) {
+    console.error("Failed to parse BotConversa webhook:", err);
+    return null;
+  }
+}

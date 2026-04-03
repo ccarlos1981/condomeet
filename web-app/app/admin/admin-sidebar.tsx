@@ -77,7 +77,7 @@ export default function AdminSidebar({
         { label: 'Registro Turno',  href: '/admin/registro-turno',  icon: <ClipboardList size={18} /> },
         { label: 'Estrutura',       href: '/admin/estrutura',       icon: <Building2 size={18} /> },
         { label: 'Classificados',   href: '/admin/classificados',   icon: <ShoppingBag size={18} /> },
-        { label: 'Vistorias',       href: '/admin/vistorias',       icon: <ClipboardCheck size={18} /> },
+
       ],
     },
     {
@@ -86,7 +86,9 @@ export default function AdminSidebar({
         { label: 'Configurar Acesso', href: '/admin/configurar-acesso', icon: <Settings size={18} /> },
         { label: 'Configurar Ordem',  href: '/admin/configurar-ordem',  icon: <SlidersHorizontal size={18} /> },
         ...(isSuperAdmin
-          ? [{ label: 'Push Universal', href: '/admin/push-universal', icon: <Megaphone size={18} /> }]
+          ? [
+              { label: 'Push Universal', href: '/admin/push-universal', icon: <Megaphone size={18} /> },
+            ]
           : []),
       ],
     },
@@ -107,7 +109,7 @@ export default function AdminSidebar({
                 ],
               },
               { label: 'Garagem', href: '/admin/garagem', icon: <Car size={18} /> },
-              { label: 'Checklist', href: '/admin/vistorias', icon: <ClipboardCheck size={18} /> },
+              { label: 'Checklist Parceiros', href: '/admin/checklist', icon: <ClipboardCheck size={18} /> },
             ] as NavItem[],
           },
         ]
@@ -119,12 +121,13 @@ export default function AdminSidebar({
     router.push('/login')
   }
 
-  const SidebarContent = () => (
+  const sidebarContent = (
     <div className="flex flex-col h-full bg-[#111827] text-white">
       {/* Header */}
       <div className="flex items-center justify-between px-4 py-5 border-b border-white/10">
         <div className={`flex items-center gap-3 overflow-hidden transition-all duration-300 ${collapsed ? 'w-0 opacity-0' : 'w-full opacity-100'}`}>
           <div className="w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0 overflow-hidden">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
             <img src="/logo.png" alt="Condomeet" className="w-9 h-9 object-cover" />
           </div>
           <div className="min-w-0">
@@ -265,12 +268,12 @@ export default function AdminSidebar({
 
       {/* Mobile sidebar */}
       <div className={`lg:hidden fixed top-0 left-0 h-full w-64 z-50 transition-transform duration-300 ${mobileOpen ? 'translate-x-0' : '-translate-x-full'}`}>
-        <SidebarContent />
+        {sidebarContent}
       </div>
 
       {/* Desktop sidebar */}
       <div className={`hidden lg:flex flex-col h-screen sticky top-0 transition-all duration-300 ${collapsed ? 'w-[68px]' : 'w-60'} flex-shrink-0`}>
-        <SidebarContent />
+        {sidebarContent}
       </div>
     </>
   )

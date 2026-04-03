@@ -51,7 +51,8 @@ const ITEM_STATUS: Record<string, { label: string; color: string; icon: React.Re
 }
 
 export default function VistoriasAdminClient({
-  vistorias: initialVistorias, templates, userId, condominioId, tipoEstrutura,
+  vistorias: initialVistorias, templates, userId, condominioId,
+  // tipoEstrutura is unused here
 }: {
   vistorias: VistoriaRow[]; templates: Template[]; userId: string
   condominioId: string; tipoEstrutura: string
@@ -922,6 +923,7 @@ export default function VistoriasAdminClient({
                               <div className="flex flex-wrap gap-2">
                                 {itemFotos.map(foto => (
                                   <div key={foto.id} className="relative group w-24 h-24 rounded-xl overflow-hidden border border-gray-200">
+                                    {/* eslint-disable-next-line @next/next/no-img-element */}
                                     <img src={foto.foto_url} alt="" className="w-full h-full object-cover" />
                                     <button onClick={() => deletePhoto(foto.id)} title="Remover foto"
                                       className="absolute top-1 right-1 p-0.5 bg-red-500 text-white rounded-full opacity-0 group-hover:opacity-100 transition-opacity">
@@ -997,6 +999,7 @@ export default function VistoriasAdminClient({
                 </div>
                 {sig.assinatura_url ? (
                   <div className="flex items-center gap-2">
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
                     <img src={sig.assinatura_url} alt="Assinatura" className="h-12 border rounded" />
                     <span className="text-xs text-green-600 font-bold">✅ Assinado</span>
                   </div>

@@ -26,18 +26,18 @@ export default async function AdminOcorrenciasPage() {
   if (error) console.error('❌ admin ocorrencias error:', JSON.stringify(error))
 
   // Resolve resident names
-  const residentIds = [...new Set((occurrences ?? []).map((o: any) => o.resident_id).filter(Boolean))]
-  let perfilMap: Record<string, { nome_completo: string; bloco_txt: string | null; apto_txt: string | null }> = {}
+  const residentIds = [...new Set((occurrences ?? []).map((o: { resident_id: string }) => o.resident_id).filter(Boolean))]
+  const perfilMap: Record<string, { nome_completo: string; bloco_txt: string | null; apto_txt: string | null }> = {}
 
   if (residentIds.length > 0) {
     const { data: perfis } = await supabase
       .from('perfil')
       .select('id, nome_completo, bloco_txt, apto_txt')
       .in('id', residentIds)
-    ;(perfis ?? []).forEach((p: any) => { perfilMap[p.id] = p })
+    ;(perfis ?? []).forEach((p: { id: string; nome_completo: string; bloco_txt: string | null; apto_txt: string | null }) => { perfilMap[p.id] = p })
   }
 
-  const occurrencesWithResident = (occurrences ?? []).map((o: any) => ({
+  const occurrencesWithResident = (occurrences ?? []).map((o: { resident_id: string; id: string; assunto: string; description: string; category: string; status: string; photo_url: string | null; admin_response: string | null; admin_response_at: string | null; created_at: string; updated_at: string; condominio_id: string }) => ({
     ...o,
     perfil: perfilMap[o.resident_id] ?? null,
   }))

@@ -48,7 +48,7 @@ export default async function EnquetesAdminPage() {
 
   // For each enquete, count unique responding units (bloco+apto)
   const enqueteIds = (enquetes ?? []).map(e => e.id)
-  let unitCountMap: Record<string, number> = {}
+  const unitCountMap: Record<string, number> = {}
 
   if (enqueteIds.length > 0) {
     // Fetch all responses with bloco/apto to count unique units per enquete

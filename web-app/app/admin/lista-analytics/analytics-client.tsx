@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import {
-  TrendingUp, TrendingDown, BarChart3, RefreshCw, Calendar,
+  TrendingUp, BarChart3, RefreshCw, Calendar,
   Users, DollarSign, Package, Activity, ArrowUpRight, ArrowDownRight
 } from 'lucide-react'
 
@@ -83,7 +83,7 @@ export default function AnalyticsDashboardClient() {
       const currentList = currentPrices ?? []
 
       // 3. Active alerts
-      const { data: alerts, count: alertCount } = await supabase
+      const { count: alertCount } = await supabase
         .from('lista_price_alerts')
         .select('id', { count: 'exact' })
         .eq('status', 'active')
@@ -133,7 +133,7 @@ export default function AnalyticsDashboardClient() {
       // ── Category Stats ──
       const catMap: Record<string, { products: Set<string>; total: number; count: number }> = {}
       for (const p of priceList) {
-        const sku = p.lista_products_sku as any
+        const sku = p.lista_products_sku as { lista_product_variants?: { lista_products_base?: { category?: string; name?: string; icon_emoji?: string } } }
         const base = sku?.lista_product_variants?.lista_products_base
         const cat = base?.category ?? 'Outros'
         if (!catMap[cat]) catMap[cat] = { products: new Set(), total: 0, count: 0 }
@@ -175,7 +175,7 @@ export default function AnalyticsDashboardClient() {
       // ── Top Products ──
       const prodMap: Record<string, { name: string; emoji: string; reports: number; total: number; prevTotal: number; prevCount: number }> = {}
       for (const cp of currentList) {
-        const sku = cp.lista_products_sku as any
+        const sku = cp.lista_products_sku as { lista_product_variants?: { lista_products_base?: { category?: string; name?: string; icon_emoji?: string } } }
         const base = sku?.lista_product_variants?.lista_products_base
         const name = base?.name ?? 'Produto'
         const emoji = base?.icon_emoji ?? '📦'
@@ -202,9 +202,10 @@ export default function AnalyticsDashboardClient() {
       console.error('Analytics load error:', e)
     }
     setLoading(false)
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [periodDays])
 
-  useEffect(() => { loadData() }, [loadData])
+  useEffect(() => { ;(async () => { await loadData() })() }, [loadData])
 
   const tabs = [
     { id: 'trends' as const, label: 'Tendências', icon: <TrendingUp size={16} /> },

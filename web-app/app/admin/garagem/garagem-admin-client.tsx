@@ -1,7 +1,7 @@
 'use client'
 
-import { useState, useMemo, useEffect } from 'react'
-import { Car, MapPin, Clock, Star, DollarSign, Users, Building2, Calendar, CheckCircle, XCircle, AlertCircle, Search, Filter, TrendingUp, HelpCircle, X, Route } from 'lucide-react'
+import { useState, useMemo } from 'react'
+import { Car, Clock, Star, DollarSign, Building2, Calendar, CheckCircle, XCircle, AlertCircle, Search, Filter, TrendingUp, HelpCircle, X, Route } from 'lucide-react'
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
 
@@ -21,13 +21,12 @@ export default function GaragemAdminClient({
   const [tab, setTab] = useState<Tab>('overview')
   const [search, setSearch] = useState('')
   const [statusFilter, setStatusFilter] = useState<string>('all')
-  const [showGuide, setShowGuide] = useState(true)
-
-  // Load guide dismissal state from localStorage
-  useEffect(() => {
-    const dismissed = localStorage.getItem('garagem_admin_guide_dismissed')
-    if (dismissed === 'true') setShowGuide(false)
-  }, [])
+  const [showGuide, setShowGuide] = useState(() => {
+    if (typeof window !== 'undefined') {
+      return localStorage.getItem('garagem_admin_guide_dismissed') !== 'true'
+    }
+    return true
+  })
 
   // ── Stats ─────────────────────────────────────────────
   const stats = useMemo(() => {
@@ -139,7 +138,7 @@ export default function GaragemAdminClient({
         <div className="space-y-6">
           {/* Step Guide */}
           {showGuide && (
-            <div className="bg-gradient-to-r from-purple-50 to-violet-50 border border-purple-200 rounded-xl p-5">
+            <div className="bg-linear-to-r from-purple-50 to-violet-50 border border-purple-200 rounded-xl p-5">
               <div className="flex items-center justify-between mb-4">
                 <div className="flex items-center gap-2">
                   <Route size={18} className="text-purple-600" />

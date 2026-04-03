@@ -51,7 +51,7 @@ export default function RegistrarVisitanteClient({
   visitantes: initialVisitantes,
   condoId,
   currentUserId,
-  currentUserName,
+  // currentUserName,
   tipoEstrutura,
   blocos,
   aptosMap,
@@ -132,6 +132,7 @@ export default function RegistrarVisitanteClient({
         setFotoPreview(null); setFotoBlob(null); setLastVisit(null)
       }
     }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [condoId, supabase])
 
   function selectSuggestion(v: Visitante) {
@@ -348,7 +349,9 @@ export default function RegistrarVisitanteClient({
             <div key={v.id} className="bg-white rounded-xl border border-gray-100 p-5 flex items-start gap-5">
               <div className="w-16 h-16 rounded-full bg-gray-200 overflow-hidden flex-shrink-0">
                 {v.foto_url ? (
-                  <img src={v.foto_url} alt={v.nome} className="w-full h-full object-cover" />
+                  <><> {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img src={v.foto_url} alt={v.nome} className="w-full h-full object-cover" />
+                  </></>
                 ) : (
                   <div className="w-full h-full flex items-center justify-center text-gray-400 text-xl">👤</div>
                 )}
@@ -431,7 +434,8 @@ export default function RegistrarVisitanteClient({
                   >
                     <div className="w-10 h-10 rounded-full bg-gray-200 overflow-hidden flex-shrink-0">
                       {v.foto_url ? (
-                        <img src={v.foto_url} alt="" className="w-full h-full object-cover" />
+                        <>{/* eslint-disable-next-line @next/next/no-img-element */}
+<img src={v.foto_url} alt="" className="w-full h-full object-cover" /></>
                       ) : (
                         <div className="w-full h-full flex items-center justify-center text-gray-400 text-sm">👤</div>
                       )}
@@ -454,12 +458,14 @@ export default function RegistrarVisitanteClient({
               {/* Large photo */}
               <div className="w-[280px] h-[280px] mx-auto rounded-xl bg-gray-200 overflow-hidden border-2 border-gray-300">
                 {(fotoPreview && !fotoPreview.startsWith('blob:')) || lastVisit.foto_url ? (
+                  /* eslint-disable-next-line @next/next/no-img-element */
                   <img
                     src={fotoPreview && !fotoPreview.startsWith('blob:') ? fotoPreview : (lastVisit.foto_url ?? '')}
                     alt={lastVisit.nome}
                     className="w-full h-full object-cover"
                   />
                 ) : fotoPreview && fotoPreview.startsWith('blob:') ? (
+                  /* eslint-disable-next-line @next/next/no-img-element */
                   <img
                     src={fotoPreview}
                     alt="Nova foto"
@@ -492,7 +498,8 @@ export default function RegistrarVisitanteClient({
                 <div className="mt-2">
                   <p className="text-xs text-green-600 font-semibold mb-1">✅ Nova foto capturada:</p>
                   <div className="w-[120px] h-[120px] mx-auto rounded-lg overflow-hidden border-2 border-green-400">
-                    <img src={fotoPreview} alt="Nova foto" className="w-full h-full object-cover" />
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+<img src={fotoPreview} alt="Nova foto" className="w-full h-full object-cover" />
                   </div>
                   <button
                     onClick={() => { setFotoPreview(lastVisit.foto_url); setFotoBlob(null) }}
@@ -629,7 +636,8 @@ export default function RegistrarVisitanteClient({
               {/* Preview */}
               <div className="w-20 h-20 rounded-xl bg-gray-100 overflow-hidden border-2 border-dashed border-gray-300 flex items-center justify-center">
                 {fotoPreview ? (
-                  <img src={fotoPreview} alt="Foto" className="w-full h-full object-cover" />
+                  <>{/* eslint-disable-next-line @next/next/no-img-element */}
+<img src={fotoPreview} alt="Foto" className="w-full h-full object-cover" /></>
                 ) : (
                   <Camera size={24} className="text-gray-400" />
                 )}
@@ -708,7 +716,9 @@ export default function RegistrarVisitanteClient({
             >
               <div className="w-12 h-12 rounded-full bg-gray-200 overflow-hidden flex-shrink-0">
                 {v.foto_url ? (
-                  <img src={v.foto_url} alt={v.nome} className="w-full h-full object-cover" />
+                  <><> {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img src={v.foto_url} alt={v.nome} className="w-full h-full object-cover" />
+                  </></>
                 ) : (
                   <div className="w-full h-full flex items-center justify-center text-gray-400 text-sm">👤</div>
                 )}

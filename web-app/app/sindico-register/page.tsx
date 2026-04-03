@@ -135,8 +135,8 @@ export default function SindicoRegisterPage() {
       })
 
       setShowSuccess(true)
-    } catch (e: any) {
-      const msg = e?.message || String(e)
+    } catch (e: unknown) {
+      const msg = e instanceof Error ? e.message : String(e)
       if (msg.includes('already') || msg.includes('duplicate')) {
         setGlobalError('Este e-mail já existe. Tente fazer login.')
       } else {

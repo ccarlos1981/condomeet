@@ -16,12 +16,11 @@ export default async function AdminLayout({ children }: { children: React.ReactN
     .single()
 
   const role = profile?.papel_sistema ?? ''
+  const isSuperAdmin = SUPER_ADMIN_EMAILS.includes(user.email ?? '')
   const isAdmin = ['Síndico', 'Síndico (a)', 'sindico', 'ADMIN', 'admin'].some(r =>
     role.toLowerCase().includes(r.toLowerCase())
   )
-  if (!isAdmin) redirect('/condo')
-
-  const isSuperAdmin = SUPER_ADMIN_EMAILS.includes(user.email ?? '')
+  if (!isAdmin && !isSuperAdmin) redirect('/condo')
 
   const { data: condo } = await supabase
     .from('condominios')

@@ -4,7 +4,7 @@ import React, { useState, useCallback, useEffect, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import {
   Users, Clock, X, ChevronLeft, ChevronRight,
-  CheckCircle2, Calendar, BookOpen, Trash2
+  CheckCircle2, Calendar, BookOpen
 } from 'lucide-react'
 import type { AreaComum, MinhaReserva } from './page'
 import { getBlocoLabel, getAptoLabel } from '@/lib/labels'
@@ -186,8 +186,10 @@ function BookingModal({
   }, [area.id])
 
   useEffect(() => {
-    const now = new Date()
-    loadBookedDates(now.getFullYear(), now.getMonth() + 1)
+    ;(async () => {
+      const now = new Date()
+      await loadBookedDates(now.getFullYear(), now.getMonth() + 1)
+    })()
   }, [loadBookedDates])
 
   const handleDateSelect = useCallback(async (date: string) => {
@@ -360,7 +362,7 @@ function AreaCard({ area, onOpen }: { area: AreaComum; onOpen: () => void }) {
   return (
     <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5 flex flex-col gap-4">
       <div className="flex items-start gap-4">
-        <div className="w-10 h-10 rounded-full border-2 border-[#FC5931] flex-shrink-0 mt-0.5" />
+        <div className="w-10 h-10 rounded-full border-2 border-[#FC5931] shrink-0 mt-0.5" />
         <div className="flex-1">
           <h3 className="font-bold text-gray-900 text-sm leading-tight">
             {area.tipo_agenda}

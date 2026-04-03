@@ -50,7 +50,6 @@ export default async function VisitantesPage() {
         initialConvites={convites ?? []}
         userId={user.id}
         condoId={condoId}
-        residentName={profile?.nome_completo ?? ''}
         bloco={profile?.bloco_txt ?? ''}
         apto={profile?.apto_txt ?? ''}
         tipoEstrutura={tipoEstrutura}

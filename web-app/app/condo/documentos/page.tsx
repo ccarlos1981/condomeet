@@ -1,6 +1,5 @@
 import { createClient } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
-import Link from 'next/link'
 import { FolderOpen, FileText, Download, Eye } from 'lucide-react'
 
 export const metadata = { title: 'Documentos — Condomeet' }
@@ -27,11 +26,14 @@ export default async function CondoDocumentosPage() {
     .order('titulo')
 
   // Group by pasta
+  type DocumentoDoc = { id: string; titulo: string; categoria?: string; data_validade?: string; arquivo_url?: string; arquivo_nome?: string; doc_pastas?: { nome: string } | null | { nome: string }[] }
   const grupos: Record<string, typeof docs> = {}
-  ;(docs ?? []).forEach((d: any) => {
-    const nomePasta = d.doc_pastas?.nome ?? 'Sem pasta'
+  ;(docs ?? []).forEach((d: DocumentoDoc) => {
+    const pastasList = Array.isArray(d.doc_pastas) ? d.doc_pastas : [d.doc_pastas]
+    const nomePasta = pastasList[0]?.nome ?? 'Sem pasta'
     if (!grupos[nomePasta]) grupos[nomePasta] = []
-    grupos[nomePasta]!.push(d)
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    grupos[nomePasta]!.push(d as any)
   })
 
   return (
@@ -65,7 +67,7 @@ export default async function CondoDocumentosPage() {
                   </tr>
                 </thead>
                 <tbody>
-                  {docsNaPasta?.map((doc: any) => (
+                  {docsNaPasta?.map((doc: DocumentoDoc) => (
                     <tr key={doc.id} className="border-t border-gray-50 hover:bg-gray-50/50 transition">
                       <td className="px-5 py-3 font-medium text-gray-800 flex items-center gap-2">
                         <FileText size={14} className="text-[#FC5931] flex-shrink-0" />

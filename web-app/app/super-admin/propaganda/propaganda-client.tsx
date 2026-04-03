@@ -73,7 +73,8 @@ export default function PropagandaClient({ condominios }: { condominios: Condomi
     setLoading(false)
   }
 
-  useEffect(() => { if (selectedCondo) loadList() }, [selectedCondo])
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  useEffect(() => { if (selectedCondo) { ;(async () => { await loadList() })() } }, [selectedCondo])
 
   function openNew() {
     setEditing(null)
@@ -206,7 +207,10 @@ export default function PropagandaClient({ condominios }: { condominios: Condomi
             {list.map(p => (
               <div key={p.id} className={`bg-white rounded-xl shadow-sm border p-4 flex gap-4 items-start ${!p.ativo ? 'opacity-50' : ''}`}>
                 {p.logo_url
-                  ? <img src={p.logo_url} alt={p.nome} className="w-16 h-16 rounded-xl object-cover border" />
+                  ? (
+                    /* eslint-disable-next-line @next/next/no-img-element */
+                    <img src={p.logo_url} alt={p.nome} className="w-16 h-16 rounded-xl object-cover border" />
+                  )
                   : <div className="w-16 h-16 rounded-xl bg-gray-200 flex items-center justify-center text-2xl">🏷</div>
                 }
                 <div className="flex-1 min-w-0">
@@ -259,7 +263,10 @@ export default function PropagandaClient({ condominios }: { condominios: Condomi
                 <label className="block text-sm font-medium text-gray-700 mb-2">Logo da empresa</label>
                 <div className="flex items-center gap-4">
                   {form.logo_url
-                    ? <img src={form.logo_url} alt="logo" className="w-20 h-20 rounded-xl object-cover border" />
+                    ? (
+                      /* eslint-disable-next-line @next/next/no-img-element */
+                      <img src={form.logo_url} alt="logo" className="w-20 h-20 rounded-xl object-cover border" />
+                    )
                     : <div className="w-20 h-20 rounded-xl bg-gray-100 flex items-center justify-center text-3xl">🏷</div>
                   }
                   <button onClick={() => logoInputRef.current?.click()}
@@ -350,6 +357,7 @@ export default function PropagandaClient({ condominios }: { condominios: Condomi
                   <div className="grid grid-cols-3 gap-2">
                     {fotos.sort((a, b) => a.ordem - b.ordem).map(foto => (
                       <div key={foto.id} className="relative group">
+                        {/* eslint-disable-next-line @next/next/no-img-element */}
                         <img src={foto.foto_url} alt="" className="w-full h-24 object-cover rounded-lg" />
                         <button onClick={() => deleteFoto(foto)}
                           className="absolute top-1 right-1 bg-red-500 text-white rounded-full w-6 h-6 text-xs hidden group-hover:flex items-center justify-center">

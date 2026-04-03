@@ -2,7 +2,7 @@
 
 import { useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
-import { UserCheck, Plus, X, CheckCircle2, Clock, QrCode, ChevronDown } from 'lucide-react'
+import { UserCheck, Plus, X, CheckCircle2, Clock, ChevronDown } from 'lucide-react'
 import { QRCodeSVG } from 'qrcode.react'
 import { getBlocoLabel, getAptoLabel } from '@/lib/labels'
 
@@ -97,7 +97,7 @@ export default function VisitantesResidentClient({
   initialConvites,
   userId,
   condoId,
-  residentName,
+  // residentName is not used here
   bloco,
   apto,
   tipoEstrutura,
@@ -105,7 +105,7 @@ export default function VisitantesResidentClient({
   initialConvites: Convite[]
   userId: string
   condoId: string
-  residentName: string
+  // residentName is not used here
   bloco: string
   apto: string
   tipoEstrutura?: string
@@ -236,7 +236,7 @@ export default function VisitantesResidentClient({
         <div className="text-center py-20 text-gray-400">
           <UserCheck size={40} className="mx-auto mb-3 opacity-30" />
           <p className="font-medium text-gray-500 mb-1">Nenhuma autorização</p>
-          <p className="text-sm">Clique em "Nova Autorização" para liberar um visitante</p>
+          <p className="text-sm">Clique em &quot;Nova Autorização&quot; para liberar um visitante</p>
         </div>
       ) : (
         <div className="grid sm:grid-cols-2 gap-4">

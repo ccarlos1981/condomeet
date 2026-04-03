@@ -85,7 +85,7 @@ export default function IndicacoesClient({
   avaliacoes: initialAvaliacoes,
   condoId,
   currentUserId,
-  currentUserName,
+  // currentUserName is not used here
 }: Props) {
   const supabase = createClient()
   const [indicacoes, setIndicacoes] = useState(initialIndicacoes)
@@ -208,7 +208,7 @@ export default function IndicacoesClient({
           body: JSON.stringify({ condominio_id: condoId, indicacao_id: inserted.id }),
         }).catch(console.error)
       }
-    } catch (_) { /* silent */ }
+    } catch { /* silent */ }
 
     setIndicacoes(prev => [inserted, ...prev])
     resetNew()
@@ -287,11 +287,14 @@ export default function IndicacoesClient({
                 <div className="p-5">
                   <div className="flex gap-4">
                     {/* Photo */}
-                    <div className="flex-shrink-0">
+                    <div className="shrink-0">
                       {ind.foto_url ? (
-                        <img src={ind.foto_url} alt={ind.nome} className="w-16 h-16 rounded-2xl object-cover border-2 border-gray-100" />
+                        <><> <> {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img src={ind.foto_url} alt={ind.nome} className="w-16 h-16 rounded-2xl object-cover border-2 border-gray-100" />
+                      </>
+                      </></>
                       ) : (
-                        <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-[#FC5931]/10 to-[#FC5931]/20 flex items-center justify-center border-2 border-[#FC5931]/10 text-2xl">
+                        <div className="w-16 h-16 rounded-2xl bg-linear-to-br from-[#FC5931]/10 to-[#FC5931]/20 flex items-center justify-center border-2 border-[#FC5931]/10 text-2xl">
                           {emoji}
                         </div>
                       )}
@@ -320,7 +323,7 @@ export default function IndicacoesClient({
                       {/* Location */}
                       {(ind.uf || ind.cidade) && (
                         <p className="flex items-center gap-1 text-sm text-gray-500 mt-2">
-                          <MapPin size={13} className="text-gray-400 flex-shrink-0" />
+                          <MapPin size={13} className="text-gray-400 shrink-0" />
                           {[ind.uf, ind.cidade].filter(Boolean).join(' / ')}
                         </p>
                       )}
@@ -422,7 +425,10 @@ export default function IndicacoesClient({
                   className="w-24 h-24 rounded-2xl border-2 border-dashed border-gray-300 hover:border-[#FC5931] transition-colors flex flex-col items-center justify-center gap-1 overflow-hidden"
                 >
                   {newFotoPreview ? (
-                    <img src={newFotoPreview} alt="preview" className="w-full h-full object-cover" />
+                    <><> <> {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img src={newFotoPreview} alt="preview" className="w-full h-full object-cover" />
+                  </>
+                  </></>
                   ) : (
                     <>
                       <span className="text-2xl">📷</span>

@@ -98,7 +98,8 @@ export default function PropagandaClient({ condominios }: { condominios: Condomi
     setLoading(false)
   }
 
-  useEffect(() => { if (selectedCondo) loadList() }, [selectedCondo])
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  useEffect(() => { if (selectedCondo) { ;(async () => { await loadList() })() } }, [selectedCondo])
 
   function openNew() {
     setEditing(null)
@@ -219,7 +220,7 @@ export default function PropagandaClient({ condominios }: { condominios: Condomi
 
         {/* Como começar guide */}
         {showGuide && (
-          <div className="mb-6 rounded-xl border border-amber-200 bg-gradient-to-r from-amber-50 to-orange-50 p-5">
+          <div className="mb-6 rounded-xl border border-amber-200 bg-linear-to-r from-amber-50 to-orange-50 p-5">
             <div className="flex items-center justify-between mb-3">
               <div className="flex items-center gap-2">
                 <span className="text-lg">🚀</span>
@@ -248,7 +249,7 @@ export default function PropagandaClient({ condominios }: { condominios: Condomi
         {/* Condomínio selector */}
         <div className="mb-6">
           <label className="block text-sm font-medium text-gray-700 mb-1">Condomínio</label>
-          <select value={selectedCondo} onChange={e => setSelectedCondo(e.target.value)}
+          <select value={selectedCondo} onChange={e => setSelectedCondo(e.target.value)} title="Selecionar condomínio"
             className="border border-gray-300 rounded-lg px-3 py-2 w-72 focus:outline-none focus:ring-2 focus:ring-blue-500">
             {condominios.map(c => <option key={c.id} value={c.id}>{c.nome}</option>)}
           </select>
@@ -267,7 +268,10 @@ export default function PropagandaClient({ condominios }: { condominios: Condomi
             {list.map(p => (
               <div key={p.id} className={`bg-white rounded-xl shadow-sm border p-4 flex gap-4 items-start ${!p.ativo ? 'opacity-50' : ''}`}>
                 {p.logo_url
-                  ? <img src={p.logo_url} alt={p.nome} className="w-16 h-16 rounded-xl object-cover border" />
+                  ? (
+                    /* eslint-disable-next-line @next/next/no-img-element */
+                    <img src={p.logo_url} alt={p.nome} className="w-16 h-16 rounded-xl object-cover border" />
+                  )
                   : <div className="w-16 h-16 rounded-xl bg-gray-200 flex items-center justify-center text-2xl">🏷</div>
                 }
                 <div className="flex-1 min-w-0">
@@ -320,7 +324,10 @@ export default function PropagandaClient({ condominios }: { condominios: Condomi
                 <label className="block text-sm font-medium text-gray-700 mb-2">Logo da empresa</label>
                 <div className="flex items-center gap-4">
                   {form.logo_url
-                    ? <img src={form.logo_url} alt="logo" className="w-20 h-20 rounded-xl object-cover border" />
+                    ? (
+                      /* eslint-disable-next-line @next/next/no-img-element */
+                      <img src={form.logo_url} alt="logo" className="w-20 h-20 rounded-xl object-cover border" />
+                    )
                     : <div className="w-20 h-20 rounded-xl bg-gray-100 flex items-center justify-center text-3xl">🏷</div>
                   }
                   <button onClick={() => logoInputRef.current?.click()}
@@ -328,7 +335,7 @@ export default function PropagandaClient({ condominios }: { condominios: Condomi
                     className="px-4 py-2 border rounded-lg text-sm hover:bg-gray-50">
                     {uploadingLogo ? 'Enviando...' : 'Escolher logo'}
                   </button>
-                  <input ref={logoInputRef} type="file" accept="image/*" className="hidden" onChange={handleLogoUpload} />
+                  <input ref={logoInputRef} type="file" accept="image/*" className="hidden" onChange={handleLogoUpload} title="Upload logo" />
                 </div>
               </div>
 
@@ -336,7 +343,7 @@ export default function PropagandaClient({ condominios }: { condominios: Condomi
               <div className="grid grid-cols-2 gap-4">
                 <div className="col-span-2">
                   <label className="block text-sm font-medium text-gray-700 mb-1">Nome da marca *</label>
-                  <input value={form.nome} onChange={f('nome')}
+                  <input value={form.nome} onChange={f('nome')} placeholder="Nome da empresa"
                     className="w-full border rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500" />
                 </div>
                 <div>
@@ -347,12 +354,12 @@ export default function PropagandaClient({ condominios }: { condominios: Condomi
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">Ordem no carrossel</label>
-                  <input type="number" value={form.ordem} onChange={e => setForm(v => ({ ...v, ordem: +e.target.value }))}
+                  <input type="number" value={form.ordem} onChange={e => setForm(v => ({ ...v, ordem: +e.target.value }))} placeholder="0" title="Ordem no carrossel"
                     className="w-full border rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500" />
                 </div>
                 <div className="col-span-2">
                   <label className="block text-sm font-medium text-gray-700 mb-1">Endereço</label>
-                  <input value={form.endereco ?? ''} onChange={f('endereco')}
+                  <input value={form.endereco ?? ''} onChange={f('endereco')} placeholder="Endereço completo"
                     className="w-full border rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500" />
                 </div>
               </div>
@@ -369,7 +376,7 @@ export default function PropagandaClient({ condominios }: { condominios: Condomi
                   ].map(({ label, key }) => (
                     <div key={key}>
                       <label className="block text-xs text-gray-500 mb-1">{label}</label>
-                      <input value={(form as unknown as Record<string, string>)[key] ?? ''} onChange={f(key as keyof typeof form)}
+                      <input value={(form as unknown as Record<string, string>)[key] ?? ''} onChange={f(key as keyof typeof form)} placeholder={label}
                         className="w-full border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
                     </div>
                   ))}
@@ -405,12 +412,13 @@ export default function PropagandaClient({ condominios }: { condominios: Condomi
                     className="text-sm px-3 py-1 bg-gray-100 hover:bg-gray-200 rounded-lg">
                     {uploadingFoto ? 'Enviando...' : '+ Adicionar foto'}
                   </button>
-                  <input ref={fotoInputRef} type="file" accept="image/*" className="hidden" onChange={handleFotoUpload} />
+                  <input ref={fotoInputRef} type="file" accept="image/*" className="hidden" onChange={handleFotoUpload} title="Upload foto" />
                 </div>
                 {fotos.length > 0 ? (
                   <div className="grid grid-cols-3 gap-2">
                     {fotos.sort((a, b) => a.ordem - b.ordem).map(foto => (
                       <div key={foto.id} className="relative group">
+                        {/* eslint-disable-next-line @next/next/no-img-element */}
                         <img src={foto.foto_url} alt="" className="w-full h-24 object-cover rounded-lg" />
                         <button onClick={() => deleteFoto(foto)}
                           className="absolute top-1 right-1 bg-red-500 text-white rounded-full w-6 h-6 text-xs hidden group-hover:flex items-center justify-center">

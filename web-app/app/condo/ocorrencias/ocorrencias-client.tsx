@@ -126,6 +126,7 @@ function OccurrenceCard({
             {occ.photo_url && (
               <div className="mt-4">
                 <a href={occ.photo_url} target="_blank" rel="noopener noreferrer">
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
                   <img
                     src={occ.photo_url}
                     alt="Foto da ocorrência"
@@ -201,7 +202,7 @@ export default function OcorrenciasClient({
   condoId: string
 }) {
   const [occurrences, setOccurrences] = useState<Occurrence[]>(initialOccurrences)
-  const [filter, setFilter] = useState<'all' | 'pending' | 'resolved'>('all')
+  const [filter, setFilter] = useState<'all' | 'pending' | 'resolved'>(isAdmin ? 'pending' : 'all')
   const [showModal, setShowModal] = useState(false)
   const [creating, setCreating] = useState(false)
   const [form, setForm] = useState({ assunto: '', description: '', category: 'maintenance' })
@@ -413,7 +414,8 @@ export default function OcorrenciasClient({
                 </label>
                 {photoPreview && (
                   <div className="mt-2 relative">
-                    <img src={photoPreview} alt="Preview" className="w-full max-h-40 object-cover rounded-xl border border-gray-100" />
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img src={photoPreview} alt="Preview" className="w-full max-h-40 object-cover rounded-xl border border-gray-100" />
                     <button
                       onClick={() => { setPhotoFile(null); setPhotoPreview(null) }}
                       className="absolute top-2 right-2 bg-white rounded-full w-6 h-6 text-xs text-gray-600 shadow hover:bg-gray-100"

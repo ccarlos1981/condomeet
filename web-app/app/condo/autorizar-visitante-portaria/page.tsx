@@ -37,12 +37,17 @@ export default async function AutorizarVisitantePortariaPage() {
   const blocosSet = new Set<string>()
   const aptosPerBloco: Record<string, Set<string>> = {}
 
-  for (const blk of structuralData ?? []) {
+  interface StructuralBlock {
+    nome_ou_numero: string | null
+    unidades: { apartamentos: { numero: string | null } | null }[] | null
+  }
+
+  for (const blk of (structuralData ?? []) as unknown as StructuralBlock[]) {
     const blocoName = blk.nome_ou_numero
     if (!blocoName) continue
     blocosSet.add(blocoName)
     if (!aptosPerBloco[blocoName]) aptosPerBloco[blocoName] = new Set()
-    const units = (blk as any).unidades ?? []
+    const units = blk.unidades ?? []
     for (const u of units) {
       const apto = u?.apartamentos?.numero
       if (apto) aptosPerBloco[blocoName].add(apto)

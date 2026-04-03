@@ -50,8 +50,8 @@ class _GlobalDashboardScreenState extends State<GlobalDashboardScreen> {
                 uniqueMarkets[cleanName] = {
                   'id': cleanName,
                   'name': cleanName,
-                  'latitude': m['latitude'] ?? null,
-                  'longitude': m['longitude'] ?? null,
+                  'latitude': m['latitude'],
+                  'longitude': m['longitude'],
                 };
               }
            }
@@ -223,7 +223,7 @@ class _GlobalDashboardScreenState extends State<GlobalDashboardScreen> {
 
           // Row 2: Mercado
           DropdownButtonFormField<String?>(
-            value: _selectedMarketName,
+            initialValue: _selectedMarketName,
             isExpanded: true,
             decoration: InputDecoration(
               isDense: true,
@@ -280,7 +280,7 @@ class _GlobalDashboardScreenState extends State<GlobalDashboardScreen> {
 
           // Row 3: Produto
           DropdownButtonFormField<String?>(
-            value: _selectedSkuId,
+            initialValue: _selectedSkuId,
             isExpanded: true,
             decoration: InputDecoration(
               isDense: true,

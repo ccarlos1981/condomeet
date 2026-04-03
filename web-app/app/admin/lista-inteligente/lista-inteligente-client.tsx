@@ -3,9 +3,9 @@
 import { useState, useEffect, useCallback } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import {
-  Users, TrendingUp, ShoppingCart, Bell, Package,
-  Store, PlusCircle, Send, RefreshCw, Trash2, Search,
-  Award, Eye, BarChart3, HelpCircle, X, Route, CheckCircle2
+  Users, TrendingUp, Package,
+  Store, PlusCircle, Send, RefreshCw, Trash2,
+  Award, BarChart3, HelpCircle, X, Route, CheckCircle2
 } from 'lucide-react'
 
 type Stats = {
@@ -57,16 +57,17 @@ export default function ListaInteligenteClient() {
   const [supermarkets, setSupermarkets] = useState<Supermarket[]>([])
   const [loading, setLoading] = useState(true)
   const [activeTab, setActiveTab] = useState<'dashboard' | 'users' | 'prices' | 'products' | 'markets' | 'push'>('dashboard')
-  const [showGuide, setShowGuide] = useState(true)
-
-  useEffect(() => {
-    const dismissed = localStorage.getItem('lista_admin_guide_dismissed')
-    if (dismissed === 'true') setShowGuide(false)
-  }, [])
+  const [showGuide, setShowGuide] = useState(() => {
+    if (typeof window !== 'undefined') {
+      return localStorage.getItem('lista_admin_guide_dismissed') !== 'true'
+    }
+    return true
+  })
 
   // Modals
   const [showAddMarket, setShowAddMarket] = useState(false)
   const [showAddProduct, setShowAddProduct] = useState(false)
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const [showPush, setShowPush] = useState(false)
   const [pushTitle, setPushTitle] = useState('🛒 Lista Inteligente')
   const [pushBody, setPushBody] = useState('')
@@ -134,7 +135,9 @@ export default function ListaInteligenteClient() {
         .limit(20)
 
       if (priceData) {
-        setRecentPrices(priceData.map((p: any) => ({
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        type PriceRaw = { id: string; price: number; source: string; confidence_score: number; confirmations: number; created_at: string; lista_products_sku?: any; lista_supermarkets?: any }
+        setRecentPrices(priceData.map((p: PriceRaw) => ({
           id: p.id,
           price: p.price,
           source: p.source,
@@ -151,9 +154,9 @@ export default function ListaInteligenteClient() {
       console.error('Load error:', e)
     }
     setLoading(false)
-  }, [])
+  }, [supabase])
 
-  useEffect(() => { loadData() }, [loadData])
+  useEffect(() => { ;(async () => { await loadData() })() }, [loadData])
 
   const handleAddMarket = async () => {
     if (!newMarketName.trim()) return
@@ -273,7 +276,7 @@ export default function ListaInteligenteClient() {
         <div className="space-y-6">
           {/* Step Guide */}
           {showGuide && (
-            <div className="bg-gradient-to-r from-orange-50 to-amber-50 border border-orange-200 rounded-xl p-5">
+            <div className="bg-linear-to-r from-orange-50 to-amber-50 border border-orange-200 rounded-xl p-5">
               <div className="flex items-center justify-between mb-4">
                 <div className="flex items-center gap-2">
                   <Route size={18} className="text-[#FC5931]" />
@@ -578,7 +581,7 @@ function PushTab({ title, body, sending, userCount, onTitleChange, onBodyChange,
 
         <div>
           <label className="text-xs text-gray-500 font-medium mb-1 block">Título</label>
-          <input value={title} onChange={e => onTitleChange(e.target.value)}
+          <input value={title} onChange={e => onTitleChange(e.target.value)} title="Título da Mensagem" placeholder="Ex: Aviso Importante"
             className="w-full px-4 py-2.5 rounded-xl border border-gray-200 focus:border-[#FC5931] focus:ring-1 focus:ring-[#FC5931] outline-none text-sm" />
         </div>
 

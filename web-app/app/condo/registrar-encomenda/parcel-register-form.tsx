@@ -90,7 +90,7 @@ export default function ParcelRegisterForm({ condoId, registeredById, units, tip
         videoRef.current.srcObject = stream
         videoRef.current.play()
       }
-    } catch (err: any) {
+    } catch {
       setCameraError('Não foi possível acessar a câmera. Verifique as permissões do navegador.')
     }
   }, [stopStream])
@@ -184,8 +184,8 @@ export default function ParcelRegisterForm({ condoId, registeredById, units, tip
       if (photoWarning) setWarning(photoWarning)
       setSuccess(true)
       setTimeout(() => router.push(redirectTo || '/condo/encomendas-admin'), 3500)
-    } catch (err: any) {
-      setError(err.message ?? 'Erro inesperado.')
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : 'Erro inesperado.')
       setSubmitting(false)
     }
   }

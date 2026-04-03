@@ -43,7 +43,9 @@ export default function PendingApprovalPage() {
   }, [supabase, router])
 
   useEffect(() => {
-    loadProfile()
+    ;(async () => {
+      await loadProfile()
+    })()
   }, [loadProfile])
 
   async function checkStatus() {

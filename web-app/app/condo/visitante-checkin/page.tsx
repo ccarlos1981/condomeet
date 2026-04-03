@@ -33,19 +33,25 @@ export default async function VisitanteCheckinPage() {
     .range(0, 9)
 
   // Fetch perfil for those residents
-  const residentIds = [...new Set((convites ?? []).map((c: any) => c.resident_id).filter(Boolean))]
-  let perfilMap: Record<string, { nome_completo: string; bloco_txt: string | null; apto_txt: string | null }> = {}
+  const residentIds = [...new Set((convites ?? []).map((c: { resident_id: string }) => c.resident_id).filter(Boolean))]
+  const perfilMap: Record<string, { nome_completo: string; bloco_txt: string | null; apto_txt: string | null }> = {}
 
   if (residentIds.length > 0) {
     const { data: perfis } = await supabase
       .from('perfil')
       .select('id, nome_completo, bloco_txt, apto_txt')
       .in('id', residentIds)
-    ;(perfis ?? []).forEach((p: any) => { perfilMap[p.id] = p })
+    ;(perfis ?? []).forEach((p: { id: string; nome_completo: string; bloco_txt: string | null; apto_txt: string | null }) => { perfilMap[p.id] = p })
   }
 
   // Merge
-  const invitations = (convites ?? []).map((c: any) => ({
+  type ConviteRow = {
+    id: string; qr_data: string | null; guest_name: string | null; visitor_type: string | null;
+    visitante_compareceu: boolean | number; validity_date: string; created_at: string; liberado_em: string | null;
+    status: string | null; criado_por_portaria?: boolean; bloco_destino?: string | null;
+    apto_destino?: string | null; morador_nome_manual?: string | null; resident_id: string;
+  }
+  const invitations = (convites ?? []).map((c: ConviteRow) => ({
     ...c,
     perfil: perfilMap[c.resident_id] ?? null,
   }))

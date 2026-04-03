@@ -106,7 +106,7 @@ export default function LoginPage() {
 
       router.push('/condo')
       router.refresh()
-    } catch (e: any) {
+    } catch {
       setSetupError('Erro ao definir senha. Tente novamente.')
       setSetupLoading(false)
     }
@@ -116,7 +116,8 @@ export default function LoginPage() {
     <div className="min-h-screen bg-[#f4f6f9] flex">
       {/* Left brand panel */}
       <div className="hidden lg:flex flex-col items-center justify-center w-96 bg-gradient-to-b from-[#FC5931] to-[#D42F1D] p-10 text-white">
-        <img src="/logo.png" alt="Condomeet" className="w-24 h-24 rounded-3xl object-cover mb-6 shadow-lg" />
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+<img src="/logo.png" alt="Condomeet" className="w-24 h-24 rounded-3xl object-cover mb-6 shadow-lg" />
         <h1 className="text-3xl font-bold mb-2">Condomeet</h1>
         <p className="text-white/70 text-center text-sm leading-relaxed">
           Seu condomínio digital.<br/>Simples, seguro e conectado.
@@ -140,7 +141,8 @@ export default function LoginPage() {
         <div className="bg-white rounded-3xl shadow-xl w-full max-w-sm p-8">
           {/* Mobile logo */}
           <div className="lg:hidden flex flex-col items-center mb-6">
-            <img src="/logo.png" alt="Condomeet" className="w-16 h-16 rounded-2xl object-cover mb-3 shadow-md" />
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+<img src="/logo.png" alt="Condomeet" className="w-16 h-16 rounded-2xl object-cover mb-3 shadow-md" />
             <h1 className="text-xl font-bold text-gray-900">Condomeet</h1>
             <p className="text-xs text-[#FC5931] font-medium mt-0.5">seu Condomínio Digital</p>
           </div>

@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useMemo } from 'react'
-import { Search, X, Home, Lock, Users, Shield, Building2, UserCheck } from 'lucide-react'
+import { Search, X, Home, Lock, Users, Shield, Building2 } from 'lucide-react'
 import { getBlocoLabel, getAptoLabel } from '@/lib/labels'
 
 type Morador = {

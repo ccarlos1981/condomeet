@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useRef, useEffect } from 'react'
-import { Camera, Trash2, Pencil, X, Send, Image, Heart, MessageCircle, Eye, ChevronLeft, ChevronRight } from 'lucide-react'
+import { Camera, Trash2, Pencil, X, Send, Image as ImageIcon, Heart, MessageCircle, Eye, ChevronLeft, ChevronRight } from 'lucide-react'
 
 type TipoEvento = 'evento' | 'manutencao' | 'reuniao' | 'outros'
 
@@ -292,6 +292,7 @@ export default function AlbumFotosAdminClient({ condominioId, albums: initial }:
           <div className="flex gap-2 flex-wrap mb-4">
             {previews.map((p, i) => (
               <div key={i} className="relative group">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img src={p} alt="" className="w-20 h-20 object-cover rounded-xl border border-gray-200" />
                 <button
                   onClick={() => removeFile(i)}
@@ -385,7 +386,8 @@ export default function AlbumFotosAdminClient({ condominioId, albums: initial }:
                   <div className="flex gap-2 flex-wrap">
                     {currentImages.map(img => (
                       <div key={img.id} className="relative group">
-                        <img src={img.imagem_url} alt="" className="w-20 h-20 object-cover rounded-xl border" />
+                        {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img src={img.imagem_url} alt="" className="w-20 h-20 object-cover rounded-xl border" />
                         <button
                           onClick={() => setEditRemovedImageIds(prev => [...prev, img.id])}
                           className="absolute -top-2 -right-2 w-5 h-5 bg-red-500 text-white rounded-full flex items-center justify-center text-xs opacity-0 group-hover:opacity-100 transition-opacity"
@@ -396,7 +398,8 @@ export default function AlbumFotosAdminClient({ condominioId, albums: initial }:
                     ))}
                     {editNewPreviews.map((p, i) => (
                       <div key={`new-${i}`} className="relative group">
-                        <img src={p} alt="" className="w-20 h-20 object-cover rounded-xl border border-green-300" />
+                        {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img src={p} alt="" className="w-20 h-20 object-cover rounded-xl border border-green-300" />
                         <button
                           onClick={() => {
                             URL.revokeObjectURL(p)
@@ -414,7 +417,7 @@ export default function AlbumFotosAdminClient({ condominioId, albums: initial }:
                         onClick={() => editFileInputRef.current?.click()}
                         className="w-20 h-20 border-2 border-dashed border-gray-200 rounded-xl flex items-center justify-center text-gray-400 hover:border-[#FC5931]/40 hover:text-[#FC5931] transition-colors"
                       >
-                        <Image size={20} />
+                        <ImageIcon size={20} />
                       </button>
                     )}
                   </div>
@@ -490,6 +493,7 @@ export default function AlbumFotosAdminClient({ condominioId, albums: initial }:
                   {/* Photo carousel */}
                   {album.imagens.length > 0 && (
                     <div className="relative mx-5 mb-3 rounded-xl overflow-hidden bg-gray-50">
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
                       <img
                         src={album.imagens[idx]?.imagem_url ?? album.imagens[0]?.imagem_url}
                         alt=""
@@ -537,7 +541,7 @@ export default function AlbumFotosAdminClient({ condominioId, albums: initial }:
                       {album.visualizacoes_count} visualizações
                     </span>
                     <span className="flex items-center gap-1 ml-auto">
-                      <Image size={14} /> {album.imagens.length}/5 fotos
+                      <ImageIcon size={14} /> {album.imagens.length}/5 fotos
                     </span>
                   </div>
                 </>

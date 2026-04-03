@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef } from 'react'
 import { createClient } from '@/lib/supabase/client'
-import { MessageSquare, Plus, ChevronRight, Send, X, ArrowLeft, Paperclip } from 'lucide-react'
+import { MessageSquare, Plus, ChevronRight, Send, X, ArrowLeft } from 'lucide-react'
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -101,8 +101,7 @@ function ChatView({
   thread,
   userId,
   onBack,
-  onStatusUpdate,
-}: {
+  }: {
   thread: Thread
   userId: string
   onBack: () => void
@@ -449,7 +448,7 @@ export default function FaleSindicoClient({
   initialThreads,
   userId,
   condoId,
-  userName,
+  // userName is not used here
 }: {
   initialThreads: Thread[]
   userId: string
@@ -526,7 +525,7 @@ export default function FaleSindicoClient({
         <div className="text-center py-20 text-gray-400">
           <MessageSquare size={40} className="mx-auto mb-3 opacity-30" />
           <p className="font-medium text-gray-500 mb-1">Nenhuma conversa aqui</p>
-          <p className="text-sm">Clique em "Novo Assunto" para falar com a administração</p>
+          <p className="text-sm">Clique em &quot;Novo Assunto&quot; para falar com a administração</p>
         </div>
       ) : (
         <div className="flex flex-col gap-3">

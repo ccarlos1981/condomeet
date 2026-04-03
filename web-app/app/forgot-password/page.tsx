@@ -24,7 +24,7 @@ export default function ForgotPasswordPage() {
       })
       if (resetError) throw resetError
       setSent(true)
-    } catch (e: any) {
+    } catch {
       setError('Erro ao enviar email. Verifique e tente novamente.')
     } finally {
       setLoading(false)

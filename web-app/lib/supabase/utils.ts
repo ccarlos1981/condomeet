@@ -1,10 +1,10 @@
-import { SupabaseClient } from '@supabase/supabase-js'
 
 /**
  * Fetches all rows from a Supabase query by paginating through the results.
  * This bypasses the PostgREST `max_rows` API limit (default 1000).
  */
-export async function fetchAll<T = any>(
+export async function fetchAll<T = unknown>(
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   query: any, // The Supabase query builder (e.g., supabase.from('table').select('*').eq('x', 'y'))
   chunkSize: number = 1000
 ): Promise<T[]> {

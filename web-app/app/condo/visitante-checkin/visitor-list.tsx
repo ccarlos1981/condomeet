@@ -1,7 +1,7 @@
 'use client'
-import { useState, useEffect, useCallback, useTransition } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { createClient } from '@/lib/supabase/client'
-import { useRouter } from 'next/navigation'
+
 import { RefreshCw, Filter, ChevronLeft, ChevronRight, CheckCircle2 } from 'lucide-react'
 import { QRCodeSVG } from 'qrcode.react'
 import { getBlocoLabel, getAptoLabel } from '@/lib/labels'
@@ -43,10 +43,8 @@ export default function VisitorList({ initialInvitations, initialTotal, condoId,
   const [invitations, setInvitations] = useState<Invitation[]>(initialInvitations)
   const [total, setTotal] = useState(initialTotal)
   const [approving, setApproving] = useState<string | null>(null)
-  const [isPending, startTransition] = useTransition()
-  const [loading, setLoading] = useState(false)
-  const router = useRouter()
-  const supabase = createClient()
+    const [loading, setLoading] = useState(false)
+    const supabase = createClient()
 
   // Filters
   const [fCode, setFCode] = useState('')
@@ -106,29 +104,29 @@ export default function VisitorList({ initialInvitations, initialTotal, condoId,
 
       if (convites) {
         // Fetch perfil for residents
-        const residentIds = [...new Set(convites.map((c: any) => c.resident_id).filter(Boolean))]
-        let perfilMap: Record<string, PerfilJoin> = {}
+        const residentIds = [...new Set(convites.map((c: { resident_id: string }) => c.resident_id).filter(Boolean))]
+        const perfilMap: Record<string, PerfilJoin> = {}
         if (residentIds.length > 0) {
           const { data: perfis } = await supabase
             .from('perfil')
             .select('id, nome_completo, bloco_txt, apto_txt')
             .in('id', residentIds)
-          ;(perfis ?? []).forEach((p: any) => { perfilMap[p.id] = p })
+          ;(perfis ?? []).forEach((p: { id: string; nome_completo: string; bloco_txt: string | null; apto_txt: string | null }) => { perfilMap[p.id] = p })
         }
-        const merged = convites.map((c: any) => ({ ...c, perfil: perfilMap[c.resident_id] ?? null }))
+        const merged = convites.map((c: Omit<Invitation, 'perfil'> & { resident_id: string }) => ({ ...c, perfil: perfilMap[c.resident_id] ?? null }))
 
         // Client-side filter by bloco/apto from perfil for non-portaria convites
         let finalResults = merged
         if (fBloco) {
           finalResults = finalResults.filter((i: Invitation) => {
             const b = i.criado_por_portaria ? i.bloco_destino : i.perfil?.bloco_txt
-            return b?.toLowerCase().includes(fBloco.toLowerCase())
+            return b?.toLowerCase().includes(fBloco.toLowerCase()) ?? false
           })
         }
         if (fApto) {
           finalResults = finalResults.filter((i: Invitation) => {
             const a = i.criado_por_portaria ? i.apto_destino : i.perfil?.apto_txt
-            return a?.toLowerCase().includes(fApto.toLowerCase())
+            return a?.toLowerCase().includes(fApto.toLowerCase()) ?? false
           })
         }
 
@@ -148,6 +146,7 @@ export default function VisitorList({ initialInvitations, initialTotal, condoId,
       fetchData(page)
     }, 300)
     return () => clearTimeout(timer)
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [page, fCode, fBloco, fApto, fDate, fStatus])
 
   // Reset page when filters change
@@ -176,6 +175,7 @@ export default function VisitorList({ initialInvitations, initialTotal, condoId,
     return () => {
       supabase.removeChannel(channel)
     }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [condoId, page, fCode, fBloco, fApto, fDate, fStatus])
 
   async function handleApprove(inv: Invitation) {

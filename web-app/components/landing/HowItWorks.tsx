@@ -41,7 +41,7 @@ export default function HowItWorks() {
           {/* Connecting line (desktop) */}
           <div className="hidden md:block absolute top-10 left-[16.67%] right-[16.67%] h-px bg-gradient-to-r from-transparent via-lp-accent/30 to-transparent" />
 
-          {steps.map((step, i) => (
+          {steps.map((step) => (
             <div key={step.number} className="relative group">
               {/* Step number */}
               <div className="flex items-center justify-center mb-6">

@@ -1,10 +1,10 @@
 'use client'
-import { useState, useTransition, useEffect } from 'react'
+import { useState, useEffect } from 'react'
 import { createClient } from '@/lib/supabase/client'
-import { useRouter } from 'next/navigation'
+
 import {
   PlusCircle, ToggleLeft, ToggleRight, Trash2, BarChart3,
-  List, Printer, X, ChevronDown, ChevronUp
+  Printer, X, ChevronDown, ChevronUp
 } from 'lucide-react'
 import { getBlocoLabel, getAptoLabel } from '@/lib/labels'
 
@@ -54,12 +54,10 @@ export default function EnquetesAdminClient({
   totalUnidades,
   tipoEstrutura,
 }: Props) {
-  const router = useRouter()
-  const supabase = createClient()
+    const supabase = createClient()
   const blocoLabel = getBlocoLabel(tipoEstrutura)
   const aptoLabel = getAptoLabel(tipoEstrutura)
-  const [isPending, startTransition] = useTransition()
-
+  
   const [enquetes, setEnquetes] = useState(initialEnquetes)
 
   // Sync local state when server props change (after router.refresh)
@@ -394,6 +392,7 @@ export default function EnquetesAdminClient({
             type="date"
             value={validade}
             onChange={e => setValidade(e.target.value)}
+            title="Validade da enquete"
             className="px-4 py-2.5 rounded-xl border border-gray-200 focus:ring-2 focus:ring-[#FC5931]/30 focus:border-[#FC5931] outline-none text-sm"
           />
         </div>

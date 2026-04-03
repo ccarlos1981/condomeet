@@ -110,7 +110,7 @@ export default function B2BDashboardClient({ supermarkets }: { supermarkets: Mar
         if (position === 'expensive') expensiveCount++
 
         // Find product info
-        const priceRow = allPriceList.find(p => p.sku_id === skuId && p.supermarket_id === selectedMarket) as any
+        const priceRow = allPriceList.find(p => p.sku_id === skuId && p.supermarket_id === selectedMarket) as { lista_products_sku?: { lista_product_variants?: { variant_name?: string; lista_products_base?: { name?: string; icon_emoji?: string } } } } | undefined
         const base = priceRow?.lista_products_sku?.lista_product_variants?.lista_products_base
         const variant = priceRow?.lista_products_sku?.lista_product_variants
 
@@ -146,7 +146,7 @@ export default function B2BDashboardClient({ supermarkets }: { supermarkets: Mar
         .order('created_at', { ascending: false })
         .limit(20)
 
-      setPromotions((promos ?? []).map((p: any) => ({
+      setPromotions((promos ?? []).map((p: { id: string; product_name?: string; description?: string; original_price?: number; promo_price?: number; discount_pct?: number; valid_until?: string }) => ({
         id: p.id,
         product_name: p.product_name ?? p.description ?? 'Promoção',
         original_price: p.original_price ?? 0,
@@ -158,9 +158,9 @@ export default function B2BDashboardClient({ supermarkets }: { supermarkets: Mar
       console.error('B2B load error:', e)
     }
     setLoading(false)
-  }, [selectedMarket])
+  }, [supabase, selectedMarket])
 
-  useEffect(() => { loadData() }, [loadData])
+  useEffect(() => { ;(async () => { await loadData() })() }, [loadData])
 
   const handleCreatePromo = async () => {
     if (!promoProduct.trim() || !promoNewPrice) return
@@ -221,7 +221,7 @@ export default function B2BDashboardClient({ supermarkets }: { supermarkets: Mar
             </select>
             <ChevronDown size={14} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
           </div>
-          <button onClick={loadData} className="p-2.5 bg-white rounded-xl border border-gray-200 text-gray-500 hover:bg-gray-50 transition-colors">
+          <button onClick={loadData} title="Atualizar dados" className="p-2.5 bg-white rounded-xl border border-gray-200 text-gray-500 hover:bg-gray-50 transition-colors">
             <RefreshCw size={14} />
           </button>
         </div>

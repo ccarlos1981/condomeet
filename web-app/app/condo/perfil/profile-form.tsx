@@ -87,7 +87,7 @@ export default function ProfileForm({
       )
 
       if (unidades && unidades.length > 0) {
-        const aptoIds = unidades.map((u: any) => u.apartamento_id)
+        const aptoIds = (unidades as any[]).map((u: any) => u.apartamento_id)
         const aptosData = await fetchAll(
           supabase
             .from('apartamentos')
@@ -96,7 +96,7 @@ export default function ProfileForm({
             .order('numero')
         )
 
-        const mapped: Apto[] = (aptosData ?? []).map((a: any) => ({ id: a.id, numero: String(a.numero) }))
+        const mapped: Apto[] = (aptosData as any[] ?? []).map((a: any) => ({ id: a.id, numero: String(a.numero) }))
         mapped.sort((a, b) => a.numero.localeCompare(b.numero, undefined, { numeric: true }))
         setAptos(mapped)
       }
@@ -167,8 +167,9 @@ export default function ProfileForm({
         setMessage({ text: 'Perfil atualizado com sucesso! ✅', type: 'success' })
         setTimeout(() => router.refresh(), 1500)
       }
-    } catch (e: any) {
-      setMessage({ text: `Erro: ${e.message ?? e}`, type: 'error' })
+    } catch (e: unknown) {
+      const msg = e instanceof Error ? e.message : String(e)
+      setMessage({ text: `Erro: ${msg}`, type: 'error' })
     } finally {
       setSaving(false)
     }

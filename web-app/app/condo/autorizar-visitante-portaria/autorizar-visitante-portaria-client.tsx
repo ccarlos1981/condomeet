@@ -21,8 +21,8 @@ interface Props {
 
 export default function AutorizarVisitantePortariaClient({
   condoId,
-  condoName: _condoName,
-  currentUserId: _currentUserId,
+  // condoName: _condoName,
+  // currentUserId: _currentUserId,
   currentUserName,
   tipoEstrutura,
   blocos,

@@ -65,15 +65,16 @@ function CalendarPicker({
   const [open, setOpen] = useState(false)
   const ref = useRef<HTMLDivElement>(null)
 
-  // Parse the current value or use today
   const parsed = value ? new Date(value + 'T12:00:00') : new Date()
   const [viewYear, setViewYear] = useState(parsed.getFullYear())
   const [viewMonth, setViewMonth] = useState(parsed.getMonth())
 
   // When value changes externally, sync the view
+  // Sync calendar view when value prop changes externally (legitimate derived state sync)
   useEffect(() => {
     if (value) {
       const d = new Date(value + 'T12:00:00')
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setViewYear(d.getFullYear())
       setViewMonth(d.getMonth())
     }
@@ -280,11 +281,29 @@ function PastaModal({
   )
 }
 
+// ─── RadioGroup helper ────────────────────────────────────────────────────────
+
+function RadioGroup({ label, value, onChange }: { label: string; value: boolean; onChange: (v: boolean) => void }) {
+  return (
+    <div className="flex items-center justify-between py-1.5 border-b border-gray-50">
+      <span className="text-sm text-gray-700">{label}</span>
+      <div className="flex gap-4">
+        <label className="flex items-center gap-1.5 cursor-pointer text-sm">
+          <input type="radio" checked={value} onChange={() => onChange(true)} className="accent-[#FC5931]" /> sim
+        </label>
+        <label className="flex items-center gap-1.5 cursor-pointer text-sm">
+          <input type="radio" checked={!value} onChange={() => onChange(false)} className="accent-[#FC5931]" /> não
+        </label>
+      </div>
+    </div>
+  )
+}
+
 // ─── Form Inserir/Editar Documento ────────────────────────────────────────────
 
 function DocumentoForm({
   tabelaDocs,
-  tabelaPastas,
+// tabelaPastas,
   storageBucket,
   condoId,
   pastas,
@@ -296,7 +315,7 @@ function DocumentoForm({
   onAddCategoria,
 }: {
   tabelaDocs: string
-  tabelaPastas: string
+// tabelaPastas: string
   storageBucket: string
   condoId: string
   pastas: Pasta[]
@@ -314,7 +333,7 @@ function DocumentoForm({
   const [categoria, setCategoria] = useState(doc?.categoria ?? '')
   const [pastaId, setPastaId] = useState(doc?.pasta_id ?? '')
   const [dataExp, setDataExp] = useState(doc?.data_expedicao ?? new Date().toISOString().slice(0, 10))
-  const [dataVal, setDataVal] = useState(doc?.data_validade ?? new Date(Date.now() + 365 * 86400000).toISOString().slice(0, 10))
+  const [dataVal, setDataVal] = useState(() => doc?.data_validade ?? (() => { const d = new Date(); d.setFullYear(d.getFullYear() + 1); return d.toISOString().slice(0, 10) })())
   const [lembrar30, setLembrar30] = useState(doc?.lembrar_30 ?? false)
   const [lembrar60, setLembrar60] = useState(doc?.lembrar_60 ?? false)
   const [lembrar90, setLembrar90] = useState(doc?.lembrar_90 ?? false)
@@ -322,7 +341,7 @@ function DocumentoForm({
   const [mostrarMoradores, setMostrarMoradores] = useState(doc?.mostrar_moradores ?? false)
   const [descricao, setDescricao] = useState(doc?.descricao ?? '')
   const [arquivo, setArquivo] = useState<File | null>(null)
-  const [arquivoNomeAtual, setArquivoNomeAtual] = useState(doc?.arquivo_nome ?? '')
+  const [arquivoNomeAtual] = useState(doc?.arquivo_nome ?? '')
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
   const fileRef = useRef<HTMLInputElement>(null)
@@ -377,20 +396,6 @@ function DocumentoForm({
     setSaving(false)
     onClose()
   }
-
-  const RadioGroup = ({ label, value, onChange }: { label: string; value: boolean; onChange: (v: boolean) => void }) => (
-    <div className="flex items-center justify-between py-1.5 border-b border-gray-50">
-      <span className="text-sm text-gray-700">{label}</span>
-      <div className="flex gap-4">
-        <label className="flex items-center gap-1.5 cursor-pointer text-sm">
-          <input type="radio" checked={value} onChange={() => onChange(true)} className="accent-[#FC5931]" /> sim
-        </label>
-        <label className="flex items-center gap-1.5 cursor-pointer text-sm">
-          <input type="radio" checked={!value} onChange={() => onChange(false)} className="accent-[#FC5931]" /> não
-        </label>
-      </div>
-    </div>
-  )
 
   return (
     <div className="bg-white rounded-2xl shadow-sm border border-gray-100 max-w-2xl mx-auto">
@@ -622,7 +627,7 @@ export default function DocumentosClient({
       <div className="p-6 max-w-3xl mx-auto">
         <DocumentoForm
           tabelaDocs={tabelaDocs}
-          tabelaPastas={tabelaPastas}
+          // tabelaPastas removed
           storageBucket={storageBucket}
           condoId={condoId}
           pastas={pastas}

@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import {
-  Package, CheckCircle2, Clock, Eye, X, Loader2,
+  Package, CheckCircle2, Clock, X, Loader2,
   Box, Mail, ShoppingBag, FileText, ChevronDown, UserCheck, RefreshCw,
   Camera, PenTool, PackageCheck, AlertTriangle
 } from 'lucide-react'
@@ -107,6 +107,7 @@ function DeliveryModal({ parcel, condoId, tipoEstrutura, onClose, onConfirm }: D
       setLoadingResidents(false)
     }
     load()
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [bloco, apto, condoId])
 
   const tipoInfo = TIPO_LABELS[parcel.tipo ?? ''] ?? TIPO_LABELS['pacote']

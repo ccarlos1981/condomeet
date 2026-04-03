@@ -58,18 +58,18 @@ export default async function FaleConoscoAdminPage() {
   if (error) console.error('❌ fale_sindico admin error:', JSON.stringify(error))
 
   // Resolve resident profiles
-  const residentIds = [...new Set((threads ?? []).map((t: any) => t.resident_id).filter(Boolean))]
-  let perfilMap: Record<string, { nome_completo: string; bloco_txt: string | null; apto_txt: string | null }> = {}
+  const residentIds = [...new Set((threads ?? []).map((t: { resident_id: string }) => t.resident_id).filter(Boolean))]
+  const perfilMap: Record<string, { nome_completo: string; bloco_txt: string | null; apto_txt: string | null }> = {}
 
   if (residentIds.length > 0) {
     const { data: perfis } = await supabase
       .from('perfil')
       .select('id, nome_completo, bloco_txt, apto_txt')
       .in('id', residentIds)
-    ;(perfis ?? []).forEach((p: any) => { perfilMap[p.id] = p })
+    ;(perfis ?? []).forEach((p: { id: string; nome_completo: string; bloco_txt: string | null; apto_txt: string | null }) => { perfilMap[p.id] = p })
   }
 
-  const threadsWithResident: AdminThread[] = (threads ?? []).map((t: any) => ({
+  const threadsWithResident: AdminThread[] = (threads ?? []).map((t: { id: string; tipo: string; assunto: string; status: string; ultima_mensagem_em: string; created_at: string; resident_id: string }) => ({
     ...t,
     perfil: perfilMap[t.resident_id] ?? null,
   }))
