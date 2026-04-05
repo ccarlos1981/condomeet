@@ -11,8 +11,28 @@ import {
   Maximize, Minimize, VolumeX, Volume2, MessageCircleOff, 
   MessageCircle, Circle, Square, Download, FileText, Loader2,
   ChevronDown, CloudOff, Cloud, ExternalLink, Trash2,
-  Monitor, MonitorOff, DollarSign
+  Monitor, MonitorOff, DollarSign, Youtube, Link
 } from 'lucide-react'
+
+// Helper: Extract YouTube video ID from various URL formats
+function extractYoutubeId(url: string): string | null {
+  if (!url) return null
+  // youtu.be/VIDEO_ID
+  const shortMatch = url.match(/youtu\.be\/([\w-]{11})/)
+  if (shortMatch) return shortMatch[1]
+  // youtube.com/watch?v=VIDEO_ID
+  const longMatch = url.match(/[?&]v=([\w-]{11})/)
+  if (longMatch) return longMatch[1]
+  // youtube.com/live/VIDEO_ID
+  const liveMatch = url.match(/\/live\/([\w-]{11})/)
+  if (liveMatch) return liveMatch[1]
+  // youtube.com/embed/VIDEO_ID
+  const embedMatch = url.match(/\/embed\/([\w-]{11})/)
+  if (embedMatch) return embedMatch[1]
+  // If it's just the video ID itself (11 chars)
+  if (/^[\w-]{11}$/.test(url.trim())) return url.trim()
+  return null
+}
 
 interface Pauta {
   id: string
@@ -135,6 +155,9 @@ export default function LiveDashboard({ assembleia, pautas: initialPautas, userI
 
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const videoContainerRef = useRef<HTMLDivElement>(null)
+
+  // YouTube URL input (for setting URL from live dashboard)
+  const [youtubeUrlInput, setYoutubeUrlInput] = useState(assembleia.youtube_url || '')
 
   // ─── LIVE CAPTIONS (Web Speech API) ────────────
   const startCaptions = useCallback(() => {
@@ -777,33 +800,88 @@ export default function LiveDashboard({ assembleia, pautas: initialPautas, userI
 
           {/* Live Video Feed Center */}
           <div className="flex-1 flex items-center justify-center relative overflow-hidden bg-black">
-            {/* Screen Share takes over main view when active */}
-            {isScreenSharing && (
-              <video
-                ref={screenVideoRef}
-                autoPlay
-                playsInline
-                className="absolute inset-0 w-full h-full object-contain z-10 bg-black"
-              />
-            )}
-            {/* Camera feed → PiP when screen sharing, full when not */}
-            <div className={isScreenSharing 
-              ? 'absolute bottom-4 right-4 w-48 h-36 rounded-xl overflow-hidden shadow-2xl ring-2 ring-white/20 z-20 bg-gray-900' 
-              : 'w-full h-full'
-            }>
-              <AssembleiaVideoStream 
-                assembleiaId={assembleia.id}
-                isBroadcasting={isBroadcasting}
-                micOn={micOn}
-                videoOn={videoOn}
-              />
-            </div>
-            {/* Screen share badge */}
-            {isScreenSharing && (
-              <div className="absolute top-4 left-4 z-20 flex items-center gap-2 bg-blue-600/90 backdrop-blur-md text-white text-xs font-bold px-3 py-1.5 rounded-full border border-blue-400/30">
-                <Monitor size={12} />
-                Compartilhando Tela
+            {/* ── YouTube Mode ── */}
+            {assembleia.tipo_transmissao === 'youtube' ? (
+              <div className="w-full h-full flex flex-col">
+                {(() => {
+                  const ytId = extractYoutubeId(assembleia.youtube_url || youtubeUrlInput)
+                  if (ytId) {
+                    return (
+                      <iframe
+                        src={`https://www.youtube.com/embed/${ytId}?autoplay=1&rel=0`}
+                        className="w-full h-full border-0"
+                        allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                        allowFullScreen
+                        title="YouTube Live - Assembleia"
+                      />
+                    )
+                  }
+                  return (
+                    <div className="flex-1 flex flex-col items-center justify-center gap-4 p-6">
+                      <Youtube size={48} className="text-red-500 opacity-60" />
+                      <p className="text-white/80 text-sm font-medium text-center">Link do YouTube Live não configurado</p>
+                      <div className="flex items-center gap-2 w-full max-w-md">
+                        <input
+                          type="url"
+                          value={youtubeUrlInput}
+                          onChange={e => setYoutubeUrlInput(e.target.value)}
+                          placeholder="Cole o link do YouTube Live aqui..."
+                          className="flex-1 px-4 py-3 rounded-xl bg-white/10 border border-white/20 text-white text-sm placeholder-white/40 outline-none focus:ring-2 focus:ring-red-500/50"
+                        />
+                        <button
+                          onClick={async () => {
+                            const id = extractYoutubeId(youtubeUrlInput)
+                            if (!id) { alert('Link inv\u00e1lido. Cole um link do YouTube v\u00e1lido.'); return }
+                            await supabase.from('assembleias').update({ youtube_url: youtubeUrlInput.trim() }).eq('id', assembleia.id)
+                            window.location.reload()
+                          }}
+                          className="px-4 py-3 bg-red-600 text-white rounded-xl text-sm font-medium hover:bg-red-700 transition-colors flex items-center gap-2"
+                          title="Salvar link do YouTube"
+                        >
+                          <Link size={14} />
+                          Conectar
+                        </button>
+                      </div>
+                      <p className="text-white/40 text-xs text-center max-w-sm">
+                        Inicie uma live &quot;N\u00e3o Listada&quot; no YouTube Studio e cole o link aqui.
+                        O v\u00eddeo ficar\u00e1 acess\u00edvel somente dentro do app.
+                      </p>
+                    </div>
+                  )
+                })()}
               </div>
+            ) : (
+              /* ── Agora Mode (original) ── */
+              <>
+                {/* Screen Share takes over main view when active */}
+                {isScreenSharing && (
+                  <video
+                    ref={screenVideoRef}
+                    autoPlay
+                    playsInline
+                    className="absolute inset-0 w-full h-full object-contain z-10 bg-black"
+                  />
+                )}
+                {/* Camera feed → PiP when screen sharing, full when not */}
+                <div className={isScreenSharing 
+                  ? 'absolute bottom-4 right-4 w-48 h-36 rounded-xl overflow-hidden shadow-2xl ring-2 ring-white/20 z-20 bg-gray-900' 
+                  : 'w-full h-full'
+                }>
+                  <AssembleiaVideoStream 
+                    assembleiaId={assembleia.id}
+                    isBroadcasting={isBroadcasting}
+                    micOn={micOn}
+                    videoOn={videoOn}
+                  />
+                </div>
+                {/* Screen share badge */}
+                {isScreenSharing && (
+                  <div className="absolute top-4 left-4 z-20 flex items-center gap-2 bg-blue-600/90 backdrop-blur-md text-white text-xs font-bold px-3 py-1.5 rounded-full border border-blue-400/30">
+                    <Monitor size={12} />
+                    Compartilhando Tela
+                  </div>
+                )}
+              </>
             )}
             {/* Live Captions Overlay */}
             {captionsOn && (captionText || captionInterim) && (

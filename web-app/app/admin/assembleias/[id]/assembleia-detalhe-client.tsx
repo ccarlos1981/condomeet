@@ -25,6 +25,8 @@ interface Assembleia {
   tipo: string
   modalidade: string
   status: string
+  tipo_transmissao: string
+  youtube_url: string | null
   dt_1a_convocacao: string | null
   dt_2a_convocacao: string | null
   dt_inicio_votacao: string | null

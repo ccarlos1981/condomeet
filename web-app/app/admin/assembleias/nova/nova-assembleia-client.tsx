@@ -6,7 +6,7 @@ import {
   ArrowLeft, ArrowRight, Check, FileText, ListOrdered,
   Settings, Eye, PlusCircle, X, Trash2, GripVertical,
   Calendar, Globe, Building2, Video, Gavel, AlertTriangle,
-  Vote, Users, Info
+  Vote, Users, Info, Youtube, Radio
 } from 'lucide-react'
 
 /* ================================================================
@@ -31,6 +31,8 @@ interface FormData {
   nome: string
   tipo: 'AGO' | 'AGE' | 'AGI'
   modalidade: 'online' | 'presencial' | 'hibrida'
+  tipo_transmissao: 'agora' | 'youtube'
+  youtube_url: string
   dt_1a_convocacao: string
   dt_2a_convocacao: string
   local_presencial: string
@@ -93,6 +95,8 @@ export default function NovaAssembleiaClient({
     nome: '',
     tipo: 'AGO',
     modalidade: 'online',
+    tipo_transmissao: 'youtube',
+    youtube_url: '',
     dt_1a_convocacao: '',
     dt_2a_convocacao: '',
     local_presencial: '',
@@ -214,6 +218,8 @@ export default function NovaAssembleiaClient({
           nome: form.nome.trim(),
           tipo: form.tipo,
           modalidade: form.modalidade,
+          tipo_transmissao: form.tipo_transmissao,
+          youtube_url: form.tipo_transmissao === 'youtube' ? form.youtube_url.trim() || null : null,
           status: publishNow ? 'agendada' : 'rascunho',
           dt_1a_convocacao: form.dt_1a_convocacao || null,
           dt_2a_convocacao: form.dt_2a_convocacao || null,
@@ -464,6 +470,85 @@ export default function NovaAssembleiaClient({
                 {errors.local_presencial && <p className="text-xs text-red-500 mt-1">{errors.local_presencial}</p>}
               </div>
             )}
+
+            {/* ── Tipo de Transmissão ── */}
+            <div>
+              <label className="block text-sm font-medium text-gray-600 mb-2">
+                Transmissão de Vídeo *
+              </label>
+              <div className="flex gap-3">
+                {[
+                  { value: 'youtube', label: 'YouTube Live', icon: <Youtube size={18} />, desc: '✅ Gratuito · Ilimitado', badge: 'GRÁTIS', badgeColor: 'bg-green-100 text-green-700' },
+                  { value: 'agora', label: 'Agora.io (Direto)', icon: <Radio size={18} />, desc: '💰 Pago · Até 20 pessoas', badge: 'PAGO', badgeColor: 'bg-amber-100 text-amber-700' },
+                ].map(t => (
+                  <label
+                    key={t.value}
+                    className={`flex-1 p-4 rounded-xl border-2 cursor-pointer transition-all ${
+                      form.tipo_transmissao === t.value
+                        ? 'border-[#FC5931] bg-[#FC5931]/5'
+                        : 'border-gray-200 hover:border-gray-300'
+                    }`}
+                  >
+                    <input
+                      type="radio"
+                      name="tipo_transmissao"
+                      checked={form.tipo_transmissao === t.value}
+                      onChange={() => update('tipo_transmissao', t.value as FormData['tipo_transmissao'])}
+                      className="sr-only"
+                    />
+                    <div className="flex flex-col items-center gap-1.5 text-center">
+                      <span className={form.tipo_transmissao === t.value ? 'text-[#FC5931]' : 'text-gray-400'}>{t.icon}</span>
+                      <p className="text-sm font-semibold text-gray-800">{t.label}</p>
+                      <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${t.badgeColor}`}>
+                        {t.badge}
+                      </span>
+                      <p className="text-[10px] text-gray-400">{t.desc}</p>
+                    </div>
+                  </label>
+                ))}
+              </div>
+
+              {/* YouTube instructions */}
+              {form.tipo_transmissao === 'youtube' && (
+                <div className="mt-4 space-y-3">
+                  <div className="flex items-start gap-2 p-3 bg-green-50 rounded-xl text-xs text-green-700">
+                    <Info size={16} className="mt-0.5 flex-shrink-0" />
+                    <div>
+                      <p className="font-semibold">Como usar o YouTube Live:</p>
+                      <ol className="mt-1 ml-3 space-y-0.5 list-decimal">
+                        <li>Acesse <strong>youtube.com/live_dashboard</strong> no seu navegador</li>
+                        <li>Crie uma transmissão ao vivo como <strong>&quot;Não Listado&quot;</strong></li>
+                        <li>Cole o link da live aqui abaixo (pode adicionar depois)</li>
+                        <li>O vídeo ficará acessível <strong>somente dentro do app</strong></li>
+                      </ol>
+                    </div>
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-600 mb-1">
+                      Link do YouTube Live <span className="text-gray-400">(pode adicionar depois)</span>
+                    </label>
+                    <input
+                      type="url"
+                      value={form.youtube_url}
+                      onChange={e => update('youtube_url', e.target.value)}
+                      placeholder="https://www.youtube.com/watch?v=... ou https://youtu.be/..."
+                      className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:ring-2 focus:ring-[#FC5931]/30 focus:border-[#FC5931] outline-none text-sm"
+                    />
+                  </div>
+                </div>
+              )}
+
+              {/* Agora warning */}
+              {form.tipo_transmissao === 'agora' && (
+                <div className="mt-3 flex items-start gap-2 p-3 bg-amber-50 rounded-xl text-xs text-amber-700">
+                  <AlertTriangle size={16} className="mt-0.5 flex-shrink-0" />
+                  <div>
+                    <p className="font-semibold">Atenção: Custo por uso</p>
+                    <p className="mt-0.5">O Agora.io cobra por minuto de cada participante. Recomendado para assembleias pequenas (até 20 pessoas). Para assembleias maiores, use o YouTube Live (gratuito).</p>
+                  </div>
+                </div>
+              )}
+            </div>
           </div>
         )}
 
@@ -905,6 +990,13 @@ export default function NovaAssembleiaClient({
 
                 <span className="text-gray-500">Modalidade:</span>
                 <span className="text-gray-800 capitalize">{form.modalidade}</span>
+
+                <span className="text-gray-500">Transmissão:</span>
+                <span className="text-gray-800">
+                  {form.tipo_transmissao === 'youtube'
+                    ? '📺 YouTube Live (Gratuito)'
+                    : '📡 Agora.io (Pago)'}
+                </span>
 
                 <span className="text-gray-500">1ª Convocação:</span>
                 <span className="text-gray-800">{form.dt_1a_convocacao ? new Date(form.dt_1a_convocacao).toLocaleString('pt-BR') : '—'}</span>
