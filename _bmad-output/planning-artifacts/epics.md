@@ -808,3 +808,191 @@ So that my access is pre-authorized without calling ahead.
 ---
 *Documento Atualizado em 2026-03-26 — Épicos 8–15 adicionados retroativamente.*
 
+---
+
+## Épicos Retroativos (16–18) — Features construídas em Abril 2026
+
+*Adicionados em 2026-04-05 para documentar features implementadas pós-épicos 15.*
+
+### Epic 16: Manutenção & Fornecedores
+
+Gestão de manutenções com comentários interativos e cadastro de fornecedores aprovados.
+
+### Story 16.1: Manutenção (Admin Web)
+
+As an admin,
+I want to create and manage maintenance tasks with photos, priorities, and status tracking,
+So that I can organize building upkeep efficiently.
+
+**Acceptance Criteria:**
+
+**Given** the admin manutencao screen
+**When** I create a task with title, description, priority, photos, and assign it
+**Then** it appears in the task list with status tracking (Pendente → Em Andamento → Concluído)
+**And** residents can view and comment on tasks relevant to their unit.
+
+### Story 16.2: Manutenção (Condo/Morador Web)
+
+As a resident,
+I want to view maintenance tasks affecting my building and add comments,
+So that I can report issues and follow up on progress.
+
+**Acceptance Criteria:**
+
+**Given** the condo manutencao screen
+**When** I view and comment on a maintenance task
+**Then** my comment appears in the timeline with timestamp.
+
+### Story 16.3: Fornecedores (Admin)
+
+As an admin,
+I want to manage a registry of approved service providers,
+So that I can quickly find trusted professionals for building maintenance.
+
+**Acceptance Criteria:**
+
+**Given** the admin fornecedores screen
+**When** I register a fornecedor with name, category, phone, and rating
+**Then** it's searchable and filterable by category.
+
+---
+
+### Epic 17: Suporte Sistema (Global Chat)
+
+Canal de suporte direto entre moradores/admins e o super-admin da plataforma.
+
+### Story 17.1: Suporte Sistema (Admin Web)
+
+As a super-admin,
+I want a WhatsApp-style chat interface to provide support to condominiums,
+So that admins can get help with platform issues directly.
+
+**Acceptance Criteria:**
+
+**Given** the admin suporte screen
+**When** a condo admin sends a support message
+**Then** it appears in real-time on the super-admin dashboard
+**And** read receipts (blue ticks) sync correctly.
+
+### Story 17.2: Suporte Sistema (Flutter)
+
+As a mobile user,
+I want to access platform support from the app,
+So that I can get help without switching to a browser.
+
+**Acceptance Criteria:**
+
+**Given** the suporte sistema screen in Flutter
+**When** I send a message
+**Then** it's delivered via Supabase Realtime to the super-admin.
+
+---
+
+### Epic 18: Assembleias Ao Vivo & Faturamento
+
+Módulo completo de assembleias virtuais com transmissão de vídeo, votação em tempo real, ATA via IA, e faturamento para super-admin.
+
+### Story 18.1: CRUD de Assembleias & Pautas
+
+As an admin,
+I want to create assemblies with dates, agendas (pautas), and voting options,
+So that I can organize virtual condominium meetings.
+
+**Acceptance Criteria:**
+
+**Given** the nova assembleia screen
+**When** I fill in title, dates, type, and add pautas (votação or informativa)
+**Then** the assembly is created with status "Agendada".
+
+### Story 18.2: Live Dashboard com Vídeo (Agora.io)
+
+As an admin,
+I want to stream live video during an assembly with moderation controls,
+So that residents can participate remotely in real-time.
+
+**Acceptance Criteria:**
+
+**Given** an active assembly
+**When** I start the transmission
+**Then** video streams via Agora.io with chat, mute-all, and recording controls
+**And** graceful degradation if Agora App ID is missing.
+
+### Story 18.3: Votação em Tempo Real
+
+As a resident,
+I want to vote on pautas during the live assembly,
+So that my voice is counted in real-time.
+
+**Acceptance Criteria:**
+
+**Given** an open pauta during a live assembly
+**When** I cast my vote
+**Then** it's recorded immediately via Supabase Realtime
+**And** the admin sees live vote counts.
+
+### Story 18.4: ATA via IA (Gemini 2.5 Flash)
+
+As an admin,
+I want to generate official meeting minutes using AI,
+So that I have a professional document ready for printing.
+
+**Acceptance Criteria:**
+
+**Given** a finalized assembly
+**When** I click "Gerar ATA via IA"
+**Then** the Edge Function calls Gemini 2.5 Flash to generate the ATA
+**And** R$ 9,90 is logged in `consumo_extras` table.
+
+### Story 18.5: Dashboard Analítico
+
+As an admin,
+I want to view voting analytics filtered by assembly,
+So that I can understand engagement and results.
+
+**Acceptance Criteria:**
+
+**Given** the dashboard screen
+**When** I select a specific assembly from the dropdown
+**Then** I see engagement %, vote counts, and presence-per-unit table.
+
+### Story 18.6: Edital & Procuração
+
+As an admin,
+I want to generate printable convocation notices and proxy documents,
+So that assemblies comply with legal requirements.
+
+**Acceptance Criteria:**
+
+**Given** a created assembly
+**When** I access edital or procuração
+**Then** I see an A4-formatted document ready for printing
+**And** procuração fields are customizable (condo name, city).
+
+### Story 18.7: Guia Passo a Passo
+
+As a non-technical admin,
+I want a visual step-by-step guide explaining how to run assemblies,
+So that I can operate the system without technical knowledge.
+
+**Acceptance Criteria:**
+
+**Given** the guia screen
+**When** I read through the 5 steps
+**Then** each step has clear instructions, tips, and visual icons.
+
+### Story 18.8: Faturamento Super Admin
+
+As the platform owner (super-admin),
+I want a private billing dashboard showing consumption per condominium,
+So that I can invoice clients with the 3x markup.
+
+**Acceptance Criteria:**
+
+**Given** the faturamento screen (restricted to `cristiano.santos@gmx.com`)
+**When** I filter by month and condominium
+**Then** I see base cost (1x) and billing amount (3x)
+**And** only condominiums with actual consumption appear in the dropdown.
+
+---
+*Documento Atualizado em 2026-04-05 — Épicos 16–18 adicionados retroativamente.*
+

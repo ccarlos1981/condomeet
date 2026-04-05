@@ -136,3 +136,29 @@ development_status:
   15-4-propaganda-parceiros: done
   15-5-visita-proprietario: done
   epic-15-retrospective: optional
+
+  # ── Épicos Retroativos (16–18) ─────────────────────────
+  # Adicionados em 2026-04-05 para documentar features
+  # construídas além dos épicos 8-15.
+
+  epic-16: done
+  16-1-manutencao-admin-web: done
+  16-2-manutencao-condo-web: done
+  16-3-fornecedores-admin: done
+  epic-16-retrospective: done
+
+  epic-17: done
+  17-1-suporte-sistema-admin: done
+  17-2-suporte-sistema-flutter: done
+  epic-17-retrospective: done
+
+  epic-18: done
+  18-1-assembleias-crud-pautas: done
+  18-2-live-dashboard-agora-video: done
+  18-3-votacao-tempo-real: done
+  18-4-ata-ia-gemini: done
+  18-5-dashboard-analitico: done
+  18-6-edital-procuracao: done
+  18-7-guia-passo-a-passo: done
+  18-8-faturamento-super-admin: done
+  epic-18-retrospective: done
