@@ -366,7 +366,7 @@ export default function AssembleiasClient({
       {/* ── COST MODAL ───────────────────────────────── */}
       {showCostModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm animate-in fade-in duration-200">
-          <div className="bg-white rounded-3xl shadow-2xl max-w-lg w-full mx-4 overflow-hidden animate-in zoom-in-95 duration-300">
+          <div className="bg-white rounded-3xl shadow-2xl max-w-lg w-full mx-4 max-h-[90vh] overflow-y-auto animate-in zoom-in-95 duration-300">
             {/* Header */}
             <div className="bg-gradient-to-r from-[#FC5931] to-orange-500 p-6 text-white relative">
               <button
