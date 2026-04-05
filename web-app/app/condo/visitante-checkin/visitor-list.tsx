@@ -304,6 +304,22 @@ export default function VisitorList({ initialInvitations, initialTotal, condoId,
               ? (inv.perfil?.nome_completo ?? inv.morador_nome_manual ?? 'Não identificado')
               : (inv.perfil?.nome_completo ?? '—')
             const solicitadoPor = isPortaria ? 'Portaria' : residentName
+
+            // Check if visit date allows confirmation
+            // Rule: allow only if visit date >= yesterday at 18:00
+            const visitDateExpired = (() => {
+              if (!inv.validity_date) return false
+              const visitDateStr = inv.validity_date.includes('T') ? inv.validity_date.split('T')[0] : inv.validity_date
+              // Visit day end = visit date at 23:59:59
+              const visitDayEnd = new Date(visitDateStr + 'T23:59:59')
+              // Cutoff = yesterday at 18:00 (i.e., now minus the hours since yesterday 18h)
+              const now = new Date()
+              const cutoff = new Date(now)
+              cutoff.setDate(cutoff.getDate() - 1)
+              cutoff.setHours(18, 0, 0, 0)
+              return visitDayEnd < cutoff
+            })()
+
             return (
               <div
                 key={inv.id}
@@ -373,6 +389,10 @@ export default function VisitorList({ initialInvitations, initialTotal, condoId,
                         <span className="flex items-center gap-1.5 text-green-600 text-sm font-semibold">
                           <CheckCircle2 size={15} />
                           Confirmado
+                        </span>
+                      ) : visitDateExpired ? (
+                        <span className="text-xs text-red-400 font-medium px-3 py-1.5 bg-red-50 rounded-xl border border-red-100">
+                          Expirado — data da visita ultrapassada
                         </span>
                       ) : (
                         <button
