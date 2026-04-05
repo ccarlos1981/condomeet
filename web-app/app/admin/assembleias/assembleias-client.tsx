@@ -5,7 +5,7 @@ import {
   PlusCircle, Eye, Trash2, Calendar, Users, Vote,
   Clock, CheckCircle2, XCircle, FileText, AlertTriangle,
   Search, Filter, Gavel, Video, Building2, Globe,
-  DollarSign, HardDrive, X, Sparkles
+  DollarSign, HardDrive, X, Sparkles, Radio
 } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 
@@ -102,9 +102,10 @@ export default function AssembleiasClient({
     }
   }, [searchParams])
 
-  // Custos cobrados (3x markup)
-  const STORAGE_COST_PER_HOUR = 0.30  // ~500MB/h × R$0.60/GB = R$0.30/h/mês
-  const AI_ATA_COST_PER_HOUR = 15.00  // R$15.00/hora de transcrição
+  // Custos cobrados
+  const AGORA_COST_PER_VIEWER_HOUR = 1.50  // Agora HD: base ~R$1.25 × 1.20 margin = R$1.50/participante/hora
+  const STORAGE_COST_PER_HOUR = 0.30       // ~500MB/h × R$0.60/GB = R$0.30/h/mês
+  const AI_ATA_COST_PER_HOUR = 15.00       // R$15.00/hora de transcrição
 
   function formatCurrency(v: number) {
     return v.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
@@ -385,12 +386,26 @@ export default function AssembleiasClient({
                 </div>
               </div>
               <p className="text-xs text-white/70 mt-2">
-                Ao criar uma assembleia, você pode usar dois serviços adicionais de forma independente:
+                Ao criar uma assembleia, você pode escolher entre YouTube Live (gratuito) ou Agora.io (transmissão direta). Confira os custos opcionais:
               </p>
             </div>
 
             {/* Services */}
             <div className="p-6 space-y-4">
+              {/* Service 0: Agora.io Transmission */}
+              <div className="flex items-start gap-3 p-4 bg-amber-50 rounded-xl border border-amber-200">
+                <div className="w-9 h-9 bg-amber-100 rounded-lg flex items-center justify-center shrink-0">
+                  <Radio size={18} className="text-amber-600" />
+                </div>
+                <div>
+                  <h4 className="text-sm font-bold text-amber-800">Transmissão Agora.io (Direto) <span className="text-[10px] font-semibold px-1.5 py-0.5 bg-red-100 text-red-600 rounded-full ml-1">PAGO</span></h4>
+                  <p className="text-xs text-amber-600 mt-0.5">Vídeo em tempo real pelo app · Cobrado por participante conectado</p>
+                  <p className="text-sm font-bold text-amber-700 mt-1">
+                    {formatCurrency(AGORA_COST_PER_VIEWER_HOUR)} <span className="text-xs font-normal">/ participante / hora</span>
+                  </p>
+                </div>
+              </div>
+
               {/* Service 1: Recording */}
               <div className="flex items-start gap-3 p-4 bg-emerald-50 rounded-xl border border-emerald-200">
                 <div className="w-9 h-9 bg-emerald-100 rounded-lg flex items-center justify-center shrink-0">
@@ -398,7 +413,7 @@ export default function AssembleiasClient({
                 </div>
                 <div>
                   <h4 className="text-sm font-bold text-emerald-800">Gravação na Nuvem <span className="text-[10px] font-semibold px-1.5 py-0.5 bg-amber-100 text-amber-700 rounded-full ml-1">AGORA.IO</span></h4>
-                  <p className="text-xs text-emerald-600 mt-0.5">Grava a sessão ao vivo no servidor · Apenas no modo Agora.io (Direto)</p>
+                  <p className="text-xs text-emerald-600 mt-0.5">Grava a sessão ao vivo no servidor · Apenas no modo Agora.io</p>
                   <p className="text-sm font-bold text-emerald-700 mt-1">
                     {formatCurrency(STORAGE_COST_PER_HOUR)} <span className="text-xs font-normal">/ hora / mês</span>
                   </p>
@@ -408,7 +423,7 @@ export default function AssembleiasClient({
               {/* YouTube free note */}
               <div className="flex items-start gap-2 p-3 bg-green-50 rounded-xl border border-green-200 text-xs text-green-700">
                 <Sparkles size={14} className="mt-0.5 shrink-0" />
-                <p><strong>YouTube Live:</strong> A gravação é automática e gratuita. O vídeo fica salvo no YouTube após a live encerrar — sem custo adicional.</p>
+                <p><strong>YouTube Live (Gratuito):</strong> Transmissão + gravação automática sem custo. Recomendado para assembleias com mais de 20 participantes.</p>
               </div>
 
               {/* Service 2: AI Transcription */}
@@ -425,37 +440,48 @@ export default function AssembleiasClient({
                 </div>
               </div>
 
-              {/* Simulation Table */}
+              {/* Simulation Table - Agora.io */}
               <div className="bg-gray-50 rounded-xl border border-gray-200 overflow-hidden">
                 <div className="flex items-center gap-2 p-3 bg-gray-100 border-b border-gray-200">
                   <DollarSign size={14} className="text-gray-600" />
-                  <span className="text-xs font-bold text-gray-700">Simulação de Custo por Duração</span>
+                  <span className="text-xs font-bold text-gray-700">Simulação Agora.io (Transmissão + Gravação + ATA)</span>
                 </div>
                 <table className="w-full text-xs">
                   <thead>
                     <tr className="border-b border-gray-200">
-                      <th className="text-left py-2.5 px-4 text-gray-500 font-semibold">Duração</th>
-                      <th className="text-center py-2.5 px-4 text-emerald-600 font-semibold">Gravação/mês</th>
-                      <th className="text-center py-2.5 px-4 text-blue-600 font-semibold">ATA (IA)</th>
-                      <th className="text-right py-2.5 px-4 text-gray-700 font-bold">Total*</th>
+                      <th className="text-left py-2 px-3 text-gray-500 font-semibold">Cenário</th>
+                      <th className="text-center py-2 px-3 text-amber-600 font-semibold">Transmissão</th>
+                      <th className="text-center py-2 px-3 text-emerald-600 font-semibold">Gravação</th>
+                      <th className="text-center py-2 px-3 text-blue-600 font-semibold">ATA (IA)</th>
+                      <th className="text-right py-2 px-3 text-gray-700 font-bold">Total</th>
                     </tr>
                   </thead>
                   <tbody>
-                    {[1, 2, 3].map(h => (
-                      <tr key={h} className="border-b border-gray-100 last:border-0">
-                        <td className="py-2.5 px-4 font-semibold text-gray-700">{h}h</td>
-                        <td className="py-2.5 px-4 text-center text-emerald-600">{formatCurrency(STORAGE_COST_PER_HOUR * h)}</td>
-                        <td className="py-2.5 px-4 text-center text-blue-600">{formatCurrency(AI_ATA_COST_PER_HOUR * h)}</td>
-                        <td className="py-2.5 px-4 text-right font-bold text-gray-800">{formatCurrency((STORAGE_COST_PER_HOUR + AI_ATA_COST_PER_HOUR) * h)}</td>
-                      </tr>
-                    ))}
+                    {[
+                      { label: '10 pessoas · 1h', viewers: 10, hours: 1 },
+                      { label: '20 pessoas · 2h', viewers: 20, hours: 2 },
+                      { label: '50 pessoas · 3h', viewers: 50, hours: 3 },
+                    ].map(s => {
+                      const agora = AGORA_COST_PER_VIEWER_HOUR * s.viewers * s.hours
+                      const storage = STORAGE_COST_PER_HOUR * s.hours
+                      const ata = AI_ATA_COST_PER_HOUR * s.hours
+                      return (
+                        <tr key={s.label} className="border-b border-gray-100 last:border-0">
+                          <td className="py-2 px-3 font-semibold text-gray-700">{s.label}</td>
+                          <td className="py-2 px-3 text-center text-amber-600">{formatCurrency(agora)}</td>
+                          <td className="py-2 px-3 text-center text-emerald-600">{formatCurrency(storage)}</td>
+                          <td className="py-2 px-3 text-center text-blue-600">{formatCurrency(ata)}</td>
+                          <td className="py-2 px-3 text-right font-bold text-gray-800">{formatCurrency(agora + storage + ata)}</td>
+                        </tr>
+                      )
+                    })}
                   </tbody>
                 </table>
               </div>
 
               <p className="text-[10px] text-gray-400 text-center">
-                * Gravação é recorrente (mensal enquanto armazenada). ATA é cobrada uma única vez por transcrição.
-                Ambos os serviços são opcionais.
+                * No YouTube Live, todos os custos acima (exceto ATA) são <strong>R$ 0</strong>.
+                Gravação e transmissão são cobradas somente no modo Agora.io.
               </p>
 
               {/* CTA */}
