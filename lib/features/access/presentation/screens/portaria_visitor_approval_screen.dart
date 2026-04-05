@@ -446,19 +446,42 @@ class _PortariaVisitorApprovalScreenState
                     ),
                     const SizedBox(width: 12),
                     if (!isLiberado)
-                      ElevatedButton(
-                        onPressed: () => _showConfirmDialog(inv),
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: AppColors.primary,
-                          foregroundColor: Colors.white,
-                          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(20),
+                      Builder(builder: (_) {
+                        // Rule: allow only if visit date >= yesterday at 18:00
+                        final now = DateTime.now();
+                        final cutoff = DateTime(now.year, now.month, now.day - 1, 18, 0);
+                        final visitDayEnd = DateTime(inv.validityDate.year, inv.validityDate.month, inv.validityDate.day, 23, 59, 59);
+                        final isExpired = visitDayEnd.isBefore(cutoff);
+
+                        if (isExpired) {
+                          return Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                            decoration: BoxDecoration(
+                              color: Colors.red.shade50,
+                              borderRadius: BorderRadius.circular(20),
+                              border: Border.all(color: Colors.red.shade100),
+                            ),
+                            child: Text(
+                              'Expirado',
+                              style: TextStyle(fontSize: 11, color: Colors.red.shade400, fontWeight: FontWeight.w600),
+                            ),
+                          );
+                        }
+
+                        return ElevatedButton(
+                          onPressed: () => _showConfirmDialog(inv),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: AppColors.primary,
+                            foregroundColor: Colors.white,
+                            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(20),
+                            ),
+                            textStyle: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
                           ),
-                          textStyle: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
-                        ),
-                        child: const Text('Confirmar Entrada'),
-                      )
+                          child: const Text('Confirmar Entrada'),
+                        );
+                      })
                     else
                       Row(
                         children: [
