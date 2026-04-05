@@ -86,7 +86,7 @@ export default function AdminSidebar({
           children: [
             { label: 'Passo a Passo', href: '/admin/assembleias/guia', icon: <ClipboardList size={18} /> },
             { label: 'Configurações', href: '/admin/assembleias/unidades', icon: <Building2 size={18} /> },
-            { label: 'Nova Assembleia', href: '/admin/assembleias/nova', icon: <PlusCircle size={18} /> },
+            { label: 'Nova Assembleia', href: '/admin/assembleias?nova=1', icon: <PlusCircle size={18} /> },
             { label: 'Assembleias', href: '/admin/assembleias', icon: <Gavel size={18} /> },
             { label: 'Dashboard', href: '/admin/assembleias/dashboard', icon: <BarChart3 size={18} /> },
             { label: 'Procurações', href: '/admin/assembleias/procuracoes', icon: <FileText size={18} /> },

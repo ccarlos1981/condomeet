@@ -1,6 +1,6 @@
 'use client'
 import { useState, useEffect } from 'react'
-import { useRouter } from 'next/navigation'
+import { useRouter, useSearchParams } from 'next/navigation'
 import {
   PlusCircle, Eye, Trash2, Calendar, Users, Vote,
   Clock, CheckCircle2, XCircle, FileText, AlertTriangle,
@@ -91,6 +91,16 @@ export default function AssembleiasClient({
   const [searchTerm, setSearchTerm] = useState('')
   const [statusFilter, setStatusFilter] = useState<string>('todos')
   const [showCostModal, setShowCostModal] = useState(false)
+  const searchParams = useSearchParams()
+
+  // Auto-open modal when ?nova=1 is in the URL (sidebar link)
+  useEffect(() => {
+    if (searchParams.get('nova') === '1') {
+      setShowCostModal(true)
+      // Clean the URL without reloading
+      window.history.replaceState({}, '', window.location.pathname)
+    }
+  }, [searchParams])
 
   // Custos cobrados (3x markup)
   const STORAGE_COST_PER_HOUR = 0.30  // ~500MB/h × R$0.60/GB = R$0.30/h/mês
