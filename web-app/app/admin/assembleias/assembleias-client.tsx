@@ -397,12 +397,18 @@ export default function AssembleiasClient({
                   <HardDrive size={18} className="text-emerald-600" />
                 </div>
                 <div>
-                  <h4 className="text-sm font-bold text-emerald-800">Gravação na Nuvem</h4>
-                  <p className="text-xs text-emerald-600 mt-0.5">Grave a sessão ao vivo e acesse a qualquer momento</p>
+                  <h4 className="text-sm font-bold text-emerald-800">Gravação na Nuvem <span className="text-[10px] font-semibold px-1.5 py-0.5 bg-amber-100 text-amber-700 rounded-full ml-1">AGORA.IO</span></h4>
+                  <p className="text-xs text-emerald-600 mt-0.5">Grava a sessão ao vivo no servidor · Apenas no modo Agora.io (Direto)</p>
                   <p className="text-sm font-bold text-emerald-700 mt-1">
                     {formatCurrency(STORAGE_COST_PER_HOUR)} <span className="text-xs font-normal">/ hora / mês</span>
                   </p>
                 </div>
+              </div>
+
+              {/* YouTube free note */}
+              <div className="flex items-start gap-2 p-3 bg-green-50 rounded-xl border border-green-200 text-xs text-green-700">
+                <Sparkles size={14} className="mt-0.5 shrink-0" />
+                <p><strong>YouTube Live:</strong> A gravação é automática e gratuita. O vídeo fica salvo no YouTube após a live encerrar — sem custo adicional.</p>
               </div>
 
               {/* Service 2: AI Transcription */}
