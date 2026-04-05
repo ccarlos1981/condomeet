@@ -13,6 +13,8 @@ type Profile = {
   status_aprovacao: string | null
   papel_sistema: string | null
   created_at: string
+  email: string | null
+  whatsapp: string | null
 }
 
 type Filter = 'pendente' | 'aprovado' | 'bloqueado' | 'rejeitado' | 'todos'
@@ -164,6 +166,20 @@ export default function AprovacoesClient({ profiles, tipoEstrutura }: { profiles
                     <p className={`font-semibold ${blocked ? 'text-gray-400 line-through' : 'text-gray-900'}`}>
                       {p.nome_completo ?? '—'}
                     </p>
+                    
+                    <div className="flex flex-wrap gap-x-3 gap-y-1 mt-1">
+                      {p.email && (
+                        <span className="text-xs text-gray-600">
+                          📧 {p.email}
+                        </span>
+                      )}
+                      {p.whatsapp && (
+                        <span className="text-xs text-gray-600">
+                          📱 {p.whatsapp}
+                        </span>
+                      )}
+                    </div>
+
                     <div className="flex flex-wrap gap-x-3 gap-y-1 mt-1.5">
                       {p.papel_sistema && (
                         <span className="text-xs px-2 py-0.5 bg-gray-100 text-gray-600 rounded-full">
@@ -175,7 +191,7 @@ export default function AprovacoesClient({ profiles, tipoEstrutura }: { profiles
                           🏠 {blocoLabel} {p.bloco_txt}{p.apto_txt ? ` / ${aptoLabel} ${p.apto_txt}` : ''}
                         </span>
                       )}
-                      <span className="text-xs text-gray-400">
+                      <span className="text-xs text-gray-400 flex items-center gap-1">
                         📅 {new Date(p.created_at).toLocaleDateString('pt-BR', {
                           day: '2-digit', month: '2-digit', year: 'numeric'
                         })}

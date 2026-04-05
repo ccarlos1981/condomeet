@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:condomeet/features/auth/presentation/bloc/auth_bloc.dart';
 import 'package:condomeet/core/design_system/widgets/blocked_access_overlay.dart';
 import 'package:condomeet/features/auth/presentation/screens/login_screen.dart';
 import 'package:condomeet/features/auth/presentation/screens/otp_verification_screen.dart';
@@ -30,6 +32,7 @@ import 'package:condomeet/features/community/presentation/screens/admin_contrato
 import 'package:condomeet/features/community/presentation/screens/album_fotos_screen.dart';
 import 'package:condomeet/features/community/presentation/screens/classificados_screen.dart';
 import 'package:condomeet/features/community/presentation/screens/indicacoes_screen.dart';
+import 'package:condomeet/features/community/presentation/screens/funcionarios_screen.dart';
 import 'package:condomeet/features/community/presentation/screens/area_picker_screen.dart';
 import 'package:condomeet/features/community/presentation/screens/portaria_booking_screen.dart';
 import 'package:condomeet/features/community/presentation/screens/areas_comuns_admin_screen.dart';
@@ -50,6 +53,9 @@ import 'package:condomeet/features/admin/presentation/screens/inventory_list_scr
 import 'package:condomeet/features/admin/presentation/screens/inventory_detail_screen.dart';
 import 'package:condomeet/features/admin/presentation/screens/assembly_list_screen.dart';
 import 'package:condomeet/features/admin/presentation/screens/assembly_detail_screen.dart';
+import 'package:condomeet/features/assembleia/presentation/screens/assembleia_list_screen.dart';
+import 'package:condomeet/features/assembleia/presentation/screens/assembleia_detail_screen.dart';
+import 'package:condomeet/features/assembleia/presentation/screens/assembleia_live_screen.dart';
 import 'package:condomeet/features/admin/presentation/screens/condominium_structure_screen.dart';
 import 'package:condomeet/features/admin/presentation/screens/configure_menu_screen.dart';
 import 'package:condomeet/features/security/presentation/screens/fale_sindico_screen.dart';
@@ -186,10 +192,20 @@ class AppRouter {
         final itemId = ModalRoute.of(context)!.settings.arguments as String;
         return InventoryDetailScreen(itemId: itemId);
       },
-      '/assemblies': (context) => const AssemblyListScreen(),
+      '/assemblies': (context) => const AssembleiaListScreen(),
       '/assembly-detail': (context) {
         final assemblyId = ModalRoute.of(context)!.settings.arguments as String;
         return AssemblyDetailScreen(assemblyId: assemblyId);
+      },
+      // Assembleias — Visão do Morador (novo módulo)
+      '/assembleias-morador': (context) => const AssembleiaListScreen(),
+      '/assembleia-detalhe-morador': (context) {
+        final assembleiaId = ModalRoute.of(context)!.settings.arguments as String;
+        return AssembleiaDetalheScreen(assembleiaId: assembleiaId);
+      },
+      '/assembleia-live': (context) {
+        final assembleiaId = ModalRoute.of(context)!.settings.arguments as String;
+        return AssembleiaLiveScreen(assembleiaId: assembleiaId);
       },
       '/home': (context) => const HomeScreen(),
       '/admin': (context) => const AdminScreen(),
@@ -202,6 +218,7 @@ class AppRouter {
       '/avisos': (context) => const AvisosScreen(),
       '/album-fotos': (context) => const AlbumFotosScreen(),
       '/classificados': (context) => const ClassificadosScreen(),
+      '/funcionarios': (context) => const FuncionariosScreen(),
       '/admin-classificados': (context) => const ClassificadosScreen(adminMode: true),
       '/manutencao': (context) => const ManutencoesScreen(),
       '/indicacoes': (context) => const IndicacoesScreen(),

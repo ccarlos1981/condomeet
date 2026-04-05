@@ -31,7 +31,7 @@ export default async function CondoMoradoresPage() {
 
   const { data: moradores, error } = await supabase
     .from('perfil')
-    .select('id, nome_completo, bloco_txt, apto_txt, status_aprovacao, papel_sistema, created_at')
+    .select('id, nome_completo, bloco_txt, apto_txt, status_aprovacao, papel_sistema, created_at, email, celular')
     .eq('condominio_id', condoId)
     .eq('status_aprovacao', 'aprovado')
     .order('nome_completo', { ascending: true })
@@ -50,9 +50,14 @@ export default async function CondoMoradoresPage() {
     )
   }
 
+  const mappedMoradores = moradores?.map(m => ({
+    ...m,
+    whatsapp: m.celular
+  })) ?? []
+
   return (
     <div className="p-6 lg:p-8">
-      <MoradoresClient moradores={moradores ?? []} tipoEstrutura={tipoEstrutura} />
+      <MoradoresClient moradores={mappedMoradores} tipoEstrutura={tipoEstrutura} />
     </div>
   )
 }

@@ -42,6 +42,7 @@ const _kAllFunctions = [
   _FunctionDef(id: 'resident_search',    icon: 'person_search', label: 'Busca Moradores',         route: '/resident-search',            defaultRoles: {'sindico'}),
   _FunctionDef(id: 'condo_structure',    icon: 'apartment',     label: 'Estrutura do Condomínio', route: '/condo-structure',            defaultRoles: {'sindico'}),
   _FunctionDef(id: 'assemblies',         icon: 'groups',        label: 'Assembleias',             route: '/assemblies',                 defaultRoles: {'sindico'}),
+  _FunctionDef(id: 'assembleias_morador', icon: 'groups',        label: 'Assembleias',             route: '/assembleias-morador',        defaultRoles: {'morador', 'proprietario', 'inquilino', 'locatario'}),
   _FunctionDef(id: 'avisos',             icon: 'campaign',      label: 'Avisos',                  route: '/avisos',                     defaultRoles: {'morador', 'sindico'}),
   _FunctionDef(id: 'fale_sindico',       icon: 'forum',         label: 'Fale com o Síndico',      route: '/fale-sindico',               defaultRoles: {'morador'}),
   _FunctionDef(id: 'enquetes',           icon: 'bar_chart',     label: 'Enquetes',                route: '/enquetes',                   defaultRoles: {'morador'}),

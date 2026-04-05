@@ -4,4 +4,7 @@ class AppConfig {
   
   // PowerSync config (if applicable) can go here too
   static const String powersyncUrl = 'https://avypyaxthvgaybplnwxu.powersync.app';
+  
+  // Agora.io App ID for Live Assembly
+  static const String agoraAppId = 'e14a0c1d584b41859c2496b72b05c102';
 }

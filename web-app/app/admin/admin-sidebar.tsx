@@ -79,6 +79,7 @@ export default function AdminSidebar({
         { label: 'Estrutura',       href: '/admin/estrutura',       icon: <Building2 size={18} /> },
         { label: 'Classificados',   href: '/admin/classificados',   icon: <ShoppingBag size={18} /> },
         { label: 'Fornecedores',    href: '/admin/fornecedores',    icon: <Briefcase size={18} /> },
+        { label: 'Funcionários',    href: '/admin/funcionarios',    icon: <UserCheck size={18} /> },
         {
           label: 'Assembleias',
           href: '#',

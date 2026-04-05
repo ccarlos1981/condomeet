@@ -12,6 +12,8 @@ type Morador = {
   status_aprovacao: string | null
   papel_sistema: string | null
   created_at: string
+  email: string | null
+  whatsapp: string | null
 }
 
 const ROLE_CONFIG: Record<string, { bg: string; text: string; border: string; icon: string }> = {
@@ -227,7 +229,21 @@ export default function MoradoresClient({ moradores, tipoEstrutura }: { moradore
                             }`}>
                               {m.nome_completo || '—'}
                             </p>
-                            <div className="flex items-center gap-2 mt-1">
+                            
+                            <div className="mt-1 flex flex-col gap-0.5">
+                              {m.email && (
+                                <span className="text-xs text-gray-500 truncate" title={m.email}>
+                                  📧 {m.email}
+                                </span>
+                              )}
+                              {m.whatsapp && (
+                                <span className="text-xs text-gray-500 truncate" title={m.whatsapp}>
+                                  📱 {m.whatsapp}
+                                </span>
+                              )}
+                            </div>
+
+                            <div className="flex items-center gap-2 mt-1.5">
                               {m.papel_sistema && (
                                 <span className={`text-[10px] px-2 py-0.5 rounded-full font-semibold border ${role.bg} ${role.text} ${role.border}`}>
                                   {role.icon} {m.papel_sistema}

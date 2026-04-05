@@ -27,7 +27,7 @@ export default async function ApprovalsPage() {
   // Fetch ALL profiles (all statuses) — columns that actually exist in perfil
   const { data: profiles, error } = await supabase
     .from('perfil')
-    .select('id, nome_completo, bloco_txt, apto_txt, status_aprovacao, papel_sistema, created_at')
+    .select('id, nome_completo, bloco_txt, apto_txt, status_aprovacao, papel_sistema, created_at, email, whatsapp')
     .eq('condominio_id', condoId)
     .order('created_at', { ascending: false })
 

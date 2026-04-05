@@ -31,6 +31,7 @@ const ALL_FUNCTIONS = [
   { id: 'classificados', label: 'Classificados', icon: 'newspaper', emoji: '🛒', route: '/classificados', defaultRoles: ['morador'] },
   { id: 'aluguel_vaga', label: 'Garagem Inteligente', icon: 'local_parking', emoji: '🅿️', route: '/garagem', defaultRoles: ['morador'] },
   { id: 'manutencoes', label: 'Manutenções', icon: 'build', emoji: '🛠️', route: '/manutencao', defaultRoles: ['morador'] },
+  { id: 'funcionarios', label: 'Funcionários', icon: 'badge', emoji: '🪪', route: '/funcionarios', defaultRoles: ['sindico'] },
 ]
 
 // Normalize role name → key: "Porteiro (a)" → "portaria"

@@ -23,12 +23,12 @@ class Assembly extends Equatable {
 
   factory Assembly.fromMap(Map<String, dynamic> map) {
     return Assembly(
-      id: map['id'],
-      condominiumId: map['condominio_id'] ?? map['condominium_id'],
-      title: map['titulo'] ?? map['title'],
+      id: map['id'] ?? '',
+      condominiumId: map['condominio_id'] ?? map['condominium_id'] ?? '',
+      title: map['titulo'] ?? map['title'] ?? 'Sem título',
       description: map['descricao'] ?? map['description'],
-      startDate: DateTime.parse(map['data_inicio'] ?? map['start_date']),
-      endDate: DateTime.parse(map['data_fim'] ?? map['end_date']),
+      startDate: DateTime.tryParse(map['data_inicio'] ?? map['start_date'] ?? '') ?? DateTime.now(),
+      endDate: DateTime.tryParse(map['data_fim'] ?? map['end_date'] ?? '') ?? DateTime.now(),
       status: AssemblyStatus.values.firstWhere(
         (e) => e.name == map['status'],
         orElse: () => AssemblyStatus.draft,

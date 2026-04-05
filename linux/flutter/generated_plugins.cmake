@@ -9,6 +9,7 @@ list(APPEND FLUTTER_PLUGIN_LIST
   powersync_flutter_libs
   printing
   sqlite3_flutter_libs
+  syncfusion_pdfviewer_linux
   url_launcher_linux
 )
 

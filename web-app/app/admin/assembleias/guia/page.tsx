@@ -29,7 +29,7 @@ export default function GuiaAssembleiasPage() {
       descricao: 'Agora vamos agendar a assembleia de fato e definir os assuntos (Pautas) que serão votados ou discutidos.',
       dicas: [
         'Acesse a página "Nova Assembleia" no menu.',
-        'Preencha informações básicas: Título, Data, Link da videochamada.',
+        'Preencha informações básicas: Título, Data, e o link da transmissão do YouTube (YouTube Live) para que a imagem apareça nativamente aos moradores.',
         'Crie as Pautas. Escolha entre "Votação" (para as pessoas escolherem Sim/Não ou outras opções criadas por você) ou "Informativa" (apenas para discutir um tema).',
         'Foque em opções claras nas pautas de votação para não confundir os condôminos.'
       ],
@@ -52,9 +52,10 @@ export default function GuiaAssembleiasPage() {
       descricao: 'Chegou o dia e horário! Você deve comandar a transmissão.',
       dicas: [
         'Acesse o painel da assembleia. Você terá controle de "Iniciar Assembleia".',
-        'Os votos serão liberados automaticamente quando a assembleia estiver aberta e as pautas ativas.',
-        'No Painel de Controle, você pode moderar o chat (apagar mensagens), iniciar gravação, e silenciar moradores.',
-        'Dica de ouro: Use o Painel de Engajamento para ver em tempo real quantos estão votando.'
+        'Inicie também a transmissão da sua câmera pelo software conectado ao seu YouTube (como OBS Studio ou o próprio YouTube Studio).',
+        'Os votos serão liberados interativamente conforme você ativa as pautas e controla o andamento.',
+        'No Painel de Controle, você pode moderar o chat dos moradores.',
+        'Dica de ouro: Avise os moradores que o Youtube tem um delay natural (atraso de ≈ 10 segundos) em relação ao que você fala, então dê tempo extra para votações.'
       ],
       cor: 'bg-indigo-50 border-indigo-200'
     },

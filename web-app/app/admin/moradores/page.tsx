@@ -26,7 +26,7 @@ export default async function MoradoresPage() {
 
   const { data: moradores, error } = await supabase
     .from('perfil')
-    .select('id, nome_completo, bloco_txt, apto_txt, status_aprovacao, papel_sistema, created_at')
+    .select('id, nome_completo, bloco_txt, apto_txt, status_aprovacao, papel_sistema, created_at, email, whatsapp')
     .eq('condominio_id', condoId)
     .eq('status_aprovacao', 'aprovado')
     .order('nome_completo', { ascending: true })

@@ -67,7 +67,9 @@
 		<string>UIInterfaceOrientationLandscapeRight</string>
 	</array>
 	<key>NSCameraUsageDescription</key>
-	<string>Para registrar foto da encomenda</string>
+	<string>Necessário para registrar encomendas e para a Sala Ao Vivo</string>
+	<key>NSMicrophoneUsageDescription</key>
+	<string>Necessário para transmitir áudio na Sala Ao Vivo, caso autorizado pelo Síndico</string>
 	<key>NSPhotoLibraryUsageDescription</key>
 	<string>Para anexar foto da encomenda</string>
 	<key>NSFaceIDUsageDescription</key>
