@@ -473,6 +473,64 @@ async function handlePortariaCreated(
 
   const results: string[] = []
 
+  // ── FCM Push Notification (Executa PRIMEIRO para garantir entrega antes de qualquer timeout) ──
+  try {
+    const serviceAccountJson = Deno.env.get("FIREBASE_SERVICE_ACCOUNT_JSON")
+    if (serviceAccountJson) {
+      const serviceAccount = JSON.parse(serviceAccountJson)
+      const fcmAccessToken = await getFcmAccessToken(serviceAccount)
+      const projectId = serviceAccount.project_id
+
+      const pushTitle = "🚪 Autorização de visitante registrada"
+      const pushBody = `Tipo: ${tipoVisitante} — ${blocoLabel} ${bloco_destino} / ${aptoLabel} ${apto_destino} — Data: ${visitDate}`
+      const pushData: Record<string, string> = {
+        type: "convite",
+        event: "portaria_created",
+        convite_id: convite_id || "",
+      }
+
+      // Get FCM tokens: from specific resident or all unit residents
+      let fcmTargets: { id: string; fcm_token: string }[] = []
+
+      if (resident_id && resident_id.trim() !== "") {
+        const { data: rp } = await supabase
+          .from("perfil")
+          .select("id, fcm_token")
+          .eq("id", resident_id)
+          .not("fcm_token", "is", null)
+          .maybeSingle()
+        if (rp?.fcm_token) fcmTargets = [rp]
+      } else {
+        const { data: unitResidents2 } = await supabase
+          .from("perfil")
+          .select("id, fcm_token")
+          .eq("condominio_id", condominio_id)
+          .eq("bloco_txt", bloco_destino)
+          .eq("apto_txt", apto_destino)
+          .not("fcm_token", "is", null)
+        fcmTargets = (unitResidents2 ?? []).filter((r: any) => r.fcm_token && r.fcm_token.length > 10)
+      }
+
+      const fcmPromises = fcmTargets.map(async (target) => {
+        const pushResult = await sendFcmPush(fcmAccessToken, projectId, target.fcm_token, pushTitle, pushBody, pushData)
+        console.log(`FCM push to ${target.id}: ${pushResult.success ? "✅" : "❌"} ${pushResult.error || ""}`)
+        return `FCM ${target.id}: ${pushResult.success ? "✅" : "❌"}`
+      })
+
+      const fcmPushResults = await Promise.all(fcmPromises)
+      results.push(...fcmPushResults)
+
+      if (fcmTargets.length === 0) {
+        console.log("No FCM tokens found for portaria_created push")
+        results.push("FCM: no tokens found")
+      }
+    }
+  } catch (fcmErr: unknown) {
+    const msg = fcmErr instanceof Error ? fcmErr.message : String(fcmErr)
+    console.error("FCM push error in handlePortariaCreated:", msg)
+    results.push(`FCM error: ${msg}`)
+  }
+
   // ── CASE 1: Resident identified ───────────────────────────────────
   if (resident_id && resident_id.trim() !== "") {
     const { data: perfil } = await supabase
@@ -549,9 +607,9 @@ async function handlePortariaCreated(
     for (let i = 0; i < (unitResidents ?? []).length; i++) {
       const r = unitResidents![i]
       if (r.whatsapp) {
-        // Random delay 5-15s between messages to avoid Meta anti-spam
+        // Reduzido para 200ms para evitar timeout do pg_net (max 5000ms global) e interrupção do push
         if (i > 0) {
-          const delay = Math.floor(Math.random() * 10000) + 5000 // 5000-15000ms
+          const delay = 200
           await new Promise((resolve) => setTimeout(resolve, delay))
         }
         const sent = await sendWhatsApp(uazapiUrl, uazapiToken, cleanPhone(r.whatsapp), msg2)
@@ -616,61 +674,6 @@ async function handlePortariaCreated(
   }
 
   console.log(`handlePortariaCreated results:`, results)
-
-  // ── FCM Push Notification ──────────────────────────────────────────
-  try {
-    const serviceAccountJson = Deno.env.get("FIREBASE_SERVICE_ACCOUNT_JSON")
-    if (serviceAccountJson) {
-      const serviceAccount = JSON.parse(serviceAccountJson)
-      const fcmAccessToken = await getFcmAccessToken(serviceAccount)
-      const projectId = serviceAccount.project_id
-
-      const pushTitle = "🚪 Autorização de visitante registrada"
-      const pushBody = `Tipo: ${tipoVisitante} — ${blocoLabel} ${bloco_destino} / ${aptoLabel} ${apto_destino} — Data: ${visitDate}`
-      const pushData: Record<string, string> = {
-        type: "convite",
-        event: "portaria_created",
-        convite_id: convite_id || "",
-      }
-
-      // Get FCM tokens: from specific resident or all unit residents
-      let fcmTargets: { id: string; fcm_token: string }[] = []
-
-      if (resident_id && resident_id.trim() !== "") {
-        const { data: rp } = await supabase
-          .from("perfil")
-          .select("id, fcm_token")
-          .eq("id", resident_id)
-          .not("fcm_token", "is", null)
-          .maybeSingle()
-        if (rp?.fcm_token) fcmTargets = [rp]
-      } else {
-        const { data: unitResidents2 } = await supabase
-          .from("perfil")
-          .select("id, fcm_token")
-          .eq("condominio_id", condominio_id)
-          .eq("bloco_txt", bloco_destino)
-          .eq("apto_txt", apto_destino)
-          .not("fcm_token", "is", null)
-        fcmTargets = (unitResidents2 ?? []).filter((r: any) => r.fcm_token && r.fcm_token.length > 10)
-      }
-
-      for (const target of fcmTargets) {
-        const pushResult = await sendFcmPush(fcmAccessToken, projectId, target.fcm_token, pushTitle, pushBody, pushData)
-        console.log(`FCM push to ${target.id}: ${pushResult.success ? "✅" : "❌"} ${pushResult.error || ""}`)
-        results.push(`FCM ${target.id}: ${pushResult.success ? "✅" : "❌"}`)
-      }
-
-      if (fcmTargets.length === 0) {
-        console.log("No FCM tokens found for portaria_created push")
-        results.push("FCM: no tokens found")
-      }
-    }
-  } catch (fcmErr: unknown) {
-    const msg = fcmErr instanceof Error ? fcmErr.message : String(fcmErr)
-    console.error("FCM push error in handlePortariaCreated:", msg)
-    results.push(`FCM error: ${msg}`)
-  }
 
   return jsonResponse({
     action: "portaria_created",
@@ -759,15 +762,48 @@ async function handleEntryReleased(
     return jsonResponse({ action: "entry_released", sent: 0, reason: "no recipients" })
   }
 
+  // ── PUSH NOTIFICATION — FCM to all recipients ──────────────────────
+  // (Executa PRIMEIRO para garantir que o timeout do supabase (pg_net) não cancele o envio)
+  try {
+    const serviceAccountJson = Deno.env.get("FIREBASE_SERVICE_ACCOUNT_JSON")
+    if (serviceAccountJson) {
+      const serviceAccount = JSON.parse(serviceAccountJson)
+      const fcmAccessToken = await getFcmAccessToken(serviceAccount)
+      const projectId = serviceAccount.project_id
+
+      const fcmPromises = recipients.map(async (r) => {
+        if (r.fcm_token && r.fcm_token.length > 10 && !r.fcm_token.startsWith("dummy")) {
+          const pushResult = await sendFcmPush(
+            fcmAccessToken,
+            projectId,
+            r.fcm_token,
+            "🚪 Visitante chegou!",
+            `${guestDisplayName} — entrada liberada pela portaria.`,
+            { type: "visitor_entry", convite_id: convite_id || "", guest_name: guestDisplayName }
+          )
+          return `FCM ${r.id}: ${pushResult.success ? "✅" : "❌"}`
+        }
+        return null
+      })
+      
+      const fcmResults = (await Promise.all(fcmPromises)).filter(Boolean) as string[]
+      results.push(...fcmResults)
+    }
+  } catch (pushErr: unknown) {
+    const msg = pushErr instanceof Error ? pushErr.message : String(pushErr)
+    console.error(`Push notification error: ${msg}`)
+    results.push(`FCM error: ${msg}`)
+  }
+
   // ── Send WhatsApp to each recipient ────────────────────────────────
   for (let i = 0; i < recipients.length; i++) {
     const r = recipients[i]
     const firstName = r.nome_completo?.split(" ")[0] || "Morador"
     const codInterno = genCodInterno()
 
-    // Delay between messages to avoid rate limiting
+    // Reduzido para 200ms para evitar timeout do Supabase PgNet e interrupção do request!
     if (i > 0) {
-      const delay = Math.floor(Math.random() * 10000) + 5000
+      const delay = 200
       await new Promise((resolve) => setTimeout(resolve, delay))
     }
 
@@ -822,34 +858,6 @@ async function handleEntryReleased(
 
     const sentVisitor = await sendWhatsApp(uazapiUrl, uazapiToken, phone, msgVisitor)
     results.push(`WhatsApp visitor: ${sentVisitor ? "✅" : "❌"}`)
-  }
-
-  // ── PUSH NOTIFICATION — FCM to all recipients ──────────────────────
-  try {
-    const serviceAccountJson = Deno.env.get("FIREBASE_SERVICE_ACCOUNT_JSON")
-    if (serviceAccountJson) {
-      const serviceAccount = JSON.parse(serviceAccountJson)
-      const fcmAccessToken = await getFcmAccessToken(serviceAccount)
-      const projectId = serviceAccount.project_id
-
-      for (const r of recipients) {
-        if (r.fcm_token && r.fcm_token.length > 10 && !r.fcm_token.startsWith("dummy")) {
-          const pushResult = await sendFcmPush(
-            fcmAccessToken,
-            projectId,
-            r.fcm_token,
-            "🚪 Visitante chegou!",
-            `${guestDisplayName} — entrada liberada pela portaria.`,
-            { type: "visitor_entry", convite_id: convite_id || "", guest_name: guestDisplayName }
-          )
-          results.push(`FCM ${r.id}: ${pushResult.success ? "✅" : "❌"}`)
-        }
-      }
-    }
-  } catch (pushErr: unknown) {
-    const msg = pushErr instanceof Error ? pushErr.message : String(pushErr)
-    console.error(`Push notification error: ${msg}`)
-    results.push(`FCM error: ${msg}`)
   }
 
   console.log(`entry_released results:`, results)

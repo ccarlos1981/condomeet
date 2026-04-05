@@ -9,6 +9,7 @@ import 'package:condomeet/features/auth/presentation/screens/self_registration_s
 import 'package:condomeet/features/auth/presentation/screens/sindico_registration_screen.dart';
 import 'package:condomeet/features/auth/presentation/screens/manager_approval_screen.dart';
 import 'package:condomeet/features/auth/presentation/screens/waiting_approval_screen.dart';
+import 'package:condomeet/features/auth/presentation/screens/minha_unidade_screen.dart';
 import 'package:condomeet/features/portaria/presentation/screens/resident_search_screen.dart';
 import 'package:condomeet/features/portaria/presentation/screens/ocr_scanner_screen.dart';
 import 'package:condomeet/features/portaria/presentation/screens/parcel_registration_screen.dart';
@@ -33,6 +34,7 @@ import 'package:condomeet/features/community/presentation/screens/area_picker_sc
 import 'package:condomeet/features/community/presentation/screens/portaria_booking_screen.dart';
 import 'package:condomeet/features/community/presentation/screens/areas_comuns_admin_screen.dart';
 import 'package:condomeet/features/community/presentation/screens/admin_horarios_screen.dart';
+import 'package:condomeet/features/community/presentation/screens/manutencoes_screen.dart';
 import 'package:condomeet/features/security/presentation/screens/chat_screen.dart';
 import 'package:condomeet/features/security/presentation/screens/occurrence_report_screen.dart';
 import 'package:condomeet/features/security/presentation/screens/occurrence_history_screen.dart';
@@ -52,6 +54,7 @@ import 'package:condomeet/features/admin/presentation/screens/condominium_struct
 import 'package:condomeet/features/admin/presentation/screens/configure_menu_screen.dart';
 import 'package:condomeet/features/security/presentation/screens/fale_sindico_screen.dart';
 import 'package:condomeet/features/security/presentation/screens/fale_conosco_admin_screen.dart';
+import 'package:condomeet/features/security/presentation/screens/suporte_sistema_screen.dart';
 import 'package:condomeet/features/auth/presentation/screens/splash_screen.dart';
 import 'package:condomeet/features/admin/presentation/screens/universal_push_screen.dart';
 import 'package:condomeet/features/admin/presentation/screens/avisos_admin_screen.dart';
@@ -131,6 +134,13 @@ class AppRouter {
       '/sindico-registration': (context) => const SindicoRegistrationScreen(),
       '/waiting-approval': (context) => const WaitingApprovalScreen(),
       '/manager-approval': (context) => const ManagerApprovalScreen(),
+      '/minha-unidade': (context) {
+        final args = ModalRoute.of(context)!.settings.arguments as Map<String, dynamic>;
+        return MinhaUnidadeScreen(
+          userId: args['userId'] as String,
+          condominioId: args['condominioId'] as String,
+        );
+      },
       '/report-occurrence': (context) => BlockedAccessOverlay(
             isBlocked: state.isUnitBlocked,
             child: OccurrenceHistoryScreen(residentId: state.userId ?? ''),
@@ -193,12 +203,14 @@ class AppRouter {
       '/album-fotos': (context) => const AlbumFotosScreen(),
       '/classificados': (context) => const ClassificadosScreen(),
       '/admin-classificados': (context) => const ClassificadosScreen(adminMode: true),
+      '/manutencao': (context) => const ManutencoesScreen(),
       '/indicacoes': (context) => const IndicacoesScreen(),
       '/fale-sindico': (context) => BlockedAccessOverlay(
             isBlocked: state.isUnitBlocked,
             child: const FaleSindicoScreen(),
           ),
       '/fale-conosco-admin': (context) => const FaleConoscoAdminScreen(),
+      '/suporte-sistema': (context) => const SuporteSistemaScreen(),
       '/admin-avisos': (context) => const AvisosAdminScreen(),
       '/admin-album-fotos': (context) => const AlbumFotosAdminScreen(),
       '/universal-push': (context) => const UniversalPushScreen(),

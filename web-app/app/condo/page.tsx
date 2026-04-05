@@ -1,7 +1,7 @@
 import { createClient } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
 import Link from 'next/link'
-import { UserCheck, Package, QrCode, ArrowRight, Bell, Calendar, Clock } from 'lucide-react'
+import { UserCheck, Package, QrCode, ArrowRight, Bell, Calendar, Clock, Wrench } from 'lucide-react'
 import { getBlocoLabel, getAptoLabel } from '@/lib/labels'
 
 export default async function CondoDashboard() {
@@ -62,10 +62,17 @@ export default async function CondoDashboard() {
     { label: 'Liberar Visitante', sub: `${pendingCount} aguardando`, icon: UserCheck, href: '/condo/liberar-visitante', iconColor: 'text-orange-500', iconBg: 'bg-orange-500/10' },
     { label: 'Registrar Encomenda', sub: 'Novo pacote recebido', icon: Package, href: '/condo/registrar-encomenda', iconColor: 'text-blue-500', iconBg: 'bg-blue-500/10' },
   ] : [
-    { label: 'Autorizar Visitante', sub: 'Gerar autorização', icon: UserCheck, href: '/condo/visitantes', iconColor: 'text-orange-500', iconBg: 'bg-orange-500/10' },
+    { 
+      label: isAdmin ? 'Autorização Visit. (Port.)' : 'Autorizar Visitante', 
+      sub: isAdmin ? 'Criar pela portaria' : 'Gerar autorização', 
+      icon: UserCheck, 
+      href: isAdmin ? '/admin/autorizar-visitante-portaria' : '/condo/visitantes', 
+      iconColor: 'text-orange-500', 
+      iconBg: 'bg-orange-500/10' 
+    },
     { label: 'Minhas Encomendas', sub: 'Ver entregas', icon: Package, href: '/condo/encomendas', iconColor: 'text-blue-500', iconBg: 'bg-blue-500/10' },
     { label: 'Visitante c/ Autorização', sub: 'Check-in QR', icon: QrCode, href: '/condo/liberar-visitante', iconColor: 'text-emerald-500', iconBg: 'bg-emerald-500/10' },
-    { label: 'Encomendas do Cond.', sub: 'Todas do prédio', icon: Package, href: '/condo/encomendas-admin', iconColor: 'text-indigo-500', iconBg: 'bg-indigo-500/10' },
+    { label: 'Manutenções', sub: 'Histórico', icon: Wrench, href: '/condo/manutencao', iconColor: 'text-indigo-500', iconBg: 'bg-indigo-500/10' },
   ]
 
   // Stats strip data

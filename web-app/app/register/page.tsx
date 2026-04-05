@@ -259,7 +259,7 @@ export default function RegisterPage() {
       const { data: unidade } = await supabase
         .from('unidades')
         .select('id')
-        .eq('condominio_id', selectedCondo.id)
+        .eq('condominio_id', selectedCondo?.id)
         .eq('bloco_id', selectedBlocoId)
         .eq('apartamento_id', selectedAptoId)
         .maybeSingle()
@@ -286,7 +286,7 @@ export default function RegisterPage() {
       // 2. Insert perfil
       const { error: perfilError } = await supabase.from('perfil').insert({
         id: userId,
-        condominio_id: selectedCondo.id,
+        condominio_id: selectedCondo?.id,
         nome_completo: nome.trim(),
         email: email.trim().toLowerCase(),
         whatsapp: whatsapp.trim(),
@@ -592,7 +592,7 @@ export default function RegisterPage() {
                   value={selectedBlocoId}
                   onChange={e => {
                     setSelectedBlocoId(e.target.value)
-                    if (e.target.value) fetchApartamentos(selectedCondo.id, e.target.value)
+                    if (e.target.value) fetchApartamentos(selectedCondo?.id || '', e.target.value)
                   }}
                   className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#FC5931] bg-gray-50 text-sm appearance-none"
                   title={getNivel1Label(tipoEstrutura)}
@@ -612,7 +612,7 @@ export default function RegisterPage() {
                   onChange={e => {
                     setSelectedAptoId(e.target.value)
                     if (e.target.value) {
-                      checkUnitLimit(selectedCondo.id, selectedBlocoId, e.target.value)
+                      checkUnitLimit(selectedCondo?.id || '', selectedBlocoId, e.target.value)
                     } else {
                       setUnitLimitReached(false)
                       setUnitLimitMsg('')

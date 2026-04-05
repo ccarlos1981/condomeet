@@ -1,0 +1,24 @@
+Initialising login role...
+Connecting to remote database...
+Skipping migration 20260308b_encomendas_baixa_fields.sql... (file name must match pattern "<timestamp>_name.sql")
+Skipping migration 20260308c_encomendas_push_triggers.sql... (file name must match pattern "<timestamp>_name.sql")
+Skipping migration 20260308d_push_settings.sql... (file name must match pattern "<timestamp>_name.sql")
+Skipping migration 20260308e_sos_feature.sql... (file name must match pattern "<timestamp>_name.sql")
+Skipping migration 20260308f_avisos.sql... (file name must match pattern "<timestamp>_name.sql")
+Skipping migration 20260308g_reservas.sql... (file name must match pattern "<timestamp>_name.sql")
+Skipping migration 20260309b_ocorrencias_rls.sql... (file name must match pattern "<timestamp>_name.sql")
+Skipping migration 20260309c_padronizar_condominio_id.sql... (file name must match pattern "<timestamp>_name.sql")
+Skipping migration 20260309d_fale_sindico.sql... (file name must match pattern "<timestamp>_name.sql")
+Skipping migration 20260309e_documentos_contratos.sql... (file name must match pattern "<timestamp>_name.sql")
+Skipping migration 20260309f_documentos_push_triggers.sql... (file name must match pattern "<timestamp>_name.sql")
+Skipping migration 20260309g_documentos_vencimento_cron.sql... (file name must match pattern "<timestamp>_name.sql")
+Skipping migration 20260309h_contratos_push_triggers.sql... (file name must match pattern "<timestamp>_name.sql")
+Skipping migration 20260309i_contratos_vencimento_cron.sql... (file name must match pattern "<timestamp>_name.sql")
+Remote migration versions not found in local migrations directory.
+
+Make sure your local git repo is up-to-date. If the error persists, try repairing the migration history table:
+supabase migration repair --status reverted 20260318154701 20260318155222 20260318155411 20260318160025 20260318160450 20260318160932 20260318161301 20260318161455 20260318161529 20260318235249 20260319034223 20260320195339 20260320214937 20260321013318 20260321143156 20260321143625 20260321195219 20260321200813 20260322135842 20260322140529 20260322163502 20260322163840 20260322164022 20260322164356 20260322164645 20260322164743 20260322172416 20260322174520 20260322181133 20260322185809 20260322190401 20260322190851 20260322191942 20260322200716 20260322203838 20260322203952 20260322205250 20260322210328 20260322231818 20260323093103 20260323101001 20260323124812 20260323144442 20260323174831 20260323175756 20260323181233 20260323182441 20260323183120 20260324071749 20260324073841 20260324131252 20260324133726 20260324144751 20260324194524 20260324194548 20260324194608 20260324194712 20260324210638 20260324211236 20260324214827 20260325182438 20260325182510 20260325182534 20260325182638 20260325194753 20260327165533 20260327212120 20260327215553 20260328175828 20260328184125 20260328211934 20260328212108 20260328212259 20260328213036 20260328220333 20260329083429 20260329084132 20260329105942 20260329164516 20260329211537 20260329212042 20260404075500 20260404090632
+
+And update local migrations to match remote database:
+supabase db pull
+

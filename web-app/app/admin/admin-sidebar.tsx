@@ -7,7 +7,7 @@ import {
   Home, UserCheck, Users, Bell, FileText, MessageSquare,
   CalendarDays, MapPin, ClipboardList, Settings, Package,
   ChevronLeft, ChevronRight, ChevronDown, Menu, X, LogOut, Megaphone,
-  AlertCircle, SlidersHorizontal, ArrowRight, BarChart3, Building2, Camera, ShoppingBag, Wallet, ShoppingCart, Store, Car, ClipboardCheck
+  AlertCircle, SlidersHorizontal, ArrowRight, BarChart3, Building2, Camera, ShoppingBag, Wallet, ShoppingCart, Store, Car, ClipboardCheck, Wrench, Briefcase, Gavel, PlusCircle, DollarSign
 } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { useRouter } from 'next/navigation'
@@ -69,15 +69,29 @@ export default function AdminSidebar({
       title: 'Gestão',
       items: [
         { label: 'Encomendas do Cond.', href: '/admin/encomendas', icon: <Package size={18} /> },
-        { label: 'Autorização Visitante', href: '/condo/autorizar-visitante-portaria', icon: <UserCheck size={18} /> },
+        { label: 'Autorização Visitante', href: '/admin/autorizar-visitante-portaria', icon: <UserCheck size={18} /> },
         { label: 'Documentos',      href: '/admin/documentos',      icon: <FileText size={18} /> },
+        { label: 'Manutenção',      href: '/admin/manutencao',      icon: <Wrench size={18} /> },
         { label: 'Contratos',       href: '/admin/contratos',       icon: <FileText size={18} /> },
         { label: 'Áreas Comuns',    href: '/admin/areas-comuns',    icon: <MapPin size={18} /> },
         { label: 'Reservas',        href: '/admin/reservas',        icon: <CalendarDays size={18} /> },
         { label: 'Registro Turno',  href: '/admin/registro-turno',  icon: <ClipboardList size={18} /> },
         { label: 'Estrutura',       href: '/admin/estrutura',       icon: <Building2 size={18} /> },
         { label: 'Classificados',   href: '/admin/classificados',   icon: <ShoppingBag size={18} /> },
-
+        { label: 'Fornecedores',    href: '/admin/fornecedores',    icon: <Briefcase size={18} /> },
+        {
+          label: 'Assembleias',
+          href: '#',
+          icon: <Gavel size={18} />,
+          children: [
+            { label: 'Passo a Passo', href: '/admin/assembleias/guia', icon: <ClipboardList size={18} /> },
+            { label: 'Configurações', href: '/admin/assembleias/unidades', icon: <Building2 size={18} /> },
+            { label: 'Nova Assembleia', href: '/admin/assembleias/nova', icon: <PlusCircle size={18} /> },
+            { label: 'Assembleias', href: '/admin/assembleias', icon: <Gavel size={18} /> },
+            { label: 'Dashboard', href: '/admin/assembleias/dashboard', icon: <BarChart3 size={18} /> },
+            { label: 'Procurações', href: '/admin/assembleias/procuracoes', icon: <FileText size={18} /> },
+          ],
+        },
       ],
     },
     {
@@ -88,6 +102,8 @@ export default function AdminSidebar({
         ...(isSuperAdmin
           ? [
               { label: 'Push Universal', href: '/admin/push-universal', icon: <Megaphone size={18} /> },
+              { label: 'Suporte Usuário', href: '/admin/suporte', icon: <MessageSquare size={18} /> },
+              { label: 'Faturamento', href: '/super-admin/faturamento', icon: <DollarSign size={18} /> },
             ]
           : []),
       ],
@@ -255,7 +271,7 @@ export default function AdminSidebar({
     <>
       {/* Mobile menu button */}
       <button
-        className="lg:hidden fixed top-4 left-4 z-50 p-2.5 bg-[#111827] text-white rounded-xl shadow-lg shadow-black/20"
+        className="print:hidden lg:hidden fixed top-4 left-4 z-50 p-2.5 bg-[#111827] text-white rounded-xl shadow-lg shadow-black/20"
         onClick={() => setMobileOpen(!mobileOpen)}
       >
         {mobileOpen ? <X size={20} /> : <Menu size={20} />}
@@ -267,12 +283,12 @@ export default function AdminSidebar({
       )}
 
       {/* Mobile sidebar */}
-      <div className={`lg:hidden fixed top-0 left-0 h-full w-64 z-50 transition-transform duration-300 ${mobileOpen ? 'translate-x-0' : '-translate-x-full'}`}>
+      <div className={`print:hidden lg:hidden fixed top-0 left-0 h-full w-64 z-50 transition-transform duration-300 ${mobileOpen ? 'translate-x-0' : '-translate-x-full'}`}>
         {sidebarContent}
       </div>
 
       {/* Desktop sidebar */}
-      <div className={`hidden lg:flex flex-col h-screen sticky top-0 transition-all duration-300 ${collapsed ? 'w-[68px]' : 'w-60'} flex-shrink-0`}>
+      <div className={`print:hidden hidden lg:flex flex-col h-screen sticky top-0 transition-all duration-300 ${collapsed ? 'w-[68px]' : 'w-60'} shrink-0`}>
         {sidebarContent}
       </div>
     </>

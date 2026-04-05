@@ -18,7 +18,7 @@ plugins {
 android {
     namespace = "br.app.condomeet.home"
     compileSdk = flutter.compileSdkVersion
-    ndkVersion = "28.2.13676358"
+    ndkVersion = "27.0.12077973"
 
     compileOptions {
         isCoreLibraryDesugaringEnabled = true
@@ -30,11 +30,11 @@ android {
         jvmTarget = JavaVersion.VERSION_17.toString()
     }
 
-    packaging {
-        jniLibs {
-            keepDebugSymbols += listOf("**/*.so")
-        }
-    }
+    // packaging {
+    //     jniLibs {
+    //         keepDebugSymbols += listOf("**/*.so")
+    //     }
+    // }
 
     signingConfigs {
         create("release") {

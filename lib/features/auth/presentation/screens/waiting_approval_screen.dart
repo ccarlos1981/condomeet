@@ -1,6 +1,9 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:condomeet/core/design_system/app_colors.dart';
 import 'package:condomeet/core/design_system/condo_button.dart';
+import 'package:condomeet/features/auth/presentation/bloc/auth_bloc.dart';
+import 'package:condomeet/features/auth/presentation/bloc/auth_event.dart';
 
 class WaitingApprovalScreen extends StatelessWidget {
   const WaitingApprovalScreen({super.key});
@@ -61,8 +64,8 @@ class WaitingApprovalScreen extends StatelessWidget {
               ),
               const Spacer(),
               CondoButton(
-                label: 'Voltar ao Início',
-                onPressed: () => Navigator.of(context).pushNamedAndRemoveUntil('/login', (route) => false),
+                label: 'Sair e Voltar ao Início',
+                onPressed: () => context.read<AuthBloc>().add(const AuthLogoutRequested()),
               ),
               const SizedBox(height: 16),
             ],

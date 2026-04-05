@@ -9,7 +9,6 @@ import '../bloc/auth_event.dart';
 import '../bloc/auth_state.dart';
 import 'password_setup_sheet.dart';
 import 'forgot_password_sheet.dart';
-import 'waiting_approval_screen.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -91,12 +90,7 @@ class _LoginScreenState extends State<LoginScreen> {
             );
           } else if (state.status == AuthStatus.needsRegistration) {
              ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(content: Text('Usuário não encontrado. Crie seu cadastro.'), backgroundColor: AppColors.error),
-            );
-          } else if (state.status == AuthStatus.pendingApproval) {
-            Navigator.of(context).pushAndRemoveUntil(
-              MaterialPageRoute(builder: (_) => const WaitingApprovalScreen()),
-              (route) => false,
+              const SnackBar(content: Text("Perfil não encontrado. Por favor, faça seu cadastro."), backgroundColor: AppColors.error),
             );
           }
         },

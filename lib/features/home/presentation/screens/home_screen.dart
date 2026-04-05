@@ -522,9 +522,9 @@ class _HomeScreenState extends State<HomeScreen> {
     // mainAxisExtent = largura de cada coluna (= tamanho do ícone quadrado)
     // crossAxisExtent = altura de cada linha (ícone + espaço + label)
     const double itemMainAxisExtent =
-        90.0; // largura (e altura do ícone, por AspectRatio 1:1)
+        100.0; // largura do ícone aumentada para celulares menores
     const double itemCrossAxisExtent =
-        94.0; // altura total: 64 ícone + 6 espaço + ~24 label
+        104.0; // altura total para acomodar até 3 linhas no texto
     const double spacing = 6.0;
     // Altura total = 2 linhas + espaço entre elas + padding vertical
     const double sectionHeight = itemCrossAxisExtent * 2 + spacing + 2;
@@ -600,12 +600,12 @@ class _HomeScreenState extends State<HomeScreen> {
           Text(
             item.label,
             textAlign: TextAlign.center,
-            maxLines: 2,
+            maxLines: 3,
             overflow: TextOverflow.ellipsis,
             style: const TextStyle(
               fontSize: 10,
               color: AppColors.textMain,
-              height: 1.2,
+              height: 1.1,
               fontWeight: FontWeight.w700,
             ),
           ),
@@ -942,7 +942,15 @@ class _HomeScreenState extends State<HomeScreen> {
                       ChangePasswordSheet.show(context);
                     },
                   ),
-                  _drawerItem(Icons.home_outlined, 'Minha unidade'),
+                  _drawerItem(Icons.home_outlined, 'Minha unidade', onTap: () {
+                    Navigator.pop(context); // Close drawer
+                    if (authState.userId != null && authState.condominiumId != null) {
+                      Navigator.pushNamed(context, '/minha-unidade', arguments: {
+                        'userId': authState.userId,
+                        'condominioId': authState.condominiumId,
+                      });
+                    }
+                  }),
                   _drawerItem(
                     Icons.emergency_outlined,
                     'SOS - Cadastrar celulares SOS',
@@ -952,8 +960,61 @@ class _HomeScreenState extends State<HomeScreen> {
                     },
                   ),
                   _drawerItem(Icons.chat_outlined, 'Outras notificações...'),
-                  _drawerItem(Icons.cancel_outlined, 'Inativar conta'),
-                  _drawerItem(Icons.help_outline, 'Suporte WhatsApp'),
+                  _drawerItem(Icons.cancel_outlined, 'Inativar conta', onTap: () {
+                    Navigator.pop(context); // Fecha o drawer
+                    showDialog(
+                      context: context,
+                      builder: (ctx) => AlertDialog(
+                        title: const Text('Inativar Conta?'),
+                        content: const Text(
+                            'Tem certeza que deseja inativar sua conta?\n\n'
+                            'Caso confirme, o seu usuário será bloqueado e você não receberá mais mensagens ou notificações (WhatsApp/Push), perdendo o acesso ao aplicativo.'),
+                        actions: [
+                          TextButton(
+                            onPressed: () => Navigator.pop(ctx),
+                            child: const Text('Cancelar', style: TextStyle(color: Colors.grey)),
+                          ),
+                          ElevatedButton(
+                            style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
+                            onPressed: () async {
+                              Navigator.pop(ctx);
+                              if (authState.userId == null) return;
+                              
+                              try {
+                                await Supabase.instance.client
+                                    .from('perfil')
+                                    .update({
+                                      'bloqueado': true,
+                                      'whatsapp_msg_consent': false,
+                                      'fcm_token': null,
+                                    })
+                                    .eq('id', authState.userId!);
+                                
+                                if (context.mounted) {
+                                  // Dispara o logout
+                                  context.read<AuthBloc>().add(AuthLogoutRequested());
+                                }
+                              } catch (e) {
+                                if (context.mounted) {
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    SnackBar(
+                                      content: Text('Erro ao inativar conta: $e'),
+                                      backgroundColor: Colors.red,
+                                    ),
+                                  );
+                                }
+                              }
+                            },
+                            child: const Text('Inativar', style: TextStyle(color: Colors.white)),
+                          ),
+                        ],
+                      ),
+                    );
+                  }),
+                  _drawerItem(Icons.help_outline, 'Suporte WhatsApp', onTap: () {
+                    Navigator.pop(context);
+                    Navigator.pushNamed(context, '/suporte-sistema');
+                  }),
                   _drawerItem(
                     Icons.privacy_tip_outlined,
                     'Política de privacidade',
@@ -1113,7 +1174,14 @@ class _HomeScreenState extends State<HomeScreen> {
 
   bool get _isAppTestAllowed {
     final userEmail = Supabase.instance.client.auth.currentUser?.email ?? '';
-    return userEmail == 'cristiano.santos@gmx.com' || userEmail == 'erikaosc+real@gmail.com';
+    final allowedEmails = [
+      'cristiano.santos@gmx.com',
+      'erikaosc@gmail.com',
+      'erikaosc+real@gmail.com',
+      'erikaosc+4@gmail.com',
+      'ccarlos1981@gmail.com',
+    ];
+    return allowedEmails.contains(userEmail);
   }
 
   Widget _buildPartnersChecklistWidget() {

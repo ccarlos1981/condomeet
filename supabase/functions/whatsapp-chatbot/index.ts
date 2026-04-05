@@ -456,13 +456,11 @@ Deno.serve(async (req) => {
       });
     }
 
-    /*
     const { data: botCfg } = await supabase.from("bot_config").select("ativo").eq("id", 1).single()
     if (botCfg && !botCfg.ativo) {
       console.log("[Bot] Bot is DISABLED — skipping response")
       return jsonResponse({ skipped: true, reason: "Bot desativado pelo admin" })
     }
-    */
     // ─────────────────────────────────────────────────────────────────────
 
     // 4. Identify resident by phone number

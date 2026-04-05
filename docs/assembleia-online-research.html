@@ -1,0 +1,1403 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Assembleia Online — Pesquisa Completa | Condomeet</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --primary: #FC5931;
+      --primary-dark: #D42F1D;
+      --primary-light: #FFF0ED;
+      --bg: #FAFAFA;
+      --card: #FFFFFF;
+      --text: #1a1a2e;
+      --text-secondary: #64748b;
+      --border: #e2e8f0;
+      --success: #10b981;
+      --warning: #f59e0b;
+      --danger: #ef4444;
+      --info: #3b82f6;
+      --code-bg: #1e293b;
+      --sidebar-width: 280px;
+    }
+
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    body {
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      line-height: 1.7;
+      font-size: 15px;
+    }
+
+    /* ===== SIDEBAR NAV ===== */
+    .sidebar {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: var(--sidebar-width);
+      height: 100vh;
+      background: linear-gradient(180deg, #1a1a2e 0%, #16213e 100%);
+      padding: 24px 0;
+      overflow-y: auto;
+      z-index: 100;
+      border-right: 1px solid rgba(255,255,255,0.05);
+    }
+
+    .sidebar-logo {
+      padding: 0 24px 24px;
+      border-bottom: 1px solid rgba(255,255,255,0.08);
+      margin-bottom: 16px;
+    }
+
+    .sidebar-logo h2 {
+      color: white;
+      font-size: 18px;
+      font-weight: 800;
+      letter-spacing: -0.5px;
+    }
+
+    .sidebar-logo h2 span { color: var(--primary); }
+
+    .sidebar-logo p {
+      color: rgba(255,255,255,0.4);
+      font-size: 11px;
+      margin-top: 4px;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+    }
+
+    .sidebar nav { padding: 0 12px; }
+
+    .sidebar .nav-section {
+      color: rgba(255,255,255,0.35);
+      font-size: 10px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 1.5px;
+      padding: 16px 12px 8px;
+    }
+
+    .sidebar a {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 9px 12px;
+      color: rgba(255,255,255,0.65);
+      text-decoration: none;
+      font-size: 13px;
+      font-weight: 500;
+      border-radius: 8px;
+      transition: all 0.2s;
+      margin-bottom: 2px;
+    }
+
+    .sidebar a:hover {
+      background: rgba(255,255,255,0.08);
+      color: white;
+    }
+
+    .sidebar a .emoji {
+      font-size: 16px;
+      width: 24px;
+      text-align: center;
+    }
+
+    /* ===== MAIN CONTENT ===== */
+    .main {
+      margin-left: var(--sidebar-width);
+      padding: 40px 48px 80px;
+      max-width: 1000px;
+    }
+
+    /* ===== HERO ===== */
+    .hero {
+      background: linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, var(--primary-dark) 100%);
+      border-radius: 24px;
+      padding: 48px;
+      margin-bottom: 40px;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .hero::before {
+      content: '';
+      position: absolute;
+      top: -50%;
+      right: -20%;
+      width: 400px;
+      height: 400px;
+      background: radial-gradient(circle, var(--primary) 0%, transparent 70%);
+      opacity: 0.15;
+    }
+
+    .hero .badge {
+      display: inline-block;
+      background: rgba(255,255,255,0.1);
+      color: rgba(255,255,255,0.8);
+      padding: 6px 16px;
+      border-radius: 100px;
+      font-size: 12px;
+      font-weight: 600;
+      letter-spacing: 0.5px;
+      margin-bottom: 20px;
+      backdrop-filter: blur(10px);
+      border: 1px solid rgba(255,255,255,0.1);
+    }
+
+    .hero h1 {
+      color: white;
+      font-size: 36px;
+      font-weight: 900;
+      letter-spacing: -1px;
+      line-height: 1.2;
+      max-width: 600px;
+      position: relative;
+    }
+
+    .hero h1 span { color: var(--primary); }
+
+    .hero p {
+      color: rgba(255,255,255,0.6);
+      font-size: 16px;
+      margin-top: 16px;
+      max-width: 500px;
+      position: relative;
+    }
+
+    .hero-meta {
+      display: flex;
+      gap: 24px;
+      margin-top: 24px;
+      position: relative;
+    }
+
+    .hero-meta span {
+      color: rgba(255,255,255,0.45);
+      font-size: 13px;
+      font-weight: 500;
+    }
+
+    .hero-meta span strong {
+      color: rgba(255,255,255,0.7);
+    }
+
+    /* ===== SECTIONS ===== */
+    .section {
+      margin-bottom: 40px;
+      scroll-margin-top: 24px;
+    }
+
+    .section-header {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      margin-bottom: 24px;
+      padding-bottom: 16px;
+      border-bottom: 2px solid var(--border);
+    }
+
+    .section-header .icon {
+      width: 44px;
+      height: 44px;
+      background: var(--primary-light);
+      border-radius: 12px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 22px;
+      flex-shrink: 0;
+    }
+
+    .section-header h2 {
+      font-size: 24px;
+      font-weight: 800;
+      color: var(--text);
+      letter-spacing: -0.5px;
+    }
+
+    .section-header p {
+      color: var(--text-secondary);
+      font-size: 14px;
+      margin-top: 2px;
+    }
+
+    h3 {
+      font-size: 18px;
+      font-weight: 700;
+      color: var(--text);
+      margin: 28px 0 14px;
+      letter-spacing: -0.3px;
+    }
+
+    h4 {
+      font-size: 15px;
+      font-weight: 700;
+      color: var(--text);
+      margin: 20px 0 10px;
+    }
+
+    p { margin-bottom: 12px; }
+
+    /* ===== CARDS ===== */
+    .card {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      padding: 28px;
+      margin-bottom: 20px;
+      transition: box-shadow 0.2s;
+    }
+
+    .card:hover {
+      box-shadow: 0 4px 24px rgba(0,0,0,0.06);
+    }
+
+    .card-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+      gap: 16px;
+      margin: 16px 0;
+    }
+
+    .card h4 {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-top: 0;
+    }
+
+    .card .tag {
+      display: inline-block;
+      padding: 3px 10px;
+      border-radius: 6px;
+      font-size: 11px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+
+    .tag-free { background: #dcfce7; color: #166534; }
+    .tag-freemium { background: #dbeafe; color: #1e40af; }
+    .tag-recommended { background: var(--primary-light); color: var(--primary); }
+
+    /* ===== TABLES ===== */
+    .table-wrapper {
+      overflow-x: auto;
+      margin: 16px 0;
+      border-radius: 12px;
+      border: 1px solid var(--border);
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 13.5px;
+    }
+
+    thead {
+      background: #f8fafc;
+    }
+
+    th {
+      text-align: left;
+      padding: 12px 16px;
+      font-weight: 700;
+      color: var(--text);
+      border-bottom: 2px solid var(--border);
+      white-space: nowrap;
+      font-size: 12px;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+
+    td {
+      padding: 12px 16px;
+      border-bottom: 1px solid #f1f5f9;
+      color: var(--text-secondary);
+    }
+
+    tr:last-child td { border-bottom: none; }
+
+    tr:hover td { background: #fafbfc; }
+
+    td:first-child {
+      font-weight: 600;
+      color: var(--text);
+    }
+
+    /* ===== ALERTS ===== */
+    .alert {
+      padding: 16px 20px;
+      border-radius: 12px;
+      margin: 16px 0;
+      font-size: 14px;
+      display: flex;
+      gap: 12px;
+      align-items: flex-start;
+    }
+
+    .alert .alert-icon { font-size: 20px; flex-shrink: 0; margin-top: 1px; }
+
+    .alert-important {
+      background: #eff6ff;
+      border: 1px solid #bfdbfe;
+      color: #1e40af;
+    }
+
+    .alert-warning {
+      background: #fffbeb;
+      border: 1px solid #fde68a;
+      color: #92400e;
+    }
+
+    .alert-danger {
+      background: #fef2f2;
+      border: 1px solid #fecaca;
+      color: #991b1b;
+    }
+
+    .alert-tip {
+      background: #f0fdf4;
+      border: 1px solid #bbf7d0;
+      color: #166534;
+    }
+
+    /* ===== CODE ===== */
+    .code-block {
+      background: var(--code-bg);
+      border-radius: 12px;
+      padding: 20px 24px;
+      margin: 16px 0;
+      overflow-x: auto;
+      position: relative;
+    }
+
+    .code-block .lang {
+      position: absolute;
+      top: 10px;
+      right: 14px;
+      background: rgba(255,255,255,0.08);
+      color: rgba(255,255,255,0.4);
+      padding: 2px 8px;
+      border-radius: 4px;
+      font-size: 11px;
+      font-weight: 600;
+    }
+
+    .code-block pre {
+      color: #e2e8f0;
+      font-family: 'SF Mono', 'Fira Code', 'Cascadia Code', monospace;
+      font-size: 13px;
+      line-height: 1.65;
+      white-space: pre;
+    }
+
+    .code-block .keyword { color: #c792ea; }
+    .code-block .string { color: #c3e88d; }
+    .code-block .comment { color: #676e95; }
+    .code-block .func { color: #82aaff; }
+    .code-block .tag { color: #f07178; background: none; padding: 0; }
+    .code-block .attr { color: #ffcb6b; }
+    .code-block .prop { color: #89ddff; }
+
+    code {
+      background: #f1f5f9;
+      padding: 2px 7px;
+      border-radius: 5px;
+      font-family: 'SF Mono', monospace;
+      font-size: 13px;
+      color: var(--primary-dark);
+    }
+
+    /* ===== BLOCKQUOTE (LAW) ===== */
+    .law-quote {
+      background: linear-gradient(135deg, #fefce8, #fffbeb);
+      border-left: 4px solid #f59e0b;
+      border-radius: 0 12px 12px 0;
+      padding: 20px 24px;
+      margin: 16px 0;
+      font-size: 14px;
+      color: #78350f;
+      line-height: 1.8;
+    }
+
+    .law-quote strong { color: #92400e; }
+
+    /* ===== CHECKLIST ===== */
+    .checklist {
+      list-style: none;
+      padding: 0;
+      margin: 12px 0;
+    }
+
+    .checklist li {
+      display: flex;
+      align-items: flex-start;
+      gap: 10px;
+      padding: 8px 0;
+      font-size: 14px;
+      color: var(--text);
+    }
+
+    .checklist li::before {
+      content: '☐';
+      font-size: 16px;
+      color: var(--primary);
+      flex-shrink: 0;
+      margin-top: 1px;
+    }
+
+    /* ===== ARCHITECTURE ===== */
+    .arch-diagram {
+      background: linear-gradient(135deg, #1a1a2e, #16213e);
+      border-radius: 16px;
+      padding: 32px;
+      margin: 20px 0;
+      overflow-x: auto;
+    }
+
+    .arch-diagram pre {
+      color: #e2e8f0;
+      font-family: 'SF Mono', monospace;
+      font-size: 12.5px;
+      line-height: 1.5;
+      white-space: pre;
+    }
+
+    /* ===== PROS/CONS ===== */
+    .pros-cons {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 12px;
+      margin: 12px 0;
+    }
+
+    .pros, .cons {
+      padding: 16px;
+      border-radius: 10px;
+      font-size: 13px;
+    }
+
+    .pros {
+      background: #f0fdf4;
+      border: 1px solid #bbf7d0;
+    }
+
+    .cons {
+      background: #fef2f2;
+      border: 1px solid #fecaca;
+    }
+
+    .pros h5, .cons h5 {
+      font-weight: 700;
+      margin-bottom: 8px;
+      font-size: 13px;
+    }
+
+    .pros h5 { color: #166534; }
+    .cons h5 { color: #991b1b; }
+
+    .pros ul, .cons ul {
+      list-style: none;
+      padding: 0;
+    }
+
+    .pros li, .cons li {
+      padding: 3px 0;
+      font-size: 13px;
+    }
+
+    .pros li::before {
+      content: '✅ ';
+    }
+
+    .cons li::before {
+      content: '⚠️ ';
+    }
+
+    /* ===== SOURCES ===== */
+    .sources {
+      background: #f8fafc;
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 20px 24px;
+      margin: 24px 0;
+    }
+
+    .sources h4 {
+      margin: 0 0 12px;
+      font-size: 14px;
+    }
+
+    .sources a {
+      display: block;
+      padding: 6px 0;
+      color: var(--info);
+      text-decoration: none;
+      font-size: 13px;
+      transition: color 0.15s;
+    }
+
+    .sources a:hover {
+      color: var(--primary);
+      text-decoration: underline;
+    }
+
+    /* ===== PRINT ===== */
+    .print-btn {
+      position: fixed;
+      bottom: 24px;
+      right: 24px;
+      background: var(--primary);
+      color: white;
+      border: none;
+      padding: 12px 24px;
+      border-radius: 12px;
+      font-weight: 700;
+      font-size: 14px;
+      cursor: pointer;
+      box-shadow: 0 4px 20px rgba(252, 89, 49, 0.4);
+      transition: all 0.2s;
+      z-index: 999;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .print-btn:hover {
+      background: var(--primary-dark);
+      transform: translateY(-2px);
+    }
+
+    @media print {
+      .sidebar, .print-btn { display: none; }
+      .main { margin-left: 0; padding: 20px; max-width: 100%; }
+      .hero { break-after: page; }
+      .card { break-inside: avoid; }
+    }
+
+    @media (max-width: 900px) {
+      .sidebar { display: none; }
+      .main { margin-left: 0; padding: 20px; }
+      .pros-cons { grid-template-columns: 1fr; }
+      .hero { padding: 32px 24px; }
+      .hero h1 { font-size: 28px; }
+    }
+
+    /* smooth scrolling */
+    html { scroll-behavior: smooth; }
+  </style>
+</head>
+<body>
+
+  <!-- SIDEBAR -->
+  <aside class="sidebar">
+    <div class="sidebar-logo">
+      <h2>Condo<span>meet</span></h2>
+      <p>Documentação Técnica</p>
+    </div>
+    <nav>
+      <div class="nav-section">Plataformas de Vídeo</div>
+      <a href="#comparativo"><span class="emoji">📊</span> Comparativo Geral</a>
+      <a href="#jitsi"><span class="emoji">🟢</span> Jitsi Meet</a>
+      <a href="#daily"><span class="emoji">🔵</span> Daily.co</a>
+      <a href="#100ms"><span class="emoji">🟣</span> 100ms</a>
+      <a href="#livekit"><span class="emoji">🟠</span> LiveKit</a>
+
+      <div class="nav-section">Legislação</div>
+      <a href="#lei"><span class="emoji">⚖️</span> Lei 14.309/2022</a>
+      <a href="#quorum"><span class="emoji">📊</span> Quórum & Votação</a>
+      <a href="#sessao"><span class="emoji">⏱️</span> Sessão Permanente</a>
+      <a href="#edital"><span class="emoji">📋</span> Edital de Convocação</a>
+
+      <div class="nav-section">Documentação</div>
+      <a href="#ata"><span class="emoji">📄</span> Ata Digital</a>
+      <a href="#assinatura"><span class="emoji">✍️</span> Assinatura Eletrônica</a>
+      <a href="#procuracao"><span class="emoji">📑</span> Procuração Digital</a>
+
+      <div class="nav-section">Implementação</div>
+      <a href="#checklist"><span class="emoji">✅</span> Checklist Legal</a>
+      <a href="#arquitetura"><span class="emoji">🏗️</span> Arquitetura</a>
+      <a href="#tabelas"><span class="emoji">🗄️</span> Banco de Dados</a>
+      <a href="#fontes"><span class="emoji">📚</span> Fontes Legais</a>
+    </nav>
+  </aside>
+
+  <!-- MAIN -->
+  <div class="main">
+
+    <!-- HERO -->
+    <div class="hero">
+      <div class="badge">📋 DOCUMENTO DE PESQUISA</div>
+      <h1>Assembleia <span>Online</span><br>Pesquisa Completa</h1>
+      <p>Referência técnica e jurídica para o desenvolvimento do módulo de Assembleia Online no Condomeet.</p>
+      <div class="hero-meta">
+        <span><strong>Data:</strong> 04/04/2026</span>
+        <span><strong>Status:</strong> ✅ Pesquisa Concluída</span>
+        <span><strong>Versão:</strong> 1.0</span>
+      </div>
+    </div>
+
+    <!-- ========================== -->
+    <!-- PARTE 1: PLATAFORMAS -->
+    <!-- ========================== -->
+
+    <section class="section" id="comparativo">
+      <div class="section-header">
+        <div class="icon">🎥</div>
+        <div>
+          <h2>Plataformas de Videoconferência</h2>
+          <p>Comparativo detalhado das opções disponíveis para integração</p>
+        </div>
+      </div>
+
+      <div class="table-wrapper">
+        <table>
+          <thead>
+            <tr>
+              <th>Critério</th>
+              <th>Jitsi Meet</th>
+              <th>Daily.co</th>
+              <th>100ms</th>
+              <th>LiveKit</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>Custo</td>
+              <td>Gratuito (open source)</td>
+              <td>Freemium</td>
+              <td>Freemium</td>
+              <td>Gratuito (open source)</td>
+            </tr>
+            <tr>
+              <td>Free Tier</td>
+              <td>Ilimitado (self-hosted)</td>
+              <td>10.000 min/mês</td>
+              <td>10.000 min/mês</td>
+              <td>Ilimitado (self-hosted)</td>
+            </tr>
+            <tr>
+              <td>React SDK</td>
+              <td><code>@jitsi/react-sdk</code></td>
+              <td><code>@daily-co/daily-js</code></td>
+              <td><code>@100mslive/react-sdk</code></td>
+              <td><code>@livekit/components-react</code></td>
+            </tr>
+            <tr>
+              <td>Embed Fácil</td>
+              <td>✅ iframe ou componente</td>
+              <td>✅ Prebuilt ou custom</td>
+              <td>✅ Prebuilt ou custom</td>
+              <td>⚠️ Mais customizado</td>
+            </tr>
+            <tr>
+              <td>Chat Integrado</td>
+              <td>✅ Nativo</td>
+              <td>✅ Nativo</td>
+              <td>✅ Grátis</td>
+              <td>⚠️ Precisa construir</td>
+            </tr>
+            <tr>
+              <td>Gravação</td>
+              <td>✅ Jibri</td>
+              <td>✅ Cloud recording</td>
+              <td>✅ 300 min grátis/mês</td>
+              <td>✅ Egress</td>
+            </tr>
+            <tr>
+              <td>Moderação</td>
+              <td>✅ Mutar/kickar</td>
+              <td>✅ Completa</td>
+              <td>✅ Completa</td>
+              <td>✅ Completa</td>
+            </tr>
+            <tr>
+              <td>Complexidade</td>
+              <td>⭐ Baixa</td>
+              <td>⭐ Baixa</td>
+              <td>⭐⭐ Média</td>
+              <td>⭐⭐⭐ Alta</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- JITSI -->
+    <section class="section" id="jitsi">
+      <div class="card" style="border-left: 4px solid var(--primary);">
+        <h4>
+          🟢 Jitsi Meet
+          <span class="tag tag-free">GRATUITO</span>
+          <span class="tag tag-recommended">⭐ RECOMENDADO</span>
+        </h4>
+        <p>Plataforma de videoconferência 100% open source, mantida pela 8x8 Inc.</p>
+
+        <h4>Formas de usar:</h4>
+        <ul>
+          <li><strong>Servidores públicos (<code>meet.jit.si</code>):</strong> Gratuito, apenas para testes. NÃO recomendado para produção.</li>
+          <li><strong>JaaS (Jitsi as a Service):</strong> Serviço gerenciado com plano gratuito limitado.</li>
+          <li><strong>Self-hosted:</strong> Instalar seu próprio servidor Jitsi. Custo apenas de infraestrutura.</li>
+        </ul>
+
+        <h4>Integração React:</h4>
+        <div class="code-block">
+          <span class="lang">bash</span>
+          <pre>npm install @jitsi/react-sdk</pre>
+        </div>
+
+        <div class="code-block">
+          <span class="lang">tsx</span>
+          <pre><span class="keyword">import</span> { <span class="func">JitsiMeeting</span> } <span class="keyword">from</span> <span class="string">'@jitsi/react-sdk'</span>;
+
+<span class="tag">&lt;JitsiMeeting</span>
+  <span class="attr">roomName</span>=<span class="string">"assembleia-condominio-2026"</span>
+  <span class="attr">configOverwrite</span>={{
+    <span class="prop">startWithAudioMuted</span>: <span class="keyword">true</span>,
+    <span class="prop">startWithVideoMuted</span>: <span class="keyword">false</span>,
+    <span class="prop">disableModeratorIndicator</span>: <span class="keyword">false</span>,
+  }}
+  <span class="attr">userInfo</span>={{
+    <span class="prop">displayName</span>: <span class="string">'João Silva - Apt 101'</span>,
+    <span class="prop">email</span>: <span class="string">'joao@email.com'</span>,
+  }}
+  <span class="attr">onApiReady</span>={(<span class="func">externalApi</span>) => {
+    externalApi.<span class="func">addEventListener</span>(
+      <span class="string">'videoConferenceJoined'</span>,
+      () => console.<span class="func">log</span>(<span class="string">'Entrou na assembleia'</span>)
+    );
+  }}
+<span class="tag">/&gt;</span></pre>
+        </div>
+
+        <h4>Funcionalidades nativas relevantes:</h4>
+        <ul>
+          <li>✅ Mutar participantes (moderador)</li>
+          <li>✅ Chat durante a chamada</li>
+          <li>✅ Compartilhamento de tela (p/ mostrar documentos)</li>
+          <li>✅ Levantar a mão (pedir a palavra)</li>
+          <li>✅ Gravação (via Jibri)</li>
+          <li>✅ Lobby (sala de espera antes de entrar)</li>
+          <li>✅ Senha na sala</li>
+          <li>✅ Codec AV1 para melhor performance</li>
+        </ul>
+
+        <div class="pros-cons">
+          <div class="pros">
+            <h5>Prós</h5>
+            <ul>
+              <li>Gratuito e sem limites de participantes</li>
+              <li>SDK React maduro e bem documentado</li>
+              <li>Muitas opções de customização da interface</li>
+              <li>Pode usar servidores públicos para MVP/teste</li>
+            </ul>
+          </div>
+          <div class="cons">
+            <h5>Contras</h5>
+            <ul>
+              <li>Servidores públicos NÃO são para produção</li>
+              <li>Self-hosting requer manutenção de servidor</li>
+              <li>JaaS tem custos para uso em produção</li>
+            </ul>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- DAILY -->
+    <section class="section" id="daily">
+      <div class="card">
+        <h4>🔵 Daily.co <span class="tag tag-freemium">FREEMIUM</span></h4>
+        <p>Plataforma de vídeo como serviço com API developer-friendly.</p>
+        <p><strong>Free Tier:</strong> 10.000 minutos/mês (sem cartão de crédito)</p>
+
+        <h4>Duas opções de integração:</h4>
+        <ol>
+          <li><strong>Daily Prebuilt:</strong> Interface pronta, embed via iframe — mais rápido</li>
+          <li><strong>Daily Call Object:</strong> API de baixo nível para UI 100% customizada</li>
+        </ol>
+
+        <div class="pros-cons">
+          <div class="pros">
+            <h5>Prós</h5>
+            <ul>
+              <li>Muito fácil de integrar</li>
+              <li>Free tier generoso (~166 horas)</li>
+              <li>Chat e gravação incluídos</li>
+              <li>Zero DevOps necessário</li>
+            </ul>
+          </div>
+          <div class="cons">
+            <h5>Contras</h5>
+            <ul>
+              <li>Custos podem escalar com uso frequente</li>
+              <li>Dependência de serviço terceiro</li>
+              <li>Funcionalidades avançadas são pagas</li>
+            </ul>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 100MS -->
+    <section class="section" id="100ms">
+      <div class="card">
+        <h4>🟣 100ms <span class="tag tag-freemium">FREEMIUM</span></h4>
+        <p>Infraestrutura de vídeo/áudio com SDKs multiplataforma.</p>
+        <p><strong>Free Tier:</strong> 10.000 min/mês vídeo • 300 min/mês gravação • Chat GRÁTIS ilimitado</p>
+
+        <div class="pros-cons">
+          <div class="pros">
+            <h5>Prós</h5>
+            <ul>
+              <li>Chat sem custo adicional</li>
+              <li>Componentes Prebuilt para React</li>
+              <li>Suporte a transcrição ao vivo (IA)</li>
+              <li>Gravação em nuvem inclusa</li>
+            </ul>
+          </div>
+          <div class="cons">
+            <h5>Contras</h5>
+            <ul>
+              <li>Mais complexo que Daily.co</li>
+              <li>Menos documentação específica</li>
+              <li>Plataforma mais jovem</li>
+            </ul>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- LIVEKIT -->
+    <section class="section" id="livekit">
+      <div class="card">
+        <h4>🟠 LiveKit <span class="tag tag-free">OPEN SOURCE</span></h4>
+        <p>Infraestrutura open source para comunicação em tempo real (WebRTC).</p>
+        <p><strong>Cloud Pricing:</strong> Build $0/mês • Ship $50/mês • Scale $500/mês</p>
+
+        <div class="pros-cons">
+          <div class="pros">
+            <h5>Prós</h5>
+            <ul>
+              <li>Open source, comunidade ativa</li>
+              <li>Máximo controle e customização</li>
+              <li>Pode ser self-hosted (zero custo de licença)</li>
+              <li>Suporte a IA integrada</li>
+            </ul>
+          </div>
+          <div class="cons">
+            <h5>Contras</h5>
+            <ul>
+              <li>Mais complexo de integrar</li>
+              <li>Requer mais código para UI</li>
+              <li>Precisa construir chat separadamente</li>
+              <li>Curva de aprendizado mais alta</li>
+            </ul>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ========================== -->
+    <!-- PARTE 2: LEGISLAÇÃO -->
+    <!-- ========================== -->
+
+    <section class="section" id="lei">
+      <div class="section-header">
+        <div class="icon">⚖️</div>
+        <div>
+          <h2>Legislação — Assembleia Virtual</h2>
+          <p>Lei nº 14.309/2022 — Alteração do Código Civil</p>
+        </div>
+      </div>
+
+      <div class="alert alert-important">
+        <span class="alert-icon">📢</span>
+        <div>A <strong>Lei nº 14.309/2022</strong> é o marco legal que regulamentou DEFINITIVAMENTE as assembleias condominiais virtuais no Brasil, alterando o Código Civil.</div>
+      </div>
+
+      <h3>Art. 1.354-A do Código Civil</h3>
+
+      <div class="law-quote">
+        <strong>Art. 1.354-A.</strong> A convocação, a realização e a deliberação de quaisquer modalidades de assembleia poderão dar-se de forma eletrônica, desde que:<br><br>
+        <strong>I</strong> – tal possibilidade não seja vedada na convenção de condomínio;<br><br>
+        <strong>II</strong> – sejam preservados aos condôminos os direitos de voz, de debate e de voto.
+      </div>
+
+      <h4>Parágrafos:</h4>
+
+      <div class="law-quote">
+        <strong>§ 1º</strong> A administração do condomínio <strong>não poderá ser responsabilizada</strong> por problemas decorrentes dos equipamentos de informática ou da conexão à internet dos condôminos.<br><br>
+        <strong>§ 2º</strong> Somente <strong>após a somatória de todos os votos e a sua divulgação</strong> será lavrada a respectiva ata, também eletrônica, e encerrada a assembleia geral.<br><br>
+        <strong>§ 3º</strong> A assembleia eletrônica deverá obedecer aos preceitos de instalação, de funcionamento e de encerramento previstos no <strong>edital de convocação</strong> e poderá ser realizada de forma <strong>híbrida</strong> (presencial + virtual simultaneamente).<br><br>
+        <strong>§ 4º</strong> Normas complementares relativas às assembleias eletrônicas poderão ser previstas no <strong>regimento interno</strong> e definidas mediante aprovação da <strong>maioria simples</strong> dos presentes em assembleia convocada para essa finalidade.<br><br>
+        <strong>§ 5º</strong> Os documentos pertinentes à ordem do dia poderão ser disponibilizados de forma física ou eletrônica aos participantes.
+      </div>
+    </section>
+
+    <!-- QUORUM -->
+    <section class="section" id="quorum">
+      <div class="section-header">
+        <div class="icon">📊</div>
+        <div>
+          <h2>Quórum & Votação</h2>
+          <p>Tipos de assembleia e quórum necessário por matéria</p>
+        </div>
+      </div>
+
+      <h3>Tipos de Assembleia</h3>
+      <div class="table-wrapper">
+        <table>
+          <thead>
+            <tr>
+              <th>Tipo</th>
+              <th>Finalidade</th>
+              <th>Quórum</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>AGO (Ordinária)</td>
+              <td>Prestação de contas, orçamento anual, eleição de síndico e conselho fiscal</td>
+              <td>Maioria dos presentes</td>
+            </tr>
+            <tr>
+              <td>AGE (Extraordinária)</td>
+              <td>Assuntos urgentes/específicos fora da AGO</td>
+              <td>Depende da matéria</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <h3>Quóruns Específicos por Matéria</h3>
+      <div class="table-wrapper">
+        <table>
+          <thead>
+            <tr>
+              <th>Matéria</th>
+              <th>Quórum Necessário</th>
+              <th>Artigo do CC</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>Deliberações gerais</td>
+              <td>Maioria dos presentes</td>
+              <td>Art. 1.352</td>
+            </tr>
+            <tr>
+              <td>Alteração da Convenção</td>
+              <td><strong>2/3 dos condôminos</strong> (total)</td>
+              <td>Art. 1.351</td>
+            </tr>
+            <tr>
+              <td>Mudança de destinação do edifício</td>
+              <td><strong>2/3 dos condôminos</strong> (total)</td>
+              <td>Art. 1.351</td>
+            </tr>
+            <tr>
+              <td>Obras voluptuárias</td>
+              <td><strong>2/3 dos condôminos</strong> (total)</td>
+              <td>Art. 1.341, I</td>
+            </tr>
+            <tr>
+              <td>Obras úteis</td>
+              <td>Maioria dos condôminos (total)</td>
+              <td>Art. 1.341, II</td>
+            </tr>
+            <tr>
+              <td>Destituição do síndico</td>
+              <td>Maioria absoluta (50% + 1 do total)</td>
+              <td>Art. 1.349</td>
+            </tr>
+            <tr>
+              <td>Normas de assembleia virtual</td>
+              <td>Maioria simples dos presentes</td>
+              <td>Art. 1.354-A, § 4º</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div class="alert alert-warning">
+        <span class="alert-icon">⚠️</span>
+        <div><strong>Condôminos inadimplentes NÃO podem votar</strong> (Art. 1.335, III do Código Civil). O sistema DEVE bloquear o voto de inadimplentes.</div>
+      </div>
+
+      <div class="alert alert-tip">
+        <span class="alert-icon">💡</span>
+        <div>Salvo disposição contrária na convenção, os votos são proporcionais à <strong>fração ideal</strong> de cada unidade (Art. 1.352). A convenção pode definir voto unitário por unidade.</div>
+      </div>
+    </section>
+
+    <!-- SESSÃO PERMANENTE -->
+    <section class="section" id="sessao">
+      <div class="section-header">
+        <div class="icon">⏱️</div>
+        <div>
+          <h2>Sessão Permanente</h2>
+          <p>Art. 1.353 do Código Civil</p>
+        </div>
+      </div>
+
+      <div class="card">
+        <p>Quando o quórum qualificado <strong>NÃO é atingido</strong>:</p>
+        <ol>
+          <li>A assembleia pode, por <strong>maioria dos presentes</strong>, autorizar o presidente a converter em "sessão permanente"</li>
+          <li>A assembleia pode ser <strong>suspensa e retomada</strong> em nova data</li>
+          <li>Prazo máximo: <strong>60 dias</strong> para retomada, <strong>90 dias</strong> para conclusão total</li>
+          <li>Votos já registrados <strong>permanecem válidos</strong> (mas podem ser alterados até o encerramento)</li>
+        </ol>
+      </div>
+    </section>
+
+    <!-- EDITAL -->
+    <section class="section" id="edital">
+      <div class="section-header">
+        <div class="icon">📋</div>
+        <div>
+          <h2>Edital de Convocação</h2>
+          <p>Requisitos obrigatórios para convocação</p>
+        </div>
+      </div>
+
+      <div class="card">
+        <p>O edital de convocação de assembleia virtual <strong>DEVE</strong> conter:</p>
+        <ul class="checklist">
+          <li>Data e hora da assembleia</li>
+          <li><strong>Informação clara de que será virtual/híbrida</strong></li>
+          <li><strong>Instruções de acesso</strong> à plataforma (link, login, etc.)</li>
+          <li><strong>Como se manifestar</strong> (pedir a palavra, votar)</li>
+          <li><strong>Como proceder com a votação</strong></li>
+          <li><strong>Quem convocou:</strong> síndico ou 1/4 dos condôminos</li>
+          <li>Prazo mínimo de antecedência conforme convenção</li>
+          <li>Pauta / Ordem do dia</li>
+          <li>Documentos pertinentes disponibilizados previamente</li>
+        </ul>
+      </div>
+    </section>
+
+    <!-- ========================== -->
+    <!-- PARTE 3: ATA DIGITAL -->
+    <!-- ========================== -->
+
+    <section class="section" id="ata">
+      <div class="section-header">
+        <div class="icon">📄</div>
+        <div>
+          <h2>Ata Digital</h2>
+          <p>Requisitos para validade jurídica da ata eletrônica</p>
+        </div>
+      </div>
+
+      <div class="alert alert-important">
+        <span class="alert-icon">📢</span>
+        <div>A ata só pode ser lavrada e encerrada <strong>APÓS a somatória de TODOS os votos e sua divulgação</strong> (§ 2º do Art. 1.354-A).</div>
+      </div>
+
+      <div class="card">
+        <h4>A ata digital deve conter:</h4>
+        <ol>
+          <li><strong>Data, hora e local</strong> (virtual) da assembleia</li>
+          <li><strong>Identificação do condomínio</strong></li>
+          <li><strong>Lista de presentes</strong> (com hora de entrada/saída)</li>
+          <li><strong>Pauta / Ordem do dia</strong></li>
+          <li><strong>Registro detalhado de votos</strong> por deliberação</li>
+          <li><strong>Resultado de cada votação</strong> com quórum atingido</li>
+          <li><strong>Decisões tomadas</strong></li>
+          <li><strong>Assinaturas</strong> do síndico/presidente da mesa</li>
+        </ol>
+      </div>
+    </section>
+
+    <!-- ASSINATURA -->
+    <section class="section" id="assinatura">
+      <div class="section-header">
+        <div class="icon">✍️</div>
+        <div>
+          <h2>Assinatura Eletrônica</h2>
+          <p>Legislação de suporte e níveis de segurança</p>
+        </div>
+      </div>
+
+      <div class="table-wrapper">
+        <table>
+          <thead>
+            <tr>
+              <th>Lei</th>
+              <th>Finalidade</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>Lei 14.063/2020</td>
+              <td>Uso de assinaturas eletrônicas em documentos</td>
+            </tr>
+            <tr>
+              <td>MP 2.200-2/2001</td>
+              <td>ICP-Brasil — certificados digitais com presunção de validade jurídica</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <h3>Níveis de Assinatura</h3>
+      <div class="card-grid">
+        <div class="card">
+          <h4>1. Simples</h4>
+          <p>Identificação + registro de logs. Aceita, menor segurança jurídica.</p>
+        </div>
+        <div class="card">
+          <h4>2. Avançada</h4>
+          <p>Com mecanismos adicionais de verificação de identidade.</p>
+        </div>
+        <div class="card" style="border: 2px solid var(--success);">
+          <h4>3. Qualificada (ICP-Brasil)</h4>
+          <p>Máxima segurança jurídica. Equivalente a firma reconhecida em cartório.</p>
+        </div>
+      </div>
+
+      <div class="alert alert-tip">
+        <span class="alert-icon">💡</span>
+        <div>Para assembleias condominiais, a <strong>assinatura eletrônica simples com registro de auditoria</strong> é aceita na prática. A assinatura ICP-Brasil oferece segurança extra, mas não é obrigatória.</div>
+      </div>
+    </section>
+
+    <!-- PROCURAÇÃO -->
+    <section class="section" id="procuracao">
+      <div class="section-header">
+        <div class="icon">📑</div>
+        <div>
+          <h2>Procuração Digital</h2>
+          <p>Regras para representação em assembleia virtual</p>
+        </div>
+      </div>
+
+      <div class="card">
+        <ul>
+          <li>✅ <strong>Aceita legalmente</strong> desde que apresente autenticidade</li>
+          <li>✅ Deve ser recebida <strong>antecipadamente</strong> para conferência</li>
+          <li>✅ Preferência por assinatura com certificado ICP-Brasil</li>
+          <li>✅ Verificar na convenção: <strong>limite de procurações por pessoa</strong></li>
+          <li>✅ O sistema deve registrar quem é o procurador e quem ele representa</li>
+        </ul>
+      </div>
+    </section>
+
+    <!-- ========================== -->
+    <!-- PARTE 4: CHECKLIST -->
+    <!-- ========================== -->
+
+    <section class="section" id="checklist">
+      <div class="section-header">
+        <div class="icon">✅</div>
+        <div>
+          <h2>Checklist de Conformidade Legal</h2>
+          <p>Todos os itens devem ser implementados para validade jurídica plena</p>
+        </div>
+      </div>
+
+      <div class="alert alert-danger">
+        <span class="alert-icon">🚨</span>
+        <div>O Condomeet <strong>DEVE implementar TODOS os itens abaixo</strong> para que as assembleias virtuais tenham validade jurídica plena.</div>
+      </div>
+
+      <div class="card">
+        <h4>📌 Antes da Assembleia</h4>
+        <ul class="checklist">
+          <li>Verificar se a convenção do condomínio <strong>NÃO veda</strong> assembleia virtual</li>
+          <li>Enviar edital com antecedência mínima prevista na convenção</li>
+          <li>Incluir no edital: formato (virtual/híbrido), link de acesso, instruções</li>
+          <li>Disponibilizar documentos da ordem do dia (PDF/digital)</li>
+          <li>Cadastrar procurações recebidas antecipadamente</li>
+          <li>Validar lista de votantes (excluir inadimplentes)</li>
+        </ul>
+      </div>
+
+      <div class="card">
+        <h4>🔴 Durante a Assembleia</h4>
+        <ul class="checklist">
+          <li><strong>Identificação inequívoca</strong> dos participantes (login autenticado)</li>
+          <li>Garantir direitos de <strong>voz, debate e voto</strong></li>
+          <li>Registrar hora de entrada/saída de cada participante</li>
+          <li>Registrar <strong>todos os votos</strong> com rastreabilidade</li>
+          <li>Permitir que o síndico controle a sala (mutar, habilitar/desabilitar chat)</li>
+          <li>Registrar discussões/debates relevantes</li>
+        </ul>
+      </div>
+
+      <div class="card">
+        <h4>📗 Após a Assembleia</h4>
+        <ul class="checklist">
+          <li>Somar todos os votos antes de lavrar a ata</li>
+          <li>Divulgar resultados antes de encerrar</li>
+          <li>Gerar ata digital completa com todos os registros</li>
+          <li>Assinaturas do presidente da mesa/síndico</li>
+          <li>Disponibilizar ata para todos os condôminos</li>
+          <li>Opção de registrar ata no Cartório de Títulos e Documentos</li>
+        </ul>
+      </div>
+    </section>
+
+    <!-- ========================== -->
+    <!-- PARTE 5: ARQUITETURA -->
+    <!-- ========================== -->
+
+    <section class="section" id="arquitetura">
+      <div class="section-header">
+        <div class="icon">🏗️</div>
+        <div>
+          <h2>Recomendação Técnica & Arquitetura</h2>
+          <p>Solução proposta para o Condomeet</p>
+        </div>
+      </div>
+
+      <div class="card-grid">
+        <div class="card" style="border-top: 3px solid var(--primary);">
+          <h4>🎥 Vídeo: Jitsi Meet</h4>
+          <p>Custo zero para MVP. SDK React pronto. Moderação nativa. Migração fácil para JaaS/self-hosted no futuro.</p>
+        </div>
+        <div class="card" style="border-top: 3px solid var(--info);">
+          <h4>💬 Chat: Supabase Realtime</h4>
+          <p>Já existe no projeto. Controle total (habilitar/desabilitar). Histórico permanente no banco.</p>
+        </div>
+        <div class="card" style="border-top: 3px solid var(--success);">
+          <h4>🗳️ Votação: Customizada</h4>
+          <p>Exigência legal de rastreabilidade. Bloqueio de inadimplentes. Cálculo de fração ideal. Geração de ata automática.</p>
+        </div>
+      </div>
+
+      <h3>Diagrama de Arquitetura</h3>
+      <div class="arch-diagram">
+        <pre>
+┌──────────────────────────────────────────────────────────────┐
+│                  MÓDULO ASSEMBLEIA ONLINE                     │
+├──────────────────────────────────────────────────────────────┤
+│                                                              │
+│  ┌──────────────────┐   ┌──────────────────────────────────┐│
+│  │   AGENDAMENTO    │   │       CONVOCAÇÃO / EDITAL        ││
+│  │   (Supabase DB)  │   │  (Push + WhatsApp + Email)       ││
+│  └────────┬─────────┘   └──────────────────────────────────┘│
+│           │                                                  │
+│  ┌────────▼──────────────────────────────────────────────┐  │
+│  │               SALA DA ASSEMBLEIA                       │  │
+│  │                                                        │  │
+│  │  ┌──────────┐  ┌────────────┐  ┌───────────────────┐  │  │
+│  │  │  VÍDEO   │  │    CHAT    │  │     VOTAÇÃO       │  │  │
+│  │  │ (Jitsi)  │  │ (Supabase  │  │   (Supabase       │  │  │
+│  │  │          │  │  Realtime) │  │   customizada)    │  │  │
+│  │  └──────────┘  └────────────┘  └───────────────────┘  │  │
+│  │                                                        │  │
+│  │  ┌────────────────────────────────────────────────┐   │  │
+│  │  │           CONTROLES DO SÍNDICO                  │   │  │
+│  │  │  • Ativar/desativar sala                        │   │  │
+│  │  │  • Habilitar/desabilitar chat                   │   │  │
+│  │  │  • Iniciar/encerrar votação                     │   │  │
+│  │  │  • Mutar/desmutar participantes                 │   │  │
+│  │  │  • Encerrar assembleia                          │   │  │
+│  │  └────────────────────────────────────────────────┘   │  │
+│  └────────────────────────────────────────────────────────┘  │
+│                                                              │
+│  ┌──────────────────────────────────────────────────────┐   │
+│  │                PÓS-ASSEMBLEIA                         │   │
+│  │  • Geração automática de ata (PDF)                    │   │
+│  │  • Registro de votos + quórum                         │   │
+│  │  • Assinatura eletrônica                              │   │
+│  │  • Envio da ata aos condôminos                        │   │
+│  └──────────────────────────────────────────────────────┘   │
+└──────────────────────────────────────────────────────────────┘</pre>
+      </div>
+    </section>
+
+    <!-- TABELAS -->
+    <section class="section" id="tabelas">
+      <div class="section-header">
+        <div class="icon">🗄️</div>
+        <div>
+          <h2>Banco de Dados</h2>
+          <p>Tabelas necessárias no Supabase</p>
+        </div>
+      </div>
+
+      <div class="table-wrapper">
+        <table>
+          <thead>
+            <tr>
+              <th>Tabela</th>
+              <th>Finalidade</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><code>assembleias</code></td>
+              <td>Dados gerais (data, tipo AGO/AGE, pauta, status, formato virtual/híbrido)</td>
+            </tr>
+            <tr>
+              <td><code>assembleia_participantes</code></td>
+              <td>Presença (hora entrada/saída, procuração vinculada)</td>
+            </tr>
+            <tr>
+              <td><code>assembleia_pautas</code></td>
+              <td>Itens da ordem do dia (título, descrição, documentos anexos)</td>
+            </tr>
+            <tr>
+              <td><code>assembleia_votacoes</code></td>
+              <td>Votações por item de pauta (tipo de quórum, resultado)</td>
+            </tr>
+            <tr>
+              <td><code>assembleia_votos</code></td>
+              <td>Voto individual (rastreável, com fração ideal, timestamp)</td>
+            </tr>
+            <tr>
+              <td><code>assembleia_chat</code></td>
+              <td>Mensagens do chat (com flag de habilitado on/off)</td>
+            </tr>
+            <tr>
+              <td><code>assembleia_atas</code></td>
+              <td>Ata gerada (PDF, assinaturas, status de registro)</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- FONTES -->
+    <section class="section" id="fontes">
+      <div class="section-header">
+        <div class="icon">📚</div>
+        <div>
+          <h2>Fontes Legais</h2>
+          <p>Links oficiais para consulta</p>
+        </div>
+      </div>
+
+      <div class="sources">
+        <h4>📎 Referências Oficiais</h4>
+        <a href="https://www.planalto.gov.br/ccivil_03/_ato2019-2022/2022/lei/l14309.htm" target="_blank">📜 Lei nº 14.309/2022 — Texto completo (Planalto)</a>
+        <a href="https://www.planalto.gov.br/ccivil_03/leis/2002/l10406compilada.htm" target="_blank">📜 Código Civil — Art. 1.350 a 1.356 (Condomínios)</a>
+        <a href="https://www.planalto.gov.br/ccivil_03/_ato2019-2022/2020/lei/l14063.htm" target="_blank">📜 Lei nº 14.063/2020 — Assinaturas Eletrônicas</a>
+        <a href="https://www.planalto.gov.br/ccivil_03/mpv/antigas_2001/2200-2.htm" target="_blank">📜 MP 2.200-2/2001 — ICP-Brasil</a>
+      </div>
+    </section>
+
+    <div style="text-align: center; padding: 40px 0; color: var(--text-secondary); font-size: 13px;">
+      <p>Condomeet © 2026 — Documento gerado automaticamente</p>
+      <p style="margin-top: 4px;">Pesquisa técnica e jurídica para módulo de Assembleia Online</p>
+    </div>
+
+  </div>
+
+  <button class="print-btn" onclick="window.print()">
+    🖨️ Imprimir / PDF
+  </button>
+
+</body>
+</html>
