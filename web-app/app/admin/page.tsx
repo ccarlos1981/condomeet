@@ -75,7 +75,7 @@ export default async function AdminDashboard() {
       .eq('condominio_id', condoId).gte('data', todayStr.substring(0, 7) + '-01'),
     // Encomendas pendentes
     supabase.from('encomendas').select('*', { count: 'exact', head: true })
-      .eq('condominio_id', condoId).eq('status', 'pendente'),
+      .eq('condominio_id', condoId).eq('status', 'pending'),
     // Encomendas mês
     supabase.from('encomendas').select('*', { count: 'exact', head: true })
       .eq('condominio_id', condoId).gte('created_at', startOfMonth),

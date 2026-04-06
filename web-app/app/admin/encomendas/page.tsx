@@ -16,7 +16,7 @@ export default async function AdminEncomendasPage() {
     .single()
 
   const role = (profile?.papel_sistema ?? '').toLowerCase()
-  const isAdmin = role.includes('síndico') || role.includes('sindico') || role.includes('sub') || role === 'admin'
+  const isAdmin = role.includes('portaria') || role.includes('porteiro') || role.includes('síndico') || role.includes('sindico') || role.includes('sub') || role === 'admin'
   if (!isAdmin) redirect('/condo')
 
   const condoId = profile?.condominio_id ?? ''
@@ -64,7 +64,7 @@ export default async function AdminEncomendasPage() {
           </h1>
         </div>
         <a
-          href="/admin/registrar-encomenda"
+          href="/condo/registrar-encomenda"
           className="flex items-center gap-2 bg-[#FC5931] text-white text-sm font-semibold px-5 py-2.5 rounded-xl hover:bg-[#D42F1D] transition-colors shadow-sm"
         >
           + Nova Encomenda
