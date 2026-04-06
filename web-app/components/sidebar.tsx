@@ -7,7 +7,7 @@ import { useRouter } from 'next/navigation'
 import {
   Home, UserCheck, Package, QrCode, Bell, LogOut,
   Building2, ChevronLeft, ChevronRight, Menu, X,
-  Shield, ClipboardList, Users, CalendarDays, AlertCircle, MessageSquare, FileText, UserCog, BadgeCheck, BarChart3, Camera, DoorOpen, ShoppingBag, Heart, Car
+  Shield, ClipboardList, Users, CalendarDays, AlertCircle, MessageSquare, FileText, UserCog, BadgeCheck, BarChart3, Camera, DoorOpen, ShoppingBag, Heart, Car, UserSearch
 } from 'lucide-react'
 
 type NavItem = { label: string; href: string; icon: React.ReactNode; fnId?: string }
@@ -24,7 +24,7 @@ const FN_TO_NAV: Record<string, { label: string; href: string; icon: React.React
   visitor_approval:   { label: 'Liberar Visitante\nCadastrado', href: '/condo/liberar-visitante', icon: <UserCheck size={18} /> },
   pending_del:        { label: 'Encomendas do Cond.',       href: '/condo/encomendas-admin',      icon: <Package size={18} /> },
   approvals:          { label: 'Aprovações',               href: '/condo/aprovacoes',            icon: <Users size={18} /> },
-  resident_search:    { label: 'Busca Moradores',          href: '/condo/moradores',             icon: <Users size={18} /> },
+  resident_search:    { label: 'Busca Moradores',          href: '/condo/resident-search',       icon: <UserSearch size={18} /> },
   condo_structure:    { label: 'Estrutura do Condomínio',  href: '/condo/estrutura',             icon: <Building2 size={18} /> },
   assemblies:         { label: 'Assembleias',              href: '/admin/assembleias',           icon: <Users size={18} /> },
   // Extras
@@ -96,6 +96,7 @@ const PORTER_NAV: NavItem[] = [
   { label: 'Autorização Visitante (Portaria)', href: '/admin/autorizar-visitante-portaria', icon: <UserCheck size={18} /> },
   { label: 'Reservas (Portaria)', href: '/condo/reservas-portaria', icon: <CalendarDays size={18} /> },
   { label: 'Visita Proprietário', href: '/condo/visita-proprietario', icon: <DoorOpen size={18} /> },
+  { label: 'Busca Moradores', href: '/condo/resident-search', icon: <UserSearch size={18} /> },
 ]
 
 const ADMIN_NAV: NavItem[] = [
@@ -118,6 +119,7 @@ const ADMIN_NAV: NavItem[] = [
   { label: 'Autorização Visitante (Portaria)', href: '/admin/autorizar-visitante-portaria', icon: <UserCheck size={18} /> },
   { label: 'Reservas (Portaria)', href: '/condo/reservas-portaria', icon: <CalendarDays size={18} /> },
   { label: 'Visita Proprietário', href: '/condo/visita-proprietario', icon: <DoorOpen size={18} /> },
+  { label: 'Busca Moradores', href: '/condo/resident-search', icon: <UserSearch size={18} /> },
   { label: 'Painel Admin', href: '/admin', icon: <Shield size={18} /> },
 ]
 

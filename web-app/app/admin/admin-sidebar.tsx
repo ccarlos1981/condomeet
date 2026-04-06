@@ -7,7 +7,7 @@ import {
   Home, UserCheck, Users, Bell, FileText, MessageSquare,
   CalendarDays, MapPin, ClipboardList, Settings, Package,
   ChevronLeft, ChevronRight, ChevronDown, Menu, X, LogOut, Megaphone,
-  AlertCircle, SlidersHorizontal, ArrowRight, BarChart3, Building2, Camera, ShoppingBag, Wallet, ShoppingCart, Store, Car, ClipboardCheck, Wrench, Briefcase, Gavel, PlusCircle, DollarSign
+  AlertCircle, SlidersHorizontal, ArrowRight, BarChart3, Building2, Camera, ShoppingBag, Wallet, ShoppingCart, Store, Car, ClipboardCheck, Wrench, Briefcase, Gavel, PlusCircle, DollarSign, DoorOpen, UserSearch
 } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { useRouter } from 'next/navigation'
@@ -53,6 +53,7 @@ export default function AdminSidebar({
         { label: 'Dashboard',  href: '/admin',           icon: <Home size={18} /> },
         { label: 'Aprovações', href: '/admin/aprovacoes', icon: <UserCheck size={18} /> },
         { label: 'Moradores',  href: '/admin/moradores',  icon: <Users size={18} /> },
+        { label: 'Busca Moradores', href: '/condo/resident-search', icon: <UserSearch size={18} /> },
       ],
     },
     {
@@ -80,6 +81,7 @@ export default function AdminSidebar({
         { label: 'Classificados',   href: '/admin/classificados',   icon: <ShoppingBag size={18} /> },
         { label: 'Fornecedores',    href: '/admin/fornecedores',    icon: <Briefcase size={18} /> },
         { label: 'Funcionários',    href: '/admin/funcionarios',    icon: <UserCheck size={18} /> },
+        { label: 'Visita Proprietário', href: '/admin/visita-proprietario', icon: <DoorOpen size={18} /> },
         {
           label: 'Assembleias',
           href: '#',
