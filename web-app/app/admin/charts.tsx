@@ -131,6 +131,25 @@ function groupGenericByMonth(items: { created_at: string }[]) {
   }))
 }
 
+function groupEncomendasByMonth(items: { created_at: string; status: string }[]) {
+  const months = getLast6Months()
+  const groups: Record<string, { registradas: number; entregues: number }> = {}
+  months.forEach(m => { groups[m] = { registradas: 0, entregues: 0 } })
+
+  items.forEach(item => {
+    const month = getMonthLabel(new Date(item.created_at))
+    if (groups[month]) {
+      groups[month].registradas++
+      if (item.status === 'delivered') groups[month].entregues++
+    }
+  })
+
+  return months.map(month => ({
+    month,
+    ...groups[month],
+  }))
+}
+
 function getOcorrenciaStatusPie(ocorrencias: Ocorrencia[]) {
   const statusMap: Record<string, number> = {}
   ocorrencias.forEach(o => {
@@ -203,7 +222,7 @@ export default function AdminCharts({ invitations, ocorrencias, reservas, faleCo
   // Data for new tabs
   const fcData = useMemo(() => groupGenericByMonth(faleConosco), [faleConosco])
   const mrData = useMemo(() => groupGenericByMonth(moradores), [moradores])
-  const encData = useMemo(() => groupGenericByMonth(encomendas), [encomendas])
+  const encData = useMemo(() => groupEncomendasByMonth(encomendas), [encomendas])
 
   // Summary stats for each tab
   const invTotal = invitations.length
@@ -515,23 +534,36 @@ export default function AdminCharts({ invitations, ocorrencias, reservas, faleCo
           <div className="bg-white rounded-2xl p-6 border border-gray-100 shadow-sm">
             <div className="flex items-center justify-between mb-5">
               <div>
-                <h3 className="font-semibold text-gray-800">Evolução de Encomendas</h3>
-                <p className="text-xs text-gray-400 mt-0.5">Entradas por mês</p>
+                <h3 className="font-semibold text-gray-800">Encomendas: Registradas vs Entregues</h3>
+                <p className="text-xs text-gray-400 mt-0.5">Comparativo mensal</p>
+              </div>
+              <div className="flex items-center gap-3">
+                <span className="flex items-center gap-1.5 text-[11px] text-gray-500">
+                  <span className="w-2.5 h-2.5 rounded-full bg-amber-500" /> Registradas
+                </span>
+                <span className="flex items-center gap-1.5 text-[11px] text-gray-500">
+                  <span className="w-2.5 h-2.5 rounded-full bg-emerald-500" /> Entregues
+                </span>
               </div>
             </div>
             <ResponsiveContainer width="100%" height={260}>
               <AreaChart data={encData}>
                 <defs>
-                  <linearGradient id="gradEnc" x1="0" y1="0" x2="0" y2="1">
+                  <linearGradient id="gradEncReg" x1="0" y1="0" x2="0" y2="1">
                     <stop offset="5%" stopColor="#f59e0b" stopOpacity={0.15} />
                     <stop offset="95%" stopColor="#f59e0b" stopOpacity={0} />
+                  </linearGradient>
+                  <linearGradient id="gradEncEnt" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="5%" stopColor="#10b981" stopOpacity={0.15} />
+                    <stop offset="95%" stopColor="#10b981" stopOpacity={0} />
                   </linearGradient>
                 </defs>
                 <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" vertical={false} />
                 <XAxis dataKey="month" tick={{ fontSize: 11, fill: '#9ca3af' }} axisLine={false} tickLine={false} />
                 <YAxis tick={{ fontSize: 11, fill: '#9ca3af' }} width={30} axisLine={false} tickLine={false} />
                 <Tooltip content={<CustomTooltip />} />
-                <Area type="monotone" dataKey="total" name="Encomendas" stroke="#f59e0b" fill="url(#gradEnc)" strokeWidth={2.5} />
+                <Area type="monotone" dataKey="registradas" name="Registradas" stroke="#f59e0b" fill="url(#gradEncReg)" strokeWidth={2.5} />
+                <Area type="monotone" dataKey="entregues" name="Entregues" stroke="#10b981" fill="url(#gradEncEnt)" strokeWidth={2.5} />
               </AreaChart>
             </ResponsiveContainer>
           </div>
