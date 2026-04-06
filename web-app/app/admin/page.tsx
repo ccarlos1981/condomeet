@@ -1,12 +1,11 @@
 import { createClient } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
 import {
-  Users, ClipboardCheck, Package, UserCheck, Building2,
-  AlertCircle, CalendarDays, Bell, Wrench, DoorOpen,
-  MessageSquare, ShoppingBag, TrendingUp, FileText
+  Building2, DoorOpen, AlertCircle, Users, Package, Bell, FileText, CalendarDays
 } from 'lucide-react'
 import AdminCharts from './charts'
 import { getEstruturaLabel } from '@/lib/labels'
+import MetricCardsClient from './metric-cards-client'
 
 export default async function AdminDashboard() {
   const supabase = await createClient()
@@ -120,27 +119,26 @@ export default async function AdminDashboard() {
     .eq('condominio_id', condoId)
     .gte('data', sixMonthsAgo.toISOString().substring(0, 10))
 
-  // Stat cards grouped
-  const primaryMetrics = [
-    { label: 'Moradores', value: totalResidents ?? 0, icon: Users, color: 'blue', href: '/admin/moradores' },
-    { label: 'Pend. Aprovação', value: pendingApprovals ?? 0, icon: ClipboardCheck, color: 'amber', alert: (pendingApprovals ?? 0) > 0, href: '/admin/aprovacoes' },
-    { label: 'Ocorrências Abertas', value: ocorrenciasAbertas ?? 0, icon: AlertCircle, color: 'red', alert: (ocorrenciasAbertas ?? 0) > 0, href: '/admin/ocorrencias' },
-    { label: 'Fale Conosco', value: faleConoscoAbertos ?? 0, icon: MessageSquare, color: 'purple', alert: (faleConoscoAbertos ?? 0) > 0, href: '/admin/fale-conosco' },
-  ]
+  // Monthly fale conosco
+  const { data: faleConoscoMensal } = await supabase
+    .from('fale_sindico_threads')
+    .select('created_at, status')
+    .eq('condominio_id', condoId)
+    .gte('created_at', sixMonthsAgo.toISOString())
 
-  const operationalMetrics = [
-    { label: 'Reservas Hoje', value: reservasHoje ?? 0, subtitle: `${reservasMes ?? 0} este mês`, icon: CalendarDays, color: 'indigo', href: '/admin/reservas' },
-    { label: 'Encom. Pendentes', value: encomendasPendentes ?? 0, subtitle: `${encomendasMes ?? 0} este mês`, icon: Package, color: 'orange', href: '/admin/encomendas' },
-    { label: 'Visitas Hoje', value: visitasHoje ?? 0, icon: DoorOpen, color: 'teal', href: '/admin/visita-proprietario' },
-    { label: 'Manu. Abertas', value: manutencoesAbertas ?? 0, icon: Wrench, color: 'slate', href: '/admin/manutencao' },
-  ]
+  // Monthly moradores
+  const { data: moradoresMensal } = await supabase
+    .from('perfil')
+    .select('created_at, status_aprovacao')
+    .eq('condominio_id', condoId)
+    .gte('created_at', sixMonthsAgo.toISOString())
 
-  const secondaryMetrics = [
-    { label: 'Autorizações', value: invitations?.length ?? 0, icon: UserCheck, color: 'emerald' },
-    { label: 'Avisos Ativos', value: avisosAtivos ?? 0, icon: Bell, color: 'cyan', href: '/admin/avisos' },
-    { label: 'Classificados', value: classificadosAtivos ?? 0, icon: ShoppingBag, color: 'pink', href: '/admin/classificados' },
-    { label: 'Ocorr. este mês', value: ocorrenciasTotal ?? 0, icon: TrendingUp, color: 'violet' },
-  ]
+  // Monthly encomendas
+  const { data: encomendasMensal } = await supabase
+    .from('encomendas')
+    .select('created_at, status')
+    .eq('condominio_id', condoId)
+    .gte('created_at', sixMonthsAgo.toISOString())
 
   const colorMap: Record<string, { iconBg: string; iconColor: string; alertBorder: string }> = {
     blue:    { iconBg: 'bg-blue-50',    iconColor: 'text-blue-500',    alertBorder: 'border-blue-200' },
@@ -160,31 +158,9 @@ export default async function AdminDashboard() {
   function fmtTime(iso: string) {
     return new Date(iso).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }) + 'h'
   }
+
   function fmtDate(iso: string) {
     return new Date(iso).toLocaleDateString('pt-BR', { day: '2-digit', month: 'short' })
-  }
-
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  function renderMetricCard(m: any) {
-    const c = colorMap[m.color] || colorMap.blue
-    const Icon = m.icon
-    const card = (
-      <div className={`bg-white rounded-2xl p-5 border shadow-sm transition-all hover:shadow-md ${m.alert ? `${c.alertBorder} ring-1 ring-inset ring-amber-100` : 'border-gray-100'} ${m.href ? 'cursor-pointer hover:-translate-y-0.5' : ''}`}>
-        <div className="flex items-center justify-between mb-3">
-          <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${c.iconBg}`}>
-            <Icon size={20} className={c.iconColor} />
-          </div>
-          {m.alert && <span className="w-2.5 h-2.5 bg-amber-400 rounded-full animate-pulse" />}
-        </div>
-        <p className="text-2xl font-bold text-gray-900">{m.value}</p>
-        <p className="text-xs text-gray-500 mt-1 font-medium">{m.label}</p>
-        {m.subtitle && <p className="text-[10px] text-gray-400 mt-0.5">{m.subtitle}</p>}
-      </div>
-    )
-    if (m.href) {
-      return <a key={m.label} href={m.href}>{card}</a>
-    }
-    return <div key={m.label}>{card}</div>
   }
 
   return (
@@ -202,26 +178,31 @@ export default async function AdminDashboard() {
         </p>
       </div>
 
-      {/* ── Primary Metrics (most critical) ─────────────────── */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
-        {primaryMetrics.map(renderMetricCard)}
-      </div>
-
-      {/* ── Operational Metrics ──────────────────────────────── */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
-        {operationalMetrics.map(renderMetricCard)}
-      </div>
-
-      {/* ── Secondary Metrics ────────────────────────────────── */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
-        {secondaryMetrics.map(renderMetricCard)}
-      </div>
+      <MetricCardsClient counts={{
+        totalResidents: totalResidents ?? 0,
+        pendingApprovals: pendingApprovals ?? 0,
+        ocorrenciasAbertas: ocorrenciasAbertas ?? 0,
+        faleConoscoAbertos: faleConoscoAbertos ?? 0,
+        reservasHoje: reservasHoje ?? 0,
+        reservasMes: reservasMes ?? 0,
+        encomendasPendentes: encomendasPendentes ?? 0,
+        encomendasMes: encomendasMes ?? 0,
+        visitasHoje: visitasHoje ?? 0,
+        manutencoesAbertas: manutencoesAbertas ?? 0,
+        invitationsLength: invitations?.length ?? 0,
+        avisosAtivos: avisosAtivos ?? 0,
+        classificadosAtivos: classificadosAtivos ?? 0,
+        ocorrenciasTotal: ocorrenciasTotal ?? 0
+      }} />
 
       {/* ── Charts ──────────────────────────────────────────── */}
       <AdminCharts
         invitations={invitations ?? []}
         ocorrencias={ocorrenciasMensal ?? []}
         reservas={reservasMensal ?? []}
+        faleConosco={faleConoscoMensal ?? []}
+        moradores={moradoresMensal ?? []}
+        encomendas={encomendasMensal ?? []}
       />
 
       {/* ── Recent Activity + Quick Actions ─────────────────── */}

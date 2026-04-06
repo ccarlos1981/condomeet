@@ -21,6 +21,21 @@ interface Reserva {
   status: string
 }
 
+interface FaleConosco {
+  created_at: string
+  status: string
+}
+
+interface Morador {
+  created_at: string
+  status_aprovacao: string
+}
+
+interface Encomenda {
+  created_at: string
+  status: string
+}
+
 // ── Helpers ──────────────────────────────────────────────
 function getMonthLabel(date: Date): string {
   return date.toLocaleDateString('pt-BR', { month: 'short', year: '2-digit' })
@@ -98,6 +113,24 @@ function groupReservasByMonth(reservas: Reserva[]) {
   }))
 }
 
+function groupGenericByMonth(items: { created_at: string }[]) {
+  const months = getLast6Months()
+  const groups: Record<string, number> = {}
+  months.forEach(m => { groups[m] = 0 })
+
+  items.forEach(item => {
+    const month = getMonthLabel(new Date(item.created_at))
+    if (groups[month] !== undefined) {
+      groups[month]++
+    }
+  })
+
+  return months.map(month => ({
+    month,
+    total: groups[month],
+  }))
+}
+
 function getOcorrenciaStatusPie(ocorrencias: Ocorrencia[]) {
   const statusMap: Record<string, number> = {}
   ocorrencias.forEach(o => {
@@ -138,11 +171,14 @@ function CustomTooltip({ active, payload, label }: any) {
 }
 
 // ── Tabs ────────────────────────────────────────────────
-type ChartTab = 'autorizacoes' | 'ocorrencias' | 'reservas'
+type ChartTab = 'autorizacoes' | 'ocorrencias' | 'reservas' | 'faleConosco' | 'moradores' | 'encomendas'
 
 const TABS: { id: ChartTab; label: string }[] = [
   { id: 'autorizacoes', label: 'Autorizações' },
   { id: 'ocorrencias',  label: 'Ocorrências' },
+  { id: 'faleConosco',  label: 'Fale Conosco' },
+  { id: 'moradores',    label: 'Moradores' },
+  { id: 'encomendas',   label: 'Encomendas' },
   { id: 'reservas',     label: 'Reservas' },
 ]
 
@@ -151,15 +187,23 @@ interface Props {
   invitations: Invitation[]
   ocorrencias: Ocorrencia[]
   reservas: Reserva[]
+  faleConosco: FaleConosco[]
+  moradores: Morador[]
+  encomendas: Encomenda[]
 }
 
-export default function AdminCharts({ invitations, ocorrencias, reservas }: Props) {
+export default function AdminCharts({ invitations, ocorrencias, reservas, faleConosco, moradores, encomendas }: Props) {
   const [activeTab, setActiveTab] = useState<ChartTab>('autorizacoes')
 
   const invData = useMemo(() => groupInvitationsByMonth(invitations), [invitations])
   const occData = useMemo(() => groupOcorrenciasByMonth(ocorrencias), [ocorrencias])
   const resData = useMemo(() => groupReservasByMonth(reservas), [reservas])
   const pieData = useMemo(() => getOcorrenciaStatusPie(ocorrencias), [ocorrencias])
+
+  // Data for new tabs
+  const fcData = useMemo(() => groupGenericByMonth(faleConosco), [faleConosco])
+  const mrData = useMemo(() => groupGenericByMonth(moradores), [moradores])
+  const encData = useMemo(() => groupGenericByMonth(encomendas), [encomendas])
 
   // Summary stats for each tab
   const invTotal = invitations.length
@@ -410,6 +454,86 @@ export default function AdminCharts({ invitations, ocorrencias, reservas }: Prop
                 />
               </div>
             </div>
+          </div>
+        </div>
+      )}
+      {/* ═══ FALE CONOSCO TAB ════════════════════════ */}
+      {activeTab === 'faleConosco' && (
+        <div className="grid grid-cols-1 gap-6">
+          <div className="bg-white rounded-2xl p-6 border border-gray-100 shadow-sm">
+            <div className="flex items-center justify-between mb-5">
+              <div>
+                <h3 className="font-semibold text-gray-800">Evolução Fale Conosco</h3>
+                <p className="text-xs text-gray-400 mt-0.5">Tickets abertos por mês</p>
+              </div>
+            </div>
+            <ResponsiveContainer width="100%" height={260}>
+              <AreaChart data={fcData}>
+                <defs>
+                  <linearGradient id="gradFC" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="5%" stopColor="#8b5cf6" stopOpacity={0.15} />
+                    <stop offset="95%" stopColor="#8b5cf6" stopOpacity={0} />
+                  </linearGradient>
+                </defs>
+                <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" vertical={false} />
+                <XAxis dataKey="month" tick={{ fontSize: 11, fill: '#9ca3af' }} axisLine={false} tickLine={false} />
+                <YAxis tick={{ fontSize: 11, fill: '#9ca3af' }} width={30} axisLine={false} tickLine={false} />
+                <Tooltip content={<CustomTooltip />} />
+                <Area type="monotone" dataKey="total" name="Tickets" stroke="#8b5cf6" fill="url(#gradFC)" strokeWidth={2.5} />
+              </AreaChart>
+            </ResponsiveContainer>
+          </div>
+        </div>
+      )}
+
+      {/* ═══ MORADORES TAB ════════════════════════ */}
+      {activeTab === 'moradores' && (
+        <div className="grid grid-cols-1 gap-6">
+          <div className="bg-white rounded-2xl p-6 border border-gray-100 shadow-sm">
+            <div className="flex items-center justify-between mb-5">
+              <div>
+                <h3 className="font-semibold text-gray-800">Evolução de Moradores</h3>
+                <p className="text-xs text-gray-400 mt-0.5">Novos cadastros por mês</p>
+              </div>
+            </div>
+            <ResponsiveContainer width="100%" height={260}>
+              <BarChart data={mrData}>
+                <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" vertical={false} />
+                <XAxis dataKey="month" tick={{ fontSize: 11, fill: '#9ca3af' }} axisLine={false} tickLine={false} />
+                <YAxis tick={{ fontSize: 11, fill: '#9ca3af' }} width={30} axisLine={false} tickLine={false} />
+                <Tooltip content={<CustomTooltip />} />
+                <Bar dataKey="total" name="Cadastros" fill="#3b82f6" radius={[4, 4, 0, 0]} maxBarSize={40} />
+              </BarChart>
+            </ResponsiveContainer>
+          </div>
+        </div>
+      )}
+
+      {/* ═══ ENCOMENDAS TAB ════════════════════════ */}
+      {activeTab === 'encomendas' && (
+        <div className="grid grid-cols-1 gap-6">
+          <div className="bg-white rounded-2xl p-6 border border-gray-100 shadow-sm">
+            <div className="flex items-center justify-between mb-5">
+              <div>
+                <h3 className="font-semibold text-gray-800">Evolução de Encomendas</h3>
+                <p className="text-xs text-gray-400 mt-0.5">Entradas por mês</p>
+              </div>
+            </div>
+            <ResponsiveContainer width="100%" height={260}>
+              <AreaChart data={encData}>
+                <defs>
+                  <linearGradient id="gradEnc" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="5%" stopColor="#f59e0b" stopOpacity={0.15} />
+                    <stop offset="95%" stopColor="#f59e0b" stopOpacity={0} />
+                  </linearGradient>
+                </defs>
+                <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" vertical={false} />
+                <XAxis dataKey="month" tick={{ fontSize: 11, fill: '#9ca3af' }} axisLine={false} tickLine={false} />
+                <YAxis tick={{ fontSize: 11, fill: '#9ca3af' }} width={30} axisLine={false} tickLine={false} />
+                <Tooltip content={<CustomTooltip />} />
+                <Area type="monotone" dataKey="total" name="Encomendas" stroke="#f59e0b" fill="url(#gradEnc)" strokeWidth={2.5} />
+              </AreaChart>
+            </ResponsiveContainer>
           </div>
         </div>
       )}
