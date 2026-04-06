@@ -547,24 +547,14 @@ export default function AdminCharts({ invitations, ocorrencias, reservas, faleCo
               </div>
             </div>
             <ResponsiveContainer width="100%" height={260}>
-              <AreaChart data={encData}>
-                <defs>
-                  <linearGradient id="gradEncReg" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%" stopColor="#f59e0b" stopOpacity={0.15} />
-                    <stop offset="95%" stopColor="#f59e0b" stopOpacity={0} />
-                  </linearGradient>
-                  <linearGradient id="gradEncEnt" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%" stopColor="#10b981" stopOpacity={0.15} />
-                    <stop offset="95%" stopColor="#10b981" stopOpacity={0} />
-                  </linearGradient>
-                </defs>
+              <BarChart data={encData} barGap={4}>
                 <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" vertical={false} />
                 <XAxis dataKey="month" tick={{ fontSize: 11, fill: '#9ca3af' }} axisLine={false} tickLine={false} />
                 <YAxis tick={{ fontSize: 11, fill: '#9ca3af' }} width={30} axisLine={false} tickLine={false} />
                 <Tooltip content={<CustomTooltip />} />
-                <Area type="monotone" dataKey="registradas" name="Registradas" stroke="#f59e0b" fill="url(#gradEncReg)" strokeWidth={2.5} />
-                <Area type="monotone" dataKey="entregues" name="Entregues" stroke="#10b981" fill="url(#gradEncEnt)" strokeWidth={2.5} />
-              </AreaChart>
+                <Bar dataKey="registradas" name="Registradas" fill="#f59e0b" radius={[4, 4, 0, 0]} maxBarSize={28} />
+                <Bar dataKey="entregues" name="Entregues" fill="#10b981" radius={[4, 4, 0, 0]} maxBarSize={28} />
+              </BarChart>
             </ResponsiveContainer>
           </div>
         </div>
