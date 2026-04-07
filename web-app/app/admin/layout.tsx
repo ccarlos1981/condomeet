@@ -17,7 +17,7 @@ export default async function AdminLayout({ children }: { children: React.ReactN
 
   const role = profile?.papel_sistema ?? ''
   const isSuperAdmin = SUPER_ADMIN_EMAILS.includes(user.email ?? '')
-  const isAdmin = ['Síndico', 'Síndico (a)', 'sindico', 'ADMIN', 'admin'].some(r =>
+  const isAdmin = ['Síndico', 'Síndico (a)', 'sindico', 'ADMIN', 'admin', 'Porteiro', 'Portaria'].some(r =>
     role.toLowerCase().includes(r.toLowerCase())
   )
   if (!isAdmin && !isSuperAdmin) redirect('/condo')
