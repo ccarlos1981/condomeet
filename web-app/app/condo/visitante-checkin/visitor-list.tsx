@@ -27,6 +27,10 @@ interface Invitation {
   bloco_destino?: string | null
   apto_destino?: string | null
   morador_nome_manual?: string | null
+  documento?: string | null
+  placa?: string | null
+  cracha_referencia?: string | null
+  observacao?: string | null
 }
 
 interface Props {
@@ -52,6 +56,9 @@ export default function VisitorList({ initialInvitations, initialTotal, condoId,
   const [fApto, setFApto] = useState('')
   const [fDate, setFDate] = useState('')
   const [fStatus, setFStatus] = useState<null | boolean>(false)
+  const [fDocumento, setFDocumento] = useState('')
+  const [fPlaca, setFPlaca] = useState('')
+  const [fCracha, setFCracha] = useState('')
 
   // Pagination
   const [page, setPage] = useState(1)
@@ -61,17 +68,25 @@ export default function VisitorList({ initialInvitations, initialTotal, condoId,
   const fetchData = useCallback(async (currentPage: number) => {
     setLoading(true)
     try {
+      // Cutoff: yesterday at 21:00 — convites older than this are hidden
+      const cutoff = new Date()
+      cutoff.setDate(cutoff.getDate() - 1)
+      cutoff.setHours(21, 0, 0, 0)
+      const cutoffISO = cutoff.toISOString()
+
       // Build count query first
       let countQuery = supabase
         .from('convites')
         .select('id', { count: 'exact', head: true })
         .eq('condominio_id', condoId)
+        .gte('validity_date', cutoffISO)
 
       // Build data query
       let dataQuery = supabase
         .from('convites')
-        .select('id, qr_data, guest_name, visitor_type, visitante_compareceu, validity_date, created_at, liberado_em, resident_id, status, criado_por_portaria, bloco_destino, apto_destino, morador_nome_manual')
+        .select('id, qr_data, guest_name, visitor_type, visitante_compareceu, validity_date, created_at, liberado_em, resident_id, status, criado_por_portaria, bloco_destino, apto_destino, morador_nome_manual, documento, placa, cracha_referencia, observacao')
         .eq('condominio_id', condoId)
+        .gte('validity_date', cutoffISO)
         .order('created_at', { ascending: false })
         .range((currentPage - 1) * PAGE_SIZE, currentPage * PAGE_SIZE - 1)
 
@@ -87,6 +102,18 @@ export default function VisitorList({ initialInvitations, initialTotal, condoId,
       if (fStatus !== null) {
         countQuery = countQuery.eq('visitante_compareceu', fStatus)
         dataQuery = dataQuery.eq('visitante_compareceu', fStatus)
+      }
+      if (fDocumento) {
+        countQuery = countQuery.ilike('documento', `%${fDocumento}%`)
+        dataQuery = dataQuery.ilike('documento', `%${fDocumento}%`)
+      }
+      if (fPlaca) {
+        countQuery = countQuery.ilike('placa', `%${fPlaca}%`)
+        dataQuery = dataQuery.ilike('placa', `%${fPlaca}%`)
+      }
+      if (fCracha) {
+        countQuery = countQuery.ilike('cracha_referencia', `%${fCracha}%`)
+        dataQuery = dataQuery.ilike('cracha_referencia', `%${fCracha}%`)
       }
 
       // Note: bloco/apto filters need special handling since they can be in perfil or bloco_destino
@@ -138,7 +165,7 @@ export default function VisitorList({ initialInvitations, initialTotal, condoId,
     } finally {
       setLoading(false)
     }
-  }, [condoId, fCode, fBloco, fApto, fDate, fStatus, supabase])
+  }, [condoId, fCode, fBloco, fApto, fDate, fStatus, fDocumento, fPlaca, fCracha, supabase])
 
   // Debounced fetch on filter/page change
   useEffect(() => {
@@ -147,12 +174,12 @@ export default function VisitorList({ initialInvitations, initialTotal, condoId,
     }, 300)
     return () => clearTimeout(timer)
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [page, fCode, fBloco, fApto, fDate, fStatus])
+  }, [page, fCode, fBloco, fApto, fDate, fStatus, fDocumento, fPlaca, fCracha])
 
   // Reset page when filters change
   useEffect(() => {
     setPage(1)
-  }, [fCode, fBloco, fApto, fDate, fStatus])
+  }, [fCode, fBloco, fApto, fDate, fStatus, fDocumento, fPlaca, fCracha])
 
   // Supabase Realtime: auto-refresh when convites change
   useEffect(() => {
@@ -176,7 +203,7 @@ export default function VisitorList({ initialInvitations, initialTotal, condoId,
       supabase.removeChannel(channel)
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [condoId, page, fCode, fBloco, fApto, fDate, fStatus])
+  }, [condoId, page, fCode, fBloco, fApto, fDate, fStatus, fDocumento, fPlaca, fCracha])
 
   async function handleApprove(inv: Invitation) {
     if (Boolean(inv.visitante_compareceu)) return
@@ -206,8 +233,8 @@ export default function VisitorList({ initialInvitations, initialTotal, condoId,
     { value: false, label: '⏳ Pendentes' },
     { value: true, label: '✓ Liberados' },
   ]
-  const hasFilters = fCode || fBloco || fApto || fDate || fStatus !== null
-  const clearFilters = () => { setFCode(''); setFBloco(''); setFApto(''); setFDate(''); setFStatus(null) }
+  const hasFilters = fCode || fBloco || fApto || fDate || fStatus !== null || fDocumento || fPlaca || fCracha
+  const clearFilters = () => { setFCode(''); setFBloco(''); setFApto(''); setFDate(''); setFStatus(null); setFDocumento(''); setFPlaca(''); setFCracha('') }
 
   return (
     <>
@@ -223,6 +250,9 @@ export default function VisitorList({ initialInvitations, initialTotal, condoId,
             { placeholder: 'Código', value: fCode, set: setFCode, width: 'w-24' },
             { placeholder: getBlocoLabel(tipoEstrutura), value: fBloco, set: setFBloco, width: 'w-24' },
             { placeholder: getAptoLabel(tipoEstrutura), value: fApto, set: setFApto, width: 'w-24' },
+            { placeholder: 'Documento', value: fDocumento, set: setFDocumento, width: 'w-28' },
+            { placeholder: 'Placa', value: fPlaca, set: setFPlaca, width: 'w-24' },
+            { placeholder: 'Crachá', value: fCracha, set: setFCracha, width: 'w-24' },
           ].map(f => (
             <input
               key={f.placeholder}
@@ -241,7 +271,6 @@ export default function VisitorList({ initialInvitations, initialTotal, condoId,
             title="Filtrar por data de validade"
             className="px-3 py-2 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-[#FC5931] bg-gray-50"
           />
-
         </div>
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
@@ -306,17 +335,17 @@ export default function VisitorList({ initialInvitations, initialTotal, condoId,
             const solicitadoPor = isPortaria ? 'Portaria' : residentName
 
             // Check if visit date allows confirmation
-            // Rule: allow only if visit date >= yesterday at 18:00
+            // Rule: allow only if visit date >= yesterday at 21:00
             const visitDateExpired = (() => {
               if (!inv.validity_date) return false
               const visitDateStr = inv.validity_date.includes('T') ? inv.validity_date.split('T')[0] : inv.validity_date
               // Visit day end = visit date at 23:59:59
               const visitDayEnd = new Date(visitDateStr + 'T23:59:59')
-              // Cutoff = yesterday at 18:00 (i.e., now minus the hours since yesterday 18h)
+              // Cutoff = yesterday at 21:00
               const now = new Date()
               const cutoff = new Date(now)
               cutoff.setDate(cutoff.getDate() - 1)
-              cutoff.setHours(18, 0, 0, 0)
+              cutoff.setHours(21, 0, 0, 0)
               return visitDayEnd < cutoff
             })()
 
@@ -367,6 +396,31 @@ export default function VisitorList({ initialInvitations, initialTotal, condoId,
                         <span className="text-xs text-gray-400 block">Nome Visitante</span>
                         <span className="font-medium text-gray-800">{inv.guest_name || 'Nome não preenchido'}</span>
                       </div>
+                      {/* Extra info tags */}
+                      {(inv.documento || inv.placa || inv.cracha_referencia || inv.observacao) && (
+                        <div className="col-span-2 flex flex-wrap gap-2 pt-1">
+                          {inv.documento && (
+                            <span className="inline-flex items-center gap-1 text-[11px] bg-blue-50 text-blue-700 px-2 py-1 rounded-lg border border-blue-100">
+                              <span className="font-semibold">Doc:</span> {inv.documento}
+                            </span>
+                          )}
+                          {inv.placa && (
+                            <span className="inline-flex items-center gap-1 text-[11px] bg-purple-50 text-purple-700 px-2 py-1 rounded-lg border border-purple-100">
+                              <span className="font-semibold">Placa:</span> {inv.placa}
+                            </span>
+                          )}
+                          {inv.cracha_referencia && (
+                            <span className="inline-flex items-center gap-1 text-[11px] bg-amber-50 text-amber-700 px-2 py-1 rounded-lg border border-amber-100">
+                              <span className="font-semibold">Crachá:</span> {inv.cracha_referencia}
+                            </span>
+                          )}
+                          {inv.observacao && (
+                            <span className="inline-flex items-center gap-1 text-[11px] bg-gray-50 text-gray-600 px-2 py-1 rounded-lg border border-gray-200">
+                              <span className="font-semibold">Obs:</span> {inv.observacao}
+                            </span>
+                          )}
+                        </div>
+                      )}
                     </div>
                     {/* QR Code */}
                     {inv.qr_data && (

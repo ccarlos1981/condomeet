@@ -178,35 +178,38 @@ class _AssembleiaListScreenState extends State<AssembleiaListScreen> {
     return Container(
       color: Colors.white,
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-      child: Row(
-        children: filters.map((f) {
-          final isActive = _filtro == f['id'];
-          final color = f['color'] as MaterialColor;
-          return Padding(
-            padding: const EdgeInsets.only(right: 8),
-            child: GestureDetector(
-              onTap: () => setState(() => _filtro = f['id'] as String),
-              child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                decoration: BoxDecoration(
-                  color: isActive ? color.shade50 : Colors.transparent,
-                  borderRadius: BorderRadius.circular(20),
-                  border: Border.all(
-                    color: isActive ? color.shade400 : Colors.grey.shade300,
+      child: SingleChildScrollView(
+        scrollDirection: Axis.horizontal,
+        child: Row(
+          children: filters.map((f) {
+            final isActive = _filtro == f['id'];
+            final color = f['color'] as MaterialColor;
+            return Padding(
+              padding: const EdgeInsets.only(right: 8),
+              child: GestureDetector(
+                onTap: () => setState(() => _filtro = f['id'] as String),
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                  decoration: BoxDecoration(
+                    color: isActive ? color.shade50 : Colors.transparent,
+                    borderRadius: BorderRadius.circular(20),
+                    border: Border.all(
+                      color: isActive ? color.shade400 : Colors.grey.shade300,
+                    ),
                   ),
-                ),
-                child: Text(
-                  f['label'] as String,
-                  style: TextStyle(
-                    fontSize: 12,
-                    fontWeight: isActive ? FontWeight.w600 : FontWeight.normal,
-                    color: isActive ? color.shade700 : Colors.grey.shade500,
+                  child: Text(
+                    f['label'] as String,
+                    style: TextStyle(
+                      fontSize: 12,
+                      fontWeight: isActive ? FontWeight.w600 : FontWeight.normal,
+                      color: isActive ? color.shade700 : Colors.grey.shade500,
+                    ),
                   ),
                 ),
               ),
-            ),
-          );
-        }).toList(),
+            );
+          }).toList(),
+        ),
       ),
     );
   }
@@ -316,7 +319,7 @@ class _AssembleiaListScreenState extends State<AssembleiaListScreen> {
                     ),
                   ),
                   // Status badge
-                  _buildStatusBadge(a),
+                  Flexible(child: _buildStatusBadge(a)),
                 ],
               ),
             ),
@@ -326,21 +329,34 @@ class _AssembleiaListScreenState extends State<AssembleiaListScreen> {
               child: Column(
                 children: [
                   // Dates
-                  Row(
+                  Wrap(
+                    spacing: 12,
+                    runSpacing: 6,
+                    crossAxisAlignment: WrapCrossAlignment.center,
                     children: [
-                      Icon(Icons.calendar_today, size: 14, color: Colors.grey.shade500),
-                      const SizedBox(width: 6),
-                      Text(
-                        '1ª Conv: ${_formatDate(a.dt1aConvocacao)}',
-                        style: TextStyle(fontSize: 12, color: AppColors.textSecondary),
+                      Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(Icons.calendar_today, size: 14, color: Colors.grey.shade500),
+                          const SizedBox(width: 6),
+                          Text(
+                            '1ª Conv: ${_formatDate(a.dt1aConvocacao)}',
+                            style: TextStyle(fontSize: 12, color: AppColors.textSecondary),
+                          ),
+                        ],
                       ),
-                      if (a.dt2aConvocacao != null) ...[
-                        const SizedBox(width: 12),
-                        Text(
-                          '2ª Conv: ${_formatDate(a.dt2aConvocacao)}',
-                          style: TextStyle(fontSize: 12, color: AppColors.textSecondary),
+                      if (a.dt2aConvocacao != null)
+                        Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(Icons.calendar_today, size: 14, color: Colors.transparent), // for alignment
+                            const SizedBox(width: 6),
+                            Text(
+                              '2ª Conv: ${_formatDate(a.dt2aConvocacao)}',
+                              style: TextStyle(fontSize: 12, color: AppColors.textSecondary),
+                            ),
+                          ],
                         ),
-                      ],
                     ],
                   ),
                   const SizedBox(height: 8),

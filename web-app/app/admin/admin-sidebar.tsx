@@ -7,7 +7,7 @@ import {
   Home, UserCheck, Users, Bell, FileText, MessageSquare,
   CalendarDays, MapPin, ClipboardList, Settings, Package,
   ChevronLeft, ChevronRight, ChevronDown, Menu, X, LogOut, Megaphone,
-  AlertCircle, SlidersHorizontal, ArrowRight, BarChart3, Building2, Camera, ShoppingBag, Wallet, ShoppingCart, Store, Car, ClipboardCheck, Wrench, Briefcase, Gavel, PlusCircle, DollarSign, DoorOpen, UserSearch
+  AlertCircle, SlidersHorizontal, ArrowRight, BarChart3, Building2, Camera, ShoppingBag, Wallet, ShoppingCart, Store, Car, ClipboardCheck, Wrench, Briefcase, Gavel, PlusCircle, DollarSign, DoorOpen, UserSearch, Warehouse, BookOpen
 } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { useRouter } from 'next/navigation'
@@ -53,7 +53,7 @@ export default function AdminSidebar({
         { label: 'Dashboard',  href: '/admin',           icon: <Home size={18} /> },
         { label: 'Aprovações', href: '/admin/aprovacoes', icon: <UserCheck size={18} /> },
         { label: 'Moradores',  href: '/admin/moradores',  icon: <Users size={18} /> },
-        { label: 'Busca Moradores', href: '/condo/resident-search', icon: <UserSearch size={18} /> },
+        { label: 'Busca Moradores', href: '/admin/resident-search', icon: <UserSearch size={18} /> },
       ],
     },
     {
@@ -80,6 +80,7 @@ export default function AdminSidebar({
         { label: 'Estrutura',       href: '/admin/estrutura',       icon: <Building2 size={18} /> },
         { label: 'Classificados',   href: '/admin/classificados',   icon: <ShoppingBag size={18} /> },
         { label: 'Fornecedores',    href: '/admin/fornecedores',    icon: <Briefcase size={18} /> },
+        { label: 'Controle Estoque', href: '/admin/estoque',         icon: <Warehouse size={18} /> },
         { label: 'Funcionários',    href: '/admin/funcionarios',    icon: <UserCheck size={18} /> },
         { label: 'Visita Proprietário', href: '/admin/visita-proprietario', icon: <DoorOpen size={18} /> },
         {
@@ -166,9 +167,23 @@ export default function AdminSidebar({
       {!collapsed && (
         <div className="px-4 py-3 border-b border-white/5">
           <p className="text-sm font-medium text-white/80 truncate">{userName}</p>
-          <span className="inline-block mt-1 text-[10px] uppercase tracking-wider font-bold bg-[#FC5931]/20 text-[#FC5931] px-2 py-0.5 rounded-full">
-            {role}
-          </span>
+          <div className="flex items-center gap-2 mt-1">
+            <span className="inline-block text-[10px] uppercase tracking-wider font-bold bg-[#FC5931]/20 text-[#FC5931] px-2 py-0.5 rounded-full">
+              {role}
+            </span>
+            <Link
+              href="/admin/passo-a-passo"
+              onClick={() => setMobileOpen(false)}
+              className={`inline-flex items-center gap-1 text-[10px] uppercase tracking-wider font-bold px-2 py-0.5 rounded-full transition-all ${
+                pathname === '/admin/passo-a-passo'
+                  ? 'bg-amber-500/30 text-amber-300'
+                  : 'bg-amber-500/15 text-amber-400/80 hover:bg-amber-500/25 hover:text-amber-300'
+              }`}
+            >
+              <BookOpen size={10} />
+              Manual
+            </Link>
+          </div>
         </div>
       )}
 

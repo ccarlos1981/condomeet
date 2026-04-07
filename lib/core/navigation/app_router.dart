@@ -192,12 +192,14 @@ class AppRouter {
         final itemId = ModalRoute.of(context)!.settings.arguments as String;
         return InventoryDetailScreen(itemId: itemId);
       },
+      // Assembleias - Visão do Administrativa
+      '/admin-assemblies': (context) => const AssemblyListScreen(),
+      // Assembleias — Visão do Morador (novo módulo)
       '/assemblies': (context) => const AssembleiaListScreen(),
       '/assembly-detail': (context) {
         final assemblyId = ModalRoute.of(context)!.settings.arguments as String;
         return AssemblyDetailScreen(assemblyId: assemblyId);
       },
-      // Assembleias — Visão do Morador (novo módulo)
       '/assembleias-morador': (context) => const AssembleiaListScreen(),
       '/assembleia-detalhe-morador': (context) {
         final assembleiaId = ModalRoute.of(context)!.settings.arguments as String;

@@ -74,7 +74,7 @@ export default async function CondoDashboard() {
       label: isAdmin ? 'Autorização Visit. (Port.)' : 'Autorizar Visitante', 
       sub: isAdmin ? 'Criar pela portaria' : 'Gerar autorização', 
       icon: UserCheck, 
-      href: isAdmin ? '/admin/autorizar-visitante-portaria' : '/condo/visitantes', 
+      href: isAdmin ? '/condo/autorizar-visitante-portaria' : '/condo/visitantes', 
       iconColor: 'text-orange-500', 
       iconBg: 'bg-orange-500/10' 
     },

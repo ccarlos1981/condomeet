@@ -24,6 +24,7 @@ class AssemblyBloc extends Bloc<AssemblyEvent, AssemblyState> {
     on<CastVoteRequested>(_onCastVoteRequested);
     on<UpdateAssemblyStatusRequested>(_onUpdateAssemblyStatusRequested);
     on<_UpdateAssemblies>(_onUpdateAssemblies);
+    on<_UpdateAssembliesError>(_onUpdateAssembliesError);
     on<_UpdateAssemblyDetails>(_onUpdateAssemblyDetails);
   }
 
@@ -35,7 +36,17 @@ class AssemblyBloc extends Bloc<AssemblyEvent, AssemblyState> {
     await _assembliesSubscription?.cancel();
     _assembliesSubscription = _assemblyRepository
         .watchAssemblies(event.condominiumId)
-        .listen((assemblies) => add(_UpdateAssemblies(assemblies)));
+        .listen(
+          (assemblies) => add(_UpdateAssemblies(assemblies)),
+          onError: (e) {
+            print("WATCH ASSEMBLIES ERROR: $e");
+            add(_UpdateAssembliesError(e.toString()));
+          },
+        );
+  }
+
+  void _onUpdateAssembliesError(_UpdateAssembliesError event, Emitter<AssemblyState> emit) {
+    emit(AssemblyError(event.error));
   }
 
   Future<void> _onWatchAssemblyDetailsRequested(

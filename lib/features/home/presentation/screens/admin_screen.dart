@@ -187,7 +187,7 @@ class _AdminScreenState extends State<AdminScreen> {
                 context: context,
                 icon: Icons.how_to_vote_outlined,
                 label: 'Assembleias Online',
-                onTap: () => Navigator.of(context).pushNamed('/assemblies'),
+                onTap: () => Navigator.of(context).pushNamed('/admin-assemblies'),
               ),
               _buildAdminItem(
                 context: context,

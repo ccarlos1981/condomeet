@@ -23,12 +23,19 @@ export default async function VisitanteCheckinPage() {
     .single()
   const tipoEstrutura = condo?.tipo_estrutura ?? 'predio'
 
+  // Cutoff: yesterday at 21:00 — convites older than this are hidden
+  const cutoff = new Date()
+  cutoff.setDate(cutoff.getDate() - 1)
+  cutoff.setHours(21, 0, 0, 0)
+  const cutoffISO = cutoff.toISOString()
+
   // Fetch initial page of convites (10 items, pendentes by default)
   const { data: convites, count } = await supabase
     .from('convites')
     .select('id, qr_data, guest_name, visitor_type, visitante_compareceu, validity_date, created_at, liberado_em, resident_id, status, criado_por_portaria, bloco_destino, apto_destino, morador_nome_manual', { count: 'exact' })
     .eq('condominio_id', condoId)
     .eq('visitante_compareceu', false)
+    .gte('validity_date', cutoffISO)
     .order('created_at', { ascending: false })
     .range(0, 9)
 

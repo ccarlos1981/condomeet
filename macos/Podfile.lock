@@ -1,7 +1,55 @@
 PODS:
+  - agora_rtc_engine (0.0.1):
+    - AgoraIrisRTC_macOS (= 4.5.2-build.2)
+    - AgoraRtcEngine_macOS (= 4.5.2)
+    - FlutterMacOS
+  - AgoraInfra_macOS (1.2.13.1)
+  - AgoraIrisRTC_macOS (4.5.2-build.2)
+  - AgoraRtcEngine_macOS (4.5.2):
+    - AgoraRtcEngine_macOS/AIAEC (= 4.5.2)
+    - AgoraRtcEngine_macOS/AIAECLL (= 4.5.2)
+    - AgoraRtcEngine_macOS/AINS (= 4.5.2)
+    - AgoraRtcEngine_macOS/AINSLL (= 4.5.2)
+    - AgoraRtcEngine_macOS/AudioBeauty (= 4.5.2)
+    - AgoraRtcEngine_macOS/ClearVision (= 4.5.2)
+    - AgoraRtcEngine_macOS/ContentInspect (= 4.5.2)
+    - AgoraRtcEngine_macOS/FaceCapture (= 4.5.2)
+    - AgoraRtcEngine_macOS/FaceDetection (= 4.5.2)
+    - AgoraRtcEngine_macOS/LipSync (= 4.5.2)
+    - AgoraRtcEngine_macOS/RtcBasic (= 4.5.2)
+    - AgoraRtcEngine_macOS/ScreenCapture (= 4.5.2)
+    - AgoraRtcEngine_macOS/SpatialAudio (= 4.5.2)
+    - AgoraRtcEngine_macOS/VideoAv1CodecDec (= 4.5.2)
+    - AgoraRtcEngine_macOS/VideoAv1CodecEnc (= 4.5.2)
+    - AgoraRtcEngine_macOS/VideoCodecDec (= 4.5.2)
+    - AgoraRtcEngine_macOS/VideoCodecEnc (= 4.5.2)
+    - AgoraRtcEngine_macOS/VirtualBackground (= 4.5.2)
+    - AgoraRtcEngine_macOS/VQA (= 4.5.2)
+  - AgoraRtcEngine_macOS/AIAEC (4.5.2)
+  - AgoraRtcEngine_macOS/AIAECLL (4.5.2)
+  - AgoraRtcEngine_macOS/AINS (4.5.2)
+  - AgoraRtcEngine_macOS/AINSLL (4.5.2)
+  - AgoraRtcEngine_macOS/AudioBeauty (4.5.2)
+  - AgoraRtcEngine_macOS/ClearVision (4.5.2)
+  - AgoraRtcEngine_macOS/ContentInspect (4.5.2)
+  - AgoraRtcEngine_macOS/FaceCapture (4.5.2)
+  - AgoraRtcEngine_macOS/FaceDetection (4.5.2)
+  - AgoraRtcEngine_macOS/LipSync (4.5.2)
+  - AgoraRtcEngine_macOS/RtcBasic (4.5.2):
+    - AgoraInfra_macOS (= 1.2.13.1)
+  - AgoraRtcEngine_macOS/ScreenCapture (4.5.2)
+  - AgoraRtcEngine_macOS/SpatialAudio (4.5.2)
+  - AgoraRtcEngine_macOS/VideoAv1CodecDec (4.5.2)
+  - AgoraRtcEngine_macOS/VideoAv1CodecEnc (4.5.2)
+  - AgoraRtcEngine_macOS/VideoCodecDec (4.5.2)
+  - AgoraRtcEngine_macOS/VideoCodecEnc (4.5.2)
+  - AgoraRtcEngine_macOS/VirtualBackground (4.5.2)
+  - AgoraRtcEngine_macOS/VQA (4.5.2)
   - app_links (6.4.1):
     - FlutterMacOS
   - connectivity_plus (0.0.1):
+    - FlutterMacOS
+  - device_info_plus (0.0.1):
     - FlutterMacOS
   - file_picker (0.0.1):
     - FlutterMacOS
@@ -75,6 +123,8 @@ PODS:
   - GoogleUtilities/UserDefaults (8.1.0):
     - GoogleUtilities/Logger
     - GoogleUtilities/Privacy
+  - iris_method_channel (0.0.1):
+    - FlutterMacOS
   - local_auth_darwin (0.0.1):
     - Flutter
     - FlutterMacOS
@@ -129,12 +179,24 @@ PODS:
     - sqlite3/perf-threadsafe
     - sqlite3/rtree
     - sqlite3/session
+  - syncfusion_pdfviewer_macos (0.0.1):
+    - FlutterMacOS
   - url_launcher_macos (0.0.1):
+    - FlutterMacOS
+  - video_player_avfoundation (0.0.1):
+    - Flutter
+    - FlutterMacOS
+  - wakelock_plus (0.0.1):
+    - FlutterMacOS
+  - webview_flutter_wkwebview (0.0.1):
+    - Flutter
     - FlutterMacOS
 
 DEPENDENCIES:
+  - agora_rtc_engine (from `Flutter/ephemeral/.symlinks/plugins/agora_rtc_engine/macos`)
   - app_links (from `Flutter/ephemeral/.symlinks/plugins/app_links/macos`)
   - connectivity_plus (from `Flutter/ephemeral/.symlinks/plugins/connectivity_plus/macos`)
+  - device_info_plus (from `Flutter/ephemeral/.symlinks/plugins/device_info_plus/macos`)
   - file_picker (from `Flutter/ephemeral/.symlinks/plugins/file_picker/macos`)
   - file_selector_macos (from `Flutter/ephemeral/.symlinks/plugins/file_selector_macos/macos`)
   - firebase_core (from `Flutter/ephemeral/.symlinks/plugins/firebase_core/macos`)
@@ -143,6 +205,7 @@ DEPENDENCIES:
   - flutter_secure_storage_macos (from `Flutter/ephemeral/.symlinks/plugins/flutter_secure_storage_macos/macos`)
   - FlutterMacOS (from `Flutter/ephemeral`)
   - geolocator_apple (from `Flutter/ephemeral/.symlinks/plugins/geolocator_apple/darwin`)
+  - iris_method_channel (from `Flutter/ephemeral/.symlinks/plugins/iris_method_channel/macos`)
   - local_auth_darwin (from `Flutter/ephemeral/.symlinks/plugins/local_auth_darwin/darwin`)
   - package_info_plus (from `Flutter/ephemeral/.symlinks/plugins/package_info_plus/macos`)
   - powersync_flutter_libs (from `Flutter/ephemeral/.symlinks/plugins/powersync_flutter_libs/darwin`)
@@ -151,10 +214,17 @@ DEPENDENCIES:
   - share_plus (from `Flutter/ephemeral/.symlinks/plugins/share_plus/macos`)
   - shared_preferences_foundation (from `Flutter/ephemeral/.symlinks/plugins/shared_preferences_foundation/darwin`)
   - sqlite3_flutter_libs (from `Flutter/ephemeral/.symlinks/plugins/sqlite3_flutter_libs/darwin`)
+  - syncfusion_pdfviewer_macos (from `Flutter/ephemeral/.symlinks/plugins/syncfusion_pdfviewer_macos/macos`)
   - url_launcher_macos (from `Flutter/ephemeral/.symlinks/plugins/url_launcher_macos/macos`)
+  - video_player_avfoundation (from `Flutter/ephemeral/.symlinks/plugins/video_player_avfoundation/darwin`)
+  - wakelock_plus (from `Flutter/ephemeral/.symlinks/plugins/wakelock_plus/macos`)
+  - webview_flutter_wkwebview (from `Flutter/ephemeral/.symlinks/plugins/webview_flutter_wkwebview/darwin`)
 
 SPEC REPOS:
   trunk:
+    - AgoraInfra_macOS
+    - AgoraIrisRTC_macOS
+    - AgoraRtcEngine_macOS
     - Firebase
     - FirebaseCore
     - FirebaseCoreInternal
@@ -170,10 +240,14 @@ SPEC REPOS:
     - sqlite3
 
 EXTERNAL SOURCES:
+  agora_rtc_engine:
+    :path: Flutter/ephemeral/.symlinks/plugins/agora_rtc_engine/macos
   app_links:
     :path: Flutter/ephemeral/.symlinks/plugins/app_links/macos
   connectivity_plus:
     :path: Flutter/ephemeral/.symlinks/plugins/connectivity_plus/macos
+  device_info_plus:
+    :path: Flutter/ephemeral/.symlinks/plugins/device_info_plus/macos
   file_picker:
     :path: Flutter/ephemeral/.symlinks/plugins/file_picker/macos
   file_selector_macos:
@@ -190,6 +264,8 @@ EXTERNAL SOURCES:
     :path: Flutter/ephemeral
   geolocator_apple:
     :path: Flutter/ephemeral/.symlinks/plugins/geolocator_apple/darwin
+  iris_method_channel:
+    :path: Flutter/ephemeral/.symlinks/plugins/iris_method_channel/macos
   local_auth_darwin:
     :path: Flutter/ephemeral/.symlinks/plugins/local_auth_darwin/darwin
   package_info_plus:
@@ -206,12 +282,25 @@ EXTERNAL SOURCES:
     :path: Flutter/ephemeral/.symlinks/plugins/shared_preferences_foundation/darwin
   sqlite3_flutter_libs:
     :path: Flutter/ephemeral/.symlinks/plugins/sqlite3_flutter_libs/darwin
+  syncfusion_pdfviewer_macos:
+    :path: Flutter/ephemeral/.symlinks/plugins/syncfusion_pdfviewer_macos/macos
   url_launcher_macos:
     :path: Flutter/ephemeral/.symlinks/plugins/url_launcher_macos/macos
+  video_player_avfoundation:
+    :path: Flutter/ephemeral/.symlinks/plugins/video_player_avfoundation/darwin
+  wakelock_plus:
+    :path: Flutter/ephemeral/.symlinks/plugins/wakelock_plus/macos
+  webview_flutter_wkwebview:
+    :path: Flutter/ephemeral/.symlinks/plugins/webview_flutter_wkwebview/darwin
 
 SPEC CHECKSUMS:
+  agora_rtc_engine: c76a42e7b1b617c4d7b23d84bd6d26c4f53a2bd6
+  AgoraInfra_macOS: 9bc9cea2486446c87d3ee3e69325cdb45ecf99c2
+  AgoraIrisRTC_macOS: 66c134edf52e1dd9863b00494207345e2140b286
+  AgoraRtcEngine_macOS: ca423379ffb023c12a267e9ce6234f90a431f4d2
   app_links: 05a6ec2341985eb05e9f97dc63f5837c39895c3f
   connectivity_plus: 4adf20a405e25b42b9c9f87feff8f4b6fde18a4e
+  device_info_plus: 4fb280989f669696856f8b129e4a5e3cd6c48f76
   file_picker: 7584aae6fa07a041af2b36a2655122d42f578c1a
   file_selector_macos: 9e9e068e90ebee155097d00e89ae91edb2374db7
   Firebase: d99ac19b909cd2c548339c2241ecd0d1599ab02e
@@ -227,6 +316,7 @@ SPEC CHECKSUMS:
   geolocator_apple: ab36aa0e8b7d7a2d7639b3b4e48308394e8cef5e
   GoogleDataTransport: aae35b7ea0c09004c3797d53c8c41f66f219d6a7
   GoogleUtilities: 00c88b9a86066ef77f0da2fab05f65d7768ed8e1
+  iris_method_channel: 06ef372f01b31866748a3c45da2c89c93b666daa
   local_auth_darwin: c3ee6cce0a8d56be34c8ccb66ba31f7f180aaebb
   nanopb: fad817b59e0457d11a5dfbde799381cd727c1275
   package_info_plus: f0052d280d17aa382b932f399edf32507174e870
@@ -241,7 +331,11 @@ SPEC CHECKSUMS:
   shared_preferences_foundation: 7036424c3d8ec98dfe75ff1667cb0cd531ec82bb
   sqlite3: 8d708bc63e9f4ce48f0ad9d6269e478c5ced1d9b
   sqlite3_flutter_libs: d13b8b3003f18f596e542bcb9482d105577eff41
+  syncfusion_pdfviewer_macos: b3b110c68039178ca4105dd03ef38761eca3b36b
   url_launcher_macos: f87a979182d112f911de6820aefddaf56ee9fbfd
+  video_player_avfoundation: dd410b52df6d2466a42d28550e33e4146928280a
+  wakelock_plus: 917609be14d812ddd9e9528876538b2263aaa03b
+  webview_flutter_wkwebview: 8ebf4fded22593026f7dbff1fbff31ea98573c8d
 
 PODFILE CHECKSUM: 54d867c82ac51cbd61b565781b9fada492027009
 

@@ -72,6 +72,14 @@ class _UpdateAssemblies extends AssemblyEvent {
   List<Object?> get props => [assemblies];
 }
 
+class _UpdateAssembliesError extends AssemblyEvent {
+  final String error;
+  const _UpdateAssembliesError(this.error);
+
+  @override
+  List<Object?> get props => [error];
+}
+
 class _UpdateAssemblyDetails extends AssemblyEvent {
   final List<AssemblyOption> options;
   final List<AssemblyVote> votes;

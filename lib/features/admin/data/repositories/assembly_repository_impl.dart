@@ -12,7 +12,7 @@ class AssemblyRepositoryImpl implements AssemblyRepository {
   @override
   Stream<List<Assembly>> watchAssemblies(String condominiumId) {
     return _powerSyncService.db.watch(
-      'SELECT * FROM assembleias WHERE condominio_id = ? ORDER BY data_inicio DESC',
+      'SELECT * FROM assembleias WHERE condominio_id = ? ORDER BY created_at DESC',
       parameters: [condominiumId],
     ).map((rows) => rows.map((row) => Assembly.fromMap(row)).toList());
   }
