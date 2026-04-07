@@ -52,9 +52,17 @@ class _HomeScreenState extends State<HomeScreen> {
     _loadPartnersChecklistState();
 
     if (authState.userId != null) {
-      context.read<ParcelBloc>().add(
-        WatchPendingParcelsRequested(authState.userId!),
-      );
+      final role = (authState.role ?? '').toLowerCase();
+      final isPorterOrAdmin = role.contains('porteiro') || role.contains('portaria') || role.contains('síndico') || role.contains('sindico') || role == 'admin';
+      if (isPorterOrAdmin && authState.condominiumId != null) {
+        context.read<ParcelBloc>().add(
+          WatchAllPendingParcelsRequested(authState.condominiumId!),
+        );
+      } else {
+        context.read<ParcelBloc>().add(
+          WatchPendingParcelsRequested(authState.userId!),
+        );
+      }
     }
   }
 
@@ -314,9 +322,17 @@ class _HomeScreenState extends State<HomeScreen> {
           listener: (context, state) {
             setState(() => _initStream(state.condominiumId));
             if (state.userId != null) {
-              context.read<ParcelBloc>().add(
-                WatchPendingParcelsRequested(state.userId!),
-              );
+              final role = (state.role ?? '').toLowerCase();
+              final isPorterOrAdmin = role.contains('porteiro') || role.contains('portaria') || role.contains('síndico') || role.contains('sindico') || role == 'admin';
+              if (isPorterOrAdmin && state.condominiumId != null) {
+                context.read<ParcelBloc>().add(
+                  WatchAllPendingParcelsRequested(state.condominiumId!),
+                );
+              } else {
+                context.read<ParcelBloc>().add(
+                  WatchPendingParcelsRequested(state.userId!),
+                );
+              }
             }
           },
         ),

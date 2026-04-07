@@ -38,14 +38,22 @@ export default async function CondoDashboard() {
   // Count pending
   const pendingCount = recentInvitations?.filter(i => !i.visitante_compareceu).length ?? 0
 
-  // Fetch pending parcels count for user's unit
-  const { count: pendingParcelsCount } = await supabase
+  // Fetch pending parcels count
+  // Porter/admin sees ALL pending parcels for the condominium
+  // Residents see only their own unit's pending parcels
+  let pendingParcelsQuery = supabase
     .from('encomendas')
     .select('*', { count: 'exact', head: true })
     .eq('condominio_id', profile?.condominio_id ?? '')
-    .eq('bloco', profile?.bloco_txt ?? '')
-    .eq('apto', profile?.apto_txt ?? '')
     .eq('status', 'pending')
+
+  if (!isPorter && !isAdmin) {
+    pendingParcelsQuery = pendingParcelsQuery
+      .eq('bloco', profile?.bloco_txt ?? '')
+      .eq('apto', profile?.apto_txt ?? '')
+  }
+
+  const { count: pendingParcelsCount } = await pendingParcelsQuery
 
   // Fetch invitations this month count
   const startOfMonth = new Date()
