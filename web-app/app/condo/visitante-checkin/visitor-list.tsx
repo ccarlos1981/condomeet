@@ -90,7 +90,7 @@ export default function VisitorList({ initialInvitations, initialTotal, condoId,
         .order('created_at', { ascending: false })
         .range((currentPage - 1) * PAGE_SIZE, currentPage * PAGE_SIZE - 1)
 
-      // Apply filters
+      // Apply filters — DB-level (fields that exist directly on convites table)
       if (fCode) {
         countQuery = countQuery.ilike('qr_data', `%${fCode}%`)
         dataQuery = dataQuery.ilike('qr_data', `%${fCode}%`)
@@ -116,18 +116,32 @@ export default function VisitorList({ initialInvitations, initialTotal, condoId,
         dataQuery = dataQuery.ilike('cracha_referencia', `%${fCracha}%`)
       }
 
-      // Note: bloco/apto filters need special handling since they can be in perfil or bloco_destino
-      // We filter by bloco_destino/apto_destino for portaria-created, and join for resident-created
-      if (fBloco) {
-        countQuery = countQuery.or(`bloco_destino.ilike.%${fBloco}%`)
-        dataQuery = dataQuery.or(`bloco_destino.ilike.%${fBloco}%`)
-      }
-      if (fApto) {
-        countQuery = countQuery.or(`apto_destino.ilike.%${fApto}%`)
-        dataQuery = dataQuery.or(`apto_destino.ilike.%${fApto}%`)
+      // Bloco/Apto: these live in bloco_destino/apto_destino for portaria-created,
+      // but in perfil.bloco_txt/apto_txt for resident-created convites.
+      // When filtering by bloco/apto we need to fetch ALL matching pages from DB
+      // (without DB-level bloco/apto filter) and apply the filter client-side
+      // after joining with perfil data.
+      const needsClientFilter = !!(fBloco || fApto)
+
+      // When bloco/apto filters are active, skip pagination at DB level to filter client-side
+      if (needsClientFilter) {
+        // Remove the range — fetch all records matching other filters
+        dataQuery = supabase
+          .from('convites')
+          .select('id, qr_data, guest_name, visitor_type, visitante_compareceu, validity_date, created_at, liberado_em, resident_id, status, criado_por_portaria, bloco_destino, apto_destino, morador_nome_manual, documento, placa, cracha_referencia, observacao')
+          .eq('condominio_id', condoId)
+          .gte('validity_date', cutoffISO)
+          .order('created_at', { ascending: false })
+        // Re-apply the non-bloco/apto filters
+        if (fCode) dataQuery = dataQuery.ilike('qr_data', `%${fCode}%`)
+        if (fDate) dataQuery = dataQuery.gte('validity_date', `${fDate}T00:00:00`).lte('validity_date', `${fDate}T23:59:59`)
+        if (fStatus !== null) dataQuery = dataQuery.eq('visitante_compareceu', fStatus)
+        if (fDocumento) dataQuery = dataQuery.ilike('documento', `%${fDocumento}%`)
+        if (fPlaca) dataQuery = dataQuery.ilike('placa', `%${fPlaca}%`)
+        if (fCracha) dataQuery = dataQuery.ilike('cracha_referencia', `%${fCracha}%`)
       }
 
-      const [{ count }, { data: convites }] = await Promise.all([countQuery, dataQuery])
+      const [, { data: convites }] = await Promise.all([countQuery, dataQuery])
 
       if (convites) {
         // Fetch perfil for residents
@@ -142,7 +156,7 @@ export default function VisitorList({ initialInvitations, initialTotal, condoId,
         }
         const merged = convites.map((c: Omit<Invitation, 'perfil'> & { resident_id: string }) => ({ ...c, perfil: perfilMap[c.resident_id] ?? null }))
 
-        // Client-side filter by bloco/apto from perfil for non-portaria convites
+        // Client-side filter by bloco/apto (checking both portaria and resident sources)
         let finalResults = merged
         if (fBloco) {
           finalResults = finalResults.filter((i: Invitation) => {
@@ -157,8 +171,18 @@ export default function VisitorList({ initialInvitations, initialTotal, condoId,
           })
         }
 
-        setInvitations(finalResults)
-        setTotal(count ?? finalResults.length)
+        // When client-side filtering, apply pagination manually
+        if (needsClientFilter) {
+          const totalFiltered = finalResults.length
+          setTotal(totalFiltered)
+          const start = (currentPage - 1) * PAGE_SIZE
+          setInvitations(finalResults.slice(start, start + PAGE_SIZE))
+        } else {
+          // Use DB count for non-bloco/apto queries
+          const { count: dbCount } = await countQuery
+          setTotal(dbCount ?? finalResults.length)
+          setInvitations(finalResults)
+        }
       }
     } catch (err) {
       console.error('Fetch error:', err)

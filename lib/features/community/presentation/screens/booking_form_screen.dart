@@ -249,8 +249,50 @@ class _BookingFormScreenState extends State<BookingFormScreen> {
 
       final aprovAuto = widget.area['aprovacao_automatica'] == true;
 
+      // Server-side validation: check if date is already booked (pendente or aprovado)
+      final areaId = widget.area['id'] as String;
+      if (tipo == 'por_dia') {
+        final existing = await _supabase
+            .from('reservas')
+            .select('id')
+            .eq('area_id', areaId)
+            .eq('data_reserva', _selectedDate!)
+            .inFilter('status', ['pendente', 'aprovado'])
+            .maybeSingle();
+
+        if (existing != null) {
+          if (mounted) {
+            setState(() {
+              _error = 'Esta data já foi reservada por outro morador.';
+              _saving = false;
+              _bookedDates.add(_selectedDate!);
+            });
+          }
+          return;
+        }
+      } else if (tipo == 'por_hora' && _selectedSlotId != null) {
+        final existing = await _supabase
+            .from('reservas')
+            .select('id')
+            .eq('area_id', areaId)
+            .eq('data_reserva', _selectedDate!)
+            .eq('horario_id', _selectedSlotId!)
+            .inFilter('status', ['pendente', 'aprovado'])
+            .maybeSingle();
+
+        if (existing != null) {
+          if (mounted) {
+            setState(() {
+              _error = 'Este horário já foi reservado por outro morador.';
+              _saving = false;
+            });
+          }
+          return;
+        }
+      }
+
       final insertData = <String, dynamic>{
-        'area_id': widget.area['id'],
+        'area_id': areaId,
         'horario_id': _selectedSlotId,
         'condominio_id': condoId,
         'data_reserva': _selectedDate,

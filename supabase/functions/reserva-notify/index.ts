@@ -86,7 +86,7 @@ serve(async (req) => {
       const bloco = resident?.bloco_txt as string || bloco_destino || ""
       const apto = resident?.apto_txt as string || apto_destino || ""
 
-      const { data: sindicos } = await supabase.from("perfil").select("id, whatsapp, fcm_token, notificacoes_whatsapp").eq("condominio_id", condominio_id).in("tipo_morador", ["Síndico"])
+      const { data: sindicos } = await supabase.from("perfil").select("id, whatsapp, fcm_token, notificacoes_whatsapp").eq("condominio_id", condominio_id).in("tipo_morador", ["Síndico", "Síndico (a)", "Síndico(a)", "sindico", "sindico (a)", "ADMIN", "Admin", "admin"])
 
       // ── WhatsApp to síndicos ──
       if (UAZAPI_URL && UAZAPI_TOKEN) {

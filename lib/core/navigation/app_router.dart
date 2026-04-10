@@ -1,6 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:condomeet/features/auth/presentation/bloc/auth_bloc.dart';
 import 'package:condomeet/core/design_system/widgets/blocked_access_overlay.dart';
 import 'package:condomeet/features/auth/presentation/screens/login_screen.dart';
 import 'package:condomeet/features/auth/presentation/screens/otp_verification_screen.dart';
@@ -36,6 +34,7 @@ import 'package:condomeet/features/community/presentation/screens/funcionarios_s
 import 'package:condomeet/features/community/presentation/screens/area_picker_screen.dart';
 import 'package:condomeet/features/community/presentation/screens/portaria_booking_screen.dart';
 import 'package:condomeet/features/community/presentation/screens/areas_comuns_admin_screen.dart';
+import 'package:condomeet/features/community/presentation/screens/reserva_approval_screen.dart';
 import 'package:condomeet/features/community/presentation/screens/admin_horarios_screen.dart';
 import 'package:condomeet/features/community/presentation/screens/manutencoes_screen.dart';
 import 'package:condomeet/features/security/presentation/screens/chat_screen.dart';
@@ -161,6 +160,7 @@ class AppRouter {
             child: ChatScreen(residentId: state.userId ?? ''),
           ),
       '/admin-areas-comuns': (context) => const AreasComunsAdminScreen(),
+      '/reserva-approval': (context) => const ReservaApprovalScreen(),
       '/admin-horarios': (context) {
         final args = ModalRoute.of(context)!.settings.arguments as Map<String, dynamic>;
         return AdminHorariosScreen(

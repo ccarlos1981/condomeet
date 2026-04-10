@@ -32,7 +32,7 @@ export default async function VisitanteCheckinPage() {
   // Fetch initial page of convites (10 items, pendentes by default)
   const { data: convites, count } = await supabase
     .from('convites')
-    .select('id, qr_data, guest_name, visitor_type, visitante_compareceu, validity_date, created_at, liberado_em, resident_id, status, criado_por_portaria, bloco_destino, apto_destino, morador_nome_manual', { count: 'exact' })
+    .select('id, qr_data, guest_name, visitor_type, visitante_compareceu, validity_date, created_at, liberado_em, resident_id, status, criado_por_portaria, bloco_destino, apto_destino, morador_nome_manual, documento, placa, cracha_referencia, observacao', { count: 'exact' })
     .eq('condominio_id', condoId)
     .eq('visitante_compareceu', false)
     .gte('validity_date', cutoffISO)

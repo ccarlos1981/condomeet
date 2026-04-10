@@ -144,10 +144,10 @@ class _AdminScreenState extends State<AdminScreen> {
               ),
               _buildAdminItem(
                 context: context,
-                icon: Icons.handshake_outlined,
-                label: 'Configurar Reservas',
+                icon: Icons.event_available_outlined,
+                label: 'Aprovar Reservas de Espaço',
                 badgeCount: _pendingReservas,
-                onTap: () => Navigator.of(context).pushNamed('/admin-areas-comuns').then((_) => _loadPendingCounts()),
+                onTap: () => Navigator.of(context).pushNamed('/reserva-approval').then((_) => _loadPendingCounts()),
               ),
               _buildAdminItem(
                 context: context,
@@ -220,6 +220,12 @@ class _AdminScreenState extends State<AdminScreen> {
                 icon: Icons.apartment_outlined,
                 label: 'Estrutura (${getEstruturaLabel(context.read<AuthBloc>().state.tipoEstrutura)})',
                 onTap: () => Navigator.of(context).pushNamed('/condo-structure'),
+              ),
+              _buildAdminItem(
+                context: context,
+                icon: Icons.handshake_outlined,
+                label: 'Configurar Reservas',
+                onTap: () => Navigator.of(context).pushNamed('/admin-areas-comuns'),
               ),
               const SizedBox(height: 24),
               _buildSectionTitle('Parametrização'),

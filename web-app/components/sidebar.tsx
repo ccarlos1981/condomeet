@@ -7,7 +7,7 @@ import { useRouter } from 'next/navigation'
 import {
   Home, UserCheck, Package, QrCode, Bell, LogOut,
   Building2, ChevronLeft, ChevronRight, Menu, X,
-  Shield, ClipboardList, Users, CalendarDays, AlertCircle, MessageSquare, FileText, UserCog, BadgeCheck, BarChart3, Camera, DoorOpen, ShoppingBag, Heart, Car, UserSearch
+  Shield, ClipboardList, Users, CalendarDays, AlertCircle, MessageSquare, FileText, UserCog, BadgeCheck, BarChart3, Camera, DoorOpen, ShoppingBag, Heart, Car, UserSearch, BookOpen
 } from 'lucide-react'
 
 type NavItem = { label: string; href: string; icon: React.ReactNode; fnId?: string }
@@ -41,6 +41,7 @@ const FN_TO_NAV: Record<string, { label: string; href: string; icon: React.React
   classificados:       { label: 'Classificados',             href: '/condo/classificados',         icon: <ShoppingBag size={18} /> },
   indicacoes_servico:  { label: 'Indicações de Serviço',     href: '/condo/indicacoes',            icon: <Heart size={18} /> },
   aluguel_vaga:        { label: 'Garagem Inteligente',        href: '/condo/garagem',               icon: <Car size={18} /> },
+  passo_a_passo:       { label: 'Passo a Passo',              href: '/condo/passo-a-passo',         icon: <BookOpen size={18} /> },
 }
 
 function normalizeRoleKey(role: string): string {
@@ -85,6 +86,7 @@ const RESIDENT_NAV: NavItem[] = [
   { label: 'Indicações de Serviço', href: '/condo/indicacoes', icon: <Heart size={18} /> },
   { label: 'Visitante c/ Autorização', href: '/condo/visitante-checkin', icon: <QrCode size={18} /> },
   { label: 'Garagem Inteligente', href: '/condo/garagem', icon: <Car size={18} /> },
+  { label: 'Passo a Passo', href: '/condo/passo-a-passo', icon: <BookOpen size={18} /> },
 ]
 
 const PORTER_NAV: NavItem[] = [
@@ -97,6 +99,7 @@ const PORTER_NAV: NavItem[] = [
   { label: 'Reservas (Portaria)', href: '/condo/reservas-portaria', icon: <CalendarDays size={18} /> },
   { label: 'Visita Proprietário', href: '/condo/visita-proprietario', icon: <DoorOpen size={18} /> },
   { label: 'Busca Moradores', href: '/condo/resident-search', icon: <UserSearch size={18} /> },
+  { label: 'Passo a Passo', href: '/condo/passo-a-passo', icon: <BookOpen size={18} /> },
 ]
 
 const ADMIN_NAV: NavItem[] = [
@@ -120,6 +123,7 @@ const ADMIN_NAV: NavItem[] = [
   { label: 'Reservas (Portaria)', href: '/condo/reservas-portaria', icon: <CalendarDays size={18} /> },
   { label: 'Visita Proprietário', href: '/condo/visita-proprietario', icon: <DoorOpen size={18} /> },
   { label: 'Busca Moradores', href: '/condo/resident-search', icon: <UserSearch size={18} /> },
+  { label: 'Passo a Passo', href: '/condo/passo-a-passo', icon: <BookOpen size={18} /> },
   { label: 'Painel Admin', href: '/admin', icon: <Shield size={18} /> },
 ]
 
@@ -153,6 +157,9 @@ function buildNavFromConfig(role: string, config: any): NavItem[] | null {
       items.push({ ...navEntry, fnId: fn.id })
     }
   }
+
+  // Always add Passo a Passo for all roles
+  items.push({ label: 'Passo a Passo', href: '/condo/passo-a-passo', icon: <BookOpen size={18} /> })
 
   // Always add Painel Admin for admin roles
   const r = role.toLowerCase()
@@ -207,10 +214,20 @@ export default function Sidebar({ role, userName, condoName, unidade, featuresCo
         </button>
       </div>
 
-      {/* Role badge + Painel Admin shortcut */}
+      {/* Role badge + Passo a Passo + Painel Admin shortcut */}
       {!collapsed && (
         <div className="px-4 py-2 flex flex-col gap-1.5">
-          <span className="text-xs bg-[#FC5931]/20 text-[#FC5931] px-2 py-1 rounded-full font-medium self-start">{role}</span>
+          <div className="flex items-center gap-2">
+            <span className="text-xs bg-[#FC5931]/20 text-[#FC5931] px-2 py-1 rounded-full font-medium">{role}</span>
+            <a
+              href="/condo/passo-a-passo"
+              title="Passo a Passo"
+              className="flex items-center gap-1 bg-white/10 hover:bg-white/20 transition-colors text-white/70 hover:text-white text-xs px-2 py-1 rounded-full"
+            >
+              <BookOpen size={12} />
+              <span className="text-[10px] font-medium">Passo a Passo</span>
+            </a>
+          </div>
           {(role.toLowerCase().includes('síndico') || role.toLowerCase().includes('sindico') || role === 'admin' || role === 'ADMIN') && (
             <a
               href="/admin"

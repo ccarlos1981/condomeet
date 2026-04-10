@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useMemo } from 'react'
-import { Search, X, Home, Lock, Users, Shield, Building2 } from 'lucide-react'
+import { Search, X, Home, Lock, Users, Shield, Building2, ChevronLeft, ChevronRight } from 'lucide-react'
 import { getBlocoLabel, getAptoLabel } from '@/lib/labels'
 
 type Morador = {
@@ -55,6 +55,8 @@ export default function MoradoresClient({ moradores, tipoEstrutura }: { moradore
   const aptoLabel = getAptoLabel(tipoEstrutura)
   const [search, setSearch] = useState('')
   const [roleFilter, setRoleFilter] = useState<string | null>(null)
+  const [currentPage, setCurrentPage] = useState(1)
+  const ITEMS_PER_PAGE = 9
 
   const stats = useMemo(() => {
     const total = moradores.length
@@ -65,29 +67,28 @@ export default function MoradoresClient({ moradores, tipoEstrutura }: { moradore
     return { total, moradorCount, portariaCount, sindicoCount, blocosCount }
   }, [moradores])
 
-  const filtered = moradores.filter(m => {
-    if (roleFilter && !(m.papel_sistema ?? '').toLowerCase().includes(roleFilter.toLowerCase())) return false
-    if (!search) return true
-    const q = search.toLowerCase()
-    return (
-      (m.nome_completo ?? '').toLowerCase().includes(q) ||
-      (m.papel_sistema ?? '').toLowerCase().includes(q) ||
-      (m.bloco_txt ?? '').toLowerCase().includes(q) ||
-      (m.apto_txt ?? '').toLowerCase().includes(q)
-    )
-  })
-
-  // Group by bloco
-  const grouped = useMemo(() => {
-    const map = new Map<string, Morador[]>()
-    filtered.forEach(m => {
-      const key = m.bloco_txt || `Sem ${blocoLabel.toLowerCase()}`
-      if (!map.has(key)) map.set(key, [])
-      map.get(key)!.push(m)
+  const filtered = useMemo(() => {
+    return moradores.filter(m => {
+      if (roleFilter && !(m.papel_sistema ?? '').toLowerCase().includes(roleFilter.toLowerCase())) return false
+      if (!search) return true
+      const q = search.toLowerCase()
+      return (
+        (m.nome_completo ?? '').toLowerCase().includes(q) ||
+        (m.papel_sistema ?? '').toLowerCase().includes(q) ||
+        (m.bloco_txt ?? '').toLowerCase().includes(q) ||
+        (m.apto_txt ?? '').toLowerCase().includes(q)
+      )
     })
-    // Sort blocks naturally
-    return [...map.entries()].sort((a, b) => a[0].localeCompare(b[0], 'pt', { numeric: true }))
-  }, [filtered, blocoLabel])
+  }, [moradores, search, roleFilter])
+
+  // Pagination
+  const totalPages = Math.max(1, Math.ceil(filtered.length / ITEMS_PER_PAGE))
+  const safePage = Math.min(currentPage, totalPages)
+  const paginatedItems = filtered.slice((safePage - 1) * ITEMS_PER_PAGE, safePage * ITEMS_PER_PAGE)
+
+  // Reset to page 1 when filters change
+  const handleSearch = (val: string) => { setSearch(val); setCurrentPage(1) }
+  const handleRoleFilter = (val: string | null) => { setRoleFilter(val); setCurrentPage(1) }
 
   return (
     <div className="max-w-6xl space-y-6">
@@ -110,12 +111,12 @@ export default function MoradoresClient({ moradores, tipoEstrutura }: { moradore
           <input
             type="text"
             value={search}
-            onChange={e => setSearch(e.target.value)}
+            onChange={e => handleSearch(e.target.value)}
             placeholder={`Buscar por nome, ${blocoLabel.toLowerCase()}, ${aptoLabel.toLowerCase()}...`}
             className="w-full pl-10 pr-9 py-2.5 rounded-xl border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-[#FC5931]/20 focus:border-[#FC5931] bg-white shadow-sm transition-all"
           />
           {search && (
-            <button onClick={() => setSearch('')} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600" title="Limpar busca">
+            <button onClick={() => handleSearch('')} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600" title="Limpar busca">
               <X size={14} />
             </button>
           )}
@@ -135,7 +136,7 @@ export default function MoradoresClient({ moradores, tipoEstrutura }: { moradore
           return (
             <button
               key={s.label}
-              onClick={() => s.filter ? setRoleFilter(roleFilter === s.filter ? null : s.filter) : null}
+              onClick={() => s.filter ? handleRoleFilter(roleFilter === s.filter ? null : s.filter) : null}
               className={`bg-white rounded-2xl border shadow-sm p-4 text-left transition-all group ${
                 isActive ? 'border-[#FC5931] ring-2 ring-[#FC5931]/20' : 'border-gray-100 hover:shadow-md'
               } ${s.filter ? 'cursor-pointer' : 'cursor-default'}`}
@@ -160,7 +161,7 @@ export default function MoradoresClient({ moradores, tipoEstrutura }: { moradore
         <div className="flex items-center gap-2">
           <span className="text-xs text-gray-500">Filtrando por:</span>
           <button
-            onClick={() => setRoleFilter(null)}
+            onClick={() => handleRoleFilter(null)}
             className="flex items-center gap-1.5 text-xs font-semibold bg-[#FC5931]/10 text-[#FC5931] px-3 py-1.5 rounded-full hover:bg-[#FC5931]/20 transition-colors"
           >
             {roleFilter}
@@ -180,97 +181,133 @@ export default function MoradoresClient({ moradores, tipoEstrutura }: { moradore
           {search && <p className="text-sm text-gray-400">Tente outro termo de busca.</p>}
         </div>
       ) : (
-        /* Grouped List */
-        <div className="space-y-6">
-          {grouped.map(([bloco, members]) => (
-            <div key={bloco}>
-              {/* Block header */}
-              <div className="flex items-center gap-2 mb-3">
-                <div className="flex items-center gap-2 bg-gray-800 text-white px-3 py-1.5 rounded-lg">
-                  <Building2 size={13} />
-                  <span className="text-xs font-bold tracking-wider">{bloco === `Sem ${blocoLabel.toLowerCase()}` ? `SEM ${blocoLabel.toUpperCase()}` : `${blocoLabel.toUpperCase()} ${bloco}`}</span>
-                </div>
-                <div className="flex-1 h-px bg-gray-200" />
-                <span className="text-xs text-gray-400 font-medium">{members.length} morador{members.length !== 1 ? 'es' : ''}</span>
-              </div>
+        /* Paginated Cards */
+        <>
+          {/* Info bar */}
+          <div className="flex items-center justify-between">
+            <p className="text-xs text-gray-400">
+              Mostrando {(safePage - 1) * ITEMS_PER_PAGE + 1}–{Math.min(safePage * ITEMS_PER_PAGE, filtered.length)} de {filtered.length}
+            </p>
+            <p className="text-xs text-gray-400">
+              Página {safePage} de {totalPages}
+            </p>
+          </div>
 
-              {/* Cards grid */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-                {members.map(m => {
-                  const role = ROLE_CONFIG[m.papel_sistema ?? ''] ?? defaultRole
-                  const isBlocked = m.status_aprovacao === 'bloqueado'
-                  const initials = getInitials(m.nome_completo)
-                  const avatarGrad = getAvatarColor(m.id)
+          {/* Cards grid — 3 cols × 3 rows = 9 per page */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+            {paginatedItems.map(m => {
+              const role = ROLE_CONFIG[m.papel_sistema ?? ''] ?? defaultRole
+              const isBlocked = m.status_aprovacao === 'bloqueado'
+              const initials = getInitials(m.nome_completo)
+              const avatarGrad = getAvatarColor(m.id)
 
-                  return (
-                    <div
-                      key={m.id}
-                      className={`bg-white rounded-xl border shadow-sm overflow-hidden transition-all ${
-                        isBlocked ? 'border-red-200 opacity-50' : 'border-gray-100 hover:shadow-md hover:border-gray-200'
-                      }`}
-                    >
-                      <div className="p-4">
-                        <div className="flex items-center gap-3">
-                          {/* Avatar */}
-                          <div className={`w-11 h-11 rounded-full flex items-center justify-center flex-shrink-0 shadow-sm ${
-                            isBlocked
-                              ? 'bg-red-100'
-                              : `bg-gradient-to-br ${avatarGrad}`
-                          }`}>
-                            {isBlocked
-                              ? <Lock size={16} className="text-red-400" />
-                              : <span className="text-white text-sm font-bold">{initials}</span>}
-                          </div>
-
-                          {/* Info */}
-                          <div className="min-w-0 flex-1">
-                            <p className={`font-semibold text-sm leading-tight truncate ${
-                              isBlocked ? 'line-through text-gray-400' : 'text-gray-900'
-                            }`}>
-                              {m.nome_completo || '—'}
-                            </p>
-                            
-                            <div className="mt-1 flex flex-col gap-0.5">
-                              {m.email && (
-                                <span className="text-xs text-gray-500 truncate" title={m.email}>
-                                  📧 {m.email}
-                                </span>
-                              )}
-                              {m.whatsapp && (
-                                <span className="text-xs text-gray-500 truncate" title={m.whatsapp}>
-                                  📱 {m.whatsapp}
-                                </span>
-                              )}
-                            </div>
-
-                            <div className="flex items-center gap-2 mt-1.5">
-                              {m.papel_sistema && (
-                                <span className={`text-[10px] px-2 py-0.5 rounded-full font-semibold border ${role.bg} ${role.text} ${role.border}`}>
-                                  {role.icon} {m.papel_sistema}
-                                </span>
-                              )}
-                            </div>
-                          </div>
-                        </div>
+              return (
+                <div
+                  key={m.id}
+                  className={`bg-white rounded-xl border shadow-sm overflow-hidden transition-all ${
+                    isBlocked ? 'border-red-200 opacity-50' : 'border-gray-100 hover:shadow-md hover:border-gray-200'
+                  }`}
+                >
+                  <div className="p-4">
+                    <div className="flex items-center gap-3">
+                      {/* Avatar */}
+                      <div className={`w-11 h-11 rounded-full flex items-center justify-center flex-shrink-0 shadow-sm ${
+                        isBlocked
+                          ? 'bg-red-100'
+                          : `bg-gradient-to-br ${avatarGrad}`
+                      }`}>
+                        {isBlocked
+                          ? <Lock size={16} className="text-red-400" />
+                          : <span className="text-white text-sm font-bold">{initials}</span>}
                       </div>
 
-                      {/* Footer */}
-                      <div className="px-4 py-2.5 bg-gray-50/80 border-t border-gray-100 flex items-center justify-between">
-                        <div className="flex items-center gap-1.5 text-xs text-gray-500">
-                          <Home size={12} className="text-gray-400" />
-                          <span>{m.bloco_txt ? `${blocoLabel} ${m.bloco_txt}` : '—'}{m.apto_txt ? ` · ${aptoLabel} ${m.apto_txt}` : ''}</span>
+                      {/* Info */}
+                      <div className="min-w-0 flex-1">
+                        <p className={`font-semibold text-sm leading-tight truncate ${
+                          isBlocked ? 'line-through text-gray-400' : 'text-gray-900'
+                        }`}>
+                          {m.nome_completo || '—'}
+                        </p>
+                        
+                        <div className="mt-1 flex flex-col gap-0.5">
+                          {m.email && (
+                            <span className="text-xs text-gray-500 truncate" title={m.email}>
+                              📧 {m.email}
+                            </span>
+                          )}
+                          {m.whatsapp && (
+                            <span className="text-xs text-gray-500 truncate" title={m.whatsapp}>
+                              📱 {m.whatsapp}
+                            </span>
+                          )}
                         </div>
-                        <span className="text-[10px] text-gray-400">
-                          {new Date(m.created_at).toLocaleDateString('pt-BR', { month: 'short', year: '2-digit' })}
-                        </span>
+
+                        <div className="flex items-center gap-2 mt-1.5">
+                          {m.papel_sistema && (
+                            <span className={`text-[10px] px-2 py-0.5 rounded-full font-semibold border ${role.bg} ${role.text} ${role.border}`}>
+                              {role.icon} {m.papel_sistema}
+                            </span>
+                          )}
+                        </div>
                       </div>
                     </div>
-                  )
-                })}
-              </div>
+                  </div>
+
+                  {/* Footer */}
+                  <div className="px-4 py-2.5 bg-gray-50/80 border-t border-gray-100 flex items-center justify-between">
+                    <div className="flex items-center gap-1.5 text-xs text-gray-500">
+                      <Home size={12} className="text-gray-400" />
+                      <span>{m.bloco_txt ? `${blocoLabel} ${m.bloco_txt}` : '—'}{m.apto_txt ? ` · ${aptoLabel} ${m.apto_txt}` : ''}</span>
+                    </div>
+                    <span className="text-[10px] text-gray-400">
+                      {new Date(m.created_at).toLocaleDateString('pt-BR', { month: 'short', year: '2-digit' })}
+                    </span>
+                  </div>
+                </div>
+              )
+            })}
+          </div>
+
+          {/* Pagination Controls */}
+          {totalPages > 1 && (
+            <div className="flex items-center justify-center gap-1.5 pt-2">
+              {/* Prev */}
+              <button
+                onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                disabled={safePage <= 1}
+                className="flex items-center gap-1 px-3 py-2 rounded-xl text-sm font-medium border border-gray-200 bg-white hover:bg-gray-50 disabled:opacity-30 disabled:cursor-not-allowed transition-all"
+              >
+                <ChevronLeft size={14} />
+                Anterior
+              </button>
+
+              {/* Page numbers */}
+              {Array.from({ length: totalPages }, (_, i) => i + 1).map(page => (
+                <button
+                  key={page}
+                  onClick={() => setCurrentPage(page)}
+                  className={`w-9 h-9 rounded-xl text-sm font-bold transition-all ${
+                    page === safePage
+                      ? 'bg-[#FC5931] text-white shadow-sm'
+                      : 'bg-white border border-gray-200 text-gray-600 hover:bg-gray-50'
+                  }`}
+                >
+                  {page}
+                </button>
+              ))}
+
+              {/* Next */}
+              <button
+                onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+                disabled={safePage >= totalPages}
+                className="flex items-center gap-1 px-3 py-2 rounded-xl text-sm font-medium border border-gray-200 bg-white hover:bg-gray-50 disabled:opacity-30 disabled:cursor-not-allowed transition-all"
+              >
+                Próximo
+                <ChevronRight size={14} />
+              </button>
             </div>
-          ))}
-        </div>
+          )}
+        </>
       )}
     </div>
   )
