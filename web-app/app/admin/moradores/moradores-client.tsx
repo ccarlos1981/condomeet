@@ -1,8 +1,9 @@
 'use client'
 
 import { useState, useMemo } from 'react'
-import { Search, X, Home, Lock, Users, Shield, Building2, ChevronLeft, ChevronRight } from 'lucide-react'
+import { Search, X, Home, Lock, Users, Shield, Building2, ChevronLeft, ChevronRight, Edit } from 'lucide-react'
 import { getBlocoLabel, getAptoLabel } from '@/lib/labels'
+import EditProfileModal from '@/components/edit-profile-modal'
 
 type Morador = {
   id: string
@@ -56,6 +57,7 @@ export default function MoradoresClient({ moradores, tipoEstrutura }: { moradore
   const [search, setSearch] = useState('')
   const [roleFilter, setRoleFilter] = useState<string | null>(null)
   const [currentPage, setCurrentPage] = useState(1)
+  const [editingProfile, setEditingProfile] = useState<Morador | null>(null)
   const ITEMS_PER_PAGE = 9
 
   const stats = useMemo(() => {
@@ -242,12 +244,19 @@ export default function MoradoresClient({ moradores, tipoEstrutura }: { moradore
                           )}
                         </div>
 
-                        <div className="flex items-center gap-2 mt-1.5">
+                        <div className="flex items-center gap-2 mt-1.5 flex-wrap">
                           {m.papel_sistema && (
                             <span className={`text-[10px] px-2 py-0.5 rounded-full font-semibold border ${role.bg} ${role.text} ${role.border}`}>
                               {role.icon} {m.papel_sistema}
                             </span>
                           )}
+                          <button
+                            onClick={() => setEditingProfile(m)}
+                            className="flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[10px] font-semibold bg-blue-50 text-blue-600 border border-blue-100 hover:bg-blue-100 transition-colors"
+                            title="Editar cadastro"
+                          >
+                            <Edit size={12} /> Editar
+                          </button>
                         </div>
                       </div>
                     </div>
@@ -308,6 +317,15 @@ export default function MoradoresClient({ moradores, tipoEstrutura }: { moradore
             </div>
           )}
         </>
+      )}
+
+      {editingProfile && (
+        <EditProfileModal
+          profile={editingProfile}
+          blocoLabel={blocoLabel}
+          aptoLabel={aptoLabel}
+          onClose={() => setEditingProfile(null)}
+        />
       )}
     </div>
   )

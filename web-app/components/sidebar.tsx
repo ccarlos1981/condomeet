@@ -7,7 +7,7 @@ import { useRouter } from 'next/navigation'
 import {
   Home, UserCheck, Package, QrCode, Bell, LogOut,
   Building2, ChevronLeft, ChevronRight, Menu, X,
-  Shield, ClipboardList, Users, CalendarDays, AlertCircle, MessageSquare, FileText, UserCog, BadgeCheck, BarChart3, Camera, DoorOpen, ShoppingBag, Heart, Car, UserSearch, BookOpen
+  Shield, ClipboardList, Users, CalendarDays, AlertCircle, MessageSquare, FileText, UserCog, BadgeCheck, BarChart3, Camera, DoorOpen, ShoppingBag, Heart, Car, UserSearch, BookOpen, FileWarning
 } from 'lucide-react'
 
 type NavItem = { label: string; href: string; icon: React.ReactNode; fnId?: string }
@@ -29,6 +29,7 @@ const FN_TO_NAV: Record<string, { label: string; href: string; icon: React.React
   assemblies:         { label: 'Assembleias',              href: '/condo/assembleias',           icon: <Users size={18} /> },
   // Extras
   avisos:             { label: 'Avisos',                   href: '/condo/avisos',                icon: <Bell size={18} /> },
+  notificacoes_multas:{ label: 'Notificações / Multas',    href: '/condo/notificacoes-multas',   icon: <FileWarning size={18} /> },
   fale_sindico:       { label: 'Fale com o Síndico',       href: '/condo/fale-sindico',          icon: <MessageSquare size={18} /> },
   registro_turno:     { label: 'Registro de Turno',        href: '/condo/registro-turno',        icon: <ClipboardList size={18} /> },
   visitor_register:   { label: 'Registrar Visitante',      href: '/condo/registrar-visitante',   icon: <BadgeCheck size={18} /> },
@@ -80,6 +81,7 @@ const RESIDENT_NAV: NavItem[] = [
   { label: 'Documentos', href: '/condo/documentos', icon: <FileText size={18} /> },
   { label: 'Contratos', href: '/condo/contratos', icon: <FileText size={18} /> },
   { label: 'Avisos', href: '/condo/avisos', icon: <Bell size={18} /> },
+  { label: 'Notificações / Multas', href: '/condo/notificacoes-multas', icon: <FileWarning size={18} /> },
   { label: 'Enquetes', href: '/condo/enquetes', icon: <BarChart3 size={18} /> },
   { label: 'Álbum de Fotos', href: '/condo/album-fotos', icon: <Camera size={18} /> },
   { label: 'Classificados', href: '/condo/classificados', icon: <ShoppingBag size={18} /> },

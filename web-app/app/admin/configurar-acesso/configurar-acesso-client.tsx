@@ -14,6 +14,7 @@ const ALL_FUNCTIONS = [
   { id: 'documents',         label: 'Documentos',              icon: 'file_copy',     emoji: '📄', route: '/document-center',             defaultRoles: ['morador'] },
   { id: 'contracts',         label: 'Contratos',               icon: 'description',   emoji: '📋', route: '/contratos',                    defaultRoles: ['morador'] },
   { id: 'avisos',            label: 'Avisos',                  icon: 'campaign',      emoji: '📢', route: '/avisos',                      defaultRoles: ['morador'] },
+  { id: 'notificacoes_multas',label: 'Notificações / Multas',   icon: 'notification_important', emoji: '🔔', route: '/notificacoes-multas', defaultRoles: ['morador'] },
   { id: 'enquetes',          label: 'Enquetes',                icon: 'bar_chart',     emoji: '📊', route: '/enquetes',                    defaultRoles: ['morador'] },
   { id: 'visitor_approval',  label: 'Liberar Visitante Cadastrado', icon: 'check_circle',  emoji: '✅', route: '/portaria-visitor-approval',   defaultRoles: ['portaria'] },
   { id: 'pending_del',       label: 'Encomendas do Cond.',      icon: 'local_shipping',emoji: '🚚', route: '/pending-deliveries',          defaultRoles: ['portaria', 'sindico'] },
