@@ -8,7 +8,7 @@
 
 import { createClient } from "npm:@supabase/supabase-js@2"
 import { create, getNumericDate } from "https://deno.land/x/djwt@v2.9.1/mod.ts"
-import { sendTextMessage } from "../_shared/uazapi.ts"
+import { smartSend, sendByPhone } from "../_shared/botconversa.ts"
 
 // ── Dynamic structure labels ────────────────────────────────────────────────
 function getBlocoLabel(tipo?: string): string {
@@ -197,14 +197,15 @@ function cleanPhone(raw: string): string {
   return phone
 }
 
-// ── UazAPI: send WhatsApp message ────────────────────────────────────────
+// ── BotConversa: send WhatsApp message ─────────────────────────────────────
 async function sendWhatsApp(
-  uazapiUrl: string,
-  uazapiToken: string,
+  botconversaApiKey: string,
+  botconversaId: string | null | undefined,
   phone: string,
-  message: string
+  message: string,
+  firstName?: string
 ): Promise<boolean> {
-  const result = await sendTextMessage(uazapiUrl, uazapiToken, phone, message)
+  const result = await smartSend(botconversaApiKey, botconversaId, phone, "text", message, firstName)
   return result.success
 }
 
@@ -214,8 +215,7 @@ async function sendWhatsApp(
 async function handleCreated(
   payload: Record<string, unknown>,
   supabase: ReturnType<typeof createClient>,
-  uazapiUrl: string,
-  uazapiToken: string
+  botconversaApiKey: string
 ): Promise<Response> {
   const {
     convite_id,
@@ -230,7 +230,7 @@ async function handleCreated(
   // ── Fetch resident data ──────────────────────────────────────────
   const { data: perfil } = await supabase
     .from("perfil")
-    .select("nome_completo, whatsapp, fcm_token, bloco_txt, apto_txt, notificacoes_whatsapp")
+    .select("nome_completo, whatsapp, botconversa_id, fcm_token, bloco_txt, apto_txt, notificacoes_whatsapp")
     .eq("id", resident_id)
     .single()
 
@@ -310,10 +310,11 @@ async function handleCreated(
   }
 
   const sentResident = await sendWhatsApp(
-    uazapiUrl,
-    uazapiToken,
+    botconversaApiKey,
+    perfil.botconversa_id,
     cleanPhone(perfil.whatsapp),
-    msg1
+    msg1,
+    residentFirstName
   )
   console.log(
     `Msg1 (resident ${resident_id}): ${sentResident ? "✅" : "❌"}`
@@ -373,10 +374,11 @@ async function handleCreated(
       `cód interno: ${codInterno2}`
 
     sentVisitor = await sendWhatsApp(
-      uazapiUrl,
-      uazapiToken,
+      botconversaApiKey,
+      null,
       phone,
-      msg2
+      msg2,
+      (guest_name || "Visitante").split(" ")[0]
     )
     console.log(
       `Msg2 (visitor ${guest_name}): ${sentVisitor ? "✅" : "❌"}`
@@ -436,8 +438,7 @@ async function handleCreated(
 async function handlePortariaCreated(
   payload: Record<string, unknown>,
   supabase: ReturnType<typeof createClient>,
-  uazapiUrl: string,
-  uazapiToken: string
+  botconversaApiKey: string
 ): Promise<Response> {
   const {
     convite_id,
@@ -535,7 +536,7 @@ async function handlePortariaCreated(
   if (resident_id && resident_id.trim() !== "") {
     const { data: perfil } = await supabase
       .from("perfil")
-      .select("nome_completo, whatsapp, notificacoes_whatsapp")
+      .select("nome_completo, whatsapp, botconversa_id, notificacoes_whatsapp")
       .eq("id", resident_id)
       .single()
 
@@ -560,7 +561,7 @@ async function handlePortariaCreated(
         `Condomeet agradece!\n` +
         `Cod. int: ${codInterno}`
 
-      const sent = await sendWhatsApp(uazapiUrl, uazapiToken, cleanPhone(perfil.whatsapp), msg1)
+      const sent = await sendWhatsApp(botconversaApiKey, perfil.botconversa_id, cleanPhone(perfil.whatsapp), msg1, residentName)
       results.push(`Msg1 resident ${resident_id}: ${sent ? "✅" : "❌"}`)
     } else {
       results.push(`Msg1 skipped: no whatsapp for ${resident_id}`)
@@ -570,7 +571,7 @@ async function handlePortariaCreated(
   else {
     const { data: unitResidents } = await supabase
       .from("perfil")
-      .select("id, nome_completo, whatsapp")
+      .select("id, nome_completo, whatsapp, botconversa_id")
       .eq("condominio_id", condominio_id)
       .eq("bloco_txt", bloco_destino)
       .eq("apto_txt", apto_destino)
@@ -612,7 +613,7 @@ async function handlePortariaCreated(
           const delay = 200
           await new Promise((resolve) => setTimeout(resolve, delay))
         }
-        const sent = await sendWhatsApp(uazapiUrl, uazapiToken, cleanPhone(r.whatsapp), msg2)
+        const sent = await sendWhatsApp(botconversaApiKey, r.botconversa_id, cleanPhone(r.whatsapp), msg2)
         results.push(`Msg2 resident ${r.id}: ${sent ? "✅" : "❌"}`)
       }
     }
@@ -669,7 +670,7 @@ async function handlePortariaCreated(
       `Condomeet agradece!\n` +
       `Cod int ${codInterno3}`
 
-    sentVisitor = await sendWhatsApp(uazapiUrl, uazapiToken, phone, msg3)
+    sentVisitor = await sendWhatsApp(botconversaApiKey, null, phone, msg3, (guest_name || "Visitante").split(" ")[0])
     results.push(`Msg3 visitor ${guest_name}: ${sentVisitor ? "✅" : "❌"}`)
   }
 
@@ -688,8 +689,7 @@ async function handlePortariaCreated(
 async function handleEntryReleased(
   payload: Record<string, unknown>,
   supabase: ReturnType<typeof createClient>,
-  uazapiUrl: string,
-  uazapiToken: string
+  botconversaApiKey: string
 ): Promise<Response> {
   const {
     convite_id,
@@ -729,13 +729,13 @@ async function handleEntryReleased(
   const results: string[] = []
 
   // ── Resolve recipients ─────────────────────────────────────────────
-  let recipients: { id: string; nome_completo: string; whatsapp: string; fcm_token: string | null }[] = []
+  let recipients: { id: string; nome_completo: string; whatsapp: string; botconversa_id: string; fcm_token: string | null }[] = []
 
   if (isPortariaSemId) {
     // Portaria without identification → notify ALL unit residents
     const { data: unitResidents } = await supabase
       .from("perfil")
-      .select("id, nome_completo, whatsapp, fcm_token")
+      .select("id, nome_completo, whatsapp, botconversa_id, fcm_token")
       .eq("condominio_id", condominio_id)
       .eq("bloco_txt", bloco_destino)
       .eq("apto_txt", apto_destino)
@@ -747,7 +747,7 @@ async function handleEntryReleased(
     // Identified resident
     const { data: perfil } = await supabase
       .from("perfil")
-      .select("id, nome_completo, whatsapp, fcm_token, notificacoes_whatsapp")
+      .select("id, nome_completo, whatsapp, botconversa_id, fcm_token, notificacoes_whatsapp")
       .eq("id", resident_id)
       .single()
 
@@ -831,7 +831,7 @@ async function handleEntryReleased(
       `Condomeet agradece sua colaboração.\n` +
       `Cód interno: ${codInterno}`
 
-    const sent = await sendWhatsApp(uazapiUrl, uazapiToken, cleanPhone(r.whatsapp), msg)
+    const sent = await sendWhatsApp(botconversaApiKey, r.botconversa_id, cleanPhone(r.whatsapp), msg, firstName)
     results.push(`WhatsApp ${r.id}: ${sent ? "✅" : "❌"}`)
   }
 
@@ -856,7 +856,7 @@ async function handleEntryReleased(
       `Condomeet agradece.\n` +
       `Cód interno ${codInterno2}`
 
-    const sentVisitor = await sendWhatsApp(uazapiUrl, uazapiToken, phone, msgVisitor)
+    const sentVisitor = await sendWhatsApp(botconversaApiKey, null, phone, msgVisitor, visitorFirstName)
     results.push(`WhatsApp visitor: ${sentVisitor ? "✅" : "❌"}`)
   }
 
@@ -910,11 +910,10 @@ Deno.serve(async (req) => {
       )
     }
 
-    const UAZAPI_URL = Deno.env.get("UAZAPI_URL")
-    const UAZAPI_TOKEN = Deno.env.get("UAZAPI_TOKEN")
-    if (!UAZAPI_URL || !UAZAPI_TOKEN) {
+    const BOTCONVERSA_API_KEY = Deno.env.get("BOTCONVERSA_API_KEY")
+    if (!BOTCONVERSA_API_KEY) {
       return jsonResponse(
-        { error: "UAZAPI_URL or UAZAPI_TOKEN not configured" },
+        { error: "BOTCONVERSA_API_KEY not configured" },
         500
       )
     }
@@ -926,15 +925,15 @@ Deno.serve(async (req) => {
 
     // ── Route by action ────────────────────────────────────────────
     if (action === "portaria_created") {
-      return await handlePortariaCreated(payload, supabase, UAZAPI_URL, UAZAPI_TOKEN)
+      return await handlePortariaCreated(payload, supabase, BOTCONVERSA_API_KEY)
     }
 
     if (action === "entry_released") {
-      return await handleEntryReleased(payload, supabase, UAZAPI_URL, UAZAPI_TOKEN)
+      return await handleEntryReleased(payload, supabase, BOTCONVERSA_API_KEY)
     }
 
     // Default: 'created' (backward compatible — no action field from old trigger)
-    return await handleCreated(payload, supabase, UAZAPI_URL, UAZAPI_TOKEN)
+    return await handleCreated(payload, supabase, BOTCONVERSA_API_KEY)
 
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : String(err)

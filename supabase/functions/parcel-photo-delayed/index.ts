@@ -1,9 +1,8 @@
 // parcel-photo-delayed — Supabase Edge Function
-// Waits 10-20 seconds (random), then sends parcel photo via UazAPI
+// Waits 10-20 seconds (random), then sends parcel photo via BotConversa
 // Called by the tr_fn_encomenda_arrived trigger when photo_url is present
 
 import { createClient } from "npm:@supabase/supabase-js@2"
-import { sendImageMessage, normalizePhone } from "../_shared/uazapi.ts"
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -38,10 +37,9 @@ Deno.serve(async (req) => {
       return jsonResponse({ skipped: true, reason: "No photo_url provided" })
     }
 
-    const UAZAPI_URL = Deno.env.get("UAZAPI_URL")
-    const UAZAPI_TOKEN = Deno.env.get("UAZAPI_TOKEN")
-    if (!UAZAPI_URL || !UAZAPI_TOKEN) {
-      return jsonResponse({ error: "UAZAPI_URL or UAZAPI_TOKEN not configured" }, 500)
+    const BOTCONVERSA_API_KEY = Deno.env.get("BOTCONVERSA_API_KEY")
+    if (!BOTCONVERSA_API_KEY) {
+      return jsonResponse({ error: "BOTCONVERSA_API_KEY not configured" }, 500)
     }
 
     // 1. Random delay: 10-20 seconds
@@ -57,42 +55,41 @@ Deno.serve(async (req) => {
 
     const { data: recipients, error } = await supabase
       .from("perfil")
-      .select("id, nome_completo, whatsapp")
+      .select("id, nome_completo, whatsapp, botconversa_id")
       .eq("condominio_id", condominio_id)
       .eq("bloco_txt", bloco)
       .eq("apto_txt", apto)
       .eq("status_aprovacao", "aprovado")
       .eq("bloqueado", false)
       .eq("notificacoes_whatsapp", true)
-      .not("whatsapp", "is", null)
+      .not("botconversa_id", "is", null)
 
     if (error || !recipients || recipients.length === 0) {
       console.log("No recipients found for photo delivery")
       return jsonResponse({ skipped: true, reason: "No recipients found" })
     }
 
-    // Deduplicate by whatsapp
+    // Deduplicate by botconversa_id
     const seen = new Set<string>()
     const unique = recipients.filter((r: Record<string, unknown>) => {
-      const wpp = (r.whatsapp as string)?.trim()
-      if (!wpp || seen.has(wpp)) return false
-      seen.add(wpp)
+      const bcid = (r.botconversa_id as string)?.trim()
+      if (!bcid || seen.has(bcid)) return false
+      seen.add(bcid)
       return true
     })
 
     console.log(`📸 Sending parcel photo to ${unique.length} recipient(s)`)
 
     // 3. Send photo as image to each recipient
+    const { sendMessage } = await import("../_shared/botconversa.ts")
     const results = []
     for (let i = 0; i < unique.length; i++) {
       const r = unique[i] as Record<string, unknown>
-      const phone = normalizePhone(r.whatsapp as string)
-      const result = await sendImageMessage(
-        UAZAPI_URL,
-        UAZAPI_TOKEN,
-        phone,
-        ensureJpegUrl(photo_url),
-        "📸 Foto da encomenda"
+      const result = await sendMessage(
+        BOTCONVERSA_API_KEY,
+        r.botconversa_id as string,
+        "file",
+        ensureJpegUrl(photo_url)
       )
       results.push({ ...result, nome: r.nome_completo })
 

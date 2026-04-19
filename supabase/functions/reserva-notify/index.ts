@@ -1,7 +1,8 @@
-// reserva-notify — WhatsApp + Push for reservations (new, approved, auto-approved)
+// reserva-notify — WhatsApp + Push for reservations (new, approved, auto-approved, rejected)
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2"
 import { create, getNumericDate } from "https://deno.land/x/djwt@v2.9.1/mod.ts"
+import { smartSend, DELAY_TEXT_MS } from "../_shared/botconversa.ts"
 
 function pemToBinary(pem: string): ArrayBuffer {
   const b64 = pem.replace(/-----BEGIN PRIVATE KEY-----/, "").replace(/-----END PRIVATE KEY-----/, "").replace(/\n/g, "")
@@ -31,16 +32,6 @@ async function sendFcmPush(accessToken: string, projectId: string, fcmToken: str
   } catch { return false }
 }
 
-async function sendWhatsApp(url: string, token: string, phone: string, msg: string): Promise<boolean> {
-  try {
-    const cleanedPhone = phone.replace(/\D/g, "")
-    if (cleanedPhone.length < 10) return false
-    const res = await fetch(`${url}/send/text`, { method: "POST", headers: { "Content-Type": "application/json", "Accept": "application/json", "token": token }, body: JSON.stringify({ number: cleanedPhone, text: msg }) })
-    console.log(`WhatsApp → ${cleanedPhone}: ${res.ok ? "✅" : "❌"}`)
-    return res.ok
-  } catch (e: unknown) { console.error(`WhatsApp error:`, e instanceof Error ? e.message : String(e)); return false }
-}
-
 function genCodInterno() {
   return Array.from({ length: 4 }, () => "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789"[Math.floor(Math.random() * 62)]).join("")
 }
@@ -53,8 +44,7 @@ serve(async (req) => {
     if (!condominio_id) return new Response(JSON.stringify({ error: "condominio_id required" }), { status: 400 })
 
     const supabase = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!)
-    const UAZAPI_URL = Deno.env.get("UAZAPI_URL")
-    const UAZAPI_TOKEN = Deno.env.get("UAZAPI_TOKEN")
+    const BOTCONVERSA_API_KEY = Deno.env.get("BOTCONVERSA_API_KEY") ?? ""
 
     const { data: condo } = await supabase.from("condominios").select("nome").eq("id", condominio_id).single()
     const condoNome = condo?.nome || "Condomínio"
@@ -71,13 +61,12 @@ serve(async (req) => {
       let unitResidents: Record<string, unknown>[] = []
 
       if (hasSpecificUser) {
-        const { data: r } = await supabase.from("perfil").select("nome_completo, tipo_morador, bloco_txt, apto_txt, whatsapp, fcm_token, notificacoes_whatsapp").eq("id", user_id).single()
+        const { data: r } = await supabase.from("perfil").select("nome_completo, tipo_morador, bloco_txt, apto_txt, whatsapp, botconversa_id, fcm_token, notificacoes_whatsapp").eq("id", user_id).single()
         resident = r
       }
 
-      // If no specific user OR we need unit info, fetch all residents of the unit
       if (!hasSpecificUser && bloco_destino && apto_destino) {
-        const { data: unitR } = await supabase.from("perfil").select("id, nome_completo, tipo_morador, bloco_txt, apto_txt, whatsapp, fcm_token, notificacoes_whatsapp").eq("condominio_id", condominio_id).eq("bloco_txt", bloco_destino).eq("apto_txt", apto_destino)
+        const { data: unitR } = await supabase.from("perfil").select("id, nome_completo, tipo_morador, bloco_txt, apto_txt, whatsapp, botconversa_id, fcm_token, notificacoes_whatsapp").eq("condominio_id", condominio_id).eq("bloco_txt", bloco_destino).eq("apto_txt", apto_destino)
         unitResidents = (unitR ?? []) as Record<string, unknown>[]
       }
 
@@ -86,17 +75,18 @@ serve(async (req) => {
       const bloco = resident?.bloco_txt as string || bloco_destino || ""
       const apto = resident?.apto_txt as string || apto_destino || ""
 
-      const { data: sindicos } = await supabase.from("perfil").select("id, whatsapp, fcm_token, notificacoes_whatsapp").eq("condominio_id", condominio_id).in("tipo_morador", ["Síndico", "Síndico (a)", "Síndico(a)", "sindico", "sindico (a)", "ADMIN", "Admin", "admin"])
+      const { data: sindicos } = await supabase.from("perfil").select("id, whatsapp, botconversa_id, fcm_token, notificacoes_whatsapp").eq("condominio_id", condominio_id).in("tipo_morador", ["Síndico", "Síndico (a)", "Síndico(a)", "sindico", "sindico (a)", "ADMIN", "Admin", "admin"])
 
       // ── WhatsApp to síndicos ──
-      if (UAZAPI_URL && UAZAPI_TOKEN) {
+      if (BOTCONVERSA_API_KEY) {
         const cod = genCodInterno()
         const msgSindico = `📆 Novo agendamento no ${condoNome}\n\n🧾Nome:\n${residentName}\n\n👉 Tipo de Cadastro:\n${tipoMorador}\n\n🏙 Unidade:\nBloco: ${bloco}\nApto: ${apto}\n\nEspaço:\n${area_nome || "Área comum"}\n\nData do agendamento:\n${formattedDate}\n\nVeja se está tudo ok, pois o morador irá aguardar a aprovação.\n\nLembre se que em 7 dias, a solicitação irá expirar!\n\nCondomeet agradece.\ncód interno: ${cod}`
         for (const s of (sindicos ?? [])) {
           const sData = s as Record<string, unknown>
-          if ((sData.whatsapp as string)?.trim() && sData.notificacoes_whatsapp !== false) {
-            const sent = await sendWhatsApp(UAZAPI_URL, UAZAPI_TOKEN, sData.whatsapp as string, msgSindico)
-            results.push(`WhatsApp síndico: ${sent ? "✅" : "❌"}`)
+          if (sData.notificacoes_whatsapp !== false && (sData.botconversa_id || (sData.whatsapp as string)?.trim())) {
+            const result = await smartSend(BOTCONVERSA_API_KEY, sData.botconversa_id as string, sData.whatsapp as string, "text", msgSindico)
+            results.push(`WhatsApp síndico: ${result.success ? "✅" : "❌"}`)
+            await new Promise(r => setTimeout(r, DELAY_TEXT_MS))
           }
         }
       }
@@ -122,27 +112,25 @@ serve(async (req) => {
 
       // ── Notify resident(s) ──
       if (hasSpecificUser && resident) {
-        // Specific user selected → notify just them
-        if (UAZAPI_URL && UAZAPI_TOKEN && (resident.whatsapp as string)?.trim() && resident.notificacoes_whatsapp !== false) {
+        if (BOTCONVERSA_API_KEY && resident.notificacoes_whatsapp !== false && (resident.botconversa_id || (resident.whatsapp as string)?.trim())) {
           const codRes = genCodInterno()
           const msgResident = `📆 Condomínio ${condoNome}:\n\nA reserva do(a) ${area_nome || "Área comum"} para sua unidade, foi feita com sucesso.\n\nAguarde a administração do seu condomínio aprovar a reserva.\n\nData do evento:\n${formattedDate}\n\nSempre fique atento(a) a data e horário!\n\nCondomeet agradece!\nCód interno: ${codRes}`
-          const sent = await sendWhatsApp(UAZAPI_URL, UAZAPI_TOKEN, resident.whatsapp as string, msgResident)
-          results.push(`WhatsApp morador: ${sent ? "✅" : "❌"}`)
+          const result = await smartSend(BOTCONVERSA_API_KEY, resident.botconversa_id as string, resident.whatsapp as string, "text", msgResident)
+          results.push(`WhatsApp morador: ${result.success ? "✅" : "❌"}`)
         }
         if (fcmAccessToken && fcmProjectId && (resident.fcm_token as string)?.length > 10) {
           const ok = await sendFcmPush(fcmAccessToken, fcmProjectId, resident.fcm_token as string, `📆 Reserva registrada - ${condoNome}`, `Sua reserva de ${area_nome || "área comum"} está pendente de aprovação`, { type: "reserva_created", reserva_id: reserva_id || "" })
           results.push(`Push morador: ${ok ? "✅" : "❌"}`)
         }
       } else if (unitResidents.length > 0) {
-        // No specific user → notify ALL residents of the unit
         const codUnit = genCodInterno()
         const msgUnit = `📆Condomínio ${condoNome}\n\nAlguém do seu apto solicitou um agendamento que foi registrado com sucesso.\n\nAguarde a administração do Condominio aprovar.\n\nIremos lembrar você um dia antes do evento.\n\nCondomeet Agradece.\ncód interno: ${codUnit}`
 
         for (const r of unitResidents) {
-          const rWhatsapp = r.whatsapp as string | undefined
-          if (UAZAPI_URL && UAZAPI_TOKEN && rWhatsapp?.trim() && r.notificacoes_whatsapp !== false) {
-            const sent = await sendWhatsApp(UAZAPI_URL, UAZAPI_TOKEN, rWhatsapp, msgUnit)
-            results.push(`WhatsApp unidade ${r.nome_completo}: ${sent ? "✅" : "❌"}`)
+          if (BOTCONVERSA_API_KEY && r.notificacoes_whatsapp !== false && (r.botconversa_id || (r.whatsapp as string)?.trim())) {
+            const result = await smartSend(BOTCONVERSA_API_KEY, r.botconversa_id as string, r.whatsapp as string, "text", msgUnit)
+            results.push(`WhatsApp unidade ${r.nome_completo}: ${result.success ? "✅" : "❌"}`)
+            await new Promise(res => setTimeout(res, DELAY_TEXT_MS))
           }
           const rFcm = r.fcm_token as string | undefined
           if (fcmAccessToken && fcmProjectId && rFcm && rFcm.length > 10 && !rFcm.startsWith("dummy")) {
@@ -153,15 +141,14 @@ serve(async (req) => {
       }
 
     } else if (action === "approved" || action === "auto_approved") {
-      // Notify resident about approval
-      const { data: resident } = await supabase.from("perfil").select("nome_completo, whatsapp, fcm_token, notificacoes_whatsapp").eq("id", user_id).single()
+      const { data: resident } = await supabase.from("perfil").select("nome_completo, whatsapp, botconversa_id, fcm_token, notificacoes_whatsapp").eq("id", user_id).single()
       const firstName = resident?.nome_completo?.split(" ")[0] || "Morador"
 
-      if (resident?.whatsapp && resident.notificacoes_whatsapp !== false && UAZAPI_URL && UAZAPI_TOKEN) {
+      if (resident?.notificacoes_whatsapp !== false && BOTCONVERSA_API_KEY && (resident?.botconversa_id || resident?.whatsapp)) {
         const cod = genCodInterno()
         const msg = `📆Condomínio ${condoNome}\n\nEi ${firstName}, seu agendamento foi registrado com sucesso.\n\nSua reserva já está aprovada!\n\nIremos lembrar você um dia antes do evento.\n\nCondomeet Agradece.\ncód interno: ${cod}`
-        const sent = await sendWhatsApp(UAZAPI_URL, UAZAPI_TOKEN, resident.whatsapp, msg)
-        results.push(`WhatsApp morador: ${sent ? "✅" : "❌"}`)
+        const result = await smartSend(BOTCONVERSA_API_KEY, resident.botconversa_id, resident.whatsapp, "text", msg, firstName)
+        results.push(`WhatsApp morador: ${result.success ? "✅" : "❌"}`)
       }
 
       if (resident?.fcm_token && resident.fcm_token.length > 10) {
@@ -177,15 +164,14 @@ serve(async (req) => {
       }
 
     } else if (action === "rejected") {
-      // Notify resident about rejection
-      const { data: resident } = await supabase.from("perfil").select("nome_completo, whatsapp, fcm_token, notificacoes_whatsapp").eq("id", user_id).single()
+      const { data: resident } = await supabase.from("perfil").select("nome_completo, whatsapp, botconversa_id, fcm_token, notificacoes_whatsapp").eq("id", user_id).single()
       const firstName = resident?.nome_completo?.split(" ")[0] || "Morador"
 
-      if (resident?.whatsapp && resident.notificacoes_whatsapp !== false && UAZAPI_URL && UAZAPI_TOKEN) {
+      if (resident?.notificacoes_whatsapp !== false && BOTCONVERSA_API_KEY && (resident?.botconversa_id || resident?.whatsapp)) {
         const cod = genCodInterno()
         const msg = `📆 Condomínio ${condoNome}\n\nOlá ${firstName},\n\nInfelizmente sua reserva foi recusada. ❌\n\n🏠 Espaço: ${area_nome || "Área comum"}\n📅 Data: ${data_reserva || ""}\n\nEntre em contato com o síndico para mais informações.\n\nCondomeet agradece.\nCód interno: ${cod}`
-        const sent = await sendWhatsApp(UAZAPI_URL, UAZAPI_TOKEN, resident.whatsapp, msg)
-        results.push(`WhatsApp morador: ${sent ? "✅" : "❌"}`)
+        const result = await smartSend(BOTCONVERSA_API_KEY, resident.botconversa_id, resident.whatsapp, "text", msg, firstName)
+        results.push(`WhatsApp morador: ${result.success ? "✅" : "❌"}`)
       }
 
       if (resident?.fcm_token && resident.fcm_token.length > 10) {

@@ -7,8 +7,8 @@ import { createClient } from "npm:@supabase/supabase-js@2";
 import {
   normalizePhone,
   parseWebhook,
-  sendTextMessage,
-} from "../_shared/uazapi.ts";
+  smartSend,
+} from "../_shared/botconversa.ts";
 import { buildSystemPrompt, type MoradorContext } from "./system-prompt.ts";
 import { executeActions } from "./actions.ts";
 
@@ -364,8 +364,7 @@ Deno.serve(async (req) => {
         /[\u0300-\u036f]/g,
         "",
       );
-      const UAZAPI_URL_tmp = Deno.env.get("UAZAPI_URL") ?? "";
-      const UAZAPI_TOKEN_tmp = Deno.env.get("UAZAPI_TOKEN") ?? "";
+      const BOTCONVERSA_API_KEY_tmp = Deno.env.get("BOTCONVERSA_API_KEY") ?? "";
 
       if (cmd === "DESATIVAR" || cmd === "PAUSAR") {
         await supabase.from("bot_config").update({
@@ -373,10 +372,7 @@ Deno.serve(async (req) => {
           desativado_por: incoming.phone,
           desativado_em: new Date().toISOString(),
         }).eq("id", 1);
-        await sendTextMessage(
-          UAZAPI_URL_tmp,
-          UAZAPI_TOKEN_tmp,
-          incoming.phone,
+        await smartSend(BOTCONVERSA_API_KEY_tmp, null, incoming.phone, "text",
           "🔴 Bot DESATIVADO. Atenda os moradores normalmente. Quando terminar, envie ATIVAR.",
         );
         return jsonResponse({ ok: true, action: "bot_desativado" });
@@ -387,10 +383,7 @@ Deno.serve(async (req) => {
           ativo: true,
           reativado_em: new Date().toISOString(),
         }).eq("id", 1);
-        await sendTextMessage(
-          UAZAPI_URL_tmp,
-          UAZAPI_TOKEN_tmp,
-          incoming.phone,
+        await smartSend(BOTCONVERSA_API_KEY_tmp, null, incoming.phone, "text",
           "🟢 Bot ATIVADO. Voltei a atender os moradores automaticamente!",
         );
         return jsonResponse({ ok: true, action: "bot_ativado" });
@@ -413,12 +406,7 @@ Deno.serve(async (req) => {
               ? ` Desde: ${new Date(cfg.desativado_em).toLocaleString("pt-BR")}`
               : ""
           }`;
-        await sendTextMessage(
-          UAZAPI_URL_tmp,
-          UAZAPI_TOKEN_tmp,
-          incoming.phone,
-          statusMsg,
-        );
+        await smartSend(BOTCONVERSA_API_KEY_tmp, null, incoming.phone, "text", statusMsg);
         return jsonResponse({ ok: true, action: "status_enviado" });
       }
 
@@ -431,13 +419,12 @@ Deno.serve(async (req) => {
     // ─────────────────────────────────────────────────────────────────────
 
     // 3. Get API keys
-    const UAZAPI_URL = Deno.env.get("UAZAPI_URL");
-    const UAZAPI_TOKEN = Deno.env.get("UAZAPI_TOKEN");
+    const BOTCONVERSA_API_KEY = Deno.env.get("BOTCONVERSA_API_KEY") ?? "";
     const GEMINI_API_KEY = Deno.env.get("GEMINI_API_KEY");
 
-    if (!UAZAPI_URL || !UAZAPI_TOKEN) {
-      console.error("UAZAPI_URL or UAZAPI_TOKEN not configured");
-      return jsonResponse({ error: "UazAPI not configured" }, 500);
+    if (!BOTCONVERSA_API_KEY) {
+      console.error("BOTCONVERSA_API_KEY not configured");
+      return jsonResponse({ error: "BotConversa not configured" }, 500);
     }
     if (!GEMINI_API_KEY) {
       console.error("GEMINI_API_KEY not configured");
@@ -568,10 +555,11 @@ Deno.serve(async (req) => {
       }
 
       // Second+ message — they're insisting, respond politely
-      await sendTextMessage(
-        UAZAPI_URL,
-        UAZAPI_TOKEN,
+      await smartSend(
+        BOTCONVERSA_API_KEY,
+        null,
         incoming.phone,
+        "text",
         "Olá! 👋 Não consegui identificar seu número no nosso sistema.\n\n" +
           "Se você é morador, verifique se seu celular está cadastrado corretamente no aplicativo *Condomeet*.\n\n" +
           "Caso precise de ajuda, procure o síndico do seu condomínio. 😊",
@@ -581,6 +569,85 @@ Deno.serve(async (req) => {
         reason: "Profile not found — responded after insistence",
       });
     }
+
+    // ── OPT-IN RESPONSE INTERCEPTION ──────────────────────────────────
+    // Check if this resident has a pending opt-in question
+    // Supports: typos (sm, na), conversational variants (claro, quero, parar)
+    const rawText = incoming.text.trim();
+    // Normalize: remove accents, keep only letters, trim spaces
+    const optinCmd = rawText.toUpperCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^A-Z]/g, " ").trim();
+    
+    const isYesMatch = /^(SIM|S|SM|SIN|SIMM|CLARO|QUERO|PODE|ACEITO|YES)(?:\s|$)/.test(optinCmd) || rawText === "optin_sim";
+    const isNoMatch = /^(NAO|N|NA|NUNCA|PARAR|CANCELAR|SAIR|STOP|NO)(?:\s|$)/.test(optinCmd) || rawText === "optin_nao";
+    
+    if (isYesMatch || isNoMatch) {
+      try {
+        const { data: pendingOptin } = await supabase
+          .from("optin_whatsapp_log")
+          .select("id, perfil_id")
+          .eq("perfil_id", perfil.id)
+          .is("response", null) // not yet responded
+          .order("sent_at", { ascending: false })
+          .limit(1)
+          .maybeSingle();
+
+        if (pendingOptin) {
+          const isYes = isYesMatch;
+          const botconversaId = incoming.botconversa_id || null;
+
+          // Update opt-in log
+          await supabase
+            .from("optin_whatsapp_log")
+            .update({
+              response: isYes ? "sim" : "nao",
+              responded_at: new Date().toISOString(),
+              botconversa_id_captured: botconversaId,
+            })
+            .eq("id", pendingOptin.id);
+
+          if (isYes) {
+            // Capture botconversa_id if available
+            const updates: Record<string, unknown> = { notificacoes_whatsapp: true };
+            if (botconversaId) updates.botconversa_id = botconversaId;
+            await supabase.from("perfil").update(updates).eq("id", perfil.id);
+
+            const firstName = perfil.nome_completo?.split(" ")[0] || "Morador";
+            await smartSend(
+              BOTCONVERSA_API_KEY,
+              botconversaId,
+              incoming.phone,
+              "text",
+              `Obrigado, *${firstName}*! ✅\n\nVocê continuará recebendo as notificações do seu condomínio pelo WhatsApp.\n\nQualquer dúvida, estou por aqui! 😊`,
+            );
+
+            console.log(`[OptIn] ${perfil.id} opted IN`);
+          } else {
+            // Opt out
+            await supabase
+              .from("perfil")
+              .update({ notificacoes_whatsapp: false })
+              .eq("id", perfil.id);
+
+            const firstName = perfil.nome_completo?.split(" ")[0] || "Morador";
+            await smartSend(
+              BOTCONVERSA_API_KEY,
+              botconversaId,
+              incoming.phone,
+              "text",
+              `Entendido, *${firstName}*. 🙏\n\nVocê não receberá mais notificações pelo WhatsApp.\n\nCaso mude de ideia, basta acessar o app Condomeet e reativar nas configurações.`,
+            );
+
+            console.log(`[OptIn] ${perfil.id} opted OUT`);
+          }
+
+          return jsonResponse({ ok: true, action: isYes ? "optin_yes" : "optin_no" });
+        }
+      } catch (optinErr) {
+        console.warn("[OptIn] Error checking opt-in:", optinErr);
+        // Continue to normal chatbot flow
+      }
+    }
+    // ─────────────────────────────────────────────────────────────────────
 
     // Check if notifications are blocked
     if (perfil.notificacoes_whatsapp === false) {
@@ -680,10 +747,11 @@ Deno.serve(async (req) => {
       const fallbackMsg =
         `Oi, ${moradorCtx.primeiroNome}! 😊 No momento estou com uma dificuldade técnica temporária. Tente novamente em alguns minutos. Se for urgente, digite "atendente" que chamarei um especialista para você!`;
 
-      await sendTextMessage(
-        UAZAPI_URL,
-        UAZAPI_TOKEN,
+      await smartSend(
+        BOTCONVERSA_API_KEY,
+        null,
         incoming.phone,
+        "text",
         fallbackMsg,
       );
 
@@ -723,18 +791,17 @@ Deno.serve(async (req) => {
         bloco: perfil.bloco_txt,
         apto: perfil.apto_txt,
         moradorNome: perfil.nome_completo,
-        uazapiUrl: UAZAPI_URL,
-        uazapiToken: UAZAPI_TOKEN,
       });
 
       console.log("[Actions] Results:", actionResults);
     }
 
-    // 10. Send response to morador via UazAPI
-    const sendResult = await sendTextMessage(
-      UAZAPI_URL,
-      UAZAPI_TOKEN,
+    // 10. Send response to morador via BotConversa
+    const sendResult = await smartSend(
+      BOTCONVERSA_API_KEY,
+      null,
       incoming.phone,
+      "text",
       geminiResponse.message,
     );
 

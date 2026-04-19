@@ -2,7 +2,7 @@
 // Each action modifies the database or sends notifications
 
 import { type SupabaseClient } from "npm:@supabase/supabase-js@2"
-import { sendTextMessage } from "../_shared/uazapi.ts"
+import { smartSend, DELAY_TEXT_MS } from "../_shared/botconversa.ts"
 
 export interface ActionResult {
   type: string
@@ -18,8 +18,6 @@ interface ActionParams {
   bloco: string
   apto: string
   moradorNome: string
-  uazapiUrl: string
-  uazapiToken: string
 }
 
 // ── Execute all actions from Gemini response ────────────────────────────────
@@ -114,6 +112,7 @@ async function createVisitorAuth(
 // ── Action: Escalate to Human Attendant ─────────────────────────────────────
 
 async function escalateToHuman(ctx: ActionParams): Promise<ActionResult> {
+  const BOTCONVERSA_API_KEY = Deno.env.get("BOTCONVERSA_API_KEY") ?? ""
   const adminPhone1 = Deno.env.get("ADMIN_PHONE_1") || "5531992707070"
   const adminPhone2 = Deno.env.get("ADMIN_PHONE_2") || "5531994707070"
 
@@ -124,9 +123,13 @@ async function escalateToHuman(ctx: ActionParams): Promise<ActionResult> {
     `🏢 Unidade: Bloco ${ctx.bloco} / Apto ${ctx.apto}\n\n` +
     `Por favor, entre em contato com o morador.`
 
+  if (!BOTCONVERSA_API_KEY) {
+    return { type: "ESCALATE_TO_HUMAN", success: false, error: "BotConversa API key not configured" }
+  }
+
   const [r1, r2] = await Promise.all([
-    sendTextMessage(ctx.uazapiUrl, ctx.uazapiToken, adminPhone1, msg),
-    sendTextMessage(ctx.uazapiUrl, ctx.uazapiToken, adminPhone2, msg),
+    smartSend(BOTCONVERSA_API_KEY, null, adminPhone1, "text", msg, "Admin"),
+    smartSend(BOTCONVERSA_API_KEY, null, adminPhone2, "text", msg, "Admin"),
   ])
 
   const success = r1.success || r2.success
@@ -210,25 +213,27 @@ async function changePhone(
 // ── Action: Report Wrong Parcel ─────────────────────────────────────────────
 
 async function reportWrongParcel(ctx: ActionParams): Promise<ActionResult> {
+  const BOTCONVERSA_API_KEY = Deno.env.get("BOTCONVERSA_API_KEY") ?? ""
+
   // Find all síndicos of this condominium
   const { data: sindicos } = await ctx.supabase
     .from("perfil")
-    .select("id, nome_completo, whatsapp")
+    .select("id, nome_completo, whatsapp, botconversa_id")
     .eq("condominio_id", ctx.condominioId)
     .in("papel_sistema", ["Sindico", "Síndico", "sindico", "Síndico (a)", "Admin", "admin"])
     .eq("status_aprovacao", "aprovado")
-    .not("whatsapp", "is", null)
+
+  const msg =
+    `⚠️ *Condomeet — Encomenda Errada*\n\n` +
+    `Morador(a) ${ctx.moradorNome} (Bloco ${ctx.bloco} / Apto ${ctx.apto}) avisou que a última encomenda cadastrada NÃO pertence à unidade dele(a).\n\n` +
+    `Por favor, verifique no sistema.`
 
   if (!sindicos || sindicos.length === 0) {
     // Fallback: notify admin phones
-    const adminPhone1 = Deno.env.get("ADMIN_PHONE_1") || "5531992707070"
-    const msg =
-      `⚠️ *Condomeet — Encomenda Errada*\n\n` +
-      `Morador(a) ${ctx.moradorNome} (Bloco ${ctx.bloco} / Apto ${ctx.apto}) avisou que a última encomenda cadastrada NÃO pertence à unidade dele(a).\n\n` +
-      `Por favor, verifique.`
-
-    await sendTextMessage(ctx.uazapiUrl, ctx.uazapiToken, adminPhone1, msg)
-
+    if (BOTCONVERSA_API_KEY) {
+      const adminPhone1 = Deno.env.get("ADMIN_PHONE_1") || "5531992707070"
+      await smartSend(BOTCONVERSA_API_KEY, null, adminPhone1, "text", msg, "Admin")
+    }
     return {
       type: "REPORT_WRONG_PARCEL",
       success: true,
@@ -237,20 +242,14 @@ async function reportWrongParcel(ctx: ActionParams): Promise<ActionResult> {
   }
 
   // Notify all síndicos
-  const msg =
-    `⚠️ *Condomeet — Encomenda Errada*\n\n` +
-    `Morador(a) ${ctx.moradorNome} (Bloco ${ctx.bloco} / Apto ${ctx.apto}) avisou que a última encomenda cadastrada NÃO pertence à unidade dele(a).\n\n` +
-    `Por favor, verifique no sistema.`
-
   let anySuccess = false
-  for (const sindico of sindicos) {
-    if (sindico.whatsapp) {
-      const phone = sindico.whatsapp.startsWith("55") ? sindico.whatsapp : "55" + sindico.whatsapp
-      const result = await sendTextMessage(ctx.uazapiUrl, ctx.uazapiToken, phone, msg)
-      if (result.success) anySuccess = true
-
-      // Small delay between sends
-      await new Promise(r => setTimeout(r, 2000))
+  if (BOTCONVERSA_API_KEY) {
+    for (const sindico of sindicos) {
+      if (sindico.botconversa_id || sindico.whatsapp) {
+        const result = await smartSend(BOTCONVERSA_API_KEY, sindico.botconversa_id, sindico.whatsapp, "text", msg)
+        if (result.success) anySuccess = true
+        await new Promise(r => setTimeout(r, DELAY_TEXT_MS))
+      }
     }
   }
 
@@ -265,14 +264,15 @@ async function reportWrongParcel(ctx: ActionParams): Promise<ActionResult> {
 // ── Action: Report Unauthorized Visitor ──────────────────────────────────────
 
 async function reportUnauthorizedVisitor(ctx: ActionParams): Promise<ActionResult> {
+  const BOTCONVERSA_API_KEY = Deno.env.get("BOTCONVERSA_API_KEY") ?? ""
+
   // Find all síndicos of this condominium
   const { data: sindicos } = await ctx.supabase
     .from("perfil")
-    .select("id, nome_completo, whatsapp")
+    .select("id, nome_completo, whatsapp, botconversa_id")
     .eq("condominio_id", ctx.condominioId)
     .in("papel_sistema", ["Sindico", "Síndico", "sindico", "Síndico (a)", "Admin", "admin"])
     .eq("status_aprovacao", "aprovado")
-    .not("whatsapp", "is", null)
 
   const msg =
     `🚨 *Condomeet — Visitante Não Autorizado*\n\n` +
@@ -281,9 +281,10 @@ async function reportUnauthorizedVisitor(ctx: ActionParams): Promise<ActionResul
 
   if (!sindicos || sindicos.length === 0) {
     // Fallback: notify admin phones
-    const adminPhone1 = Deno.env.get("ADMIN_PHONE_1") || "5531992707070"
-    await sendTextMessage(ctx.uazapiUrl, ctx.uazapiToken, adminPhone1, msg)
-
+    if (BOTCONVERSA_API_KEY) {
+      const adminPhone1 = Deno.env.get("ADMIN_PHONE_1") || "5531992707070"
+      await smartSend(BOTCONVERSA_API_KEY, null, adminPhone1, "text", msg, "Admin")
+    }
     return {
       type: "REPORT_UNAUTHORIZED_VISITOR",
       success: true,
@@ -293,14 +294,13 @@ async function reportUnauthorizedVisitor(ctx: ActionParams): Promise<ActionResul
 
   // Notify all síndicos
   let anySuccess = false
-  for (const sindico of sindicos) {
-    if (sindico.whatsapp) {
-      const phone = sindico.whatsapp.startsWith("55") ? sindico.whatsapp : "55" + sindico.whatsapp
-      const result = await sendTextMessage(ctx.uazapiUrl, ctx.uazapiToken, phone, msg)
-      if (result.success) anySuccess = true
-
-      // Small delay between sends
-      await new Promise(r => setTimeout(r, 2000))
+  if (BOTCONVERSA_API_KEY) {
+    for (const sindico of sindicos) {
+      if (sindico.botconversa_id || sindico.whatsapp) {
+        const result = await smartSend(BOTCONVERSA_API_KEY, sindico.botconversa_id, sindico.whatsapp, "text", msg)
+        if (result.success) anySuccess = true
+        await new Promise(r => setTimeout(r, DELAY_TEXT_MS))
+      }
     }
   }
 

@@ -1,9 +1,9 @@
 // whatsapp-parcel-notify — Supabase Edge Function
 // Sends WhatsApp notification to residents when a parcel arrives or is delivered.
-// Uses UazAPI for WhatsApp messaging.
+// Uses BotConversa for WhatsApp messaging.
 
 import { createClient } from "npm:@supabase/supabase-js@2"
-import { sendTextMessage, sendImageMessage, normalizePhone } from "../_shared/uazapi.ts"
+import { sendToRecipients, sendMessage } from "../_shared/botconversa.ts"
 
 // ── Dynamic structure labels ────────────────────────────────────────────────
 function getBlocoLabel(tipo?: string): string {
@@ -41,10 +41,9 @@ Deno.serve(async (req) => {
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
     )
 
-    const UAZAPI_URL = Deno.env.get('UAZAPI_URL')
-    const UAZAPI_TOKEN = Deno.env.get('UAZAPI_TOKEN')
-    if (!UAZAPI_URL || !UAZAPI_TOKEN) {
-      return new Response(JSON.stringify({ error: "UAZAPI_URL or UAZAPI_TOKEN not configured" }), { status: 500 })
+    const BOTCONVERSA_API_KEY = Deno.env.get("BOTCONVERSA_API_KEY")
+    if (!BOTCONVERSA_API_KEY) {
+      return new Response(JSON.stringify({ error: "BOTCONVERSA_API_KEY not configured" }), { status: 500 })
     }
 
     // ── Fetch condo info ──────────────────────────────────────────────
@@ -70,17 +69,17 @@ Deno.serve(async (req) => {
     // ── Fetch residents with whatsapp ─────────────────────────────────
     const { data: profiles, error } = await supabaseAdmin
       .from('perfil')
-      .select('id, nome_completo, whatsapp, notificacoes_whatsapp')
+      .select('id, nome_completo, whatsapp, botconversa_id, notificacoes_whatsapp')
       .eq('condominio_id', condominio_id)
       .eq('bloco_txt', bloco)
       .eq('apto_txt', apto)
       .eq('status_aprovacao', 'aprovado')
       .eq('bloqueado', false)
       .eq('notificacoes_whatsapp', true)
-      .not('whatsapp', 'is', null)
+      .not('botconversa_id', 'is', null)
 
     if (error || !profiles || profiles.length === 0) {
-      console.log(`No residents with whatsapp in ${bloco}/${apto}`)
+      console.log(`No residents with botconversa_id in ${bloco}/${apto}`)
       return new Response(JSON.stringify({ error: "Nenhum contato encontrado para notificação" }), { status: 200 })
     }
 
@@ -90,7 +89,6 @@ Deno.serve(async (req) => {
 
     for (let i = 0; i < profiles.length; i++) {
       const profile = profiles[i]
-      const phone = normalizePhone(profile.whatsapp)
 
       try {
         // Generate internal code for anti-ban
@@ -127,7 +125,7 @@ Deno.serve(async (req) => {
           txtMsg = `✅ ${condoNome}\n\nEncomenda retirada com sucesso!\n\n📨 Tipo: ${tipo || 'Pacote'}\n\n🏢 Unidade\n${blocoLabel}: ${bloco} / ${aptoLabel}: ${apto}\n\n👤 Retirada por: ${whoPickedUp}\n📅 Data/Hora: ${deliveryStr}\n\nCondomeet agradece!\nCod. interno: ${codInterno}`
         }
 
-        const result = await sendTextMessage(UAZAPI_URL, UAZAPI_TOKEN, phone, txtMsg)
+        const result = await sendMessage(BOTCONVERSA_API_KEY, profile.botconversa_id, "text", txtMsg)
         console.log(`WhatsApp to ${profile.nome_completo}: ${result.success ? "✅" : "❌"}`)
 
         // Send photo on 'arrived' if available
@@ -138,7 +136,7 @@ Deno.serve(async (req) => {
           console.log(`Waiting ${delayObj}ms before sending photo to bypass anti-spam...`)
           await new Promise(res => setTimeout(res, delayObj))
           
-          const photoResult = await sendImageMessage(UAZAPI_URL, UAZAPI_TOKEN, phone, parcelData.photo_url as string, "📸 Foto da encomenda")
+          const photoResult = await sendMessage(BOTCONVERSA_API_KEY, profile.botconversa_id, "file", parcelData.photo_url as string)
           console.log(`Photo to ${profile.nome_completo}: ${photoResult.success ? "✅" : "❌"} ${photoResult.error || ''}`)
         }
 

@@ -1,12 +1,10 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 import { create } from 'https://deno.land/x/djwt@v2.9.1/mod.ts'
-import { sendTextMessage, normalizePhone } from '../_shared/uazapi.ts'
+import { smartSend, normalizePhone, DELAY_TEXT_MS } from '../_shared/botconversa.ts'
 
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
 const FIREBASE_SERVICE_ACCOUNT_JSON = Deno.env.get('FIREBASE_SERVICE_ACCOUNT_JSON')!
-const UAZAPI_URL = Deno.env.get('UAZAPI_URL')
-const UAZAPI_TOKEN = Deno.env.get('UAZAPI_TOKEN')
 
 // ─── FCM helpers ──────────────────────────────────────────────────────────────
 async function getFcmAccessToken(serviceAccount: Record<string, string>): Promise<string> {
@@ -56,21 +54,26 @@ async function sendFcmPush(fcmToken: string, title: string, body: string, projec
   return res.ok
 }
 
-// ─── WhatsApp (UazAPI) ────────────────────────────────────────────────────────
-async function sendWhatsApp(phone: string, nome: string, area: string, data: string): Promise<boolean> {
-  if (!UAZAPI_URL || !UAZAPI_TOKEN) return false
-  const normalizedPhone = normalizePhone(phone)
-
+// ─── WhatsApp via BotConversa ─────────────────────────────────────────────────
+async function sendWhatsAppReminder(
+  apiKey: string,
+  botconversaId: string | null | undefined,
+  phone: string | null | undefined,
+  nome: string,
+  area: string,
+  data: string
+): Promise<boolean> {
   const codInterno = Math.random().toString(36).substring(2, 7).toUpperCase()
+  const firstName = nome.split(' ')[0]
   const msg =
     `📅 Lembrete de Reserva\n\n` +
-    `Olá, ${nome.split(' ')[0]}! 😊\n\n` +
+    `Olá, ${firstName}! 😊\n\n` +
     `Você tem uma reserva na *${area}* no dia *${data}*.\n\n` +
     `Não se esqueça! 🎉\n\n` +
     `Condomeet agradece!\n` +
     `Cód interno: ${codInterno}`
 
-  const result = await sendTextMessage(UAZAPI_URL, UAZAPI_TOKEN, normalizedPhone, msg)
+  const result = await smartSend(apiKey, botconversaId, phone, 'text', msg, firstName)
   return result.success
 }
 
@@ -80,6 +83,7 @@ Deno.serve(async (req) => {
 
   try {
     const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY)
+    const BOTCONVERSA_API_KEY = Deno.env.get('BOTCONVERSA_API_KEY') ?? ''
 
     // Datas alvo: hoje+7 e hoje+1
     const today = new Date()
@@ -108,7 +112,7 @@ Deno.serve(async (req) => {
         .select(`
           id, nome_evento, user_id, data_reserva, bloco_destino, apto_destino, condominio_id,
           areas_comuns!inner(tipo_agenda, tipo_reserva, local),
-          perfil:perfil!reservas_user_id_fkey(nome_completo, telefone, whatsapp, fcm_token)
+          perfil:perfil!reservas_user_id_fkey(nome_completo, telefone, whatsapp, botconversa_id, fcm_token)
         `)
         .eq('areas_comuns.tipo_reserva', 'por_dia')
         .eq('data_reserva', date)
@@ -145,9 +149,15 @@ Deno.serve(async (req) => {
         if (hasSpecificUser) {
           // Notify specific user
           const perfil = Array.isArray(reserva.perfil) ? reserva.perfil[0] : reserva.perfil
-          const whatsappNumber = perfil?.whatsapp || perfil?.telefone
-          if (whatsappNumber) {
-            const waSent = await sendWhatsApp(whatsappNumber, perfil.nome_completo ?? '', nomeArea, dataFmt)
+          if (BOTCONVERSA_API_KEY && (perfil?.botconversa_id || perfil?.whatsapp || perfil?.telefone)) {
+            const waSent = await sendWhatsAppReminder(
+              BOTCONVERSA_API_KEY,
+              perfil?.botconversa_id,
+              perfil?.whatsapp || perfil?.telefone,
+              perfil?.nome_completo ?? '',
+              nomeArea,
+              dataFmt
+            )
             if (waSent) canal = 'whatsapp'
           }
           if (canal === 'falha' && perfil?.fcm_token && fcmAccessToken && projectId) {
@@ -158,16 +168,23 @@ Deno.serve(async (req) => {
           // No specific user → notify ALL residents of the unit
           const { data: unitResidents } = await supabase
             .from('perfil')
-            .select('id, nome_completo, whatsapp, telefone, fcm_token, notificacoes_whatsapp')
+            .select('id, nome_completo, whatsapp, botconversa_id, telefone, fcm_token, notificacoes_whatsapp')
             .eq('condominio_id', reserva.condominio_id)
             .eq('bloco_txt', reserva.bloco_destino)
             .eq('apto_txt', reserva.apto_destino)
 
           for (const r of (unitResidents ?? [])) {
-            const rPhone = r.whatsapp || r.telefone
-            if (rPhone && r.notificacoes_whatsapp !== false) {
-              const waSent = await sendWhatsApp(rPhone, r.nome_completo ?? '', nomeArea, dataFmt)
+            if (BOTCONVERSA_API_KEY && r.notificacoes_whatsapp !== false && (r.botconversa_id || r.whatsapp || r.telefone)) {
+              const waSent = await sendWhatsAppReminder(
+                BOTCONVERSA_API_KEY,
+                r.botconversa_id,
+                r.whatsapp || r.telefone,
+                r.nome_completo ?? '',
+                nomeArea,
+                dataFmt
+              )
               if (waSent) canal = 'whatsapp'
+              await new Promise(res => setTimeout(res, DELAY_TEXT_MS))
             }
             if (r.fcm_token && fcmAccessToken && projectId) {
               const pushSent = await sendFcmPush(r.fcm_token, title, body, projectId, fcmAccessToken)

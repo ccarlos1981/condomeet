@@ -6,6 +6,7 @@ import 'package:condomeet/core/utils/structure_helper.dart';
 import 'package:condomeet/features/auth/presentation/bloc/auth_bloc.dart';
 import 'package:condomeet/features/portaria/domain/repositories/resident_repository.dart';
 import 'package:condomeet/core/di/injection_container.dart';
+import 'package:condomeet/features/auth/presentation/widgets/edit_resident_sheet.dart';
 
 /// Status filter for the approval screen
 enum _StatusFilter { pendentes, liberados, bloqueados }
@@ -184,6 +185,14 @@ class _ManagerApprovalScreenState extends State<ManagerApprovalScreen> {
         );
       }
     }
+  }
+
+  void _editResident(Resident resident) {
+    final condoId = context.read<AuthBloc>().state.condominiumId;
+    if (condoId == null) return;
+    EditResidentSheet.show(context, resident, condoId, () {
+      _loadAll(); // Reload when saved
+    });
   }
 
   @override
@@ -520,10 +529,36 @@ class _ManagerApprovalScreenState extends State<ManagerApprovalScreen> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text(resident.fullName,
-                          style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
-                          maxLines: 2,
-                          overflow: TextOverflow.ellipsis),
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Expanded(
+                            child: Text(resident.fullName,
+                                style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+                                maxLines: 2,
+                                overflow: TextOverflow.ellipsis),
+                          ),
+                          GestureDetector(
+                            onTap: () => _editResident(resident),
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                              decoration: BoxDecoration(
+                                color: Colors.blue.shade50,
+                                borderRadius: BorderRadius.circular(20),
+                                border: Border.all(color: Colors.blue.shade100),
+                              ),
+                              child: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Icon(Icons.edit, size: 12, color: Colors.blue.shade700),
+                                  const SizedBox(width: 4),
+                                  Text('Editar', style: TextStyle(fontSize: 10, color: Colors.blue.shade700, fontWeight: FontWeight.bold)),
+                                ],
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
                       const SizedBox(height: 2),
                       Text(unitLabel,
                           style: TextStyle(fontSize: 11, color: Colors.grey.shade600)),

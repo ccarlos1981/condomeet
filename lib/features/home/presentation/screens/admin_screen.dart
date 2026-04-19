@@ -199,7 +199,7 @@ class _AdminScreenState extends State<AdminScreen> {
                 context: context,
                 icon: Icons.gavel_outlined,
                 label: 'Multas e notificações',
-                onTap: () {},
+                onTap: () => Navigator.of(context).pushNamed('/admin-notificacoes-multas').then((_) => _loadPendingCounts()),
               ),
               const SizedBox(height: 24),
               _buildSectionTitle('Parte interna do condomínio'),

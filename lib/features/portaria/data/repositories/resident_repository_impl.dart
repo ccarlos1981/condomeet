@@ -266,5 +266,121 @@ class ResidentRepositoryImpl implements ResidentRepository {
       return Failure('Erro ao desbloquear morador: ${e.toString()}');
     }
   }
+
+  @override
+  Future<Result<void>> updateResidentProfile({
+    required String residentId,
+    required String condominiumId,
+    required String fullName,
+    required String email,
+    required String phone,
+    required String block,
+    required String unit,
+    required String tipoMorador,
+    required String papelSistema,
+  }) async {
+    try {
+      final session = _authRepository.currentSession;
+      if (session == null) return Failure('Sem autorização');
+
+      // 1. Update Perfil
+      await _supabase.from('perfil').update({
+        'nome_completo': fullName,
+        'email': email,
+        'whatsapp': phone,
+        'bloco_txt': block,
+        'apto_txt': unit,
+        'tipo_morador': tipoMorador,
+        'papel_sistema': papelSistema,
+      }).eq('id', residentId);
+      
+      // Update powersync locally for instant feedback
+      try {
+        await _powerSync.db.execute(
+          '''
+          UPDATE perfil SET 
+            nome_completo = ?, email = ?, whatsapp = ?, bloco_txt = ?, apto_txt = ?, tipo_morador = ?, papel_sistema = ?, updated_at = ?
+          WHERE id = ?
+          ''',
+          [fullName, email, phone, block, unit, tipoMorador, papelSistema, DateTime.now().toIso8601String(), residentId]
+        );
+      } catch (_) {}
+
+      // 2. Handle unit bindings directly on Supabase (like web app)
+      if (block.isNotEmpty && unit.isNotEmpty) {
+        // Find or create block
+        String? blocoId;
+        final blocoArr = await _supabase.from('blocos')
+            .select('id').eq('condominio_id', condominiumId).eq('nome_ou_numero', block);
+        if (blocoArr.isNotEmpty) {
+          blocoId = blocoArr[0]['id'];
+        } else {
+          final newBloco = await _supabase.from('blocos').insert({
+            'condominio_id': condominiumId,
+            'nome_ou_numero': block
+          }).select().single();
+          blocoId = newBloco['id'];
+        }
+
+        // Find or create apto
+        String? aptoId;
+        final aptoArr = await _supabase.from('apartamentos')
+            .select('id').eq('condominio_id', condominiumId).eq('numero', unit);
+        if (aptoArr.isNotEmpty) {
+          aptoId = aptoArr[0]['id'];
+        } else {
+          final newApto = await _supabase.from('apartamentos').insert({
+            'condominio_id': condominiumId,
+            'numero': unit
+          }).select().single();
+          aptoId = newApto['id'];
+        }
+
+        // Find or create unidade
+        String? unidadeId;
+        final unitArr = await _supabase.from('unidades')
+            .select('id').eq('condominio_id', condominiumId)
+            .eq('bloco_id', blocoId!).eq('apartamento_id', aptoId!);
+        if (unitArr.isNotEmpty) {
+          unidadeId = unitArr[0]['id'];
+        } else {
+          final newUnit = await _supabase.from('unidades').insert({
+            'condominio_id': condominiumId,
+            'bloco_id': blocoId,
+            'apartamento_id': aptoId,
+            'bloco_txt': block,
+            'apto_txt': unit,
+          }).select().single();
+          unidadeId = newUnit['id'];
+        }
+
+        // Unbind any previous units
+        await _supabase.from('unidade_perfil').delete().eq('perfil_id', residentId);
+        
+        // Insert new binding
+        await _supabase.from('unidade_perfil').insert({
+          'perfil_id': residentId,
+          'unidade_id': unidadeId
+        });
+      }
+
+      return const Success(null);
+    } catch (e) {
+      return Failure('Erro ao salvar morador: ${e.toString()}');
+    }
+  }
+
+  @override
+  Future<Result<void>> resetPassword(String residentId) async {
+    try {
+      await _supabase.rpc('admin_reset_password_by_sindico', params: {
+        'target_user_id': residentId,
+        'reset_password': '123456',
+      });
+      return const Success(null);
+    } catch (e) {
+      return Failure('Erro ao resetar senha: ${e.toString()}');
+    }
+  }
 }
 

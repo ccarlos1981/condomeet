@@ -64,6 +64,8 @@ import 'package:condomeet/features/auth/presentation/screens/splash_screen.dart'
 import 'package:condomeet/features/admin/presentation/screens/universal_push_screen.dart';
 import 'package:condomeet/features/admin/presentation/screens/avisos_admin_screen.dart';
 import 'package:condomeet/features/admin/presentation/screens/album_fotos_admin_screen.dart';
+import 'package:condomeet/features/admin/presentation/screens/notificacoes_multas_admin_screen.dart';
+import 'package:condomeet/features/notificacoes_multas/presentation/screens/notificacoes_multas_screen.dart';
 import 'package:condomeet/features/portaria/presentation/screens/visita_proprietario_screen.dart';
 import 'package:condomeet/features/dinglo/presentation/screens/dinglo_home_screen.dart';
 import 'package:condomeet/features/dinglo/presentation/screens/contas_screen.dart';
@@ -234,6 +236,8 @@ class AppRouter {
       '/admin-album-fotos': (context) => const AlbumFotosAdminScreen(),
       '/universal-push': (context) => const UniversalPushScreen(),
       '/visita-proprietario': (context) => const VisitaProprietarioScreen(),
+      '/admin-notificacoes-multas': (context) => const NotificacoesMultasAdminScreen(),
+      '/notificacoes-multas': (context) => const NotificacoesMultasScreen(),
       // Dinglo Financial Module
       '/dinglo': (context) => const DingloHomeScreen(),
       '/dinglo/contas': (context) => const ContasScreen(),

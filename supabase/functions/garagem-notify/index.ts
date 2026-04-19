@@ -1,7 +1,7 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2"
 import { create } from "https://deno.land/x/djwt@v2.9.1/mod.ts"
-import { sendTextMessage, normalizePhone } from "../_shared/uazapi.ts"
+import { smartSend, DELAY_TEXT_MS } from "../_shared/botconversa.ts"
 
 // ── Dynamic structure labels ────────────────────────────────────────────────
 function getBlocoLabel(tipo?: string): string {
@@ -129,6 +129,7 @@ serve(async (req) => {
       Deno.env.get("SUPABASE_URL") ?? "",
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? ""
     )
+    const BOTCONVERSA_API_KEY = Deno.env.get("BOTCONVERSA_API_KEY") ?? ""
 
     // 3. Fetch reservation + garage data
     const { data: reservation, error: resError } = await supabase
@@ -149,16 +150,16 @@ serve(async (req) => {
       .eq("id", reservation.garage_id)
       .single()
 
-    // 4. Fetch profiles
+    // 4. Fetch profiles (with botconversa_id)
     const { data: renter } = await supabase
       .from("perfil")
-      .select("nome_completo, bloco_txt, apto_txt, whatsapp, fcm_token")
+      .select("nome_completo, bloco_txt, apto_txt, whatsapp, botconversa_id, fcm_token")
       .eq("id", reservation.renter_id)
       .single()
 
     const { data: owner } = await supabase
       .from("perfil")
-      .select("nome_completo, bloco_txt, apto_txt, whatsapp, fcm_token")
+      .select("nome_completo, bloco_txt, apto_txt, whatsapp, botconversa_id, fcm_token")
       .eq("id", garage?.owner_id)
       .single()
 
@@ -175,8 +176,6 @@ serve(async (req) => {
     const aptoLabel = getAptoLabel(tipoEstrutura)
 
     const accessToken = await getAccessToken(serviceAccount)
-    const UAZAPI_URL = Deno.env.get("UAZAPI_URL") ?? ""
-    const UAZAPI_TOKEN = Deno.env.get("UAZAPI_TOKEN") ?? ""
 
     const pushResults: any[] = []
     const whatsappResults: any[] = []
@@ -202,12 +201,11 @@ serve(async (req) => {
         console.log(`[garagem-notify] Owner push: ${result.success ? '✅' : '❌'} ${result.error || ''}`)
       }
 
-      // WhatsApp to owner
-      if (owner?.whatsapp && owner.whatsapp.length > 8 && UAZAPI_URL && UAZAPI_TOKEN) {
+      // WhatsApp to owner via BotConversa
+      if (BOTCONVERSA_API_KEY && (owner?.botconversa_id || owner?.whatsapp)) {
         const waMsg = `🅿️ Condomeet - ${condoNome}\n\nNova solicitação de aluguel de vaga!\n\nVaga: ${vagaId}\nSolicitante: ${renter?.nome_completo ?? "Morador"}\n${blocoLabel}: ${renter?.bloco_txt ?? "?"}\n${aptoLabel}: ${renter?.apto_txt ?? "?"}\n\nPeríodo: ${startDate} a ${endDate}\nVeículo: ${reservation.vehicle_model ?? ""} - Placa: ${reservation.vehicle_plate ?? ""}\nValor: R$ ${Number(reservation.total_price || 0).toFixed(2)}\n\nAcesse o app para confirmar ou recusar.\n\nCondomeet agradece!`
-        const phone = normalizePhone(owner.whatsapp)
-        const waResult = await sendTextMessage(UAZAPI_URL, UAZAPI_TOKEN, phone, waMsg)
-        whatsappResults.push({ success: waResult.success, subscriberId: phone, error: waResult.error })
+        const waResult = await smartSend(BOTCONVERSA_API_KEY, owner.botconversa_id, owner.whatsapp, "text", waMsg)
+        whatsappResults.push({ success: waResult.success, subscriberId: waResult.subscriberId, error: waResult.error })
       }
 
       // Notify portaria too
@@ -247,12 +245,11 @@ serve(async (req) => {
         console.log(`[garagem-notify] Renter push: ${result.success ? '✅' : '❌'} ${result.error || ''}`)
       }
 
-      // WhatsApp to renter
-      if (renter?.whatsapp && renter.whatsapp.length > 8 && UAZAPI_URL && UAZAPI_TOKEN) {
+      // WhatsApp to renter via BotConversa
+      if (BOTCONVERSA_API_KEY && (renter?.botconversa_id || renter?.whatsapp)) {
         const waMsg = `✅ Condomeet - ${condoNome}\n\nSua reserva de vaga foi confirmada!\n\nVaga: ${vagaId}\nProprietário: ${owner?.nome_completo ?? "?"}\nPeríodo: ${startDate} a ${endDate}\nValor: R$ ${Number(reservation.total_price || 0).toFixed(2)}\n\nLembre-se de combinar a entrega da chave/controle com o proprietário.\n\nCondomeet agradece!`
-        const phone = normalizePhone(renter.whatsapp)
-        const waResult = await sendTextMessage(UAZAPI_URL, UAZAPI_TOKEN, phone, waMsg)
-        whatsappResults.push({ success: waResult.success, subscriberId: phone, error: waResult.error })
+        const waResult = await smartSend(BOTCONVERSA_API_KEY, renter.botconversa_id, renter.whatsapp, "text", waMsg)
+        whatsappResults.push({ success: waResult.success, subscriberId: waResult.subscriberId, error: waResult.error })
       }
 
       // Notify portaria about confirmed reservation

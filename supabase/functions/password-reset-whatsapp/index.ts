@@ -1,37 +1,8 @@
 // password-reset-whatsapp — Supabase Edge Function
-// Sends a 6-digit password reset code via WhatsApp (UAZAPI)
+// Sends a 6-digit password reset code via WhatsApp (BotConversa)
 
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
-
-function normalizePhone(raw: string): string {
-  return raw.replace(/\D/g, "")
-}
-
-async function sendTextMessage(
-  uazapiUrl: string,
-  token: string,
-  phone: string,
-  text: string
-): Promise<boolean> {
-  try {
-    const cleaned = normalizePhone(phone)
-    if (cleaned.length < 10) return false
-    const res = await fetch(`${uazapiUrl}/send/text`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Accept: "application/json",
-        token,
-      },
-      body: JSON.stringify({ number: cleaned, text }),
-    })
-    console.log(`WhatsApp → ${cleaned}: ${res.ok ? "✅" : "❌"}`)
-    return res.ok
-  } catch (e: unknown) {
-    console.error("WhatsApp error:", e instanceof Error ? e.message : String(e))
-    return false
-  }
-}
+import { smartSend } from "../_shared/botconversa.ts"
 
 serve(async (req) => {
   try {
@@ -44,11 +15,10 @@ serve(async (req) => {
       )
     }
 
-    const UAZAPI_URL = Deno.env.get("UAZAPI_URL")
-    const UAZAPI_TOKEN = Deno.env.get("UAZAPI_TOKEN")
+    const BOTCONVERSA_API_KEY = Deno.env.get("BOTCONVERSA_API_KEY") ?? ""
 
-    if (!UAZAPI_URL || !UAZAPI_TOKEN) {
-      console.error("UAZAPI_URL or UAZAPI_TOKEN not configured")
+    if (!BOTCONVERSA_API_KEY) {
+      console.error("BOTCONVERSA_API_KEY not configured")
       return new Response(
         JSON.stringify({ error: "WhatsApp not configured" }),
         { status: 500, headers: { "Content-Type": "application/json" } }
@@ -65,16 +35,17 @@ serve(async (req) => {
       `🚫 Não compartilhe este código com ninguém.\n\n` +
       `Condomeet`
 
-    const sent = await sendTextMessage(UAZAPI_URL, UAZAPI_TOKEN, phone, msg)
+    const result = await smartSend(BOTCONVERSA_API_KEY, null, phone, "text", msg, firstName)
 
     return new Response(
-      JSON.stringify({ ok: sent }),
+      JSON.stringify({ ok: result.success }),
       { status: 200, headers: { "Content-Type": "application/json" } }
     )
-  } catch (err: any) {
-    console.error("Unexpected error:", err)
+  } catch (err: unknown) {
+    const msg = err instanceof Error ? err.message : String(err)
+    console.error("Unexpected error:", msg)
     return new Response(
-      JSON.stringify({ error: err.message }),
+      JSON.stringify({ error: msg }),
       { status: 200, headers: { "Content-Type": "application/json" } }
     )
   }

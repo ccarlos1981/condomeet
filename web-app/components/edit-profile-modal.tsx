@@ -27,6 +27,7 @@ export default function EditProfileModal({
 }) {
   const [loading, setLoading] = useState(false)
   const [resetting, setResetting] = useState(false)
+  const [confirmReset, setConfirmReset] = useState(false)
   const [error, setError] = useState('')
   const [successMsg, setSuccessMsg] = useState('')
   const [formData, setFormData] = useState({
@@ -45,7 +46,7 @@ export default function EditProfileModal({
     setLoading(true)
 
     try {
-      await adminUpdateProfile({
+      const res = await adminUpdateProfile({
         id: profile.id,
         nome_completo: formData.nome_completo,
         email: formData.email,
@@ -54,21 +55,36 @@ export default function EditProfileModal({
         apto_txt: formData.apto_txt,
         papel_sistema: formData.papel_sistema,
       })
-      onClose()
+      
+      if (res?.error) {
+        setError(res.error)
+      } else {
+        onClose()
+      }
     } catch (err: any) {
       setError(err.message || 'Erro ao atualizar morador.')
+    } finally {
       setLoading(false)
     }
   }
 
   async function handleResetPassword() {
-    if (!window.confirm('Tem certeza que deseja redefinir a senha do morador para 123456?')) return
+    if (!confirmReset) {
+      setConfirmReset(true)
+      return
+    }
+    
     setError('')
     setSuccessMsg('')
     setResetting(true)
     try {
-      await adminResetPassword(profile.id)
-      setSuccessMsg('Senha resetada com sucesso para 123456.')
+      const res = await adminResetPassword(profile.id)
+      if (res?.error) {
+        setError(res.error)
+      } else {
+        setSuccessMsg('Senha resetada com sucesso para 123456.')
+        setConfirmReset(false)
+      }
     } catch (err: any) {
       setError(err.message || 'Erro ao resetar senha.')
     } finally {
@@ -196,16 +212,37 @@ export default function EditProfileModal({
         </form>
 
         <div className="p-4 border-t border-gray-100 bg-gray-50 flex items-center justify-between rounded-b-3xl">
-          <button
-            type="button"
-            onClick={handleResetPassword}
-            disabled={resetting || loading}
-            className="flex items-center gap-1.5 px-4 py-2.5 text-sm font-semibold text-rose-600 hover:bg-rose-50 rounded-xl transition-colors disabled:opacity-50"
-            title="A senha do usuário será definida para 123456"
-          >
-            <Key size={16} />
-            {resetting ? 'Resetando...' : 'Resetar Senha (123456)'}
-          </button>
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={handleResetPassword}
+              disabled={resetting || loading}
+              className={`flex items-center gap-1.5 px-4 py-2.5 text-sm font-semibold rounded-xl transition-colors disabled:opacity-50 ${
+                confirmReset 
+                  ? 'bg-rose-600 text-white hover:bg-rose-700 shadow-sm' 
+                  : 'text-rose-600 hover:bg-rose-50'
+              }`}
+              title="A senha do usuário será definida para 123456"
+            >
+              <Key size={16} />
+              {resetting 
+                ? 'Resetando...' 
+                : confirmReset 
+                  ? 'Tem certeza? (123456)' 
+                  : 'Resetar Senha (123456)'
+              }
+            </button>
+            {confirmReset && !resetting && (
+              <button
+                type="button"
+                onClick={() => setConfirmReset(false)}
+                className="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-200/50 rounded-xl transition-colors"
+                title="Cancelar reset"
+              >
+                <X size={16} />
+              </button>
+            )}
+          </div>
           <div className="flex justify-end gap-3">
             <button
               type="button"

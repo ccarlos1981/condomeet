@@ -319,7 +319,7 @@ class _PortariaVisitorApprovalScreenState
     final isLiberado = inv.visitanteCompareceu;
     final code = inv.qrData.length >= 3 ? inv.qrData.substring(inv.qrData.length - 3).toUpperCase() : inv.qrData.toUpperCase();
     final dateFormatted = DateFormat('dd/MM/yyyy').format(inv.validityDate);
-    final createdFormatted = DateFormat('dd/MM/yyyy – HH:mm').format(inv.createdAt);
+    final createdFormatted = DateFormat('dd/MM/yyyy – HH:mm').format(inv.createdAt.toLocal());
 
     return Container(
       margin: const EdgeInsets.only(bottom: 12),

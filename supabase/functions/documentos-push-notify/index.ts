@@ -1,12 +1,11 @@
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts'
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 import { create } from 'https://deno.land/x/djwt@v2.9.1/mod.ts'
+import { smartSend, DELAY_TEXT_MS } from '../_shared/botconversa.ts'
 
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
 const FIREBASE_SERVICE_ACCOUNT_JSON = Deno.env.get('FIREBASE_SERVICE_ACCOUNT_JSON')!
-const UAZAPI_URL = Deno.env.get('UAZAPI_URL')
-const UAZAPI_TOKEN = Deno.env.get('UAZAPI_TOKEN')
 
 // ─── FCM helpers ───
 async function getAccessToken(serviceAccount: Record<string, string>): Promise<string> {
@@ -48,25 +47,6 @@ async function getAccessToken(serviceAccount: Record<string, string>): Promise<s
   })
   const tokenData = await tokenResponse.json()
   return tokenData.access_token
-}
-
-// ─── WhatsApp helper ───
-async function sendWhatsApp(phone: string, msg: string): Promise<boolean> {
-  if (!UAZAPI_URL || !UAZAPI_TOKEN) return false
-  try {
-    const cleanedPhone = phone.replace(/\D/g, '')
-    if (cleanedPhone.length < 10) return false
-    const res = await fetch(`${UAZAPI_URL}/send/text`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'Accept': 'application/json', 'token': UAZAPI_TOKEN },
-      body: JSON.stringify({ number: cleanedPhone, text: msg }),
-    })
-    console.log(`WhatsApp → ${cleanedPhone}: ${res.ok ? '✅' : '❌'}`)
-    return res.ok
-  } catch (e) {
-    console.error('WhatsApp error:', e)
-    return false
-  }
 }
 
 function formatDate(dateStr: string | null): string {
@@ -113,6 +93,7 @@ serve(async (req) => {
     }
 
     const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY)
+    const BOTCONVERSA_API_KEY = Deno.env.get('BOTCONVERSA_API_KEY') ?? ''
 
     // ── 1. Push para moradores ──
     const { data: residents, error } = await supabase
@@ -170,11 +151,11 @@ serve(async (req) => {
       }
     }
 
-    // ── 2. WhatsApp para síndicos (on create/edit) ──
+    // ── 2. WhatsApp para síndicos (on create/edit) via BotConversa ──
     let whatsappSent = 0
     const isContrato = tipo_evento === 'novo_contrato' || tipo_evento === 'contrato_editado'
     const isDocumento = tipo_evento === 'novo_documento' || tipo_evento === 'documento_editado'
-    if (isDocumento || isContrato) {
+    if ((isDocumento || isContrato) && BOTCONVERSA_API_KEY) {
       const tableName = isContrato ? 'contratos' : 'documentos'
       const itemLabel = isContrato ? 'contrato' : 'documento'
       const isEdit = tipo_evento === 'documento_editado' || tipo_evento === 'contrato_editado'
@@ -202,18 +183,19 @@ serve(async (req) => {
       // Fetch síndicos
       const { data: sindicos } = await supabase
         .from('perfil')
-        .select('nome_completo, whatsapp, notificacoes_whatsapp')
+        .select('nome_completo, whatsapp, botconversa_id, notificacoes_whatsapp')
         .eq('condominio_id', condominio_id)
         .in('tipo_morador', ['Síndico'])
 
       for (const s of (sindicos ?? [])) {
-        if (s.whatsapp?.trim() && s.notificacoes_whatsapp !== false) {
+        if (s.notificacoes_whatsapp !== false && (s.botconversa_id || s.whatsapp?.trim())) {
           const firstName = (s.nome_completo || 'Síndico').split(' ')[0]
           const cod = genCodInterno()
           const msg = `${headerLine}\nEi, ${firstName}.\n\nO ${itemLabel} de Título:\n${doc?.titulo || titulo || ''}\n\nCategoria do ${itemLabel}:\n${doc?.categoria || ''}\n\nData de Expedição:\n${formatDate(doc?.data_expedicao)}\n\nData de Validade:\n${formatDate(doc?.data_validade)}\n\nCondomeet Agradece.\ncód interno: ${cod}`
 
-          const sent = await sendWhatsApp(s.whatsapp, msg)
-          if (sent) whatsappSent++
+          const result = await smartSend(BOTCONVERSA_API_KEY, s.botconversa_id, s.whatsapp, 'text', msg, firstName)
+          if (result.success) whatsappSent++
+          await new Promise(r => setTimeout(r, DELAY_TEXT_MS))
         }
       }
     }

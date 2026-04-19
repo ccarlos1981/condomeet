@@ -1,6 +1,7 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2"
 import { create, getNumericDate } from "https://deno.land/x/djwt@v2.9.1/mod.ts"
+import { smartSend, DELAY_TEXT_MS } from "../_shared/botconversa.ts"
 
 // ── Dynamic structure labels ────────────────────────────────────────────────
 function getBlocoLabel(tipo?: string): string {
@@ -108,23 +109,7 @@ async function sendFcmMessage(
   }
 }
 
-// ── WhatsApp via UazAPI ──────────────────────────────────────────────────────
-async function sendWhatsApp(url: string, token: string, phone: string, msg: string): Promise<boolean> {
-  try {
-    const cleanedPhone = phone.replace(/\D/g, "")
-    if (cleanedPhone.length < 10) return false
-    const res = await fetch(`${url}/send/text`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json", "Accept": "application/json", "token": token },
-      body: JSON.stringify({ number: cleanedPhone, text: msg }),
-    })
-    console.log(`WhatsApp → ${cleanedPhone}: ${res.ok ? "✅" : "❌"}`)
-    return res.ok
-  } catch (e: unknown) {
-    console.error(`WhatsApp error:`, e instanceof Error ? e.message : String(e))
-    return false
-  }
-}
+// ── WhatsApp ──────────────────────────────────────────────────────
 
 function genCodInterno() {
   return Array.from({ length: 4 }, () =>
@@ -158,8 +143,7 @@ serve(async (req) => {
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? ""
     )
 
-    const UAZAPI_URL = Deno.env.get("UAZAPI_URL")
-    const UAZAPI_TOKEN = Deno.env.get("UAZAPI_TOKEN")
+
 
     // 3. Get resident name and unit info
     const { data: resident, error: resError } = await supabase
@@ -193,7 +177,7 @@ serve(async (req) => {
     // 4. Get síndicos/admins AND porteiros
     const { data: staff, error: staffError } = await supabase
       .from("perfil")
-      .select("id, nome_completo, fcm_token, whatsapp, notificacoes_whatsapp")
+      .select("id, nome_completo, fcm_token, whatsapp, botconversa_id, notificacoes_whatsapp")
       .eq("condominio_id", condominium_id)
       .in("tipo_morador", ["Síndico", "Subsíndico", "Porteiro"])
 
@@ -251,20 +235,21 @@ serve(async (req) => {
     }
 
     // 7. WhatsApp to staff (Síndicos + Porteiros)
-    if (UAZAPI_URL && UAZAPI_TOKEN) {
+    const BOTCONVERSA_API_KEY = Deno.env.get("BOTCONVERSA_API_KEY")
+    if (BOTCONVERSA_API_KEY) {
       let staffWaCount = 0
       for (const s of (staff ?? [])) {
         const sData = s as Record<string, unknown>
-        const sWhatsapp = sData.whatsapp as string | undefined
-        if (sWhatsapp && sWhatsapp.trim() !== "" && sData.notificacoes_whatsapp !== false) {
+        if (sData.notificacoes_whatsapp !== false && (sData.botconversa_id || (sData.whatsapp as string)?.trim())) {
           const msg = buildSosMessage(sData.nome_completo as string)
-          const sent = await sendWhatsApp(UAZAPI_URL, UAZAPI_TOKEN, sWhatsapp, msg)
-          if (sent) staffWaCount++
+          const sentRes = await smartSend(BOTCONVERSA_API_KEY, sData.botconversa_id as string, sData.whatsapp as string, "text", msg)
+          if (sentRes.success) staffWaCount++
+          await new Promise(r => setTimeout(r, DELAY_TEXT_MS))
         }
       }
       allResults.push(`WhatsApp staff: ${staffWaCount}`)
 
-      // 8. WhatsApp to SOS emergency contacts
+      // 8. WhatsApp to SOS emergency contacts (phone-based fallback via smartSend)
       const { data: sosContatos } = await supabase
         .from("sos_contatos")
         .select("contato1_nome, contato1_whatsapp, contato2_nome, contato2_whatsapp")
@@ -279,10 +264,13 @@ serve(async (req) => {
 
         for (const c of contacts) {
           const contactMsg = buildSosMessage(c.nome || "Contato")
-          const sent = await sendWhatsApp(UAZAPI_URL, UAZAPI_TOKEN, c.whatsapp!, contactMsg)
-          allResults.push(`WhatsApp contato ${c.nome}: ${sent ? "✅" : "❌"}`)
+          const sentRes = await smartSend(BOTCONVERSA_API_KEY, null, c.whatsapp!, "text", contactMsg, c.nome || "Contato")
+          allResults.push(`WhatsApp contato ${c.nome}: ${sentRes.success ? "✅" : "❌"}`)
+          await new Promise(r => setTimeout(r, DELAY_TEXT_MS))
         }
       }
+    } else {
+      allResults.push("WhatsApp: BotConversa not configured")
     }
 
     console.log(`SOS notify results:`, allResults)

@@ -2,6 +2,7 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2"
 import { create, getNumericDate } from "https://deno.land/x/djwt@v2.9.1/mod.ts"
+import { smartSend, DELAY_TEXT_MS } from "../_shared/botconversa.ts"
 
 function pemToBinary(pem: string): ArrayBuffer {
   const b64 = pem.replace(/-----BEGIN PRIVATE KEY-----/, "").replace(/-----END PRIVATE KEY-----/, "").replace(/\n/g, "")
@@ -24,22 +25,11 @@ async function getAccessToken(sa: Record<string, string>): Promise<string> {
 async function sendFcmPush(accessToken: string, projectId: string, fcmToken: string, title: string, body: string, data: Record<string, string>): Promise<boolean> {
   try {
     const res = await fetch(`https://fcm.googleapis.com/v1/projects/${projectId}/messages:send`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json", Authorization: `Bearer ${accessToken}` },
+      method: "POST", headers: { "Content-Type": "application/json", Authorization: `Bearer ${accessToken}` },
       body: JSON.stringify({ message: { token: fcmToken, notification: { title, body }, data, android: { priority: "high", notification: { channel_id: "avisos", sound: "condomeet" } }, apns: { payload: { aps: { sound: "condomeet.aiff", badge: 1 } } } } }),
     })
     return res.ok
   } catch { return false }
-}
-
-async function sendWhatsApp(url: string, token: string, phone: string, msg: string): Promise<boolean> {
-  try {
-    const cleanedPhone = phone.replace(/\D/g, "")
-    if (cleanedPhone.length < 10) return false
-    const res = await fetch(`${url}/send/text`, { method: "POST", headers: { "Content-Type": "application/json", "Accept": "application/json", "token": token }, body: JSON.stringify({ number: cleanedPhone, text: msg }) })
-    console.log(`WhatsApp → ${cleanedPhone}: ${res.ok ? "✅" : "❌"}`)
-    return res.ok
-  } catch (e: unknown) { console.error(`WhatsApp error:`, e instanceof Error ? e.message : String(e)); return false }
 }
 
 function genCodInterno(): string {
@@ -55,8 +45,7 @@ serve(async (req) => {
     if (!condominio_id) return new Response(JSON.stringify({ error: "condominio_id required" }), { status: 400 })
 
     const supabase = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!)
-    const UAZAPI_URL = Deno.env.get("UAZAPI_URL")
-    const UAZAPI_TOKEN = Deno.env.get("UAZAPI_TOKEN")
+    const BOTCONVERSA_API_KEY = Deno.env.get("BOTCONVERSA_API_KEY") ?? ""
 
     const { data: condo } = await supabase.from("condominios").select("nome").eq("id", condominio_id).single()
     const condoNome = condo?.nome || "Condomínio"
@@ -75,26 +64,26 @@ serve(async (req) => {
       const bloco = resident?.bloco_txt || "—"
       const apto = resident?.apto_txt || "—"
 
-      // Query síndicos by papel_sistema (matches "Síndico", "Síndico (a)", etc.)
       const { data: sindicos } = await supabase
         .from("perfil")
-        .select("id, whatsapp, fcm_token, notificacoes_whatsapp")
+        .select("id, whatsapp, botconversa_id, fcm_token, notificacoes_whatsapp")
         .eq("condominio_id", condominio_id)
         .eq("status_aprovacao", "aprovado")
         .or("papel_sistema.ilike.%sindico%,papel_sistema.ilike.%síndico%,papel_sistema.eq.ADMIN")
 
       console.log(`[fale-sindico-notify] Found ${sindicos?.length ?? 0} síndicos for condo ${condominio_id}`)
 
-      // Send WhatsApp to all síndicos
-      if (UAZAPI_URL && UAZAPI_TOKEN) {
+      // WhatsApp to síndicos via BotConversa
+      if (BOTCONVERSA_API_KEY) {
         const cod = genCodInterno()
         const msg = `🚨 Condomeet informa! 🚨\n\nO(A) morador(a):\n${residentName}\n\nBloco:\n${bloco}\n\nApto:\n${apto}\n\nAcabou de escrever uma nova mensagem no canal\n\n*Fale com a administração.*\n\nCondomeet agradece!\nCód. interno: ${cod}`
 
         for (const s of (sindicos ?? [])) {
           const sData = s as Record<string, unknown>
-          if ((sData.whatsapp as string)?.trim() && sData.notificacoes_whatsapp !== false) {
-            const sent = await sendWhatsApp(UAZAPI_URL, UAZAPI_TOKEN, sData.whatsapp as string, msg)
-            results.push(`WhatsApp síndico ${(sData.whatsapp as string)?.slice(-4)}: ${sent ? "✅" : "❌"}`)
+          if (sData.notificacoes_whatsapp !== false && (sData.botconversa_id || (sData.whatsapp as string)?.trim())) {
+            const result = await smartSend(BOTCONVERSA_API_KEY, sData.botconversa_id as string, sData.whatsapp as string, "text", msg)
+            results.push(`WhatsApp síndico: ${result.success ? "✅" : "❌"}`)
+            await new Promise(r => setTimeout(r, DELAY_TEXT_MS))
           }
         }
       }
@@ -119,16 +108,16 @@ serve(async (req) => {
       // ── Síndico respondeu → notificar morador ──
       const { data: resident } = await supabase
         .from("perfil")
-        .select("nome_completo, whatsapp, fcm_token, notificacoes_whatsapp")
+        .select("nome_completo, whatsapp, botconversa_id, fcm_token, notificacoes_whatsapp")
         .eq("id", resident_id)
         .single()
 
-      if (resident?.whatsapp && resident.notificacoes_whatsapp !== false && UAZAPI_URL && UAZAPI_TOKEN) {
+      if (resident?.notificacoes_whatsapp !== false && BOTCONVERSA_API_KEY && (resident?.botconversa_id || resident?.whatsapp)) {
         const firstName = resident.nome_completo?.split(" ")[0] || "Morador"
         const cod = genCodInterno()
         const msg = `📬 ${condoNome}\n\nEi ${firstName}, o Síndico do seu condomínio acabou de responder no Fale Conosco.\n\nAbra o app e veja a resposta 😊\n\nCondomeet agradece.\nCód. interno: ${cod}`
-        const sent = await sendWhatsApp(UAZAPI_URL, UAZAPI_TOKEN, resident.whatsapp, msg)
-        results.push(`WhatsApp morador: ${sent ? "✅" : "❌"}`)
+        const result = await smartSend(BOTCONVERSA_API_KEY, resident.botconversa_id, resident.whatsapp, "text", msg, firstName)
+        results.push(`WhatsApp morador: ${result.success ? "✅" : "❌"}`)
       }
 
       if (resident?.fcm_token && resident.fcm_token.length > 10) {

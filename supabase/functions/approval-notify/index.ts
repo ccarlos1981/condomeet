@@ -2,6 +2,7 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2"
 import { create, getNumericDate } from "https://deno.land/x/djwt@v2.9.1/mod.ts"
+import { sendMessage } from "../_shared/botconversa.ts"
 
 // ── FCM helpers ─────────────────────────────────────────────────────────────
 function pemToBinary(pem: string): ArrayBuffer {
@@ -45,28 +46,6 @@ async function getAccessToken(sa: Record<string, string>): Promise<string> {
   return data.access_token
 }
 
-// ── UazAPI WhatsApp ──────────────────────────────────────────────────────────
-async function sendWhatsApp(url: string, token: string, phone: string, msg: string): Promise<boolean> {
-  try {
-    const cleanedPhone = phone.replace(/\D/g, "")
-    const res = await fetch(`${url}/send/text`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "Accept": "application/json",
-        "token": token,
-      },
-      body: JSON.stringify({ number: cleanedPhone, text: msg }),
-    })
-    const data = await res.json()
-    console.log(`WhatsApp → ${cleanedPhone}: ${res.ok ? "✅" : "❌"}`, data?.status || "")
-    return res.ok
-  } catch (e: unknown) {
-    console.error(`WhatsApp error:`, e instanceof Error ? e.message : String(e))
-    return false
-  }
-}
-
 // ── Structure labels ─────────────────────────────────────────────────────────
 function getBlocoLabel(tipo?: string) {
   if (tipo === "casa_quadra") return "Quadra"
@@ -107,7 +86,7 @@ serve(async (req) => {
     // Fetch approved perfil
     const { data: perfil, error: perfilErr } = await supabase
       .from("perfil")
-      .select("nome_completo, whatsapp, fcm_token, bloco_txt, apto_txt, notificacoes_whatsapp")
+      .select("nome_completo, whatsapp, botconversa_id, fcm_token, bloco_txt, apto_txt, notificacoes_whatsapp")
       .eq("id", perfil_id)
       .single()
 
@@ -131,7 +110,7 @@ serve(async (req) => {
     const results: string[] = []
 
     // ── 1. WhatsApp to approved resident ──────────────────────────────────
-    if (perfil.whatsapp && perfil.whatsapp.trim() !== "" && perfil.notificacoes_whatsapp !== false) {
+    if (perfil.botconversa_id && perfil.notificacoes_whatsapp !== false) {
       const codInterno = genCodInterno()
       const msg =
         `😄\n` +
@@ -149,17 +128,16 @@ serve(async (req) => {
         `Condomeet agradece!\n` +
         `Cód interno: ${codInterno}`
 
-      const UAZAPI_URL = Deno.env.get("UAZAPI_URL")
-      const UAZAPI_TOKEN = Deno.env.get("UAZAPI_TOKEN")
+      const BOTCONVERSA_API_KEY = Deno.env.get("BOTCONVERSA_API_KEY")
 
-      if (UAZAPI_URL && UAZAPI_TOKEN) {
-        const sent = await sendWhatsApp(UAZAPI_URL, UAZAPI_TOKEN, perfil.whatsapp, msg)
-        results.push(`WhatsApp resident: ${sent ? "✅" : "❌"}`)
+      if (BOTCONVERSA_API_KEY) {
+        const sentRes = await sendMessage(BOTCONVERSA_API_KEY, perfil.botconversa_id, "text", msg)
+        results.push(`WhatsApp resident: ${sentRes.success ? "✅" : "❌"}`)
       } else {
-        results.push("WhatsApp: UAZAPI not configured")
+        results.push("WhatsApp: BotConversa not configured")
       }
     } else {
-      results.push("WhatsApp: no whatsapp or opt-out")
+      results.push("WhatsApp: no botconversa_id or opt-out")
     }
 
     // ── 2. Push notification to approved resident ─────────────────────────

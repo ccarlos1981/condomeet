@@ -1,10 +1,9 @@
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts'
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
+import { smartSend, DELAY_TEXT_MS } from '../_shared/botconversa.ts'
 
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
-const UAZAPI_URL = Deno.env.get('UAZAPI_URL')
-const UAZAPI_TOKEN = Deno.env.get('UAZAPI_TOKEN')
 
 function genCodInterno(): string {
   return Math.random().toString(36).substring(2, 6).toUpperCase()
@@ -15,28 +14,12 @@ function formatDate(dateStr: string | null): string {
   return dateStr.split('-').reverse().join('/')
 }
 
-async function sendWhatsApp(url: string, token: string, phone: string, msg: string): Promise<boolean> {
-  try {
-    const cleanedPhone = phone.replace(/\D/g, '')
-    if (cleanedPhone.length < 10) return false
-    const res = await fetch(`${url}/send/text`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'Accept': 'application/json', 'token': token },
-      body: JSON.stringify({ number: cleanedPhone, text: msg }),
-    })
-    console.log(`WhatsApp → ${cleanedPhone}: ${res.ok ? '✅' : '❌'}`)
-    return res.ok
-  } catch (e) {
-    console.error('WhatsApp error:', e)
-    return false
-  }
-}
-
 // Verifica documentos E contratos que vencem em exatamente 30, 60 ou 90 dias
 // e dispara WhatsApp para síndicos e push para moradores.
 serve(async (_req) => {
   try {
     const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY)
+    const BOTCONVERSA_API_KEY = Deno.env.get('BOTCONVERSA_API_KEY') ?? ''
     const today = new Date()
     today.setHours(0, 0, 0, 0)
 
@@ -78,23 +61,24 @@ serve(async (_req) => {
           const condoNome = condo?.nome || 'Condomínio'
           const labelCapital = itemLabel.charAt(0).toUpperCase() + itemLabel.slice(1)
 
-          // ── WhatsApp to síndicos ──
-          if (UAZAPI_URL && UAZAPI_TOKEN) {
+          // ── WhatsApp to síndicos via BotConversa ──
+          if (BOTCONVERSA_API_KEY) {
             const { data: sindicos } = await supabase
               .from('perfil')
-              .select('nome_completo, whatsapp, notificacoes_whatsapp')
+              .select('nome_completo, whatsapp, botconversa_id, notificacoes_whatsapp')
               .eq('condominio_id', doc.condominio_id)
               .in('tipo_morador', ['Síndico'])
 
             for (const s of (sindicos ?? [])) {
-              if (s.whatsapp?.trim() && s.notificacoes_whatsapp !== false) {
+              if (s.notificacoes_whatsapp !== false && (s.botconversa_id || s.whatsapp?.trim())) {
                 const firstName = (s.nome_completo || 'Síndico').split(' ')[0]
                 const cod = genCodInterno()
                 const msg = `${labelCapital} do condomínio ${condoNome}\nEi, ${firstName}.\n\nO ${itemLabel} de Título:\n${doc.titulo || ''}\n\nCategoria do ${itemLabel}:\n${doc.categoria || ''}\n\nData de Expedição:\n${formatDate(doc.data_expedicao)}\n\nData de Validade:\n${formatDate(doc.data_validade)}\n\nVencerá daqui a ${label}.\n\nFique atento.\n\nCondomeet Agradece.\ncód interno: ${cod}`
 
-                const sent = await sendWhatsApp(UAZAPI_URL, UAZAPI_TOKEN, s.whatsapp, msg)
-                log.push({ table, doc_id: doc.id, sindico: firstName, canal: sent ? 'whatsapp_ok' : 'whatsapp_fail', dias })
-                if (sent) totalDisparos++
+                const result = await smartSend(BOTCONVERSA_API_KEY, s.botconversa_id, s.whatsapp, 'text', msg, firstName)
+                log.push({ table, doc_id: doc.id, sindico: firstName, canal: result.success ? 'whatsapp_ok' : 'whatsapp_fail', dias })
+                if (result.success) totalDisparos++
+                await new Promise(r => setTimeout(r, DELAY_TEXT_MS))
               }
             }
           }

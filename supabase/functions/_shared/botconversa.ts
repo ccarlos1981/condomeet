@@ -59,6 +59,63 @@ export async function sendMessage(
   }
 }
 
+// ── Send interactive button message ───────────────────────────────────────
+// WhatsApp interactive buttons (max 3 buttons)
+
+export interface InteractiveButton {
+  id: string
+  title: string // max 20 chars
+}
+
+export async function sendInteractiveButtons(
+  apiKey: string,
+  subscriberId: string,
+  bodyText: string,
+  buttons: InteractiveButton[],
+  headerText?: string,
+  footerText?: string
+): Promise<BotConversaSendResult> {
+  try {
+    const interactive: Record<string, unknown> = {
+      type: "button",
+      body: { text: bodyText },
+      action: {
+        buttons: buttons.map((btn) => ({
+          type: "reply",
+          reply: { id: btn.id, title: btn.title },
+        })),
+      },
+    }
+    if (headerText) interactive.header = { type: "text", text: headerText }
+    if (footerText) interactive.footer = { text: footerText }
+
+    const res = await fetch(
+      `${BOTCONVERSA_BASE_URL}/subscriber/${encodeURIComponent(subscriberId)}/send_message/`,
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "API-KEY": apiKey,
+        },
+        body: JSON.stringify({ type: "interactive", value: interactive }),
+      }
+    )
+
+    const resultText = await res.text()
+    if (!res.ok) {
+      console.error(
+        `BotConversa interactive error (${subscriberId}): ${res.status} ${resultText}`
+      )
+      return { success: false, subscriberId, error: `${res.status}: ${resultText}` }
+    }
+    return { success: true, subscriberId }
+  } catch (err: unknown) {
+    const message = err instanceof Error ? err.message : String(err)
+    console.error(`BotConversa interactive error (${subscriberId}):`, message)
+    return { success: false, subscriberId, error: message }
+  }
+}
+
 // ── Send flow ─────────────────────────────────────────────────────────────
 
 export async function sendFlow(
@@ -132,6 +189,83 @@ export async function sendToRecipients(
   }
 
   return results
+}
+
+// ── Phone normalization ───────────────────────────────────────────────────
+
+export function normalizePhone(raw: string): string {
+  let phone = raw.replace(/\D/g, "")
+  if (phone.length > 0 && !phone.startsWith("55")) phone = "55" + phone
+  return phone
+}
+
+// ── Send by phone (fallback when botconversa_id is not available) ─────────
+
+export async function sendByPhone(
+  apiKey: string,
+  phone: string,
+  tipo: "text" | "file",
+  value: string,
+  firstName?: string
+): Promise<BotConversaSendResult> {
+  const cleanPhone = normalizePhone(phone)
+  if (cleanPhone.length < 12) {
+    return { success: false, subscriberId: "", error: "Phone too short" }
+  }
+
+  try {
+    // 1. Resolve subscriber ID from phone
+    const subRes = await fetch(`${BOTCONVERSA_BASE_URL}/subscriber/`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "API-KEY": apiKey,
+      },
+      body: JSON.stringify({
+        phone: cleanPhone,
+        first_name: firstName || "Morador",
+        last_name: ".",
+      }),
+    })
+
+    if (!subRes.ok) {
+      const errText = await subRes.text()
+      console.error(`[BotConversa] Subscriber resolve failed for ${cleanPhone}: ${subRes.status} ${errText}`)
+      return { success: false, subscriberId: "", error: `Subscriber: ${subRes.status}` }
+    }
+
+    const subData = await subRes.json()
+    const subscriberId = String(subData.id || subData.subscriber_id || "")
+    if (!subscriberId) {
+      return { success: false, subscriberId: "", error: "No subscriber ID returned" }
+    }
+
+    // 2. Send using resolved subscriber ID
+    return await sendMessage(apiKey, subscriberId, tipo, value)
+  } catch (err: unknown) {
+    const message = err instanceof Error ? err.message : String(err)
+    console.error(`[BotConversa] sendByPhone error (${cleanPhone}):`, message)
+    return { success: false, subscriberId: "", error: message }
+  }
+}
+
+// ── Smart send: prefer botconversa_id, fallback to phone ──────────────────
+
+export async function smartSend(
+  apiKey: string,
+  botconversaId: string | null | undefined,
+  phone: string | null | undefined,
+  tipo: "text" | "file",
+  value: string,
+  firstName?: string
+): Promise<BotConversaSendResult> {
+  if (botconversaId && botconversaId.length > 0) {
+    return await sendMessage(apiKey, botconversaId, tipo, value)
+  }
+  if (phone && phone.trim().length > 0) {
+    return await sendByPhone(apiKey, phone, tipo, value, firstName)
+  }
+  return { success: false, subscriberId: "", error: "No botconversa_id or phone" }
 }
 
 // ── Webhook parsing (BotConversa format) ─────────────────────────

@@ -45,5 +45,28 @@ post_install do |installer|
       config.build_settings['EXCLUDED_ARCHS[sdk=iphonesimulator*]'] = 'i386'
     end
   end
+  
+  installer.aggregate_targets.each do |target|
+    target.xcconfigs.each do |variant, xcconfig|
+      xcconfig_path = target.client_root + target.xcconfig_relative_path(variant)
+      next unless File.exist?(xcconfig_path)
+      content = File.read(xcconfig_path)
+      if content.include?("DT_TOOLCHAIN_DIR")
+        File.write(xcconfig_path, content.gsub("DT_TOOLCHAIN_DIR", "TOOLCHAIN_DIR"))
+      end
+    end
+  end
+
+  installer.pods_project.targets.each do |target|
+    target.build_configurations.each do |config|
+      next unless config.respond_to?(:base_configuration_reference) && config.base_configuration_reference
+      xcconfig_path = config.base_configuration_reference.real_path
+      next unless File.exist?(xcconfig_path)
+      content = File.read(xcconfig_path)
+      if content.include?("DT_TOOLCHAIN_DIR")
+        File.write(xcconfig_path, content.gsub("DT_TOOLCHAIN_DIR", "TOOLCHAIN_DIR"))
+      end
+    end
+  end
 end
 

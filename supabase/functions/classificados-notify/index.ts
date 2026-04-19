@@ -1,7 +1,7 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2"
 import { create } from "https://deno.land/x/djwt@v2.9.1/mod.ts"
-import { sendTextMessage, normalizePhone } from "../_shared/uazapi.ts"
+import { sendMessage } from "../_shared/botconversa.ts"
 
 // ── Dynamic structure labels ────────────────────────────────────────────────
 function getBlocoLabel(tipo?: string): string {
@@ -141,7 +141,7 @@ serve(async (req) => {
     // 4. Fetch creator profile
     const { data: criador } = await supabase
       .from("perfil")
-      .select("nome_completo, bloco_txt, apto_txt, whatsapp, fcm_token")
+      .select("nome_completo, bloco_txt, apto_txt, whatsapp, botconversa_id, fcm_token")
       .eq("id", classificado.criado_por)
       .single()
 
@@ -158,8 +158,7 @@ serve(async (req) => {
     const aptoLabel = getAptoLabel(tipoEstrutura)
 
     const accessToken = await getAccessToken(serviceAccount)
-    const UAZAPI_URL = Deno.env.get("UAZAPI_URL") ?? ""
-    const UAZAPI_TOKEN = Deno.env.get("UAZAPI_TOKEN") ?? ""
+    const BOTCONVERSA_API_KEY = Deno.env.get("BOTCONVERSA_API_KEY")
 
     let pushResults: any[] = []
     let whatsappResults: any[] = []
@@ -171,7 +170,7 @@ serve(async (req) => {
       // Fetch síndicos (use ilike for accent-safe matching)
       const { data: sindicos, error: sindicosError } = await supabase
         .from("perfil")
-        .select("id, nome_completo, fcm_token, whatsapp")
+        .select("id, nome_completo, fcm_token, botconversa_id")
         .eq("condominio_id", condominio_id)
         .or("papel_sistema.ilike.%síndico%,papel_sistema.ilike.%sindico%,papel_sistema.ilike.%subsíndico%,papel_sistema.ilike.%subsindico%,papel_sistema.eq.admin,papel_sistema.eq.ADMIN")
 
@@ -192,27 +191,27 @@ serve(async (req) => {
         )
       )
 
-      // WhatsApp to síndicos via UazAPI
+      // WhatsApp to síndicos via BotConversa
       const codInterno = classificado.cod_interno || Math.random().toString(36).substring(2, 7).toUpperCase()
       const whatsappMsg = `📦 Condomeet informa\n\nTem um novo anúncio do morador do:\nNome: ${criador?.nome_completo ?? "Morador"}\n\n${blocoLabel}: ${criador?.bloco_txt ?? "?"}\n${aptoLabel}: ${criador?.apto_txt ?? "?"}\n\nAnúncio: ${classificado.titulo}\n\nO anúncio está pronto para você avaliar e se estiver dentro do regimento do condomínio, aprovar.\n\nCondomeet agradece!\nCod. interno: ${codInterno}`
 
-      const whatsappRecipients = (sindicos ?? []).filter((s: any) => s.whatsapp && s.whatsapp.length > 8)
-      console.log(`[classificados-notify] WA recipients: ${whatsappRecipients.length}, UAZAPI_URL set: ${!!UAZAPI_URL}`)
+      const whatsappRecipients = (sindicos ?? []).filter((s: any) => s.botconversa_id && s.botconversa_id.trim() !== "")
+      console.log(`[classificados-notify] WA recipients: ${whatsappRecipients.length}, BOTCONVERSA_API_KEY set: ${!!BOTCONVERSA_API_KEY}`)
 
-      if (whatsappRecipients.length > 0 && UAZAPI_URL && UAZAPI_TOKEN) {
+      if (whatsappRecipients.length > 0 && BOTCONVERSA_API_KEY) {
         for (const recipient of whatsappRecipients) {
-          const phone = normalizePhone(recipient.whatsapp)
-          console.log(`[classificados-notify] Sending WA to ${recipient.nome_completo} (${phone})...`)
-          const result = await sendTextMessage(UAZAPI_URL, UAZAPI_TOKEN, phone, whatsappMsg)
+          const subscriberId = recipient.botconversa_id
+          console.log(`[classificados-notify] Sending WA to ${recipient.nome_completo} (${subscriberId})...`)
+          const result = await sendMessage(BOTCONVERSA_API_KEY, subscriberId, "text", whatsappMsg)
           console.log(`[classificados-notify] WA result: ${result.success ? '✅' : '❌'} ${result.error || ''}`)
-          whatsappResults.push({ success: result.success, subscriberId: phone, error: result.error })
+          whatsappResults.push({ success: result.success, subscriberId, error: result.error })
           // Rate limit between sends
           if (whatsappRecipients.indexOf(recipient) < whatsappRecipients.length - 1) {
             await new Promise(r => setTimeout(r, 1000))
           }
         }
       } else {
-        console.log(`[classificados-notify] SKIPPING WA: recipients=${whatsappRecipients.length} uazapi=${!!UAZAPI_URL}`)
+        console.log(`[classificados-notify] SKIPPING WA: recipients=${whatsappRecipients.length} API_KEY=${!!BOTCONVERSA_API_KEY}`)
       }
     }
 
@@ -268,15 +267,15 @@ serve(async (req) => {
       console.log(`[classificados-notify] Moradores push: ${moradoresSucesso}/${moradoresResults.length}`)
       pushResults.push(...moradoresResults)
 
-      // WhatsApp to creator via UazAPI
-      if (criador?.whatsapp && criador.whatsapp.length > 8 && UAZAPI_URL && UAZAPI_TOKEN) {
+      // WhatsApp to creator via BotConversa
+      if (criador?.botconversa_id && criador.botconversa_id.trim() !== "" && BOTCONVERSA_API_KEY) {
         const codInterno = classificado.cod_interno || Math.random().toString(36).substring(2, 7).toUpperCase()
         const waMsg = `📰 ${condoNome}\n\nSeu anúncio foi aprovado pelo Condomínio!\n\nAnúncio: ${classificado.titulo}\n\nLembre-se que o anúncio terá validade de 60 dias.\nData: ${dataFormatada}\n\nCondomeet agradece!\nCod. interno: ${codInterno}`
-        const phone = normalizePhone(criador.whatsapp)
-        console.log(`[classificados-notify] Sending approval WA to creator ${criador.nome_completo} (${phone})`)
-        const waResult = await sendTextMessage(UAZAPI_URL, UAZAPI_TOKEN, phone, waMsg)
+        const subscriberId = criador.botconversa_id
+        console.log(`[classificados-notify] Sending approval WA to creator ${criador.nome_completo} (${subscriberId})`)
+        const waResult = await sendMessage(BOTCONVERSA_API_KEY, subscriberId, "text", waMsg)
         console.log(`[classificados-notify] WA approval result: ${waResult.success ? '✅' : '❌'} ${waResult.error || ''}`)
-        whatsappResults.push({ success: waResult.success, subscriberId: phone, error: waResult.error })
+        whatsappResults.push({ success: waResult.success, subscriberId, error: waResult.error })
       }
     }
 

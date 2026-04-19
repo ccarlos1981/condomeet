@@ -89,7 +89,8 @@ class Condominium extends Equatable {
           { 'id': 'fale_sindico', 'icon': 'forum', 'label': 'Fale com o Síndico', 'route': '/official-chat', 'visible': true, 'order': 9 },
           { 'id': 'enquetes', 'icon': 'bar_chart', 'label': 'Enquetes', 'route': '/enquetes', 'visible': true, 'order': 10 },
           { 'id': 'indicacoes', 'icon': 'favorite', 'label': 'Indicações de Serviço', 'route': '/indicacoes', 'visible': false, 'order': 11 },
-          { 'id': 'aluguel_vaga', 'icon': 'local_parking', 'label': 'Garagem Inteligente', 'route': '/garagem', 'visible': true, 'order': 12 }
+          { 'id': 'notificacoes_multas', 'icon': 'gavel', 'label': 'Notificações/Multas', 'route': '/notificacoes-multas', 'visible': true, 'order': 12 },
+          { 'id': 'aluguel_vaga', 'icon': 'local_parking', 'label': 'Garagem Inteligente', 'route': '/garagem', 'visible': true, 'order': 13 }
         ],
         'admin_menu': [
           { 'id': 'approvals', 'icon': 'check_circle', 'label': 'Aprovações', 'route': '/manager-approval', 'visible': true, 'order': 1 },

@@ -83,4 +83,20 @@ abstract class ResidentRepository {
 
   /// Unblocks a resident (sets status back to 'aprovado').
   Future<Result<void>> unblockResident(String residentId);
+
+  /// Updates a resident's profile and optionally their unit association
+  Future<Result<void>> updateResidentProfile({
+    required String residentId,
+    required String condominiumId,
+    required String fullName,
+    required String email,
+    required String phone,
+    required String block,
+    required String unit,
+    required String tipoMorador,
+    required String papelSistema,
+  });
+
+  /// Resets a user's password to exactly '123456'
+  Future<Result<void>> resetPassword(String residentId);
 }

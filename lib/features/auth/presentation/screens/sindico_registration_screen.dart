@@ -322,7 +322,15 @@ class _SindicoRegistrationScreenState extends State<SindicoRegistrationScreen> {
                           labelText: 'Senha Numérica',
                           border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
                         ),
-                        validator: (v) => v!.isEmpty || int.tryParse(v) == null ? 'Apenas números' : null,
+                        validator: (v) {
+                          if (v == null || v.isEmpty || int.tryParse(v) == null) {
+                            return 'Apenas números';
+                          }
+                          if (v.length < 6) {
+                            return 'A senha deve ter no mínimo 6 números';
+                          }
+                          return null;
+                        },
                       ),
                       const SizedBox(height: 16),
                       TextFormField(
@@ -334,7 +342,10 @@ class _SindicoRegistrationScreenState extends State<SindicoRegistrationScreen> {
                           labelText: 'Confirme a Senha Numérica',
                           border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
                         ),
-                        validator: (v) => v != _passwordController.text ? 'Senhas não conferem' : null,
+                        validator: (v) {
+                          if (v != _passwordController.text) return 'Senhas não conferem';
+                          return null;
+                        },
                       ),
                     ],
                   ),

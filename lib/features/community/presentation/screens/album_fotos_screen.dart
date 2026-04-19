@@ -355,8 +355,7 @@ class _AlbumFotosScreenState extends State<AlbumFotosScreen> {
                   Padding(
                     padding: const EdgeInsets.only(top: 2),
                     child: Text(album['descricao'],
-                        style: TextStyle(fontSize: 12, color: AppColors.textSecondary),
-                        maxLines: 3, overflow: TextOverflow.ellipsis),
+                        style: TextStyle(fontSize: 12, color: AppColors.textSecondary)),
                   ),
               ],
             ),
@@ -552,10 +551,12 @@ class _AlbumFotosScreenState extends State<AlbumFotosScreen> {
           final roots = comentarios.where((c) => c['parent_id'] == null).toList();
           final replies = comentarios.where((c) => c['parent_id'] != null).toList();
 
+          final bottomPadding = MediaQuery.of(ctx).viewInsets.bottom > 0
+              ? MediaQuery.of(ctx).viewInsets.bottom
+              : MediaQuery.of(ctx).padding.bottom;
+
           return Padding(
-            padding: EdgeInsets.only(
-              bottom: MediaQuery.of(ctx).viewInsets.bottom,
-            ),
+            padding: EdgeInsets.only(bottom: bottomPadding),
             child: SizedBox(
               height: MediaQuery.of(ctx).size.height * 0.65,
               child: Column(children: [

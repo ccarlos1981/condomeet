@@ -23,10 +23,10 @@ export default async function VisitanteCheckinPage() {
     .single()
   const tipoEstrutura = condo?.tipo_estrutura ?? 'predio'
 
-  // Cutoff: yesterday at 21:00 — convites older than this are hidden
+  // Cutoff: 7 days ago at 00:00 — convites older than this are hidden
   const cutoff = new Date()
-  cutoff.setDate(cutoff.getDate() - 1)
-  cutoff.setHours(21, 0, 0, 0)
+  cutoff.setDate(cutoff.getDate() - 7)
+  cutoff.setHours(0, 0, 0, 0)
   const cutoffISO = cutoff.toISOString()
 
   // Fetch initial page of convites (10 items, pendentes by default)

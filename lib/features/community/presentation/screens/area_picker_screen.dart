@@ -72,7 +72,7 @@ class _AreaPickerScreenState extends State<AreaPickerScreen>
 
       final data = await _supabase
           .from('reservas')
-          .select('id, data_reserva, status, nome_evento, areas_comuns(tipo_agenda), areas_comuns_horarios(hora_inicio)')
+          .select('id, data_reserva, status, nome_evento, areas_comuns(tipo_agenda, hrs_cancelar), areas_comuns_horarios(hora_inicio)')
           .eq('user_id', user.id)
           .order('data_reserva', ascending: false)
           .limit(50);
@@ -83,6 +83,43 @@ class _AreaPickerScreenState extends State<AreaPickerScreen>
       });
     } catch (e) {
       setState(() => _loadingReservas = false);
+    }
+  }
+
+  Future<void> _deleteReserva(String id) async {
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Excluir Agendamento'),
+        content: const Text('Tem certeza que deseja excluir este agendamento? Esta ação não pode ser desfeita.'),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Voltar')),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, true), 
+            child: const Text('Excluir', style: TextStyle(color: Colors.red)),
+          ),
+        ],
+      ),
+    );
+
+    if (confirm != true) return;
+
+    setState(() => _loadingReservas = true);
+    try {
+      await _supabase.from('reservas').delete().eq('id', id);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Agendamento excluído com sucesso!'), backgroundColor: Colors.green),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Erro ao excluir: $e'), backgroundColor: Colors.red),
+        );
+      }
+    } finally {
+      _loadReservas();
     }
   }
 
@@ -207,10 +244,10 @@ class _AreaPickerScreenState extends State<AreaPickerScreen>
     final area = r['areas_comuns'] as Map<String, dynamic>?;
     final horario = r['areas_comuns_horarios'] as Map<String, dynamic>?;
     final nome = area?['tipo_agenda'] as String? ?? r['nome_evento'] as String? ?? '—';
-    final data = _fmtData(r['data_reserva'] as String? ?? '');
-    final hora = horario != null
-        ? (horario['hora_inicio'] as String?)?.substring(0, 5) ?? 'Dia inteiro'
-        : 'Dia inteiro';
+    final rawDate = r['data_reserva'] as String? ?? '';
+    final data = _fmtData(rawDate);
+    final rawTime = horario != null ? (horario['hora_inicio'] as String?) : null;
+    final hora = rawTime?.substring(0, 5) ?? 'Dia inteiro';
     final status = r['status'] as String? ?? 'pendente';
 
     Color statusColor;
@@ -221,6 +258,20 @@ class _AreaPickerScreenState extends State<AreaPickerScreen>
       case 'reprovado': statusColor = Colors.red; statusLabel = 'Reprovado'; break;
       case 'cancelado': statusColor = Colors.grey; statusLabel = 'Cancelado'; break;
       default: statusColor = Colors.grey; statusLabel = status;
+    }
+
+    bool canDelete = false;
+    if (status == 'pendente') {
+      final hrsCancelar = area?['hrs_cancelar'] as int? ?? 0;
+      final parsedDate = DateTime.tryParse('$rawDate ${rawTime ?? '00:00:00'}');
+      if (parsedDate != null) {
+        final limitDt = parsedDate.subtract(Duration(hours: hrsCancelar));
+        if (DateTime.now().isBefore(limitDt)) {
+          canDelete = true;
+        }
+      } else {
+        canDelete = true;
+      }
     }
 
     return Container(
@@ -251,14 +302,30 @@ class _AreaPickerScreenState extends State<AreaPickerScreen>
               Text('$data  •  $hora', style: const TextStyle(fontSize: 12, color: AppColors.textHint)),
             ],
           )),
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-            decoration: BoxDecoration(
-              color: statusColor.withValues(alpha: 0.12),
-              borderRadius: BorderRadius.circular(20),
-            ),
-            child: Text(statusLabel,
-              style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: statusColor)),
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.end,
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                decoration: BoxDecoration(
+                  color: statusColor.withValues(alpha: 0.12),
+                  borderRadius: BorderRadius.circular(20),
+                ),
+                child: Text(statusLabel,
+                  style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: statusColor)),
+              ),
+              if (canDelete) ...[
+                const SizedBox(height: 8),
+                InkWell(
+                  onTap: () => _deleteReserva(r['id'] as String),
+                  child: const Padding(
+                    padding: EdgeInsets.all(4.0),
+                    child: Icon(Icons.delete_outline, color: Colors.red, size: 20),
+                  ),
+                ),
+              ],
+            ],
           ),
         ]),
       ),

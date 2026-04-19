@@ -2,6 +2,7 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2"
 import { create, getNumericDate } from "https://deno.land/x/djwt@v2.9.1/mod.ts"
+import { smartSend, DELAY_TEXT_MS } from "../_shared/botconversa.ts"
 
 // ── FCM helpers ─────────────────────────────────────────────────────────────
 function pemToBinary(pem: string): ArrayBuffer {
@@ -43,27 +44,6 @@ async function getAccessToken(sa: Record<string, string>): Promise<string> {
   return data.access_token
 }
 
-// ── WhatsApp via UazAPI ──────────────────────────────────────────────────────
-async function sendWhatsApp(url: string, token: string, phone: string, msg: string): Promise<boolean> {
-  try {
-    const cleanedPhone = phone.replace(/\D/g, "")
-    const res = await fetch(`${url}/send/text`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "Accept": "application/json",
-        "token": token,
-      },
-      body: JSON.stringify({ number: cleanedPhone, text: msg }),
-    })
-    console.log(`WhatsApp → ${cleanedPhone}: ${res.ok ? "✅" : "❌"}`)
-    return res.ok
-  } catch (e: unknown) {
-    console.error(`WhatsApp error:`, e instanceof Error ? e.message : String(e))
-    return false
-  }
-}
-
 function genCodInterno() {
   return Array.from({ length: 4 }, () =>
     "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789"[
@@ -103,14 +83,12 @@ serve(async (req) => {
       Deno.env.get("SUPABASE_URL")!,
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
     )
-
-    const UAZAPI_URL = Deno.env.get("UAZAPI_URL")
-    const UAZAPI_TOKEN = Deno.env.get("UAZAPI_TOKEN")
+    const BOTCONVERSA_API_KEY = Deno.env.get("BOTCONVERSA_API_KEY") ?? ""
 
     // Fetch perfil data
     const { data: perfil, error: perfilErr } = await supabase
       .from("perfil")
-      .select("nome_completo, whatsapp, bloco_txt, apto_txt, tipo_morador, notificacoes_whatsapp")
+      .select("nome_completo, whatsapp, botconversa_id, bloco_txt, apto_txt, tipo_morador, notificacoes_whatsapp")
       .eq("id", perfil_id)
       .single()
 
@@ -138,7 +116,7 @@ serve(async (req) => {
     // ═════════════════════════════════════════════════════════════════
     // PART 1: Welcome messages to the new resident (2 messages)
     // ═════════════════════════════════════════════════════════════════
-    if (perfil.whatsapp && perfil.whatsapp.trim() !== "" && perfil.notificacoes_whatsapp !== false && UAZAPI_URL && UAZAPI_TOKEN) {
+    if (perfil.notificacoes_whatsapp !== false && BOTCONVERSA_API_KEY && (perfil.botconversa_id || perfil.whatsapp?.trim())) {
       // Message 1: Welcome
       const cod1 = genCodInterno()
       const msg1 =
@@ -151,8 +129,8 @@ serve(async (req) => {
         `Condomeet agradece!\n` +
         `Cód interno: ${cod1}`
 
-      const sent1 = await sendWhatsApp(UAZAPI_URL, UAZAPI_TOKEN, perfil.whatsapp, msg1)
-      results.push(`WhatsApp msg1: ${sent1 ? "✅" : "❌"}`)
+      const result1 = await smartSend(BOTCONVERSA_API_KEY, perfil.botconversa_id, perfil.whatsapp, "text", msg1, firstName)
+      results.push(`WhatsApp msg1: ${result1.success ? "✅" : "❌"}`)
 
       // Wait 5 seconds before second message
       await delay(5000)
@@ -175,8 +153,8 @@ serve(async (req) => {
         `Seja Bem vindo(a)!\n` +
         `Cód interno: ${cod2}`
 
-      const sent2 = await sendWhatsApp(UAZAPI_URL, UAZAPI_TOKEN, perfil.whatsapp, msg2)
-      results.push(`WhatsApp msg2: ${sent2 ? "✅" : "❌"}`)
+      const result2 = await smartSend(BOTCONVERSA_API_KEY, perfil.botconversa_id, perfil.whatsapp, "text", msg2, firstName)
+      results.push(`WhatsApp msg2: ${result2.success ? "✅" : "❌"}`)
     } else {
       results.push("WhatsApp resident: skipped (no whatsapp or opt-out)")
     }
@@ -186,13 +164,13 @@ serve(async (req) => {
     // ═════════════════════════════════════════════════════════════════
     const { data: sindicos } = await supabase
       .from("perfil")
-      .select("id, whatsapp, fcm_token, notificacoes_whatsapp")
+      .select("id, whatsapp, botconversa_id, fcm_token, notificacoes_whatsapp")
       .eq("condominio_id", condominio_id)
       .in("tipo_morador", ["Síndico"])
 
     const validSindicos = (sindicos ?? []).filter((s: Record<string, unknown>) => s.id !== perfil_id)
 
-    if (validSindicos.length > 0 && UAZAPI_URL && UAZAPI_TOKEN) {
+    if (validSindicos.length > 0 && BOTCONVERSA_API_KEY) {
       const codSindico = genCodInterno()
       const msgSindico =
         `📗 Novo cadastro no ${condoNome}\n` +
@@ -224,14 +202,13 @@ serve(async (req) => {
       let sindicoWhatsappCount = 0
       for (let i = 0; i < validSindicos.length; i++) {
         const s = validSindicos[i] as Record<string, unknown>
-        const sWhatsapp = s.whatsapp as string | undefined
-        if (sWhatsapp && sWhatsapp.trim() !== "" && s.notificacoes_whatsapp !== false) {
+        if (s.notificacoes_whatsapp !== false && (s.botconversa_id || (s.whatsapp as string)?.trim())) {
           if (i > 0) {
-            const d = Math.floor(Math.random() * 10000) + 5000
+            const d = Math.floor(Math.random() * 5000) + 3000
             await delay(d)
           }
-          const sent = await sendWhatsApp(UAZAPI_URL, UAZAPI_TOKEN, sWhatsapp, msgSindico)
-          if (sent) sindicoWhatsappCount++
+          const result = await smartSend(BOTCONVERSA_API_KEY, s.botconversa_id as string, s.whatsapp as string, "text", msgSindico)
+          if (result.success) sindicoWhatsappCount++
         }
       }
       results.push(`WhatsApp síndicos: ${sindicoWhatsappCount}/${validSindicos.length}`)
@@ -276,7 +253,7 @@ serve(async (req) => {
         console.error("Push síndico error:", e instanceof Error ? e.message : String(e))
       }
     } else {
-      results.push("Síndicos: none found or UAZAPI not configured")
+      results.push("Síndicos: none found or BotConversa not configured")
     }
 
     console.log(`welcome-notify results:`, results)

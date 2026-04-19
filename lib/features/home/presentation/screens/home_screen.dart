@@ -1195,6 +1195,7 @@ class _HomeScreenState extends State<HomeScreen> {
       'erikaosc@gmail.com',
       'erikaosc+real@gmail.com',
       'erikaosc+4@gmail.com',
+      'erikaosc+5@gmail.com',
       'ccarlos1981@gmail.com',
     ];
     return allowedEmails.contains(userEmail);

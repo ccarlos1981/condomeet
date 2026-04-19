@@ -55,6 +55,7 @@ export default function MoradoresClient({ moradores, tipoEstrutura }: { moradore
   const blocoLabel = getBlocoLabel(tipoEstrutura)
   const aptoLabel = getAptoLabel(tipoEstrutura)
   const [search, setSearch] = useState('')
+  const [emailSearch, setEmailSearch] = useState('')
   const [roleFilter, setRoleFilter] = useState<string | null>(null)
   const [currentPage, setCurrentPage] = useState(1)
   const [editingProfile, setEditingProfile] = useState<Morador | null>(null)
@@ -72,24 +73,51 @@ export default function MoradoresClient({ moradores, tipoEstrutura }: { moradore
   const filtered = useMemo(() => {
     return moradores.filter(m => {
       if (roleFilter && !(m.papel_sistema ?? '').toLowerCase().includes(roleFilter.toLowerCase())) return false
-      if (!search) return true
-      const q = search.toLowerCase()
-      return (
-        (m.nome_completo ?? '').toLowerCase().includes(q) ||
-        (m.papel_sistema ?? '').toLowerCase().includes(q) ||
-        (m.bloco_txt ?? '').toLowerCase().includes(q) ||
-        (m.apto_txt ?? '').toLowerCase().includes(q)
-      )
+      
+      if (search) {
+        const q = search.toLowerCase()
+        const matchesSearch = (
+          (m.nome_completo ?? '').toLowerCase().includes(q) ||
+          (m.papel_sistema ?? '').toLowerCase().includes(q) ||
+          (m.bloco_txt ?? '').toLowerCase().includes(q) ||
+          (m.apto_txt ?? '').toLowerCase().includes(q)
+        )
+        if (!matchesSearch) return false
+      }
+
+      if (emailSearch) {
+        const qEmail = emailSearch.toLowerCase()
+        if (!(m.email ?? '').toLowerCase().includes(qEmail)) return false
+      }
+
+      return true
     })
-  }, [moradores, search, roleFilter])
+  }, [moradores, search, emailSearch, roleFilter])
 
   // Pagination
   const totalPages = Math.max(1, Math.ceil(filtered.length / ITEMS_PER_PAGE))
   const safePage = Math.min(currentPage, totalPages)
   const paginatedItems = filtered.slice((safePage - 1) * ITEMS_PER_PAGE, safePage * ITEMS_PER_PAGE)
 
+  const getPaginationItems = () => {
+    const items: (number | string)[] = []
+    if (totalPages <= 5) {
+      for (let i = 1; i <= totalPages; i++) items.push(i)
+    } else {
+      if (safePage <= 3) {
+        items.push(1, 2, 3, 4, '...', totalPages)
+      } else if (safePage >= totalPages - 2) {
+        items.push(1, '...', totalPages - 3, totalPages - 2, totalPages - 1, totalPages)
+      } else {
+        items.push(1, '...', safePage - 1, safePage, safePage + 1, '...', totalPages)
+      }
+    }
+    return items
+  }
+
   // Reset to page 1 when filters change
   const handleSearch = (val: string) => { setSearch(val); setCurrentPage(1) }
+  const handleEmailSearch = (val: string) => { setEmailSearch(val); setCurrentPage(1) }
   const handleRoleFilter = (val: string | null) => { setRoleFilter(val); setCurrentPage(1) }
 
   return (
@@ -108,20 +136,38 @@ export default function MoradoresClient({ moradores, tipoEstrutura }: { moradore
           </div>
         </div>
         {/* Search */}
-        <div className="relative w-full sm:w-80">
-          <Search size={16} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400" />
-          <input
-            type="text"
-            value={search}
-            onChange={e => handleSearch(e.target.value)}
-            placeholder={`Buscar por nome, ${blocoLabel.toLowerCase()}, ${aptoLabel.toLowerCase()}...`}
-            className="w-full pl-10 pr-9 py-2.5 rounded-xl border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-[#FC5931]/20 focus:border-[#FC5931] bg-white shadow-sm transition-all"
-          />
-          {search && (
-            <button onClick={() => handleSearch('')} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600" title="Limpar busca">
-              <X size={14} />
-            </button>
-          )}
+        <div className="flex flex-col sm:flex-row gap-2 w-full sm:w-auto">
+          <div className="relative w-full sm:w-64">
+            <Search size={16} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400" />
+            <input
+              type="text"
+              value={search}
+              onChange={e => handleSearch(e.target.value)}
+              placeholder={`Buscar por nome, ${blocoLabel.toLowerCase()}...`}
+              className="w-full pl-10 pr-9 py-2.5 rounded-xl border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-[#FC5931]/20 focus:border-[#FC5931] bg-white shadow-sm transition-all"
+            />
+            {search && (
+              <button onClick={() => handleSearch('')} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600" title="Limpar busca">
+                <X size={14} />
+              </button>
+            )}
+          </div>
+          
+          <div className="relative w-full sm:w-56">
+            <Search size={16} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400" />
+            <input
+              type="text"
+              value={emailSearch}
+              onChange={e => handleEmailSearch(e.target.value)}
+              placeholder="Buscar por e-mail..."
+              className="w-full pl-10 pr-9 py-2.5 rounded-xl border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-[#FC5931]/20 focus:border-[#FC5931] bg-white shadow-sm transition-all"
+            />
+            {emailSearch && (
+              <button onClick={() => handleEmailSearch('')} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600" title="Limpar busca">
+                <X size={14} />
+              </button>
+            )}
+          </div>
         </div>
       </div>
 
@@ -291,19 +337,25 @@ export default function MoradoresClient({ moradores, tipoEstrutura }: { moradore
               </button>
 
               {/* Page numbers */}
-              {Array.from({ length: totalPages }, (_, i) => i + 1).map(page => (
-                <button
-                  key={page}
-                  onClick={() => setCurrentPage(page)}
-                  className={`w-9 h-9 rounded-xl text-sm font-bold transition-all ${
-                    page === safePage
-                      ? 'bg-[#FC5931] text-white shadow-sm'
-                      : 'bg-white border border-gray-200 text-gray-600 hover:bg-gray-50'
-                  }`}
-                >
-                  {page}
-                </button>
-              ))}
+              {getPaginationItems().map((item, index) => {
+                if (item === '...') {
+                  return <span key={`ellipsis-${index}`} className="px-2 text-gray-400 select-none">...</span>
+                }
+                const page = item as number
+                return (
+                  <button
+                    key={page}
+                    onClick={() => setCurrentPage(page)}
+                    className={`w-9 h-9 flex-shrink-0 rounded-xl text-sm font-bold transition-all ${
+                      page === safePage
+                        ? 'bg-[#FC5931] text-white shadow-sm'
+                        : 'bg-white border border-gray-200 text-gray-600 hover:bg-gray-50'
+                    }`}
+                  >
+                    {page}
+                  </button>
+                )
+              })}
 
               {/* Next */}
               <button

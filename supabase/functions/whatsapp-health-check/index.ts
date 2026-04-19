@@ -1,8 +1,11 @@
-// whatsapp-health-check — Cron job that monitors UAZAPI WhatsApp status
-// Runs every 15 minutes. If UAZAPI is down, sends email alerts.
+// whatsapp-health-check — Cron job that monitors WhatsApp messaging status
+// Now that we use BotConversa (managed SaaS), this function simply verifies
+// the API key is set and the BotConversa API is reachable.
+// Runs every 15 minutes. If BotConversa is unreachable, sends email alerts.
 // Uses Resend API for email delivery.
 
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2"
+import { BOTCONVERSA_BASE_URL } from "../_shared/botconversa.ts"
 
 const ALERT_EMAILS = [
   "cristiano.santos@gmx.com",
@@ -17,15 +20,14 @@ const FAIL_THRESHOLD = 2
 
 Deno.serve(async (_req: Request) => {
   try {
-    const UAZAPI_URL = Deno.env.get("UAZAPI_URL")
-    const UAZAPI_TOKEN = Deno.env.get("UAZAPI_TOKEN")
+    const BOTCONVERSA_API_KEY = Deno.env.get("BOTCONVERSA_API_KEY") ?? ""
     const RESEND_API_KEY = Deno.env.get("RESEND_API_KEY")
     const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!
     const SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") || Deno.env.get("SERVICE_ROLE_KEY")!
 
-    if (!UAZAPI_URL || !UAZAPI_TOKEN) {
-      console.error("[HealthCheck] UAZAPI_URL or UAZAPI_TOKEN not configured")
-      return new Response(JSON.stringify({ error: "UAZAPI not configured" }), { status: 500 })
+    if (!BOTCONVERSA_API_KEY) {
+      console.error("[HealthCheck] BOTCONVERSA_API_KEY not configured")
+      return new Response(JSON.stringify({ error: "BotConversa not configured" }), { status: 500 })
     }
 
     if (!RESEND_API_KEY) {
@@ -35,86 +37,31 @@ Deno.serve(async (_req: Request) => {
 
     const supabase = createClient(SUPABASE_URL, SERVICE_ROLE_KEY)
 
-    // ── 1. Check UAZAPI status ──────────────────────────────────────────
-    let uazapiOk = false
+    // ── 1. Check BotConversa API reachability ──────────────────────────────
+    let apiOk = false
     let errorMsg = ""
 
     try {
-      // Try the status endpoint
-      const res = await fetch(`${UAZAPI_URL}/status`, {
+      // Try fetching subscriber list (lightweight endpoint) to verify API key works
+      const res = await fetch(`${BOTCONVERSA_BASE_URL}/subscriber/?page_size=1`, {
         method: "GET",
-        headers: { token: UAZAPI_TOKEN, Accept: "application/json" },
-        signal: AbortSignal.timeout(15000), // 15s timeout
+        headers: {
+          "API-KEY": BOTCONVERSA_API_KEY,
+          "Accept": "application/json",
+        },
+        signal: AbortSignal.timeout(15000),
       })
 
       if (res.ok) {
-        const rawText = await res.text()
-        console.log(`[HealthCheck] /status response: ${rawText.substring(0, 500)}`)
-        
-        // Deep search the entire JSON string for connection indicators
-        const lower = rawText.toLowerCase()
-        if (lower.includes('"open"') || lower.includes('"connected"') || 
-            lower.includes('"islogged"') || lower.includes('"online"') ||
-            lower.includes('"isloggedin":true') || lower.includes('"islogged":true') ||
-            lower.includes('"connected":true')) {
-          uazapiOk = true
-        } else {
-          errorMsg = `UAZAPI respondeu mas sem indicador de conexão. Resposta: ${rawText.substring(0, 300)}`
-        }
+        apiOk = true
+        console.log("[HealthCheck] BotConversa API is OK")
       } else {
         const body = await res.text().catch(() => "")
-        errorMsg = `UAZAPI retornou HTTP ${res.status}: ${body.substring(0, 200)}`
+        errorMsg = `BotConversa retornou HTTP ${res.status}: ${body.substring(0, 200)}`
       }
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : String(err)
-      errorMsg = `UAZAPI não respondeu: ${msg}`
-    }
-
-    // Fallback: try /instance endpoint
-    if (!uazapiOk) {
-      try {
-        const res2 = await fetch(`${UAZAPI_URL}/instance`, {
-          method: "GET",
-          headers: { token: UAZAPI_TOKEN, Accept: "application/json" },
-          signal: AbortSignal.timeout(10000),
-        })
-        if (res2.ok) {
-          const rawText2 = await res2.text()
-          console.log(`[HealthCheck] /instance response: ${rawText2.substring(0, 500)}`)
-          const lower2 = rawText2.toLowerCase()
-          if (lower2.includes('"open"') || lower2.includes('"connected"') || 
-              lower2.includes('"islogged"') || lower2.includes('"online"') ||
-              lower2.includes('"isloggedin":true') || lower2.includes('"islogged":true') ||
-              lower2.includes('"connected":true')) {
-            uazapiOk = true
-            errorMsg = ""
-          }
-        }
-      } catch (_) {
-        // keep original error
-      }
-    }
-
-    // Last resort: try sending a test to verify UAZAPI is reachable and authenticated
-    if (!uazapiOk) {
-      try {
-        // Just ping the API root
-        const res3 = await fetch(UAZAPI_URL, {
-          method: "GET",
-          headers: { token: UAZAPI_TOKEN },
-          signal: AbortSignal.timeout(10000),
-        })
-        if (res3.ok) {
-          // API is reachable and authenticated, assume it's working
-          const rawText3 = await res3.text()
-          console.log(`[HealthCheck] Root response: ${rawText3.substring(0, 300)}`)
-          // If the root responds with 200, the API is up
-          uazapiOk = true
-          errorMsg = ""
-        }
-      } catch (_) {
-        // keep original error
-      }
+      errorMsg = `BotConversa não respondeu: ${msg}`
     }
 
     // ── 2. Get current health status from DB ────────────────────────────
@@ -131,8 +78,8 @@ Deno.serve(async (_req: Request) => {
 
     // ── 3. Handle status ────────────────────────────────────────────────
 
-    if (uazapiOk) {
-      // ▶ WhatsApp is OK
+    if (apiOk) {
+      // ▶ BotConversa is OK
       const wasDown = previousStatus === "down"
 
       await supabase
@@ -151,18 +98,18 @@ Deno.serve(async (_req: Request) => {
           RESEND_API_KEY,
           "✅ WhatsApp Condomeet VOLTOU!",
           `<h2>✅ WhatsApp voltou ao normal!</h2>
-           <p>O serviço de WhatsApp (UAZAPI) do Condomeet voltou a funcionar.</p>
+           <p>O serviço de WhatsApp (BotConversa) do Condomeet voltou a funcionar.</p>
            <p><strong>Hora da recuperação:</strong> ${formatDateBR(now)}</p>
            <p>As mensagens voltarão a ser enviadas normalmente.</p>`
         )
         console.log("[HealthCheck] Recovery email sent")
       }
 
-      console.log("[HealthCheck] UAZAPI is OK")
+      console.log("[HealthCheck] BotConversa is OK")
       return new Response(JSON.stringify({ status: "ok", checked_at: now.toISOString() }))
     }
 
-    // ▶ WhatsApp is DOWN
+    // ▶ BotConversa is DOWN
     const newFailCount = currentFailCount + 1
 
     await supabase
@@ -175,7 +122,7 @@ Deno.serve(async (_req: Request) => {
       })
       .eq("id", "singleton")
 
-    console.warn(`[HealthCheck] UAZAPI DOWN! fail_count=${newFailCount}, error: ${errorMsg}`)
+    console.warn(`[HealthCheck] BotConversa DOWN! fail_count=${newFailCount}, error: ${errorMsg}`)
 
     // Only alert after threshold consecutive failures AND respect cooldown
     const shouldAlert = newFailCount >= FAIL_THRESHOLD &&
@@ -186,7 +133,7 @@ Deno.serve(async (_req: Request) => {
         RESEND_API_KEY,
         "🚨 ALERTA: WhatsApp Condomeet FORA DO AR!",
         `<h2>🚨 WhatsApp do Condomeet está fora do ar!</h2>
-         <p>O sistema detectou que o serviço de WhatsApp (UAZAPI) não está funcionando corretamente.</p>
+         <p>O sistema detectou que o serviço de WhatsApp (BotConversa) não está funcionando corretamente.</p>
          <p><strong>Erro:</strong> ${errorMsg}</p>
          <p><strong>Falhas consecutivas:</strong> ${newFailCount}</p>
          <p><strong>Detectado em:</strong> ${formatDateBR(now)}</p>
@@ -197,7 +144,7 @@ Deno.serve(async (_req: Request) => {
            <li>Chatbot IA Meet não está respondendo</li>
            <li>Alertas de visitante por WhatsApp não estão funcionando</li>
          </ul>
-         <p>Verifique o painel UAZAPI e o número de WhatsApp conectado.</p>
+         <p>Verifique o painel BotConversa e a configuração da API Key.</p>
          <p style="color:gray;font-size:12px;">Este alerta é enviado automaticamente pelo Condomeet. Próximo alerta em no mínimo 1 hora se o problema persistir.</p>`
       )
 

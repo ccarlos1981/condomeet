@@ -203,32 +203,50 @@ class _ChangePasswordSheetState extends State<ChangePasswordSheet> {
     setState(() { _isLoading = true; _errorMsg = null; _successMsg = null; });
 
     try {
-      final result = await Supabase.instance.client.rpc(
-        'change_user_password',
-        params: {
-          'current_password': current,
-          'new_password': newPass,
-        },
+      final user = Supabase.instance.client.auth.currentUser;
+      if (user == null || user.email == null) {
+        setState(() {
+          _isLoading = false;
+          _errorMsg = 'Usuário não autenticado.';
+        });
+        return;
+      }
+
+      // 1. Verify current password by attempting to sign in
+      try {
+        await Supabase.instance.client.auth.signInWithPassword(
+          email: user.email!,
+          password: current,
+        );
+      } on AuthException catch (e) {
+        if (e.message.toLowerCase().contains('invalid login credentials')) {
+          setState(() {
+            _isLoading = false;
+            _errorMsg = 'Senha atual incorreta.';
+          });
+          return;
+        }
+        rethrow;
+      }
+
+      // 2. Update to new password using native Supabase API
+      await Supabase.instance.client.auth.updateUser(
+        UserAttributes(password: newPass),
       );
 
-      if (result != null && result['success'] == true) {
-        setState(() {
-          _isLoading = false;
-          _successMsg = 'Senha alterada com sucesso!';
-          _currentController.clear();
-          _newController.clear();
-          _confirmController.clear();
-        });
-        // Close after 2 seconds
-        Future.delayed(const Duration(seconds: 2), () {
-          if (mounted) Navigator.of(context).pop();
-        });
-      } else {
-        setState(() {
-          _isLoading = false;
-          _errorMsg = result?['error'] ?? 'Erro ao alterar senha.';
-        });
-      }
+      setState(() {
+        _isLoading = false;
+        _successMsg = 'Senha alterada com sucesso!';
+        _currentController.clear();
+        _newController.clear();
+        _confirmController.clear();
+      });
+      
+      // Close after 2 seconds
+      Future.delayed(const Duration(seconds: 2), () {
+        if (mounted) Navigator.of(context).pop();
+      });
+      
     } catch (e) {
       setState(() {
         _isLoading = false;
