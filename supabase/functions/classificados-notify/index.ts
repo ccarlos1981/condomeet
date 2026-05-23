@@ -1,7 +1,7 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2"
 import { create } from "https://deno.land/x/djwt@v2.9.1/mod.ts"
-import { sendMessage } from "../_shared/botconversa.ts"
+import { sendMessage, smartSend } from "../_shared/botconversa.ts"
 
 // ── Dynamic structure labels ────────────────────────────────────────────────
 function getBlocoLabel(tipo?: string): string {
@@ -187,9 +187,29 @@ serve(async (req) => {
           sendFcmMessage(accessToken, firebaseProjectId, s.fcm_token, pushTitle, pushBody, {
             type: "classificado_novo",
             classificado_id,
+            route: '/admin-classificados',
           })
         )
       )
+
+      // 👉 Push e WA de confirmação para o CRIADOR do anúncio
+      if (criador) {
+        if (criador.fcm_token && criador.fcm_token.length > 10) {
+          const criadorTitle = "✅ Anúncio recebido"
+          const criadorBody = `Seu anúncio "${classificado.titulo}" está em análise pela administração.`
+          const cResult = await sendFcmMessage(accessToken, firebaseProjectId, criador.fcm_token, criadorTitle, criadorBody, {
+            type: "classificado_analise",
+            classificado_id,
+            route: '/classificados',
+          })
+          pushResults.push(cResult)
+        }
+        if (BOTCONVERSA_API_KEY && (criador.botconversa_id || criador.whatsapp)) {
+          const waMsg = `📰 *Condomeet informa:*\n\nSeu anúncio "${classificado.titulo}" foi recebido com sucesso e está em análise pela administração do condomínio.\n\nAvisaremos você por aqui assim que for aprovado!`
+          const waResult = await smartSend(BOTCONVERSA_API_KEY, criador.botconversa_id as string, criador.whatsapp as string, "text", waMsg, criador.nome_completo as string)
+          whatsappResults.push({ success: waResult.success, subscriberId: criador.botconversa_id, error: waResult.error })
+        }
+      }
 
       // WhatsApp to síndicos via BotConversa
       const codInterno = classificado.cod_interno || Math.random().toString(36).substring(2, 7).toUpperCase()
@@ -229,7 +249,7 @@ serve(async (req) => {
         const creatorResult = await sendFcmMessage(
           accessToken, firebaseProjectId, criador.fcm_token,
           approvalTitle, approvalBody,
-          { type: "classificado_aprovado", classificado_id }
+          { type: "classificado_aprovado", classificado_id, route: '/classificados' }
         )
         pushResults.push(creatorResult)
         console.log(`[classificados-notify] Creator push: ${creatorResult.success ? '✅' : '❌'} ${creatorResult.error || ''}`)
@@ -260,6 +280,7 @@ serve(async (req) => {
           sendFcmMessage(accessToken, firebaseProjectId, m.fcm_token, allTitle, allBody, {
             type: "classificado_novo_publicado",
             classificado_id,
+            route: '/classificados',
           })
         )
       )
@@ -267,15 +288,14 @@ serve(async (req) => {
       console.log(`[classificados-notify] Moradores push: ${moradoresSucesso}/${moradoresResults.length}`)
       pushResults.push(...moradoresResults)
 
-      // WhatsApp to creator via BotConversa
-      if (criador?.botconversa_id && criador.botconversa_id.trim() !== "" && BOTCONVERSA_API_KEY) {
+      // WhatsApp to creator via BotConversa using smartSend
+      if (criador && BOTCONVERSA_API_KEY && (criador.botconversa_id || criador.whatsapp)) {
         const codInterno = classificado.cod_interno || Math.random().toString(36).substring(2, 7).toUpperCase()
         const waMsg = `📰 ${condoNome}\n\nSeu anúncio foi aprovado pelo Condomínio!\n\nAnúncio: ${classificado.titulo}\n\nLembre-se que o anúncio terá validade de 60 dias.\nData: ${dataFormatada}\n\nCondomeet agradece!\nCod. interno: ${codInterno}`
-        const subscriberId = criador.botconversa_id
-        console.log(`[classificados-notify] Sending approval WA to creator ${criador.nome_completo} (${subscriberId})`)
-        const waResult = await sendMessage(BOTCONVERSA_API_KEY, subscriberId, "text", waMsg)
+        console.log(`[classificados-notify] Sending approval WA to creator ${criador.nome_completo}`)
+        const waResult = await smartSend(BOTCONVERSA_API_KEY, criador.botconversa_id as string, criador.whatsapp as string, "text", waMsg, criador.nome_completo as string)
         console.log(`[classificados-notify] WA approval result: ${waResult.success ? '✅' : '❌'} ${waResult.error || ''}`)
-        whatsappResults.push({ success: waResult.success, subscriberId, error: waResult.error })
+        whatsappResults.push({ success: waResult.success, subscriberId: criador.botconversa_id, error: waResult.error })
       }
     }
 
@@ -290,7 +310,7 @@ serve(async (req) => {
         const creatorResult = await sendFcmMessage(
           accessToken, firebaseProjectId, criador.fcm_token,
           rejectTitle, rejectBody,
-          { type: "classificado_rejeitado", classificado_id }
+          { type: "classificado_rejeitado", classificado_id, route: '/classificados' }
         )
         pushResults.push(creatorResult)
       }
