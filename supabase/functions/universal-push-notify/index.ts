@@ -90,11 +90,14 @@ serve(async (req) => {
     // Verify user is an admin (sindico or admin role)
     const { data: perfil } = await supabase
       .from('perfil')
-      .select('tipo_usuario')
+      .select('papel_sistema')
       .eq('id', user.id)
       .single()
 
-    if (!perfil || !['sindico', 'admin', 'admin_master'].includes(perfil.tipo_usuario)) {
+    const papel = (perfil?.papel_sistema || '').toLowerCase()
+    const isAdmin = papel.includes('sindico') || papel.includes('síndico') || papel.includes('admin')
+
+    if (!isAdmin) {
       return new Response(JSON.stringify({ error: 'Apenas administradores podem enviar push universal' }), {
         status: 403,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
