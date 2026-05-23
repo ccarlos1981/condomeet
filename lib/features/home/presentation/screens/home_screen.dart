@@ -1192,11 +1192,11 @@ class _HomeScreenState extends State<HomeScreen> {
     final userEmail = Supabase.instance.client.auth.currentUser?.email ?? '';
     final allowedEmails = [
       'cristiano.santos@gmx.com',
-      'erikaosc@gmail.com',
-      'erikaosc+real@gmail.com',
-      'erikaosc+4@gmail.com',
-      'erikaosc+5@gmail.com',
       'ccarlos1981@gmail.com',
+      'ccarlos1981+borapescar@gmail.com',
+      'erikaosc@gmail.com',
+      'enzo.santos@gmx.com',
+      'cristiano.santos@fornodeminas.com.br',
     ];
     return allowedEmails.contains(userEmail);
   }
