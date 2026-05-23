@@ -410,11 +410,8 @@ Deno.serve(async (req) => {
         return jsonResponse({ ok: true, action: "status_enviado" });
       }
 
-      // Admin sent something else — let it fall through normally (or skip)
-      return jsonResponse({
-        skipped: true,
-        reason: "Admin message, not a command",
-      });
+      // Admin sent something else — let it fall through to normal chatbot flow
+      console.log(`[Admin] Non-command message from admin, processing normally`);
     }
     // ─────────────────────────────────────────────────────────────────────
 

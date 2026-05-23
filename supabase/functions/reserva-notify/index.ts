@@ -26,7 +26,7 @@ async function sendFcmPush(accessToken: string, projectId: string, fcmToken: str
   try {
     const res = await fetch(`https://fcm.googleapis.com/v1/projects/${projectId}/messages:send`, {
       method: "POST", headers: { "Content-Type": "application/json", Authorization: `Bearer ${accessToken}` },
-      body: JSON.stringify({ message: { token: fcmToken, notification: { title, body }, data, android: { priority: "high", notification: { channel_id: "avisos", sound: "condomeet" } }, apns: { payload: { aps: { sound: "condomeet.aiff", badge: 1 } } } } }),
+      body: JSON.stringify({ message: { token: fcmToken, notification: { title, body }, data, android: { priority: "high", notification: { channel_id: "avisos_v2", sound: "condomeet" } }, apns: { payload: { aps: { sound: "condomeet.aiff", badge: 1 } } } } }),
     })
     return res.ok
   } catch { return false }

@@ -81,7 +81,7 @@ async function sendFcmMessage(
       token: fcmToken,
       notification: { title, body },
       data,
-      android: { priority: "high", notification: { channel_id: "avisos", sound: "condomeet" } },
+      android: { priority: "high", notification: { channel_id: "avisos_v2", sound: "condomeet" } },
       apns: {
         headers: { "apns-priority": "10" },
         payload: { aps: { sound: "condomeet.aiff", badge: 1 } },

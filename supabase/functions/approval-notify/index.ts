@@ -163,7 +163,7 @@ serve(async (req) => {
                   body: `Seu cadastro no ${condoNome} foi aprovado. Acesse o app Condomeet!`,
                 },
                 data: { type: "approval", condominio_id },
-                android: { priority: "high", notification: { channel_id: "avisos", sound: "condomeet" } },
+                android: { priority: "high", notification: { channel_id: "avisos_v2", sound: "condomeet" } },
                 apns: { payload: { aps: { sound: "condomeet.aiff", badge: 1 } } },
               },
             }),

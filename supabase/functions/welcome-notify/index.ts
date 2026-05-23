@@ -239,7 +239,7 @@ serve(async (req) => {
                       body: `${firstName} ${lastName} solicitou acesso. Aprove no app!`,
                     },
                     data: { type: "new_registration", perfil_id, condominio_id },
-                    android: { priority: "high", notification: { channel_id: "avisos", sound: "condomeet" } },
+                    android: { priority: "high", notification: { channel_id: "avisos_v2", sound: "condomeet" } },
                     apns: { payload: { aps: { sound: "condomeet.aiff", badge: 1 } } },
                   },
                 }),

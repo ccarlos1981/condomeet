@@ -20,11 +20,12 @@ class FcmNotificationService implements NotificationService {
 
   /// Android notification channel matching the FCM channel_id "avisos"
   static const AndroidNotificationChannel _channel = AndroidNotificationChannel(
-    'avisos', // Must match the channel_id sent from the server
+    'avisos_v2', // Must match the channel_id sent from the server
     'Avisos',
     description: 'Notificações do Condomeet',
     importance: Importance.high,
     playSound: true,
+    sound: RawResourceAndroidNotificationSound('condomeet'),
   );
 
   @override

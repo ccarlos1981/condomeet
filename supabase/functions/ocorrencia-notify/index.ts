@@ -30,7 +30,7 @@ async function sendFcmPush(accessToken: string, projectId: string, fcmToken: str
       headers: { "Content-Type": "application/json", Authorization: `Bearer ${accessToken}` },
       body: JSON.stringify({
         message: { token: fcmToken, notification: { title, body }, data,
-          android: { priority: "high", notification: { channel_id: "avisos", sound: "condomeet" } },
+          android: { priority: "high", notification: { channel_id: "avisos_v2", sound: "condomeet" } },
           apns: { payload: { aps: { sound: "condomeet.aiff", badge: 1 } } },
         },
       }),
