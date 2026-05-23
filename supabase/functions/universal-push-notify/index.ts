@@ -66,6 +66,41 @@ serve(async (req) => {
   }
 
   try {
+    // Manual auth verification (bypass built-in JWT check that doesn't support ES256)
+    const authHeader = req.headers.get('Authorization')
+    if (!authHeader) {
+      return new Response(JSON.stringify({ error: 'Missing authorization header' }), {
+        status: 401,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      })
+    }
+
+    const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY)
+
+    // Verify the user's token using Supabase Auth (supports ES256)
+    const token = authHeader.replace('Bearer ', '')
+    const { data: { user }, error: authError } = await supabase.auth.getUser(token)
+    if (authError || !user) {
+      return new Response(JSON.stringify({ error: 'Unauthorized' }), {
+        status: 401,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      })
+    }
+
+    // Verify user is an admin (sindico or admin role)
+    const { data: perfil } = await supabase
+      .from('perfil')
+      .select('tipo_usuario')
+      .eq('id', user.id)
+      .single()
+
+    if (!perfil || !['sindico', 'admin', 'admin_master'].includes(perfil.tipo_usuario)) {
+      return new Response(JSON.stringify({ error: 'Apenas administradores podem enviar push universal' }), {
+        status: 403,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      })
+    }
+
     const { titulo, corpo, condominio_id } = await req.json()
 
     if (!titulo || !corpo) {
@@ -74,8 +109,6 @@ serve(async (req) => {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       })
     }
-
-    const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY)
 
     let query = supabase
       .from('perfil')
@@ -108,44 +141,62 @@ serve(async (req) => {
 
     let sent = 0
     const errors: string[] = []
-    for (const token of tokens) {
-      // Pular tokens dummy (evitar chamadas desnecessárias ao Firebase)
-      if (token.startsWith('dummy_fcm_token')) {
-        errors.push(`[SKIP] dummy token ignorado`)
-        continue
-      }
+    
+    // Process in chunks to avoid overwhelming the edge function memory/network
+    // and to speed up execution to avoid 504 timeouts.
+    const chunkSize = 50
+    const tokenChunks = []
+    for (let i = 0; i < tokens.length; i += chunkSize) {
+      tokenChunks.push(tokens.slice(i, i + chunkSize))
+    }
 
-      const message = {
-        message: {
-          token,
-          notification: { title: titulo, body: corpo },
-          data: { type: 'universal' },
-          android: {
-            priority: 'high',
-            notification: { channel_id: 'avisos', sound: 'condomeet' },
-          },
-          apns: {
-            payload: { aps: { sound: 'condomeet.aiff', badge: 1 } },
-          },
-        },
-      }
+    for (const chunk of tokenChunks) {
+      const promises = chunk.map(async (token) => {
+        // Pular tokens dummy (evitar chamadas desnecessárias ao Firebase)
+        if (token.startsWith('dummy_fcm_token')) {
+          errors.push(`[SKIP] dummy token ignorado`)
+          return
+        }
 
-      const res = await fetch(fcmUrl, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${accessToken}`,
-        },
-        body: JSON.stringify(message),
+        const message = {
+          message: {
+            token,
+            notification: { title: titulo, body: corpo },
+            data: { type: 'universal' },
+            android: {
+              priority: 'high',
+              notification: { channel_id: 'avisos', sound: 'condomeet' },
+            },
+            apns: {
+              payload: { aps: { sound: 'condomeet.aiff', badge: 1 } },
+            },
+          },
+        }
+
+        try {
+          const res = await fetch(fcmUrl, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              Authorization: `Bearer ${accessToken}`,
+            },
+            body: JSON.stringify(message),
+          })
+
+          if (res.ok) {
+            sent++
+          } else {
+            const errBody = await res.text()
+            errors.push(`[${res.status}] ${token.substring(0, 20)}... → ${errBody}`)
+            console.error(`FCM error for token ${token.substring(0, 20)}: ${res.status} ${errBody}`)
+          }
+        } catch (fetchErr) {
+          errors.push(`[FETCH_ERR] ${token.substring(0, 20)}... → ${String(fetchErr)}`)
+          console.error(`FCM fetch exception for token ${token.substring(0, 20)}:`, fetchErr)
+        }
       })
 
-      if (res.ok) {
-        sent++
-      } else {
-        const errBody = await res.text()
-        errors.push(`[${res.status}] ${token.substring(0, 20)}... → ${errBody}`)
-        console.error(`FCM error for token ${token.substring(0, 20)}: ${res.status} ${errBody}`)
-      }
+      await Promise.all(promises)
     }
 
     return new Response(JSON.stringify({ sent, total: tokens.length, errors }), {
