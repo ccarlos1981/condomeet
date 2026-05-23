@@ -71,8 +71,7 @@ class _ScannerReceiptScreenState extends State<ScannerReceiptScreen> {
       }
 
       final position = await Geolocator.getCurrentPosition(
-        desiredAccuracy: LocationAccuracy.medium,
-        timeLimit: const Duration(seconds: 10),
+        locationSettings: const LocationSettings(accuracy: LocationAccuracy.medium, timeLimit: Duration(seconds: 10)),
       );
 
       _userLat = position.latitude;

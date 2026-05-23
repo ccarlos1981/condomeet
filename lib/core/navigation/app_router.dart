@@ -103,6 +103,8 @@ import 'package:condomeet/features/vistoria/presentation/screens/vistoria_onboar
 
 
 class AppRouter {
+  static final GlobalKey<NavigatorState> navigatorKey = GlobalKey<NavigatorState>();
+
   static Map<String, WidgetBuilder> getRoutes(AuthState state) {
     return {
       '/design-system': (context) => const DesignSystemShowcase(),

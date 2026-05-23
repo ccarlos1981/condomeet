@@ -602,13 +602,17 @@ class _FormularioMultaBottomSheetState extends State<_FormularioMultaBottomSheet
                 const SizedBox(height: 16),
 
                 // Toggle Tipo
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    _buildRadio('NOTIFICACAO', 'Notificação'),
-                    const SizedBox(width: 32),
-                    _buildRadio('MULTA', 'Multa'),
-                  ],
+                RadioGroup<String>(
+                  groupValue: _formTipo,
+                  onChanged: (v) => setState(() => _formTipo = v!),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      _buildRadio('NOTIFICACAO', 'Notificação'),
+                      const SizedBox(width: 32),
+                      _buildRadio('MULTA', 'Multa'),
+                    ],
+                  ),
                 ),
                 const SizedBox(height: 20),
 
@@ -781,9 +785,7 @@ class _FormularioMultaBottomSheetState extends State<_FormularioMultaBottomSheet
         children: [
           Radio<String>(
             value: value,
-            groupValue: _formTipo,
             activeColor: const Color(0xFFFC5931),
-            onChanged: (v) => setState(() => _formTipo = v!),
           ),
           Text(label, style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: Colors.black87)),
         ],

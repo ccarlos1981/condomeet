@@ -196,6 +196,7 @@ serve(async (req) => {
       sos_id: String(sos_id),
       resident_id: String(resident_id),
       condominium_id: String(condominium_id),
+      route: '/sos',
     }
 
     // 6. Push notifications to staff (Síndicos + Porteiros)

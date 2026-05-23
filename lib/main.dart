@@ -168,6 +168,7 @@ class CondomeetApp extends StatelessWidget {
           ),
         ],
         child: MaterialApp(
+          navigatorKey: AppRouter.navigatorKey,
           title: 'Condomeet',
           debugShowCheckedModeBanner: false,
           theme: AppTheme.light.copyWith(

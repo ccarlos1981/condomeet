@@ -177,12 +177,12 @@ class _MinhaUnidadeScreenState extends State<MinhaUnidadeScreen> {
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(12),
         side: BorderSide(
-          color: isPrivileged ? AppColors.primary.withOpacity(0.5) : Colors.grey.shade200,
+          color: isPrivileged ? AppColors.primary.withValues(alpha: 0.5) : Colors.grey.shade200,
           width: isPrivileged ? 1.5 : 1.0,
         ),
       ),
       elevation: 0,
-      color: isPrivileged ? AppColors.primary.withOpacity(0.02) : Colors.white,
+      color: isPrivileged ? AppColors.primary.withValues(alpha: 0.02) : Colors.white,
       child: Theme(
         data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
         child: ExpansionTile(
@@ -194,7 +194,7 @@ class _MinhaUnidadeScreenState extends State<MinhaUnidadeScreen> {
               Container(
                 padding: const EdgeInsets.all(8),
                 decoration: BoxDecoration(
-                  color: isPrivileged ? AppColors.primary.withOpacity(0.2) : AppColors.primary.withOpacity(0.1),
+                  color: isPrivileged ? AppColors.primary.withValues(alpha: 0.2) : AppColors.primary.withValues(alpha: 0.1),
                   shape: BoxShape.circle,
                 ),
                 child: Icon(
@@ -242,7 +242,7 @@ class _MinhaUnidadeScreenState extends State<MinhaUnidadeScreen> {
                   color: Colors.white,
                   borderRadius: BorderRadius.circular(8),
                   border: Border.all(
-                    color: isPrivileged ? AppColors.primary.withOpacity(0.3) : Colors.grey.shade200
+                    color: isPrivileged ? AppColors.primary.withValues(alpha: 0.3) : Colors.grey.shade200
                   ),
                 ),
                 child: Column(

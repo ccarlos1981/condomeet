@@ -683,8 +683,8 @@ class _AssembleiaDetalheScreenState extends State<AssembleiaDetalheScreen> {
       children: [
          const Text('Seu Voto:', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
          const SizedBox(height: 8),
-         ...opcoes.map((opt) {
-           if (isMultipla) {
+         if (isMultipla)
+           ...opcoes.map((opt) {
              final List<String> currentSelections = _selectedOptions[p.id] as List<String>? ?? <String>[];
              final isSelected = currentSelections.contains(opt);
              return CheckboxListTile(
@@ -706,21 +706,24 @@ class _AssembleiaDetalheScreenState extends State<AssembleiaDetalheScreen> {
                  });
                },
              );
-           } else {
-             final selectedOpt = _selectedOptions[p.id] as String?;
-             return RadioListTile<String>(
-               title: Text(opt, style: const TextStyle(fontSize: 13)),
-               value: opt,
-               groupValue: selectedOpt,
-               dense: true,
-               contentPadding: EdgeInsets.zero,
-               activeColor: AppColors.primary,
-               onChanged: _submittingVote ? null : (val) {
+           })
+         else
+           RadioGroup<String?>(
+             groupValue: _selectedOptions[p.id] as String?,
+             onChanged: (val) {
+                 if (_submittingVote) return;
                  setState(() => _selectedOptions[p.id] = val);
-               },
-             );
-           }
-         }),
+             },
+             child: Column(
+               children: opcoes.map((opt) => RadioListTile<String>(
+                 title: Text(opt, style: const TextStyle(fontSize: 13)),
+                 value: opt,
+                 dense: true,
+                 contentPadding: EdgeInsets.zero,
+                 activeColor: AppColors.primary,
+               )).toList(),
+             ),
+           ),
          const SizedBox(height: 12),
          SizedBox(
            width: double.infinity,

@@ -97,6 +97,7 @@ serve(async (req) => {
           data: {
             type: 'aviso',
             aviso_id: aviso_id ?? '',
+            route: '/avisos',
           },
           android: {
             priority: 'high',

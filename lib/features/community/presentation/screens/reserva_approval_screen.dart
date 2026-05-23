@@ -46,6 +46,8 @@ class _ReservaApprovalScreenState extends State<ReservaApprovalScreen>
 
     try {
       // Fetch pending reservations with area info and resident profile
+      // Only show pending reservations with future/today dates
+      final today = DateTime.now().toIso8601String().substring(0, 10);
       final pendentes = await _supabase
           .from('reservas')
           .select(
@@ -55,9 +57,10 @@ class _ReservaApprovalScreenState extends State<ReservaApprovalScreen>
               'areas_comuns_horarios(hora_inicio)')
           .eq('condominio_id', condoId)
           .eq('status', 'pendente')
+          .gte('data_reserva', today)
           .order('created_at', ascending: false);
 
-      // Fetch recent history (approved/rejected)
+      // Fetch recent history (approved/rejected/cancelled)
       final historico = await _supabase
           .from('reservas')
           .select(
@@ -66,7 +69,7 @@ class _ReservaApprovalScreenState extends State<ReservaApprovalScreen>
               'perfil!reservas_user_id_fkey(nome_completo, bloco_txt, apto_txt), '
               'areas_comuns_horarios(hora_inicio)')
           .eq('condominio_id', condoId)
-          .inFilter('status', ['aprovado', 'reprovado'])
+          .inFilter('status', ['aprovado', 'reprovado', 'cancelado'])
           .order('updated_at', ascending: false)
           .limit(50);
 
@@ -83,23 +86,47 @@ class _ReservaApprovalScreenState extends State<ReservaApprovalScreen>
   }
 
   Future<void> _updateStatus(String reservaId, String newStatus) async {
-    final label = newStatus == 'aprovado' ? 'aprovar' : 'reprovar';
+    String dialogTitle;
+    String dialogContent;
+    String confirmLabel;
+    Color confirmColor;
+
+    switch (newStatus) {
+      case 'aprovado':
+        dialogTitle = 'Confirmar aprovação';
+        dialogContent = 'Deseja aprovar esta reserva?';
+        confirmLabel = 'Aprovar';
+        confirmColor = Colors.green;
+        break;
+      case 'cancelado':
+        dialogTitle = 'Cancelar reserva';
+        dialogContent = 'Deseja cancelar esta reserva? O morador será notificado.';
+        confirmLabel = 'Cancelar Reserva';
+        confirmColor = Colors.red;
+        break;
+      default:
+        dialogTitle = 'Confirmar reprovação';
+        dialogContent = 'Deseja reprovar esta reserva?';
+        confirmLabel = 'Reprovar';
+        confirmColor = Colors.red;
+    }
+
     final confirm = await showDialog<bool>(
       context: context,
       builder: (_) => AlertDialog(
-        title: Text('Confirmar ${newStatus == 'aprovado' ? 'aprovação' : 'reprovação'}'),
-        content: Text('Deseja $label esta reserva?'),
+        title: Text(dialogTitle),
+        content: Text(dialogContent),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context, false),
-            child: const Text('Cancelar'),
+            child: const Text('Voltar'),
           ),
           TextButton(
             onPressed: () => Navigator.pop(context, true),
             child: Text(
-              newStatus == 'aprovado' ? 'Aprovar' : 'Reprovar',
+              confirmLabel,
               style: TextStyle(
-                color: newStatus == 'aprovado' ? Colors.green : Colors.red,
+                color: confirmColor,
                 fontWeight: FontWeight.bold,
               ),
             ),
@@ -119,15 +146,25 @@ class _ReservaApprovalScreenState extends State<ReservaApprovalScreen>
       }).eq('id', reservaId);
 
       if (mounted) {
+        String snackMsg;
+        Color snackColor;
+        switch (newStatus) {
+          case 'aprovado':
+            snackMsg = 'Reserva aprovada com sucesso! ✅';
+            snackColor = Colors.green.shade700;
+            break;
+          case 'cancelado':
+            snackMsg = 'Reserva cancelada pelo síndico. 🚫';
+            snackColor = Colors.orange.shade700;
+            break;
+          default:
+            snackMsg = 'Reserva reprovada. ❌';
+            snackColor = Colors.red.shade700;
+        }
         ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-          content: Text(
-            newStatus == 'aprovado'
-                ? 'Reserva aprovada com sucesso! ✅'
-                : 'Reserva reprovada. ❌',
-          ),
+          content: Text(snackMsg),
           behavior: SnackBarBehavior.floating,
-          backgroundColor:
-              newStatus == 'aprovado' ? Colors.green.shade700 : Colors.red.shade700,
+          backgroundColor: snackColor,
         ));
         _load();
       }
@@ -445,8 +482,16 @@ class _ReservaApprovalScreenState extends State<ReservaApprovalScreen>
     final status = r['status'] as String? ?? '';
 
     final isAprovado = status == 'aprovado';
-    final statusColor = isAprovado ? Colors.green : Colors.red;
-    final statusLabel = isAprovado ? 'Aprovado' : 'Reprovado';
+    final isCancelado = status == 'cancelado';
+    final statusColor = isAprovado ? Colors.green : isCancelado ? Colors.grey : Colors.red;
+    final statusLabel = isAprovado ? 'Aprovado' : isCancelado ? 'Cancelado' : 'Reprovado';
+
+    // Síndico can cancel any approved reservation
+    final canCancel = isAprovado;
+    final dataReserva = r['data_reserva'] as String?;
+    final today = DateTime.now();
+    final todayStr = '${today.year}-${today.month.toString().padLeft(2, '0')}-${today.day.toString().padLeft(2, '0')}';
+    final isEventoPast = dataReserva != null && dataReserva.compareTo(todayStr) < 0;
 
     return Container(
       margin: const EdgeInsets.only(bottom: 10),
@@ -461,57 +506,88 @@ class _ReservaApprovalScreenState extends State<ReservaApprovalScreen>
       ),
       child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-        child: Row(
+        child: Column(
           children: [
-            Container(
-              width: 44,
-              height: 44,
-              decoration: BoxDecoration(
-                color: statusColor.withValues(alpha: 0.1),
-                borderRadius: BorderRadius.circular(12),
-              ),
-              child: Icon(
-                  isAprovado ? Icons.check_circle : Icons.cancel,
-                  color: statusColor,
-                  size: 22),
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(areaNome,
-                      style: const TextStyle(
-                          fontWeight: FontWeight.bold,
-                          fontSize: 14,
-                          color: AppColors.textMain)),
-                  const SizedBox(height: 2),
-                  Text(
-                    '$moradorNome${unidade.isNotEmpty ? ' • $unidade' : ''}',
-                    style: const TextStyle(
-                        fontSize: 12, color: AppColors.textHint),
+            Row(
+              children: [
+                Container(
+                  width: 44,
+                  height: 44,
+                  decoration: BoxDecoration(
+                    color: statusColor.withValues(alpha: 0.1),
+                    borderRadius: BorderRadius.circular(12),
                   ),
-                  Text(
-                    hora != null ? '$data às $hora' : data,
-                    style: const TextStyle(
-                        fontSize: 12, color: AppColors.textHint),
+                  child: Icon(
+                      isAprovado ? Icons.check_circle : Icons.cancel,
+                      color: statusColor,
+                      size: 22),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(areaNome,
+                          style: const TextStyle(
+                              fontWeight: FontWeight.bold,
+                              fontSize: 14,
+                              color: AppColors.textMain)),
+                      const SizedBox(height: 2),
+                      Text(
+                        '$moradorNome${unidade.isNotEmpty ? ' • $unidade' : ''}',
+                        style: const TextStyle(
+                            fontSize: 12, color: AppColors.textHint),
+                      ),
+                      Text(
+                        hora != null ? '$data às $hora' : data,
+                        style: const TextStyle(
+                            fontSize: 12, color: AppColors.textHint),
+                      ),
+                    ],
                   ),
-                ],
-              ),
+                ),
+                Container(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                  decoration: BoxDecoration(
+                    color: statusColor.withValues(alpha: 0.12),
+                    borderRadius: BorderRadius.circular(20),
+                  ),
+                  child: Text(statusLabel,
+                      style: TextStyle(
+                          fontSize: 11,
+                          fontWeight: FontWeight.w600,
+                          color: statusColor)),
+                ),
+              ],
             ),
-            Container(
-              padding:
-                  const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-              decoration: BoxDecoration(
-                color: statusColor.withValues(alpha: 0.12),
-                borderRadius: BorderRadius.circular(20),
+            if (canCancel) ...[
+              const SizedBox(height: 10),
+              SizedBox(
+                width: double.infinity,
+                child: OutlinedButton.icon(
+                  onPressed: isEventoPast
+                      ? null
+                      : () => _updateStatus(r['id'] as String, 'cancelado'),
+                  icon: Icon(
+                    isEventoPast ? Icons.block : Icons.event_busy,
+                    size: 16,
+                  ),
+                  label: Text(
+                    isEventoPast ? 'Evento Vencido' : 'Cancelar Evento',
+                    style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13),
+                  ),
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: isEventoPast ? Colors.grey.shade400 : Colors.red.shade600,
+                    side: BorderSide(color: isEventoPast ? Colors.grey.shade300 : Colors.red.shade300),
+                    shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(10)),
+                    padding: const EdgeInsets.symmetric(vertical: 8),
+                    disabledForegroundColor: Colors.grey.shade400,
+                  ),
+                ),
               ),
-              child: Text(statusLabel,
-                  style: TextStyle(
-                      fontSize: 11,
-                      fontWeight: FontWeight.w600,
-                      color: statusColor)),
-            ),
+            ],
           ],
         ),
       ),

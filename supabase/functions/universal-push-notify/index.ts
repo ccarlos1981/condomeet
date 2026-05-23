@@ -165,7 +165,7 @@ serve(async (req) => {
           message: {
             token,
             notification: { title: titulo, body: corpo },
-            data: { type: 'universal' },
+            data: { type: 'universal', route: '/avisos' },
             android: {
               priority: 'high',
               notification: { channel_id: 'avisos_v2', sound: 'condomeet' },

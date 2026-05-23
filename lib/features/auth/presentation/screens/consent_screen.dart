@@ -68,7 +68,7 @@ class _ConsentScreenState extends State<ConsentScreen>
             begin: Alignment.topCenter,
             end: Alignment.bottomCenter,
             colors: [
-              AppColors.primary.withOpacity(0.05),
+              AppColors.primary.withValues(alpha: 0.05),
               AppColors.background,
               AppColors.background,
             ],
@@ -99,13 +99,13 @@ class _ConsentScreenState extends State<ConsentScreen>
                         end: Alignment.bottomRight,
                         colors: [
                           AppColors.primary,
-                          AppColors.primary.withOpacity(0.7),
+                          AppColors.primary.withValues(alpha: 0.7),
                         ],
                       ),
                       shape: BoxShape.circle,
                       boxShadow: [
                         BoxShadow(
-                          color: AppColors.primary.withOpacity(0.3),
+                          color: AppColors.primary.withValues(alpha: 0.3),
                           blurRadius: 20,
                           spreadRadius: 2,
                         ),
@@ -255,7 +255,7 @@ class _ConsentScreenState extends State<ConsentScreen>
                                 _canProceed ? Colors.white : Colors.grey.shade500,
                             elevation: _canProceed ? 4 : 0,
                             shadowColor: _canProceed
-                                ? AppColors.primary.withOpacity(0.4)
+                                ? AppColors.primary.withValues(alpha: 0.4)
                                 : Colors.transparent,
                             shape: RoundedRectangleBorder(
                               borderRadius: BorderRadius.circular(14),
@@ -297,7 +297,7 @@ class _ConsentScreenState extends State<ConsentScreen>
                       Text(
                         'Condomeet v1.0 • Todos os direitos reservados',
                         style: AppTypography.bodySmall.copyWith(
-                          color: AppColors.textSecondary.withOpacity(0.5),
+                          color: AppColors.textSecondary.withValues(alpha: 0.5),
                           fontSize: 11,
                         ),
                       ),
@@ -340,8 +340,8 @@ class _ConsentScreenState extends State<ConsentScreen>
         boxShadow: [
           BoxShadow(
             color: isAccepted
-                ? const Color(0xFF38A169).withOpacity(0.1)
-                : Colors.black.withOpacity(0.03),
+                ? const Color(0xFF38A169).withValues(alpha: 0.1)
+                : Colors.black.withValues(alpha: 0.03),
             blurRadius: 8,
             offset: const Offset(0, 2),
           ),
@@ -357,8 +357,8 @@ class _ConsentScreenState extends State<ConsentScreen>
                 padding: const EdgeInsets.all(8),
                 decoration: BoxDecoration(
                   color: isAccepted
-                      ? const Color(0xFF38A169).withOpacity(0.1)
-                      : AppColors.primary.withOpacity(0.08),
+                      ? const Color(0xFF38A169).withValues(alpha: 0.1)
+                      : AppColors.primary.withValues(alpha: 0.08),
                   borderRadius: BorderRadius.circular(10),
                 ),
                 child: Icon(
@@ -575,7 +575,7 @@ class _ConsentScreenState extends State<ConsentScreen>
                   Container(
                     padding: const EdgeInsets.all(8),
                     decoration: BoxDecoration(
-                      color: AppColors.primary.withOpacity(0.1),
+                      color: AppColors.primary.withValues(alpha: 0.1),
                       borderRadius: BorderRadius.circular(10),
                     ),
                     child: Icon(

@@ -65,7 +65,7 @@ class _GlobalDashboardScreenState extends State<GlobalDashboardScreen> {
             if (permission == LocationPermission.whileInUse || permission == LocationPermission.always) {
                Position? pos;
                try {
-                 pos = await Geolocator.getCurrentPosition(desiredAccuracy: LocationAccuracy.medium, timeLimit: const Duration(seconds: 4));
+                 pos = await Geolocator.getCurrentPosition(locationSettings: const LocationSettings(accuracy: LocationAccuracy.medium, timeLimit: Duration(seconds: 4)));
                } catch (_) {
                  pos = await Geolocator.getLastKnownPosition();
                }

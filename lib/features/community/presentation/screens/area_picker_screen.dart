@@ -86,17 +86,17 @@ class _AreaPickerScreenState extends State<AreaPickerScreen>
     }
   }
 
-  Future<void> _deleteReserva(String id) async {
+  Future<void> _cancelarReserva(String id) async {
     final confirm = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Text('Excluir Agendamento'),
-        content: const Text('Tem certeza que deseja excluir este agendamento? Esta ação não pode ser desfeita.'),
+        title: const Text('Cancelar Agendamento'),
+        content: const Text('Tem certeza que deseja cancelar este agendamento?'),
         actions: [
           TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Voltar')),
           TextButton(
             onPressed: () => Navigator.pop(ctx, true), 
-            child: const Text('Excluir', style: TextStyle(color: Colors.red)),
+            child: const Text('Cancelar Reserva', style: TextStyle(color: Colors.red)),
           ),
         ],
       ),
@@ -106,16 +106,19 @@ class _AreaPickerScreenState extends State<AreaPickerScreen>
 
     setState(() => _loadingReservas = true);
     try {
-      await _supabase.from('reservas').delete().eq('id', id);
+      await _supabase.from('reservas').update({
+        'status': 'cancelado',
+        'updated_at': DateTime.now().toUtc().toIso8601String(),
+      }).eq('id', id);
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Agendamento excluído com sucesso!'), backgroundColor: Colors.green),
+          const SnackBar(content: Text('Agendamento cancelado com sucesso!'), backgroundColor: Colors.green),
         );
       }
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Erro ao excluir: $e'), backgroundColor: Colors.red),
+          SnackBar(content: Text('Erro ao cancelar: $e'), backgroundColor: Colors.red),
         );
       }
     } finally {
@@ -260,17 +263,21 @@ class _AreaPickerScreenState extends State<AreaPickerScreen>
       default: statusColor = Colors.grey; statusLabel = status;
     }
 
-    bool canDelete = false;
+    bool canCancel = false;
     if (status == 'pendente') {
+      // Pendente = síndico ainda não aprovou → morador pode cancelar a qualquer momento
+      canCancel = true;
+    } else if (status == 'aprovado') {
+      // Aprovado = respeita o prazo de hrs_cancelar antes do evento
       final hrsCancelar = area?['hrs_cancelar'] as int? ?? 0;
       final parsedDate = DateTime.tryParse('$rawDate ${rawTime ?? '00:00:00'}');
       if (parsedDate != null) {
         final limitDt = parsedDate.subtract(Duration(hours: hrsCancelar));
         if (DateTime.now().isBefore(limitDt)) {
-          canDelete = true;
+          canCancel = true;
         }
       } else {
-        canDelete = true;
+        canCancel = true;
       }
     }
 
@@ -315,13 +322,13 @@ class _AreaPickerScreenState extends State<AreaPickerScreen>
                 child: Text(statusLabel,
                   style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: statusColor)),
               ),
-              if (canDelete) ...[
+              if (canCancel) ...[
                 const SizedBox(height: 8),
                 InkWell(
-                  onTap: () => _deleteReserva(r['id'] as String),
+                  onTap: () => _cancelarReserva(r['id'] as String),
                   child: const Padding(
                     padding: EdgeInsets.all(4.0),
-                    child: Icon(Icons.delete_outline, color: Colors.red, size: 20),
+                    child: Icon(Icons.cancel_outlined, color: Colors.red, size: 20),
                   ),
                 ),
               ],

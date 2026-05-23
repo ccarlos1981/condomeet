@@ -205,7 +205,7 @@ class _NotificacoesMultasScreenState extends State<NotificacoesMultasScreen> {
                                   decoration: BoxDecoration(
                                     color: typeBgColor,
                                     borderRadius: BorderRadius.circular(12),
-                                    border: Border.all(color: typeColor.withOpacity(0.3)),
+                                    border: Border.all(color: typeColor.withValues(alpha: 0.3)),
                                   ),
                                   child: Text(
                                     tipo,

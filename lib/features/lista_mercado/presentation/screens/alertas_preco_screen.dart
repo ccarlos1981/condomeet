@@ -49,8 +49,7 @@ class _AlertasPrecoScreenState extends State<AlertasPrecoScreen> {
       if (permission == LocationPermission.deniedForever) return;
 
       final position = await Geolocator.getCurrentPosition(
-        desiredAccuracy: LocationAccuracy.medium,
-        timeLimit: const Duration(seconds: 10),
+        locationSettings: const LocationSettings(accuracy: LocationAccuracy.medium, timeLimit: Duration(seconds: 10)),
       );
 
       final markets = await _service.getNearbySupermarkets(position.latitude, position.longitude);

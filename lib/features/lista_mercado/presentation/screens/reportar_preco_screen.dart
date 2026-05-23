@@ -93,8 +93,7 @@ class _ReportarPrecoScreenState extends State<ReportarPrecoScreen> with SingleTi
 
       // Buscar posição do usuário
       final position = await Geolocator.getCurrentPosition(
-        desiredAccuracy: LocationAccuracy.medium,
-        timeLimit: const Duration(seconds: 10),
+        locationSettings: const LocationSettings(accuracy: LocationAccuracy.medium, timeLimit: Duration(seconds: 10)),
       );
 
       _userLat = position.latitude;

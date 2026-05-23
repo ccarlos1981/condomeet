@@ -3,7 +3,7 @@ import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:condomeet/core/services/notification_service.dart';
 import 'package:logger/logger.dart';
 import 'package:flutter/foundation.dart';
-
+import 'package:condomeet/core/navigation/app_router.dart';
 class FcmNotificationService implements NotificationService {
   FirebaseMessaging? _fcmInstance;
   FirebaseMessaging get _fcm {
@@ -62,6 +62,16 @@ class FcmNotificationService implements NotificationService {
       await _initLocalNotifications();
 
       setupHandlers();
+
+      // Handle interaction when app is opened from a terminated state (cold start)
+      final initialMessage = await _fcm.getInitialMessage();
+      if (initialMessage != null) {
+        _logger.i('App opened from terminated state via notification: ${initialMessage.data}');
+        // Delay execution to ensure UI and AppRouter are fully mounted
+        Future.delayed(const Duration(milliseconds: 800), () {
+          _handleNotificationClick(initialMessage.data);
+        });
+      }
     } catch (e) {
       _logger.e('Error initializing FCM: $e');
     }
@@ -131,7 +141,18 @@ class FcmNotificationService implements NotificationService {
     // Handle interaction when app is in background but not terminated
     FirebaseMessaging.onMessageOpenedApp.listen((RemoteMessage message) {
       _logger.i('App opened via notification: ${message.data}');
+      _handleNotificationClick(message.data);
     });
+  }
+
+  void _handleNotificationClick(Map<String, dynamic> data) {
+    final route = data['route'];
+    if (route != null && route is String && route.isNotEmpty) {
+      _logger.i('Navigating to route via notification: $route');
+      Future.delayed(const Duration(milliseconds: 300), () {
+        AppRouter.navigatorKey.currentState?.pushNamed(route);
+      });
+    }
   }
 
   /// Show a local notification (used for foreground FCM messages on Android)

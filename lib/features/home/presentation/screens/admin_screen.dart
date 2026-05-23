@@ -23,7 +23,6 @@ class _AdminScreenState extends State<AdminScreen> {
       Supabase.instance.client.auth.currentUser?.email;
 
   // Badge counts
-  int _pendingEncomendas = 0;
   int _pendingOcorrencias = 0;
   int _pendingCadastros = 0;
   int _pendingReservas = 0;
@@ -43,38 +42,42 @@ class _AdminScreenState extends State<AdminScreen> {
     final supabase = Supabase.instance.client;
 
     try {
+      final today = DateTime.now().toIso8601String().substring(0, 10);
+      final sevenDaysAgo = DateTime.now().subtract(const Duration(days: 7)).toIso8601String();
+
       // Run all queries in parallel
       final results = await Future.wait([
-        supabase
-            .from('encomendas')
-            .select('id')
-            .eq('condominio_id', condoId)
-            .eq('status', 'pending')
-            .count(CountOption.exact),
+        // 0: Ocorrências não respondidas
         supabase
             .from('ocorrencias')
             .select('id')
             .eq('condominio_id', condoId)
             .eq('status', 'pending')
             .count(CountOption.exact),
+        // 1: Cadastros pendentes de aprovação
         supabase
             .from('perfil')
             .select('id')
             .eq('condominio_id', condoId)
             .eq('status_aprovacao', 'pendente')
             .count(CountOption.exact),
+        // 2: Reservas pendentes com data futura
         supabase
             .from('reservas')
             .select('id')
             .eq('condominio_id', condoId)
             .eq('status', 'pendente')
+            .gte('data_reserva', today)
             .count(CountOption.exact),
+        // 3: Classificados pendentes com max 7 dias
         supabase
             .from('classificados')
             .select('id')
             .eq('condominio_id', condoId)
             .eq('status', 'pendente')
+            .gte('created_at', sevenDaysAgo)
             .count(CountOption.exact),
+        // 4: Fale Conosco pendentes de resposta
         supabase
             .from('fale_sindico_threads')
             .select('id')
@@ -85,12 +88,11 @@ class _AdminScreenState extends State<AdminScreen> {
 
       if (!mounted) return;
       setState(() {
-        _pendingEncomendas = results[0].count;
-        _pendingOcorrencias = results[1].count;
-        _pendingCadastros = results[2].count;
-        _pendingReservas = results[3].count;
-        _pendingClassificados = results[4].count;
-        _pendingFaleConosco = results[5].count;
+        _pendingOcorrencias = results[0].count;
+        _pendingCadastros = results[1].count;
+        _pendingReservas = results[2].count;
+        _pendingClassificados = results[3].count;
+        _pendingFaleConosco = results[4].count;
       });
     } catch (e) {
       debugPrint('Error loading pending counts: $e');
@@ -123,7 +125,6 @@ class _AdminScreenState extends State<AdminScreen> {
                 context: context,
                 icon: Icons.local_shipping_outlined,
                 label: 'Encomendas do Cond.',
-                badgeCount: _pendingEncomendas,
                 onTap: () => Navigator.of(context).pushNamed('/pending-deliveries').then((_) => _loadPendingCounts()),
               ),
               _buildAdminItem(

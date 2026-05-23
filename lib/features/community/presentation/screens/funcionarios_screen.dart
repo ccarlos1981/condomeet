@@ -252,7 +252,7 @@ class _FuncionariosScreenState extends State<FuncionariosScreen> {
                 width: 56,
                 height: 56,
                 decoration: BoxDecoration(
-                  color: AppColors.primary.withOpacity(0.1),
+                  color: AppColors.primary.withValues(alpha: 0.1),
                   shape: BoxShape.circle,
                   image: f['foto'] != null && f['foto'].toString().isNotEmpty
                       ? DecorationImage(

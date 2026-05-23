@@ -210,6 +210,7 @@ serve(async (req) => {
       parcel_id: String(parcel_id),
       bloco: bloco ?? "",
       apto: apto ?? "",
+      route: '/parcel-dashboard',
     }
 
     // 5. Get FCM access token
