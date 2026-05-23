@@ -2,6 +2,7 @@
 
 import { useState } from 'react'
 import { Send, Megaphone } from 'lucide-react'
+import { createClient } from '@/lib/supabase/client'
 
 interface Condominio {
   id: string
@@ -30,7 +31,14 @@ export default function UniversalPushForm({ condominios }: Props) {
 
     try {
       const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!
-      const anon = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+      
+      const supabase = createClient()
+      const { data: { session } } = await supabase.auth.getSession()
+      const token = session?.access_token
+
+      if (!token) {
+        throw new Error('Usuário não autenticado. Faça login novamente.')
+      }
 
       const body: Record<string, string> = {
         titulo: titulo.trim(),
@@ -44,7 +52,7 @@ export default function UniversalPushForm({ condominios }: Props) {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${anon}`,
+          'Authorization': `Bearer ${token}`,
         },
         body: JSON.stringify(body),
       })
