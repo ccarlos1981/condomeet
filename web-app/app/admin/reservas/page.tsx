@@ -12,13 +12,13 @@ export default async function ReservasAdminPage() {
 
   const condoId = profile?.condominio_id ?? ''
 
-  // Fetch tipo_estrutura
+  // Fetch tipo
   const { data: condoData } = await supabase
     .from('condominios')
-    .select('tipo_estrutura')
+    .select('tipo')
     .eq('id', condoId)
     .single()
-  const tipoEstrutura = condoData?.tipo_estrutura ?? 'predio'
+  const tipoEstrutura = condoData?.tipo ?? 'predio'
 
   // Load reservas without FK join
   const { data: reservas } = await supabase
@@ -47,12 +47,13 @@ export default async function ReservasAdminPage() {
   const { data: moradores } = moradorIds.length > 0
     ? await supabase
         .from('perfil')
-        .select('id, nome_completo, bloco_txt, apto_txt, papel_sistema')
+        .select('id, nome_completo, bloco_txt, apto_txt, papel_sistema, whatsapp, botconversa_id')
         .in('id', moradorIds)
     : { data: [] }
 
   const moradorMap = Object.fromEntries(
-    (moradores ?? []).map((m: { id: string; nome_completo: string; bloco_txt: string; apto_txt: string; papel_sistema: string }) => [m.id, m])
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    (moradores ?? []).map((m: any) => [m.id, m])
   )
 
   const { data: tipos } = await supabase
@@ -83,6 +84,7 @@ export interface ReservaRow {
   data_reserva: string
   status: string
   created_at: string
+  user_id: string
   areas_comuns: { tipo_agenda: string }
-  perfil: { nome_completo: string; bloco_txt: string; apto_txt: string; papel_sistema: string }
+  perfil: { nome_completo: string; bloco_txt: string; apto_txt: string; papel_sistema: string; whatsapp?: string; botconversa_id?: string }
 }

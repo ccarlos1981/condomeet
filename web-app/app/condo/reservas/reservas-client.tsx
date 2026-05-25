@@ -58,12 +58,13 @@ function statusLabel(s: string) {
 // Mini Calendar
 // ──────────────────────────────────────────────────────────────────────────────
 function MiniCalendar({
-  selected, onSelect, bookedDates, onMonthChange
+  selected, onSelect, bookedDates, onMonthChange, onBookedClick
 }: {
   selected: string | null
   onSelect: (d: string) => void
   bookedDates: Set<string>
   onMonthChange?: (year: number, month: number) => void
+  onBookedClick?: (d: string) => void
 }) {
   const today = new Date()
   const [view, setView] = useState({ year: today.getFullYear(), month: today.getMonth() })
@@ -130,7 +131,7 @@ function MiniCalendar({
 
           let cls = 'text-xs flex items-center justify-center rounded-lg h-8 w-full cursor-pointer transition-all font-medium '
           if (isPast) cls += 'text-gray-300 cursor-default'
-          else if (isBooked) cls += 'bg-[#FC5931]/20 text-[#FC5931] cursor-default font-bold'
+          else if (isBooked) cls += 'bg-[#FC5931] text-white cursor-default font-bold'
           else if (isSel) cls += 'bg-[#222] text-white'
           else if (isToday) cls += 'border-2 border-[#FC5931] text-[#FC5931]'
           else cls += 'text-gray-700 hover:bg-gray-100'
@@ -139,7 +140,10 @@ function MiniCalendar({
             <div
               key={iso}
               className={cls}
-              onClick={() => { if (!isPast && !isBooked) onSelect(iso) }}
+              onClick={() => {
+                if (!isPast && !isBooked) onSelect(iso)
+                else if (isBooked && onBookedClick) onBookedClick(iso)
+              }}
             >
               {day}
               {isToday && !isSel && <span className="absolute w-1 h-1 bg-[#FC5931] rounded-full bottom-1" />}
@@ -174,6 +178,23 @@ function BookingModal({
   const [bookedDates, setBookedDates] = useState<Set<string>>(new Set())
   const loadedMonths = useRef<Set<string>>(new Set())
 
+  const [bookedDetailsDate, setBookedDetailsDate] = useState<string | null>(null)
+  const [bookedDetails, setBookedDetails] = useState<any[]>([])
+  const [loadingDetails, setLoadingDetails] = useState(false)
+
+  const handleBookedClick = async (date: string) => {
+    setBookedDetailsDate(date)
+    setBookedDetails([])
+    setLoadingDetails(true)
+    try {
+      const res = await fetch(`/api/reservas/details?areaId=${area.id}&date=${date}`)
+      const data = await res.json()
+      if (Array.isArray(data)) setBookedDetails(data)
+    } finally {
+      setLoadingDetails(false)
+    }
+  }
+
   const loadBookedDates = useCallback(async (year: number, month: number) => {
     const key = `${year}-${month}`
     if (loadedMonths.current.has(key)) return
@@ -194,6 +215,7 @@ function BookingModal({
 
   const handleDateSelect = useCallback(async (date: string) => {
     setSelectedDate(date)
+    setBookedDetailsDate(null)
     setSelectedHorario(null)
     setHorarios([])
     if (area.tipo_reserva === 'por_hora') {
@@ -247,13 +269,51 @@ function BookingModal({
         </div>
 
         <div className="p-5 space-y-5">
-          {/* Calendar */}
           <MiniCalendar
             selected={selectedDate}
             onSelect={handleDateSelect}
             bookedDates={bookedDates}
             onMonthChange={loadBookedDates}
+            onBookedClick={handleBookedClick}
           />
+
+          {/* Reservas Details Popup/Card */}
+          {bookedDetailsDate && (
+            <div className="bg-red-50 border border-red-100 rounded-xl p-4 mt-2 shadow-sm animate-in fade-in zoom-in-95 duration-200">
+              <div className="flex items-center justify-between mb-2">
+                <p className="text-sm font-bold text-red-900">
+                  Reservas em {fmt(bookedDetailsDate)}
+                </p>
+                <button onClick={() => setBookedDetailsDate(null)} className="text-red-400 hover:text-red-700 transition-colors p-1 bg-white/50 rounded-full">
+                  <X size={16} />
+                </button>
+              </div>
+              {loadingDetails ? (
+                <p className="text-xs text-red-500">Carregando detalhes...</p>
+              ) : bookedDetails.length === 0 ? (
+                <p className="text-xs text-red-500">Nenhum detalhe encontrado.</p>
+              ) : (
+                <div className="space-y-2 max-h-48 overflow-y-auto pr-1">
+                  {bookedDetails.map(r => (
+                    <div key={r.id} className="bg-white rounded-lg p-3 shadow-sm border border-red-100/50 flex flex-col gap-1">
+                      <p className="text-xs font-bold text-gray-800">{r.nome_evento || area.tipo_agenda}</p>
+                      {r.perfil && (
+                        <p className="text-[11px] text-gray-500">
+                          Reservado por: <span className="font-semibold text-gray-700">{r.perfil.nome_completo?.split(' ')[0]}</span>
+                          {' '} ({getBlocoLabel(tipoEstrutura)} {r.perfil.bloco_txt}, {getAptoLabel(tipoEstrutura)} {r.perfil.apto_txt})
+                        </p>
+                      )}
+                      {area.tipo_reserva === 'por_hora' && r.areas_comuns_horarios && (
+                        <p className="text-[11px] font-semibold text-[#FC5931]">
+                          Horário: {fmtHora(r.areas_comuns_horarios.hora_inicio)}
+                        </p>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
 
           {/* Time slots (por_hora only) */}
           {area.tipo_reserva === 'por_hora' && selectedDate && (
