@@ -63,12 +63,12 @@ development_status:
   3-4-historico-arquivamento: done
   epic-3-retrospective: done
 
-  epic-4: in-progress
+  epic-4: done
   4-1-gerador-convites: done
   4-2-terminal-visitantes: done
   4-3-onboarding-morador: done
   4-4-aprovacao-gestor: done
-  4-5-liberacao-express-visitantes-whatsapp: in-progress
+  4-5-liberacao-express-visitantes-whatsapp: done
   epic-4-retrospective: optional
 
   epic-5: done
@@ -84,22 +84,22 @@ development_status:
   6-3-central-documentos: done
   epic-6-retrospective: done
 
-  epic-7: in-progress
-  7-1-modelagem-tabelas-acordo-rls: in-progress
-  7-2-interface-simulacao-termos-morador: backlog
-  7-3-integracao-asaas-geracao-pix: backlog
-  7-4-webhook-pagamento-desbloqueio-eleitoral: in-progress
+  epic-7: done
+  7-1-modelagem-tabelas-acordo-rls: done
+  7-2-interface-simulacao-termos-morador: done
+  7-3-integracao-asaas-geracao-pix: done
+  7-4-webhook-pagamento-desbloqueio-eleitoral: done
   epic-7-retrospective: optional
 
-  epic-8: in-progress
-  8-1-seletor-contexto-multi-condominio: backlog
-  8-2-rpc-metricas-consolidadas: in-progress
-  8-3-caching-pre-fetching-contexto: backlog
+  epic-8: done
+  8-1-seletor-contexto-multi-condominio: done
+  8-2-rpc-metricas-consolidadas: done
+  8-3-caching-pre-fetching-contexto: done
   epic-8-retrospective: optional
 
   epic-9: in-progress
-  9-1-bloqueio-eleitoral-automatizado: in-progress
-  9-2-votacao-secreta-rls-view-agregada: in-progress
+  9-1-bloqueio-eleitoral-automatizado: done
+  9-2-votacao-secreta-rls-view-agregada: done
   9-3-outorga-procuracao-eletronica: backlog
   9-4-transmissao-jitsi-meet-ata-autonoma-ia: backlog
   epic-9-retrospective: optional
