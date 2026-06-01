@@ -14,6 +14,8 @@ import 'package:intl/intl.dart';
 import 'package:agora_rtc_engine/agora_rtc_engine.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:condomeet/core/config/app_config.dart';
+import 'package:webview_flutter/webview_flutter.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 class AssembleiaLiveScreen extends StatefulWidget {
   final String assembleiaId;
@@ -463,9 +465,66 @@ class _AssembleiaLiveScreenState extends State<AssembleiaLiveScreen> with Single
     );
   }
 
+  WebViewController? _jitsiController;
+
+  void _setupJitsiController(String url) {
+    if (_jitsiController != null) return;
+    _jitsiController = WebViewController()
+      ..setJavaScriptMode(JavaScriptMode.unrestricted)
+      ..setBackgroundColor(Colors.black)
+      ..setUserAgent("Mozilla/5.0 (Linux; Android 10; Mobile) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/100.0.0.0 Mobile Safari/537.36")
+      ..setNavigationDelegate(
+        NavigationDelegate(
+          onNavigationRequest: (request) => NavigationDecision.navigate,
+        ),
+      )
+      ..loadRequest(Uri.parse(url));
+  }
+
+  Future<void> _launchExternalJitsi(String urlString) async {
+    final url = Uri.parse(urlString);
+    if (await canLaunchUrl(url)) {
+      await launchUrl(url, mode: LaunchMode.externalApplication);
+    } else {
+      debugPrint('Could not launch $urlString');
+    }
+  }
+
   Widget _buildVideoArea(AssembleiaModel a) {
     if (a.isYoutube && a.youtubeUrl != null && a.youtubeUrl!.isNotEmpty) {
       return YoutubePlayerWidget(youtubeUrl: a.youtubeUrl!);
+    }
+
+    if (a.tipoTransmissao == 'jitsi' || a.tipoTransmissao == 'videoconferencia') {
+      final condoIdShort = a.condominioId.split('-')[0];
+      final assembleiaIdShort = a.id.split('-')[0];
+      final jitsiUrl = 'https://meet.jit.si/condomeet-$condoIdShort-$assembleiaIdShort';
+
+      _setupJitsiController(jitsiUrl);
+
+      return Stack(
+        children: [
+          if (_jitsiController != null)
+            WebViewWidget(controller: _jitsiController!),
+          Positioned(
+            bottom: 12,
+            right: 12,
+            child: ElevatedButton.icon(
+              onPressed: () => _launchExternalJitsi(jitsiUrl),
+              icon: const Icon(Icons.open_in_new, size: 14, color: Colors.white),
+              label: const Text(
+                'Abrir no App Jitsi',
+                style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Colors.white),
+              ),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: AppColors.primary,
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+              ),
+            ),
+          ),
+        ],
+      );
     }
 
     if (!_agoraInitialized) {

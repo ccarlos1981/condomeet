@@ -155,6 +155,8 @@ export default function LiveDashboard({ assembleia, pautas: initialPautas, userI
 
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const videoContainerRef = useRef<HTMLDivElement>(null)
+  const jitsiContainerRef = useRef<HTMLDivElement>(null)
+  const jitsiApiRef = useRef<any>(null)
 
   // YouTube URL input (for setting URL from live dashboard)
   const [youtubeUrlInput, setYoutubeUrlInput] = useState(assembleia.youtube_url || '')
@@ -243,7 +245,7 @@ export default function LiveDashboard({ assembleia, pautas: initialPautas, userI
     const fetchInitialData = async () => {
       const { data: chatData } = await supabase
         .from('assembleia_chat')
-        .select(`*, perfil:user_id(nome, papel_sistema)`)
+        .select(`*, perfil:user_id(nome_completo, papel_sistema)`)
         .eq('assembleia_id', assembleia.id)
         .order('created_at', { ascending: true })
       
@@ -254,7 +256,7 @@ export default function LiveDashboard({ assembleia, pautas: initialPautas, userI
           mensagem: msg.mensagem as string,
           tipo: msg.tipo as string,
           created_at: msg.created_at as string,
-          user_name: (msg.perfil as Record<string, string>)?.nome || 'Usuário',
+          user_name: (msg.perfil as Record<string, string>)?.nome_completo || 'Usuário',
           is_admin: ['Síndico', 'Síndico (a)', 'ADMIN', 'admin'].includes((msg.perfil as Record<string, string>)?.papel_sistema)
         })))
       }
@@ -384,10 +386,10 @@ export default function LiveDashboard({ assembleia, pautas: initialPautas, userI
       { event: 'INSERT', schema: 'public', table: 'assembleia_chat', filter: `assembleia_id=eq.${assembleia.id}` },
       async (payload) => {
         const newMsg = payload.new as ChatMessage
-        const { data } = await supabase.from('perfil').select('nome, papel_sistema').eq('id', newMsg.user_id).single()
+        const { data } = await supabase.from('perfil').select('nome_completo, papel_sistema').eq('id', newMsg.user_id).single()
         setMessages(prev => [...prev, { 
           ...newMsg, 
-          user_name: data?.nome || 'Usuário',
+          user_name: data?.nome_completo || 'Usuário',
           is_admin: data ? ['Síndico', 'Síndico (a)', 'ADMIN', 'admin'].includes(data.papel_sistema) : false
         }])
       }
@@ -449,10 +451,10 @@ export default function LiveDashboard({ assembleia, pautas: initialPautas, userI
 
     channel.subscribe(async (status) => {
       if (status === 'SUBSCRIBED') {
-        const { data: profile } = await supabase.from('perfil').select('nome, unit_id').eq('id', userId).single()
+        const { data: profile } = await supabase.from('perfil').select('nome_completo, unit_id').eq('id', userId).single()
         await channel.track({
           user_id: userId,
-          name: profile?.nome || 'Admin',
+          name: profile?.nome_completo || 'Admin',
           unitId: profile?.unit_id,
           online_at: new Date().toISOString(),
           is_admin: true
@@ -509,6 +511,88 @@ export default function LiveDashboard({ assembleia, pautas: initialPautas, userI
     }
     loadDevices()
   }, [selectedCamera, selectedMic])
+
+  // ─── JITSI MEET INITIALIZATION ──────────────────
+  useEffect(() => {
+    if (assembleia.tipo_transmissao !== 'jitsi' && assembleia.tipo_transmissao !== 'videoconferencia') return
+
+    // Load Jitsi script
+    const scriptId = 'jitsi-external-api'
+    let script = document.getElementById(scriptId) as HTMLScriptElement
+    if (!script) {
+      script = document.createElement('script')
+      script.id = scriptId
+      script.src = 'https://meet.jit.si/external_api.js'
+      script.async = true
+      document.body.appendChild(script)
+    }
+
+    const initJitsi = () => {
+      if (jitsiApiRef.current) {
+        jitsiApiRef.current.dispose()
+        jitsiApiRef.current = null
+      }
+
+      if (!jitsiContainerRef.current) return
+
+      const condoIdShort = assembleia.condominio_id ? assembleia.condominio_id.split('-')[0] : 'condo'
+      const assembleiaIdShort = assembleia.id ? assembleia.id.split('-')[0] : 'assembleia'
+      const roomName = `condomeet-${condoIdShort}-${assembleiaIdShort}`
+
+      const domain = 'meet.jit.si'
+      const options = {
+        roomName: roomName,
+        width: '100%',
+        height: '100%',
+        parentNode: jitsiContainerRef.current,
+        interfaceConfigOverwrite: {
+          TOOLBAR_BUTTONS: [
+            'microphone', 'camera', 'closedcaptions', 'desktop', 'embedmeeting', 'fullscreen',
+            'fodeviceselection', 'hangup', 'profile', 'chat', 'recording',
+            'livestreaming', 'etherpad', 'sharedvideo', 'settings', 'raisehand',
+            'videoquality', 'filmstrip', 'invite', 'feedback', 'stats', 'shortcuts',
+            'tileview', 'videobackgroundblur', 'download', 'help', 'mute-everyone',
+            'mute-video-everyone', 'security'
+          ],
+        },
+        configOverwrite: {
+          startWithAudioMuted: false,
+          startWithVideoMuted: false,
+        },
+      }
+
+      const api = new (window as any).JitsiMeetExternalAPI(domain, options)
+      jitsiApiRef.current = api
+    }
+
+    script.onload = () => {
+      initJitsi()
+    }
+
+    if ((window as any).JitsiMeetExternalAPI) {
+      initJitsi()
+    }
+
+    return () => {
+      if (jitsiApiRef.current) {
+        jitsiApiRef.current.dispose()
+        jitsiApiRef.current = null
+      }
+    }
+  }, [assembleia.id, assembleia.condominio_id, assembleia.tipo_transmissao])
+
+  // Sync mic/video buttons to Jitsi
+  useEffect(() => {
+    if (jitsiApiRef.current) {
+      jitsiApiRef.current.executeCommand('toggleAudio')
+    }
+  }, [micOn])
+
+  useEffect(() => {
+    if (jitsiApiRef.current) {
+      jitsiApiRef.current.executeCommand('toggleVideo')
+    }
+  }, [videoOn])
 
   // ─── FULLSCREEN ─────────────────────────────────
   const handleToggleFullscreen = useCallback(() => {
@@ -730,12 +814,16 @@ export default function LiveDashboard({ assembleia, pautas: initialPautas, userI
   }
 
   const handleToggleMuteAll = () => {
-    setIsMuteAll(!isMuteAll)
+    const newVal = !isMuteAll
+    setIsMuteAll(newVal)
+    if (jitsiApiRef.current) {
+      jitsiApiRef.current.executeCommand('muteEveryone')
+    }
     // Send system message to notify participants
     supabase.from('assembleia_chat').insert({
       assembleia_id: assembleia.id,
       user_id: userId,
-      mensagem: !isMuteAll 
+      mensagem: newVal 
         ? '🔇 O administrador silenciou todos os participantes.'
         : '🔊 O administrador reativou o áudio dos participantes.',
       tipo: 'sistema'
@@ -743,11 +831,15 @@ export default function LiveDashboard({ assembleia, pautas: initialPautas, userI
   }
 
   const handleToggleChatBlock = () => {
-    setIsChatBlocked(!isChatBlocked)
+    const newVal = !isChatBlocked
+    setIsChatBlocked(newVal)
+    if (jitsiApiRef.current) {
+      jitsiApiRef.current.executeCommand('toggleChat')
+    }
     supabase.from('assembleia_chat').insert({
       assembleia_id: assembleia.id,
       user_id: userId,
-      mensagem: !isChatBlocked 
+      mensagem: newVal 
         ? '🔒 O chat foi bloqueado pelo administrador.'
         : '🔓 O chat foi desbloqueado pelo administrador.',
       tipo: 'sistema'
@@ -800,8 +892,10 @@ export default function LiveDashboard({ assembleia, pautas: initialPautas, userI
 
           {/* Live Video Feed Center */}
           <div className="flex-1 flex items-center justify-center relative overflow-hidden bg-black">
-            {/* ── YouTube Mode ── */}
-            {assembleia.tipo_transmissao === 'youtube' ? (
+            {/* ── Jitsi Mode ── */}
+            {(assembleia.tipo_transmissao === 'jitsi' || assembleia.tipo_transmissao === 'videoconferencia') ? (
+              <div ref={jitsiContainerRef} className="w-full h-full" />
+            ) : assembleia.tipo_transmissao === 'youtube' ? (
               <div className="w-full h-full flex flex-col">
                 {(() => {
                   const ytId = extractYoutubeId(assembleia.youtube_url || youtubeUrlInput)

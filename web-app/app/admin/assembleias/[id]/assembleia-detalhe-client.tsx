@@ -1,5 +1,5 @@
 'use client'
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import {
@@ -122,6 +122,82 @@ export default function AssembleiaDetalheClient({
   const [loading, setLoading] = useState(false)
   const [showConfigModal, setShowConfigModal] = useState(false)
   const [showPautaModal, setShowPautaModal] = useState(false)
+  const [procuracoes, setProcuracoes] = useState<any[]>([])
+  const [loadingProcuracoes, setLoadingProcuracoes] = useState(false)
+  const [activeTab, setActiveTab] = useState<'pautas' | 'procuracoes'>('pautas')
+
+  async function fetchProcuracoes() {
+    setLoadingProcuracoes(true)
+    const { data, error } = await supabase
+      .from('assembleia_procuracoes')
+      .select(`
+        id,
+        assembleia_id,
+        outorgante_unit_id,
+        outorgante_user_id,
+        outorgado_user_id,
+        status,
+        aprovado_por,
+        aprovado_em,
+        created_at,
+        outorgante_perfil:perfil!outorgante_user_id(nome_completo),
+        outorgado_perfil:perfil!outorgado_user_id(nome_completo),
+        outorgante_unidade:unidades!outorgante_unit_id(unit_number, block)
+      `)
+      .eq('assembleia_id', assembleia.id)
+      .order('created_at', { ascending: false })
+
+    if (!error && data) {
+      setProcuracoes(data)
+    } else {
+      console.error('Erro ao buscar procurações:', error)
+    }
+    setLoadingProcuracoes(false)
+  }
+
+  useEffect(() => {
+    fetchProcuracoes()
+  }, [assembleia.id])
+
+  async function handleApproveProcuracao(id: string) {
+    if (!confirm('Deseja aprovar esta procuração? Isso dará direito de voto ao procurador.')) return
+    setLoading(true)
+    const { error } = await supabase
+      .from('assembleia_procuracoes')
+      .update({
+        status: 'aprovada',
+        aprovado_por: userId,
+        aprovado_em: new Date().toISOString()
+      })
+      .eq('id', id)
+
+    if (!error) {
+      await fetchProcuracoes()
+    } else {
+      alert('Erro ao aprovar procuração: ' + error.message)
+    }
+    setLoading(false)
+  }
+
+  async function handleRejectProcuracao(id: string) {
+    if (!confirm('Deseja rejeitar esta procuração?')) return
+    setLoading(true)
+    const { error } = await supabase
+      .from('assembleia_procuracoes')
+      .update({
+        status: 'rejeitada',
+        aprovado_por: userId,
+        aprovado_em: new Date().toISOString()
+      })
+      .eq('id', id)
+
+    if (!error) {
+      await fetchProcuracoes()
+    } else {
+      alert('Erro ao rejeitar procuração: ' + error.message)
+    }
+    setLoading(false)
+  }
 
   const statusCfg = STATUS_CONFIG[status] ?? STATUS_CONFIG.rascunho
   const modalidade = MODALIDADE_LABELS[assembleia.modalidade] ?? MODALIDADE_LABELS.online
@@ -370,111 +446,230 @@ export default function AssembleiaDetalheClient({
         </div>
       </div>
 
-      {/* ── PAUTAS OU DASHBOARD ────────────────────────────── */}
+      {/* ── PAUTAS OU DASHBOARD OU PROCURACOES ────────────────────────────── */}
       {status === 'finalizada' ? (
         <AssembleiaDashboard assembleia={assembleia} pautas={pautas} votos={votos} totalUnidades={totalUnidades} />
       ) : (
-        <div className="bg-white rounded-xl border border-gray-100 p-5 shadow-sm">
-          <div className="flex items-center justify-between mb-4">
-            <h3 className="text-sm font-bold text-gray-700 flex items-center gap-2">
-              <ListOrdered size={16} className="text-[#FC5931]" />
-              Pautas ({pautas.length})
-            </h3>
+        <div className="bg-white rounded-xl border border-gray-100 p-5 shadow-sm space-y-6">
+          {/* Tabs Selector */}
+          <div className="flex border-b border-gray-100 pb-px">
             <button
-              onClick={() => setShowPautaModal(true)}
-              className="text-xs font-semibold text-[#FC5931] hover:text-[#e04a2a] bg-[#FC5931]/10 px-3 py-1.5 rounded-lg flex items-center gap-1 transition-colors"
+              onClick={() => setActiveTab('pautas')}
+              className={`flex items-center gap-2 pb-3 px-4 text-sm font-semibold transition-all border-b-2 ${
+                activeTab === 'pautas'
+                  ? 'border-[#FC5931] text-[#FC5931]'
+                  : 'border-transparent text-gray-500 hover:text-gray-700'
+              }`}
             >
-              <PlusCircle size={14} /> Nova Pauta / Enquete
+              <ListOrdered size={16} />
+              Pautas ({pautas.length})
+            </button>
+            <button
+              onClick={() => setActiveTab('procuracoes')}
+              className={`flex items-center gap-2 pb-3 px-4 text-sm font-semibold transition-all border-b-2 ${
+                activeTab === 'procuracoes'
+                  ? 'border-[#FC5931] text-[#FC5931]'
+                  : 'border-transparent text-gray-500 hover:text-gray-700'
+              }`}
+            >
+              <Users size={16} />
+              Procurações Recebidas ({procuracoes.length})
             </button>
           </div>
 
-        {pautas.length === 0 ? (
-          <p className="text-sm text-gray-400 text-center py-4">Nenhuma pauta cadastrada</p>
-        ) : (
-          <div className="space-y-3">
-            {pautas.map(p => {
-              const opcoes = Array.isArray(p.opcoes_voto) ? p.opcoes_voto : (typeof p.opcoes_voto === 'string' ? JSON.parse(p.opcoes_voto) : [])
-
-              return (
-                <div
-                  key={p.id}
-                  className="flex items-start gap-4 p-4 bg-gray-50 rounded-xl hover:bg-gray-100/60 transition-colors"
+          {activeTab === 'pautas' ? (
+            <div className="space-y-4">
+              <div className="flex items-center justify-between">
+                <h3 className="text-sm font-bold text-gray-700 flex items-center gap-2">
+                  <ListOrdered size={16} className="text-[#FC5931]" />
+                  Lista de Pautas ({pautas.length})
+                </h3>
+                <button
+                  onClick={() => setShowPautaModal(true)}
+                  className="text-xs font-semibold text-[#FC5931] hover:text-[#e04a2a] bg-[#FC5931]/10 px-3 py-1.5 rounded-lg flex items-center gap-1 transition-colors"
                 >
-                  {/* Ordem badge */}
-                  <span className="w-8 h-8 rounded-full bg-[#FC5931] text-white text-sm font-bold flex items-center justify-center shrink-0">
-                    {p.ordem}
-                  </span>
+                  <PlusCircle size={14} /> Nova Pauta / Enquete
+                </button>
+              </div>
 
-                  {/* Content */}
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm font-semibold text-gray-800">{p.titulo}</p>
-                    {p.descricao && (
-                      <p className="text-xs text-gray-500 mt-1">{p.descricao}</p>
-                    )}
+              {pautas.length === 0 ? (
+                <p className="text-sm text-gray-400 text-center py-4">Nenhuma pauta cadastrada</p>
+              ) : (
+                <div className="space-y-3">
+                  {pautas.map(p => {
+                    const opcoes = Array.isArray(p.opcoes_voto) ? p.opcoes_voto : (typeof p.opcoes_voto === 'string' ? JSON.parse(p.opcoes_voto) : [])
 
-                    <div className="flex flex-wrap items-center gap-2 mt-2">
-                      {/* Tipo */}
-                      <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[11px] font-semibold ${
-                        p.tipo === 'votacao'
-                          ? 'bg-orange-100 text-orange-700'
-                          : 'bg-blue-100 text-blue-700'
-                      }`}>
-                        {p.tipo === 'votacao' ? '🗳️ Votação' : 'ℹ️ Informativo'}
-                      </span>
-
-                      {/* Quorum */}
-                      {p.tipo === 'votacao' && (
-                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[11px] font-medium bg-gray-200 text-gray-600">
-                          {QUORUM_LABELS[p.quorum_tipo] ?? p.quorum_tipo}
+                    return (
+                      <div
+                        key={p.id}
+                        className="flex items-start gap-4 p-4 bg-gray-50 rounded-xl hover:bg-gray-100/60 transition-colors"
+                      >
+                        {/* Ordem badge */}
+                        <span className="w-8 h-8 rounded-full bg-[#FC5931] text-white text-sm font-bold flex items-center justify-center shrink-0">
+                          {p.ordem}
                         </span>
-                      )}
 
-                      {/* Modo resposta */}
-                      {p.tipo === 'votacao' && (
-                        <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[11px] font-medium ${
-                          p.modo_resposta === 'multipla'
-                            ? 'bg-blue-100 text-blue-700'
-                            : 'bg-green-100 text-green-700'
-                        }`}>
-                          {p.modo_resposta === 'multipla'
-                            ? `☑️ Múltipla (máx ${p.max_escolhas})`
-                            : '🔘 Resposta Única'
-                          }
-                        </span>
-                      )}
+                        {/* Content */}
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm font-semibold text-gray-800">{p.titulo}</p>
+                          {p.descricao && (
+                            <p className="text-xs text-gray-500 mt-1">{p.descricao}</p>
+                          )}
 
-                      {/* Resultado visível */}
-                      {p.resultado_visivel && (
-                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[11px] font-medium bg-amber-100 text-amber-700">
-                          <Eye size={10} /> Resultado visível
-                        </span>
-                      )}
-                    </div>
+                          <div className="flex flex-wrap items-center gap-2 mt-2">
+                            {/* Tipo */}
+                            <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[11px] font-semibold ${
+                              p.tipo === 'votacao'
+                                ? 'bg-orange-100 text-orange-700'
+                                : 'bg-blue-100 text-blue-700'
+                            }`}>
+                              {p.tipo === 'votacao' ? '🗳️ Votação' : 'ℹ️ Informativo'}
+                            </span>
 
-                    {/* Opções de voto */}
-                    {p.tipo === 'votacao' && opcoes.length > 0 && (
-                      <div className="flex flex-wrap gap-1.5 mt-2">
-                        {opcoes.map((op: string, i: number) => (
-                          <span
-                            key={i}
-                            className={`inline-flex items-center px-2.5 py-1 rounded-lg text-[11px] font-medium ${
-                              p.modo_resposta === 'multipla'
-                                ? 'bg-blue-50 text-blue-700 border border-blue-200'
-                                : 'bg-green-50 text-green-700 border border-green-200'
-                            }`}
-                          >
-                            {p.modo_resposta === 'multipla' ? '☑️' : '🔘'} {op}
-                          </span>
-                        ))}
+                            {/* Quorum */}
+                            {p.tipo === 'votacao' && (
+                              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[11px] font-medium bg-gray-200 text-gray-600">
+                                {QUORUM_LABELS[p.quorum_tipo] ?? p.quorum_tipo}
+                              </span>
+                            )}
+
+                            {/* Modo resposta */}
+                            {p.tipo === 'votacao' && (
+                              <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[11px] font-medium ${
+                                p.modo_resposta === 'multipla'
+                                  ? 'bg-blue-100 text-blue-700'
+                                  : 'bg-green-100 text-green-700'
+                              }`}>
+                                {p.modo_resposta === 'multipla'
+                                  ? `☑️ Múltipla (máx ${p.max_escolhas})`
+                                  : '🔘 Resposta Única'
+                                }
+                              </span>
+                            )}
+
+                            {/* Resultado visível */}
+                            {p.resultado_visivel && (
+                              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[11px] font-medium bg-amber-100 text-amber-700">
+                                <Eye size={10} /> Resultado visível
+                              </span>
+                            )}
+                          </div>
+
+                          {/* Opções de voto */}
+                          {p.tipo === 'votacao' && opcoes.length > 0 && (
+                            <div className="flex flex-wrap gap-1.5 mt-2">
+                              {opcoes.map((op: string, i: number) => (
+                                <span
+                                  key={i}
+                                  className={`inline-flex items-center px-2.5 py-1 rounded-lg text-[11px] font-medium ${
+                                    p.modo_resposta === 'multipla'
+                                      ? 'bg-blue-50 text-blue-700 border border-blue-200'
+                                      : 'bg-green-50 text-green-700 border border-green-200'
+                                  }`}
+                                >
+                                  {p.modo_resposta === 'multipla' ? '☑️' : '🔘'} {op}
+                                </span>
+                              ))}
+                            </div>
+                          )}
+                        </div>
                       </div>
-                    )}
-                  </div>
+                    )
+                  })}
                 </div>
-              )
-            })}
-          </div>
-        )}
-      </div>
+              )}
+            </div>
+          ) : (
+            <div className="space-y-4">
+              <div className="flex items-center justify-between">
+                <h3 className="text-sm font-bold text-gray-700 flex items-center gap-2">
+                  <Users size={16} className="text-[#FC5931]" />
+                  Gerenciamento de Procurações
+                </h3>
+                <button
+                  onClick={fetchProcuracoes}
+                  disabled={loadingProcuracoes}
+                  className="text-xs font-semibold text-gray-600 hover:text-gray-800 bg-gray-100 hover:bg-gray-200 px-3 py-1.5 rounded-lg transition-colors disabled:opacity-50"
+                >
+                  {loadingProcuracoes ? 'Atualizando...' : 'Atualizar Lista'}
+                </button>
+              </div>
+
+              {procuracoes.length === 0 ? (
+                <p className="text-sm text-gray-400 text-center py-8 bg-gray-50 rounded-xl">
+                  Nenhuma procuração foi enviada para esta assembleia até o momento.
+                </p>
+              ) : (
+                <div className="overflow-x-auto border border-gray-100 rounded-xl">
+                  <table className="w-full text-sm text-left text-gray-500">
+                    <thead className="text-xs text-gray-700 uppercase bg-gray-50 border-b border-gray-100">
+                      <tr>
+                        <th scope="col" className="px-6 py-3">Unidade</th>
+                        <th scope="col" className="px-6 py-3">Outorgante (Dono)</th>
+                        <th scope="col" className="px-6 py-3">Outorgado (Procurador)</th>
+                        <th scope="col" className="px-6 py-3">Status</th>
+                        <th scope="col" className="px-6 py-3 text-right">Ações</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-gray-100">
+                      {procuracoes.map((p) => {
+                        const unitLabel = p.outorgante_unidade
+                          ? `${p.outorgante_unidade.block ? `Bloco ${p.outorgante_unidade.block} - ` : ''}Apto ${p.outorgante_unidade.unit_number}`
+                          : '—'
+                        const outorganteName = p.outorgante_perfil?.nome_completo ?? '—'
+                        const outorgadoName = p.outorgado_perfil?.nome_completo ?? '—'
+
+                        return (
+                          <tr key={p.id} className="bg-white hover:bg-gray-50/50 transition-colors">
+                            <td className="px-6 py-4 font-semibold text-gray-800">{unitLabel}</td>
+                            <td className="px-6 py-4 text-gray-700">{outorganteName}</td>
+                            <td className="px-6 py-4 text-gray-700">{outorgadoName}</td>
+                            <td className="px-6 py-4">
+                              <span className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-semibold ${
+                                p.status === 'aprovada'
+                                  ? 'bg-green-100 text-green-700'
+                                  : p.status === 'rejeitada'
+                                  ? 'bg-red-100 text-red-700'
+                                  : 'bg-yellow-100 text-yellow-700'
+                              }`}>
+                                {p.status === 'aprovada' && '✓ Aprovada'}
+                                {p.status === 'rejeitada' && '✗ Rejeitada'}
+                                {p.status === 'pendente' && '⏱ Pendente'}
+                              </span>
+                            </td>
+                            <td className="px-6 py-4 text-right space-x-2 whitespace-nowrap">
+                              {p.status === 'pendente' && (
+                                <>
+                                  <button
+                                    onClick={() => handleApproveProcuracao(p.id)}
+                                    disabled={loading}
+                                    className="text-xs font-semibold bg-green-50 hover:bg-green-100 text-green-600 px-3 py-1.5 rounded-lg border border-green-200 transition-colors disabled:opacity-50"
+                                  >
+                                    Aprovar
+                                  </button>
+                                  <button
+                                    onClick={() => handleRejectProcuracao(p.id)}
+                                    disabled={loading}
+                                    className="text-xs font-semibold bg-red-50 hover:bg-red-100 text-red-600 px-3 py-1.5 rounded-lg border border-red-200 transition-colors disabled:opacity-50"
+                                  >
+                                    Rejeitar
+                                  </button>
+                                </>
+                              )}
+                              {p.status !== 'pendente' && (
+                                <span className="text-xs text-gray-400">Processado</span>
+                              )}
+                            </td>
+                          </tr>
+                        )
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </div>
+          )}
+        </div>
       )}
 
       {/* ── AUDIT LOG TIP ────────────────────────────────── */}

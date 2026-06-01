@@ -5,6 +5,7 @@ import 'package:condomeet/features/assembleia/presentation/screens/document_view
 import 'package:condomeet/core/design_system/app_colors.dart';
 import 'package:condomeet/features/assembleia/domain/models/assembleia_model.dart';
 import 'package:condomeet/features/assembleia/domain/models/pauta_model.dart';
+import 'package:condomeet/core/services/security_service.dart';
 
 class AssembleiaDetalheScreen extends StatefulWidget {
   final String assembleiaId;
@@ -24,6 +25,9 @@ class _AssembleiaDetalheScreenState extends State<AssembleiaDetalheScreen> {
   Map<String, String> _meusVotos = {}; // pauta_id -> voto string do morador
   Map<String, dynamic> _selectedOptions = {}; // pauta_id -> seleções temporárias
   String? _myUnitId;
+  bool _loadingProxy = true;
+  Map<String, dynamic>? _myProxy;
+  List<Map<String, dynamic>> _vizinhos = [];
 
   @override
   void initState() {
@@ -32,7 +36,10 @@ class _AssembleiaDetalheScreenState extends State<AssembleiaDetalheScreen> {
   }
 
   Future<void> _loadData() async {
-    setState(() => _loading = true);
+    setState(() {
+      _loading = true;
+      _loadingProxy = true;
+    });
     try {
       // Fetch assembly
       final aData = await _supabase
@@ -79,16 +86,19 @@ class _AssembleiaDetalheScreenState extends State<AssembleiaDetalheScreen> {
       final userId = _supabase.auth.currentUser?.id;
       final meusVotos = <String, String>{};
       String? unitId;
+      Map<String, dynamic>? proxyData;
+      List<Map<String, dynamic>> vizinhos = [];
       
       if (userId != null) {
         try {
           // Obter unidade do morador
           final perfil = await _supabase
               .from('perfil')
-              .select('unidade_id')
+              .select('unidade_id, condominio_id')
               .eq('id', userId)
               .maybeSingle();
           unitId = perfil?['unidade_id'] as String?;
+          final condoId = perfil?['condominio_id'] as String?;
 
           // Obter votos que este morador já fez
           final mvData = await _supabase
@@ -100,6 +110,28 @@ class _AssembleiaDetalheScreenState extends State<AssembleiaDetalheScreen> {
           for (final mv in mvData) {
              meusVotos[mv['pauta_id'] as String] = mv['voto'] as String;
           }
+
+          // Obter procuração outorgada por este morador para esta assembleia
+          final pxResponse = await _supabase
+              .from('assembleia_procuracoes')
+              .select('*, outorgado_perfil:perfil!outorgado_user_id(nome_completo)')
+              .eq('assembleia_id', widget.assembleiaId)
+              .eq('outorgante_user_id', userId)
+              .maybeSingle();
+          if (pxResponse != null) {
+            proxyData = pxResponse;
+          }
+
+          // Listar vizinhos para outorga (caso não tenha procuração ainda)
+          if (proxyData == null && condoId != null) {
+            final vizinhosData = await _supabase
+                .from('perfil')
+                .select('id, nome_completo')
+                .eq('condominio_id', condoId)
+                .neq('id', userId)
+                .order('nome_completo');
+            vizinhos = List<Map<String, dynamic>>.from(vizinhosData);
+          }
         } catch (_) {}
       }
 
@@ -110,12 +142,20 @@ class _AssembleiaDetalheScreenState extends State<AssembleiaDetalheScreen> {
           _resultados = resultados;
           _meusVotos = meusVotos;
           _myUnitId = unitId;
+          _myProxy = proxyData;
+          _vizinhos = vizinhos;
+          _loadingProxy = false;
           _loading = false;
         });
       }
     } catch (e) {
       debugPrint('Error fetching assembleia detalhe: $e');
-      if (mounted) setState(() => _loading = false);
+      if (mounted) {
+        setState(() {
+          _loading = false;
+          _loadingProxy = false;
+        });
+      }
     }
   }
 
@@ -242,6 +282,10 @@ class _AssembleiaDetalheScreenState extends State<AssembleiaDetalheScreen> {
         children: [
           // Info Cards
           _buildInfoSection(a),
+          const SizedBox(height: 20),
+
+          // Proxy Section (Outorga de Procuração)
+          _buildProxySection(),
           const SizedBox(height: 20),
 
           // Edital
@@ -848,6 +892,263 @@ class _AssembleiaDetalheScreenState extends State<AssembleiaDetalheScreen> {
           );
         }),
       ],
+    );
+  }
+
+  Widget _buildProxySection() {
+    if (_loadingProxy) {
+      return const Card(
+        child: Padding(
+          padding: EdgeInsets.all(16.0),
+          child: Center(
+            child: SizedBox(
+              width: 20,
+              height: 20,
+              child: CircularProgressIndicator(strokeWidth: 2, color: AppColors.primary),
+            ),
+          ),
+        ),
+      );
+    }
+
+    if (_myProxy != null) {
+      final String outorgadoNome = (_myProxy!['outorgado_perfil'] as Map?)?['nome_completo'] as String? ?? 'Vizinho';
+      final String statusStr = _myProxy!['status'] as String? ?? 'pendente';
+      
+      Color statusColor;
+      IconData statusIcon;
+      String statusLabel;
+
+      if (statusStr == 'aprovada') {
+        statusColor = Colors.green;
+        statusIcon = Icons.check_circle;
+        statusLabel = 'Aprovada (Seu voto foi delegado)';
+      } else if (statusStr == 'rejeitada') {
+        statusColor = Colors.red;
+        statusIcon = Icons.cancel;
+        statusLabel = 'Rejeitada';
+      } else {
+        statusColor = Colors.orange;
+        statusIcon = Icons.hourglass_empty;
+        statusLabel = 'Aguardando aprovação do síndico';
+      }
+
+      return Container(
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: statusColor.withAlpha(12), // 5% opacity
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: statusColor.withAlpha(51)), // 20% opacity
+        ),
+        child: Row(
+          children: [
+            Icon(statusIcon, color: statusColor, size: 28),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text(
+                    'Procuração Eletrônica',
+                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    'Delegado para: $outorgadoNome',
+                    style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w500),
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    'Status: $statusLabel',
+                    style: TextStyle(fontSize: 12, color: statusColor, fontWeight: FontWeight.bold),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+
+    // Se o morador não outorgou procuração para esta assembleia, exibe opção para outorgar
+    if (_assembleia!.isFinished) {
+      return const SizedBox.shrink();
+    }
+
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withAlpha(10),
+            blurRadius: 8,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text(
+            'Não poderá comparecer?',
+            style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: AppColors.textMain),
+          ),
+          const SizedBox(height: 4),
+          const Text(
+            'Outorgue seus poderes de voto para um vizinho de confiança votar em seu nome.',
+            style: TextStyle(fontSize: 12, color: AppColors.textSecondary),
+          ),
+          const SizedBox(height: 12),
+          SizedBox(
+            width: double.infinity,
+            child: ElevatedButton.icon(
+              onPressed: _vizinhos.isEmpty ? null : _showOutorgarProcuracaoDialog,
+              icon: const Icon(Icons.assignment_ind_outlined, size: 18),
+              label: const Text('OUTORGAR PROCURAÇÃO', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: AppColors.primary,
+                foregroundColor: Colors.white,
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                padding: const EdgeInsets.symmetric(vertical: 12),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showOutorgarProcuracaoDialog() {
+    String? selectedVizinhoId;
+    final pinController = TextEditingController();
+    final formKey = GlobalKey<FormState>();
+    bool processing = false;
+
+    showDialog(
+      context: context,
+      builder: (context) {
+        return StatefulBuilder(
+          builder: (context, setDialogState) {
+            return AlertDialog(
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+              title: const Text('Outorgar Procuração', style: TextStyle(fontWeight: FontWeight.bold)),
+              content: Form(
+                key: formKey,
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const Text(
+                      'Delegue o seu voto nesta assembleia para um de seus vizinhos.',
+                      style: TextStyle(fontSize: 13, color: Colors.grey),
+                    ),
+                    const SizedBox(height: 16),
+                    DropdownButtonFormField<String>(
+                      decoration: const InputDecoration(
+                        labelText: 'Selecionar Vizinho',
+                        border: OutlineInputBorder(),
+                      ),
+                      value: selectedVizinhoId,
+                      items: _vizinhos.map((v) {
+                        return DropdownMenuItem<String>(
+                          value: v['id'] as String,
+                          child: Text(v['nome_completo'] as String? ?? 'Sem Nome'),
+                        );
+                      }).toList(),
+                      validator: (val) => val == null ? 'Por favor, selecione um vizinho' : null,
+                      onChanged: (val) {
+                        setDialogState(() => selectedVizinhoId = val);
+                      },
+                    ),
+                    const SizedBox(height: 16),
+                    TextFormField(
+                      controller: pinController,
+                      keyboardType: TextInputType.number,
+                      obscureText: true,
+                      maxLength: 6,
+                      decoration: const InputDecoration(
+                        labelText: 'PIN de 6 dígitos',
+                        border: OutlineInputBorder(),
+                        counterText: '',
+                      ),
+                      validator: (val) {
+                        if (val == null || val.length != 6) {
+                          return 'Insira o PIN de 6 dígitos';
+                        }
+                        return null;
+                      },
+                    ),
+                  ],
+                ),
+              ),
+              actions: [
+                TextButton(
+                  onPressed: processing ? null : () => Navigator.pop(context),
+                  child: const Text('CANCELAR'),
+                ),
+                ElevatedButton(
+                  onPressed: processing
+                      ? null
+                      : () async {
+                          if (!formKey.currentState!.validate()) return;
+                          setDialogState(() => processing = true);
+                          
+                          try {
+                            final pinValid = await SecurityService().verifyPin(pinController.text);
+                            if (!pinValid) {
+                              if (context.mounted) {
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  const SnackBar(content: Text('PIN inválido! Tente novamente.')),
+                                );
+                              }
+                              setDialogState(() => processing = false);
+                              return;
+                            }
+
+                            final userId = _supabase.auth.currentUser!.id;
+                            
+                            await _supabase.from('assembleia_procuracoes').insert({
+                              'assembleia_id': widget.assembleiaId,
+                              'outorgante_unit_id': _myUnitId,
+                              'outorgante_user_id': userId,
+                              'outorgado_user_id': selectedVizinhoId,
+                              'status': 'pendente',
+                            });
+
+                            if (context.mounted) {
+                              Navigator.pop(context);
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                const SnackBar(content: Text('Procuração solicitada com sucesso!')),
+                              );
+                              _loadData();
+                            }
+                          } catch (e) {
+                            if (context.mounted) {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                const SnackBar(content: Text('Erro ao salvar procuração.')),
+                              );
+                            }
+                            setDialogState(() => processing = false);
+                          }
+                        },
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: AppColors.primary,
+                    foregroundColor: Colors.white,
+                  ),
+                  child: processing
+                      ? const SizedBox(
+                          width: 16,
+                          height: 16,
+                          child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                        )
+                      : const Text('ENVIAR'),
+                ),
+              ],
+            );
+          },
+        );
+      },
     );
   }
 }
