@@ -22,7 +22,7 @@ const _especialidades = [
   'Concessionária de Carro', 'Construção Civil', 'Consultoria',
   'Corretor de Seguros', 'Corte de Cabelo', 'Costureira',
   'Dedetização', 'Dentista', 'Designer de Sobrancelhas',
-  'Designer Gráfico', 'Diarista', 'Doces Gourmet',
+  'Designer Gráfico', 'Diarista', 'Diarista Doméstica', 'Doces Gourmet',
   'Eletricista', 'Encanador', 'Energia Solar', 'Engenheiro',
   'Estética', 'Extintores',
   'Fisioterapeuta',
@@ -39,9 +39,9 @@ const _especialidades = [
   'Para-raio', 'Pedreiro', 'Personal Trainer', 'Pintor',
   'Piscina - Manutenção', 'Porta Corta-Fogo', 'Professor',
   'Projeto de Incêndio', 'Psicanalista', 'Psicólogo',
-  'Quadra Esportiva',
+  'Quadra Esportiva', 'Quentinha (Comida)',
   'Segurança', 'Serralheiro', 'Serviço em Fachada',
-  'Tatuador', 'Técnico em Enfermagem', 'Técnico Portão Eletrônico',
+  'Tatuador', 'Técnico em Eletrônica', 'Técnico em Enfermagem', 'Técnico em Geladeira/Máquina Lavar', 'Técnico Portão Eletrônico',
   'TI / Informática', 'Trancista',
   'Vendedor', 'Vidraceiro',
   'Outros',
@@ -63,7 +63,7 @@ const _especialidadeEmoji = {
   'Corretor de Seguros': '📋', 'Corte de Cabelo': '💇',
   'Costureira': '🧵', 'Dedetização': '🪲',
   'Dentista': '🦷', 'Designer de Sobrancelhas': '✨',
-  'Designer Gráfico': '🎨', 'Diarista': '🧹',
+  'Designer Gráfico': '🎨', 'Diarista': '🧹', 'Diarista Doméstica': '🧹',
   'Doces Gourmet': '🍰', 'Eletricista': '⚡',
   'Encanador': '🔧', 'Energia Solar': '☀️',
   'Engenheiro': '📐', 'Estética': '💅',
@@ -84,10 +84,10 @@ const _especialidadeEmoji = {
   'Pintor': '🎨', 'Piscina - Manutenção': '🏊',
   'Porta Corta-Fogo': '🚪', 'Professor': '📚',
   'Projeto de Incêndio': '🔥', 'Psicanalista': '🧠',
-  'Psicólogo': '🧠', 'Quadra Esportiva': '⚽',
+  'Psicólogo': '🧠', 'Quadra Esportiva': '⚽', 'Quentinha (Comida)': '🍱',
   'Segurança': '🛡️', 'Serralheiro': '⛓️',
   'Serviço em Fachada': '🏢', 'Tatuador': '💉',
-  'Técnico em Enfermagem': '🏥', 'Técnico Portão Eletrônico': '🚪',
+  'Técnico em Eletrônica': '🔌', 'Técnico em Enfermagem': '🏥', 'Técnico em Geladeira/Máquina Lavar': '❄️', 'Técnico Portão Eletrônico': '🚪',
   'TI / Informática': '💻', 'Trancista': '💇',
   'Vendedor': '🛒', 'Vidraceiro': '🪟',
   'Outros': '🌟',
@@ -112,7 +112,7 @@ const _kCidadesPorUF = <String, List<String>>{
   'CE': ['Fortaleza', 'Caucaia', 'Juazeiro do Norte', 'Maracanaú', 'Sobral', 'Crato', 'Itapipoca', 'Maranguape', 'Iguatu', 'Quixadá', 'Pacatuba', 'Crateús', 'Canindé', 'Russas', 'Cascavel', 'Aquiraz', 'Horizonte', 'Tianguá', 'Camocim', 'Limoeiro do Norte'],
   'DF': ['Brasília', 'Ceilândia', 'Taguatinga', 'Samambaia', 'Planaltina', 'Águas Claras', 'Gama', 'Sobradinho', 'Guará', 'Recanto das Emas'],
   'ES': ['Vitória', 'Serra', 'Cariacica', 'Vila Velha', 'Cachoeiro de Itapemirim', 'Linhares', 'São Mateus', 'Colatina', 'Guarapari', 'Aracruz'],
-  'GO': ['Goiânia', 'Aparecida de Goiânia', 'Anápolis', 'Rio Verde', 'Luziânia', 'Águas Lindas de Goiás', 'Valparaíso de Goiás', 'Trindade', 'Formosa', 'Novo Gama', 'Catalão', 'Jataí', 'Senador Canedo', 'Itumbiara', 'Caldas Novas'],
+  'GO': ['Goiânia', 'Aparecida de Goiânia', 'Anápolis', 'Rio Verde', 'Luziânia', 'Águas Lindas de Goiás', 'Valparaíso de Goiás', 'Trindade', 'Formosa', 'Novo Gama', 'Catalão', 'Jataí', 'Senador Canedo', 'Itumbiara', 'Caldas Novas', 'Corumbá IV', 'Alexânia'],
   'MA': ['São Luís', 'Imperatriz', 'Timon', 'Caxias', 'Codó', 'Paço do Lumiar', 'Açailândia', 'Bacabal', 'Balsas', 'Santa Inês'],
   'MG': ['Belo Horizonte', 'Uberlândia', 'Contagem', 'Juiz de Fora', 'Betim', 'Montes Claros', 'Ribeirão das Neves', 'Uberaba', 'Governador Valadares', 'Ipatinga', 'Sete Lagoas', 'Divinópolis', 'Santa Luzia', 'Poços de Caldas', 'Patos de Minas', 'Coronel Fabriciano', 'Ubá', 'Varginha', 'Itabira', 'Conselheiro Lafaiete'],
   'MS': ['Campo Grande', 'Dourados', 'Três Lagoas', 'Corumbá', 'Ponta Porã', 'Naviraí', 'Nova Andradina', 'Aquidauana', 'Sidrolândia', 'Paranaíba'],
@@ -444,8 +444,9 @@ class _IndicacoesScreenState extends State<IndicacoesScreen> {
     bool locationLoading = true;
     bool locationDetected = false;
 
-    // Persistent controller – lives for the lifetime of the modal
+    // Persistent controllers – live for the lifetime of the modal
     final espController = TextEditingController();
+    final outroCidadeController = TextEditingController();
 
     showModalBottomSheet(
       context: context,
@@ -476,9 +477,11 @@ class _IndicacoesScreenState extends State<IndicacoesScreen> {
                     if (match != null) {
                       selectedCidade = match;
                       cidade = match;
+                      outroCidadeController.clear();
                     } else {
-                      selectedCidade = null;
+                      selectedCidade = 'outro';
                       cidade = detectedCidade;
+                      outroCidadeController.text = detectedCidade;
                     }
                   });
                 }
@@ -689,16 +692,56 @@ class _IndicacoesScreenState extends State<IndicacoesScreen> {
                           ),
                           items: selectedUf == null
                               ? []
-                              : (_kCidadesPorUF[selectedUf] ?? []).map((c) =>
-                                  DropdownMenuItem(value: c, child: Text(c, style: const TextStyle(fontSize: 13)))).toList(),
+                              : [
+                                  ...(_kCidadesPorUF[selectedUf] ?? []).map((c) =>
+                                      DropdownMenuItem(value: c, child: Text(c, style: const TextStyle(fontSize: 13)))),
+                                  const DropdownMenuItem(
+                                    value: 'outro',
+                                    child: Text(
+                                      'Outra (digitar...)',
+                                      style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold),
+                                    ),
+                                  ),
+                                ],
                           onChanged: selectedUf == null ? null : (v) => setModalState(() {
                             selectedCidade = v;
-                            cidade = v ?? '';
+                            cidade = (v == 'outro') ? outroCidadeController.text : (v ?? '');
                           }),
                         ),
                       ),
                     ],
                   ),
+                  if (selectedCidade == 'outro') ...[
+                    const SizedBox(height: 12),
+                    Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Text('Nome da cidade *', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13)),
+                        const SizedBox(height: 6),
+                        TextField(
+                          controller: outroCidadeController,
+                          onChanged: (v) {
+                            cidade = v;
+                          },
+                          decoration: InputDecoration(
+                            hintText: 'Digite o nome da sua cidade',
+                            hintStyle: TextStyle(color: Colors.grey.shade400, fontSize: 13),
+                            border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                            enabledBorder: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(12),
+                              borderSide: BorderSide(color: Colors.grey.shade200),
+                            ),
+                            focusedBorder: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(12),
+                              borderSide: const BorderSide(color: AppColors.primary),
+                            ),
+                            contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                            isDense: true,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
                   const SizedBox(height: 12),
 
                   // Especialidade typeahead

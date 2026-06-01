@@ -23,7 +23,7 @@ export default async function ReservasAdminPage() {
   // Load reservas without FK join
   const { data: reservas } = await supabase
     .from('reservas')
-    .select('id, data_reserva, status, created_at, area_id, user_id')
+    .select('id, data_reserva, status, created_at, area_id, user_id, valor_reserva, status_pagamento')
     .eq('condominio_id', condoId)
     .order('created_at', { ascending: false })
 
@@ -34,12 +34,12 @@ export default async function ReservasAdminPage() {
   const { data: areas } = areaIds.length > 0
     ? await supabase
         .from('areas_comuns')
-        .select('id, tipo_agenda')
+        .select('id, tipo_agenda, precos')
         .in('id', areaIds)
     : { data: [] }
 
   const areaMap = Object.fromEntries(
-    (areas ?? []).map((a: { id: string; tipo_agenda: string }) => [a.id, a])
+    (areas ?? []).map((a: { id: string; tipo_agenda: string; precos: any }) => [a.id, a])
   )
 
   // Fetch moradores separately
@@ -85,6 +85,8 @@ export interface ReservaRow {
   status: string
   created_at: string
   user_id: string
-  areas_comuns: { tipo_agenda: string }
+  valor_reserva?: number
+  status_pagamento?: string
+  areas_comuns: { tipo_agenda: string; precos?: any[] }
   perfil: { nome_completo: string; bloco_txt: string; apto_txt: string; papel_sistema: string; whatsapp?: string; botconversa_id?: string }
 }

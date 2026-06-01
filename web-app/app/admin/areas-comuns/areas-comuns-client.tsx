@@ -31,6 +31,7 @@ interface Area {
   instrucao_uso?: string
   ativo: boolean
   aprovacao_automatica: boolean
+  taxa_reserva?: number
 }
 
 interface Props {
@@ -43,6 +44,7 @@ const emptyForm = (): Omit<Area, 'id'> => ({
   tipo_reserva: 'por_dia', capacidade: 0, limite_acesso: 0,
   hrs_cancelar: 0, precos: [{valor:0,regra:''},{valor:0,regra:''},{valor:0,regra:''}],
   instrucao_uso: '', ativo: true, aprovacao_automatica: false,
+  taxa_reserva: 0.00,
 })
 
 export default function AreasComunsClient({ condominioId, initialAreas }: Props) {
@@ -67,7 +69,7 @@ export default function AreasComunsClient({ condominioId, initialAreas }: Props)
     const { id, ...rest } = area
     const precos = [...(rest.precos ?? [])]
     while (precos.length < 3) precos.push({ valor: 0, regra: '' })
-    setForm({ ...rest, precos })
+    setForm({ ...rest, precos, taxa_reserva: area.taxa_reserva ?? 0 })
     setEditId(id)
     setShowForm(true)
     // Scroll to the form below the list
@@ -170,7 +172,7 @@ export default function AreasComunsClient({ condominioId, initialAreas }: Props)
                 <th className="px-4 py-3 font-semibold">Reserva</th>
                 <th className="px-4 py-3 font-semibold">Cap.</th>
                 <th className="px-4 py-3 font-semibold">Hrs Cancel.</th>
-                <th className="px-4 py-3 font-semibold">Limite</th>
+                <th className="px-4 py-3 font-semibold">Taxa Reserva</th>
                 <th className="px-4 py-3 font-semibold text-center" colSpan={2}>Ações</th>
               </tr>
             </thead>
@@ -187,7 +189,11 @@ export default function AreasComunsClient({ condominioId, initialAreas }: Props)
                     </td>
                     <td className="px-4 py-3 text-center text-gray-600">{area.capacidade}</td>
                     <td className="px-4 py-3 text-center text-gray-600">{area.hrs_cancelar}h</td>
-                    <td className="px-4 py-3 text-center text-gray-600">{area.limite_acesso}</td>
+                    <td className="px-4 py-3 text-center text-gray-600 font-semibold text-gray-800">
+                      {area.taxa_reserva && Number(area.taxa_reserva) > 0 
+                        ? `R$ ${Number(area.taxa_reserva).toFixed(2)}` 
+                        : 'Grátis'}
+                    </td>
                     <td className="px-4 py-3" colSpan={2}></td>
                   </tr>
                   {/* Actions row */}
@@ -332,6 +338,15 @@ export default function AreasComunsClient({ condominioId, initialAreas }: Props)
               onChange={e => setField('hrs_cancelar', Number(e.target.value))}
               className="border border-gray-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#FC5931]/30"
             />
+            <div>
+              <input
+                type="number" min={0} step="0.01" placeholder="Taxa de Reserva (R$)"
+                value={form.taxa_reserva ?? ''}
+                onChange={e => setField('taxa_reserva', Number(e.target.value))}
+                className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#FC5931]/30"
+              />
+              <span className="text-[10px] text-gray-400 mt-1 block">Lançado na mensalidade</span>
+            </div>
           </div>
 
           <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">

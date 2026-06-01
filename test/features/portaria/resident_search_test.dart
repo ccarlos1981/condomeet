@@ -64,6 +64,22 @@ class _FakeResidentRepository implements ResidentRepository {
 
   @override
   Future<Result<void>> unblockResident(String residentId) async => const Success(null);
+
+  @override
+  Future<Result<void>> updateResidentProfile({
+    required String residentId,
+    required String condominiumId,
+    required String fullName,
+    required String email,
+    required String phone,
+    required String block,
+    required String unit,
+    required String tipoMorador,
+    required String papelSistema,
+  }) async => const Success(null);
+
+  @override
+  Future<Result<void>> resetPassword(String residentId) async => const Success(null);
 }
 
 void main() {

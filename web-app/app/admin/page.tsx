@@ -1,5 +1,6 @@
 import { createClient } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
+import { cookies } from 'next/headers'
 import {
   Building2, DoorOpen, AlertCircle, Users, Package, Bell, FileText, CalendarDays
 } from 'lucide-react'
@@ -14,11 +15,29 @@ export default async function AdminDashboard() {
 
   const { data: profile } = await supabase
     .from('perfil')
-    .select('condominio_id, nome_completo')
+    .select('condominio_id, nome_completo, papel_sistema, administradora_id')
     .eq('id', user.id)
     .single()
 
-  const condoId = profile?.condominio_id ?? ''
+  let condoId = profile?.condominio_id ?? ''
+  const role = profile?.papel_sistema ?? ''
+
+  if (role.toLowerCase() === 'administradora' && profile?.administradora_id) {
+    const cookieStore = await cookies()
+    const selectedCondoId = cookieStore.get('selected_condo_id')?.value
+    if (selectedCondoId) {
+      // Validate that this condo belongs to the administradora
+      const { data: condoMatch } = await supabase
+        .from('condominios')
+        .select('id')
+        .eq('id', selectedCondoId)
+        .eq('administradora_id', profile.administradora_id)
+        .maybeSingle()
+      if (condoMatch) {
+        condoId = selectedCondoId
+      }
+    }
+  }
 
   const { data: condoData } = await supabase
     .from('condominios')

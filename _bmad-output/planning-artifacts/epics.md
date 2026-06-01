@@ -3,86 +3,152 @@ stepsCompleted: [1, 2, 3, 4]
 inputDocuments:
   - _bmad-output/planning-artifacts/prd.md
   - _bmad-output/planning-artifacts/architecture.md
+  - _bmad-output/planning-artifacts/architecture-mvp-phase1.md
   - _bmad-output/planning-artifacts/ux-design-specification.md
+  - _bmad-output/planning-artifacts/ux-design-financeiro.md
 ---
 
 # condomeet - Epic Breakdown
 
 ## Overview
 
-This document provides the complete epic and story breakdown for condomeet, decomposing the requirements from the PRD, UX Design Specification, and Architecture requirements into implementable stories.
+This document provides the complete epic and story breakdown for condomeet, decomposing the requirements from the PRD, UX Design if it exists, and Architecture requirements into implementable stories.
 
 ## Requirements Inventory
 
 ### Functional Requirements
 
-- **FR1**: Register parcels with rapid photo capture.
-- **FR2**: Find residents via predictive fuzzy search.
-- **FR3**: Automated WhatsApp alerts with photos post-registration.
-- **FR4**: Parallel Push Notification if WhatsApp delivery confirmation exceeds 15 seconds.
-- **FR5**: Resident pickup confirmation via WhatsApp or app.
-- **FR6**: Digital access invitations generation and sharing.
-- **FR7**: Redundant SOS alerts (Critical Push + Dashboard) to all administrators.
-- **FR8**: Administrator official broadcasts to blocks or entire condo.
-- **FR9**: Resident occurrence registration with photo attachments.
-- **FR10**: Direct chat ("Fale Conosco") with administration.
-- **FR11**: Common area availability viewing and booking.
-- **FR12**: Automated charging rules and usage limits for bookings.
-- **FR13**: Secure condominium document management.
-- **FR14**: Síndico approval/rejection of onboarding requests.
-- **FR15**: Authentication via numeric password and OTP.
+- **FR1**: Porteiro can register incoming parcels and capture a verification photograph within 3 seconds using the native camera bridge.
+- **FR2**: Porteiro can find resident records within 1 second by typing queries into a predictive fuzzy search interface.
+- **FR3**: Resident can receive automated WhatsApp notifications containing the parcel photo immediately after porteiro registration.
+- **FR4**: Resident can receive a parallel Push Notification if the system detects that WhatsApp delivery confirmation exceeds 15 seconds.
+- **FR5**: Resident can confirm parcel collection via either WhatsApp quick reply or the mobile application.
+- **FR6**: Resident can generate and share temporary digital access credentials (QR Codes/alphanumeric tokens) for visitors.
+- **FR7**: User can trigger a high-priority SOS emergency alert that simultaneously sends push notifications to administrators and highlights the gate console.
+- **FR8**: Administrator can send targeted announcements to specific condominium blocks or the entire property.
+- **FR9**: Resident can register maintenance or security occurrences and attach up to 3 photographs.
+- **FR10**: Resident can send direct messages to the administration team through a real-time "Fale Conosco" chat channel.
+- **FR11**: Resident can view common area calendars and request bookings for specific date or hourly time slots.
+- **FR12**: Administrator can configure common area booking rules, including tiered pricing policies (e.g., first 2 bookings free) and monthly booking frequency limits.
+- **FR13**: Administrator can upload, categorize, and control access to secure condominium documents using role-based access control (RBAC) levels.
+- **FR14**: Síndico can approve or reject resident onboarding registration requests.
+- **FR15**: Resident can authenticate into the application using a secure 6-digit PIN password or legacy credential matching (username/password lookup in legacy users table).
+- **FR16**: Resident can view overdue fees, simulate installment options, and sign legally binding digital agreement terms using mobile biometrics (FaceID/TouchID).
+- **FR17**: Resident can copy the Pix "Copia e Cola" code or scan a generated QR Code for the initial installment payment.
+- **FR18**: Resident can have their status updated to "Adimplente sob Acordo" within 60 seconds after Asaas gateway confirms payment completion via webhook.
+- **FR19**: Síndico can define financial rules (interest rates, penalty fees, maximum installment counts) for debt negotiations via the admin panel.
+- **FR20**: Síndico Profissional can switch the dashboard context between multiple managed condominiums in under 3 seconds using a header dropdown selector.
+- **FR21**: Síndico Profissional can view aggregated and per-condominium collection and delinquency metrics.
+- **FR22**: Resident can cast digital votes on assembly items and sign proxy representation terms using ICP-Brasil standard digital certificates or automated platform signatures.
+- **FR23**: Resident can have their voting eligibility automatically locked or unlocked in real-time based on their financial adimplência status (in compliance with Brazilian Civil Code Art. 1.335).
+- **FR24**: Resident can approve unexpected visitors with a single tap using interactive WhatsApp buttons sent to their registered number.
+- **FR25**: Administrator can view a secure audit trail logging all Pix agreements generated, payments confirmed, and corresponding changes to user voting eligibility.
 
 ### NonFunctional Requirements
 
-- **NFR1**: Critical path server response time < 300ms (95th percentile).
-- **NFR2**: Local metadata search latency < 100ms.
-- **NFR3**: 60fps stable UI transitions.
-- **NFR4**: Cold boot-to-interactive time < 2 seconds.
-- **NFR5**: 99.9% uptime for SOS and Portaria services.
-- **NFR6**: Native Critical Alerts API for SOS (bypass silent/DND).
-- **NFR7**: Full offline operation for portaria with < 10s sync latency upon reconnection.
-- **NFR8**: AES-256 encryption for sensitive docs and audit trails.
-- **NFR9**: Full LGPD compliance.
+- **NFR1**: System shall maintain server response times < 300ms for the 95th percentile, as measured by cloud application monitoring tools (APM), under concurrent loads of up to 10,000 active requests.
+- **NFR2**: System shall return local metadata search results in < 100ms, as measured by client-side profiling logs, during active searches.
+- **NFR3**: Mobile application shall maintain a stable frame rate of 60fps, as measured by standard OS frame rendering tools, during all screen transitions and scroll gestures.
+- **NFR4**: Mobile application shall achieve cold boot-to-interactive times < 2 seconds, as measured by device startup profiling, upon application launch.
+- **NFR5**: SOS and Portaria services shall maintain a 99.9% monthly uptime, as measured by uptime monitoring alerts, to ensure continuous resident safety.
+- **NFR6**: SOS emergency notifications shall bypass silent/Do-Not-Disturb modes on iOS and Android devices, as verified by automated push notification tests, utilizing native Critical Alerts permission certificates.
+- **NFR7**: Portaria terminal shall support full offline record creation and synchronize data with the cloud database within 10 seconds of reconnection, as measured by connectivity state testing.
+- **NFR8**: System shall encrypt all personal identification documents and financial records at rest using AES-256 and in transit using TLS 1.3, as verified by automated vulnerability scans.
+- **NFR9**: System shall enforce LGPD compliance by automatically deleting visitor and parcel images 90 days after registration and providing a self-service account deletion mechanism, as verified by daily system cron audits.
+- **NFR10**: System shall sync Asaas webhooks to the frontend assembly voting screen in < 5 seconds, as measured by end-to-end integration testing, to enable immediate voting rights restore.
+- **NFR11**: Web dashboard shall load context for a different condominium in < 3 seconds, as measured by browser network diagnostics, upon selector change.
 
 ### Additional Requirements
 
-- **Architecture**:
-    - **Stack**: Flutter + Supabase + PowerSync (SQLite Sync).
-    - **Auth**: WhatsApp OTP + 6-digit PIN + Biometrics.
-    - **Logic**: Supabase Edge Functions (Deno).
-    - **OCR**: Google ML Kit (Local-First).
-    - **WhatsApp**: Z-API / Evolution API (MVP).
-    - **Patterns**: Repository Pattern + BLoC + Result Pattern.
-- **UX/UI**:
-    - **Design System**: Tailwind UI Foundation with "Tranquilidade" theme.
-    - **Interactions**: Optimistic UI updates, Haptic feedback, 3-tap rule for vital actions.
-    - **Adaptive**: Context-aware dashboards (Porteiro high-speed vs. Síndico control).
+- **Architecture/Technical Setup:**
+  - Base stack: Flutter (Mobile Client), Next.js (Web Admin Panel), Supabase (Auth, Database, Storage).
+  - Sync Layer: PowerSync (SQLite-to-Postgres sync layer) - local-first data sync.
+  - Background Logic: Supabase Edge Functions in Deno.
+  - WhatsApp Provider: Z-API or Evolution API.
+  - Payment Gateway: Asaas Integration.
+  - Webhook security: Cryptographic signature validation for Asaas webhooks.
+  - Tenancy security: Custom claims/roles and Postgres RLS with an Administradora Bypass role for professional managers.
+  - Audit logs: Append-only immutable tables for agreements and electoral updates.
+- **UX/UI Design Constraints:**
+  - Admin dashboard layout: optimized for 1920x1080 resolution, responsive down to 1024x768 viewports without horizontal scrolling.
+  - Browser matrix support: Chrome, Firefox (latest 3), Safari, Edge (latest 2).
+  - Accessibility: WCAG 2.1 AA compliance (keyboard navigation + screen readers).
+  - SEO: Authenticated-only application, indexation disabled via Robots meta tags (noindex, nofollow).
 
 ### FR Coverage Map
 
-- **FR1**: Epic 2 (Portaria Check-in)
-- **FR2**: Epic 2 (Portaria Search)
-- **FR3**: Epic 2 (WhatsApp Alerts)
-- **FR4**: Epic 2 (Fallback Notifications)
-- **FR5**: Epic 3 (Parcel Pickup Cycle)
-- **FR6**: Epic 4 (Access Invitations)
-- **FR7**: Epic 5 (SOS Redundancy)
-- **FR8**: Epic 5 (Communications)
-- **FR9**: Epic 5 (Occurrences)
-- **FR10**: Epic 5 (Admin Chat)
-- **FR11**: Epic 6 (Common Areas)
-- **FR12**: Epic 6 (Booking Rules)
-- **FR13**: Epic 6 (Documents)
-- **FR14**: Epic 4 (Resident Onboarding)
-- **FR15**: Epic 1 (Foundation/Auth)
+- **FR1**: Epic 2 - Guariteiro Relâmpago (Rapid parcel registration)
+- **FR2**: Epic 2 - Guariteiro Relâmpago (Fuzzy search of residents)
+- **FR3**: Epic 2 - Guariteiro Relâmpago (WhatsApp alert with photo)
+- **FR4**: Epic 2 - Guariteiro Relâmpago (Fallback native push alert)
+- **FR5**: Epic 3 - Ciclo de Vida da Encomenda (Pickup confirmation)
+- **FR6**: Epic 4 - Portões Abertos (Generate access invitations)
+- **FR7**: Epic 5 - Escudo & Voz (High-priority SOS alert)
+- **FR8**: Epic 5 - Escudo & Voz (Broadcast announcements)
+- **FR9**: Epic 5 - Escudo & Voz (Register occurrence with photos)
+- **FR10**: Epic 5 - Escudo & Voz (Fale Conosco direct chat)
+- **FR11**: Epic 6 - Vida em Comum (View availability and book common areas)
+- **FR12**: Epic 6 - Vida em Comum (Configure booking rules and limits)
+- **FR13**: Epic 6 - Vida em Comum (Manage secure documents)
+- **FR14**: Epic 4 - Portões Abertos (Resident onboarding validation)
+- **FR15**: Epic 1 - Fundação & Identidade (OTP + PIN Authentication)
+- **FR16**: Epic 7 - Central de Acordos Pix Express (Simulate debt agreement)
+- **FR17**: Epic 7 - Central de Acordos Pix Express (Pix payment methods)
+- **FR18**: Epic 7 - Central de Acordos Pix Express (Auto-unlock voting rights < 60s)
+- **FR19**: Epic 7 - Central de Acordos Pix Express (Configure financial rules)
+- **FR20**: Epic 8 - Dashboard Multi-condomínio (Context switching < 3s)
+- **FR21**: Epic 8 - Dashboard Multi-condomínio (Aggregated metrics dashboard)
+- **FR22**: Epic 9 - Assembleias Paperless (Cast votes and sign proxy terms)
+- **FR23**: Epic 9 - Assembleias Paperless (Electoral compliance auto-eligibility)
+- **FR24**: Epic 4 - Portões Abertos (WhatsApp Guest Express check-in)
+- **FR25**: Epic 7 & 9 - Central de Acordos & Assembleias (Immutable audit log)
 
 ## Epic List
 
 ### Epic 1: Fundação & Identidade (The Entryway)
+Configuração do motor técnico (Supabase/PowerSync) e sistema de autenticação ultra-rápido via WhatsApp OTP + PIN.
+**FRs cobertos:** FR15
+
+### Epic 2: Guariteiro Relâmpago (Operating the Gate)
+Implementação do scanner OCR e busca fuzzy local para registro de encomendas em menos de 15 segundos.
+**FRs cobertos:** FR1, FR2, FR3, FR4
+
+### Epic 3: Ciclo de Vida da Encomenda (Closing the Loop)
+Gerenciamento de retiradas e confirmações, garantindo que o morador e o porteiro tenham visibilidade total do status.
+**FRs cobertos:** FR5
+
+### Epic 4: Portões Abertos (Access & Trust)
+Sistema de convites digitais, liberação rápida e fluxo de aprovação de novos moradores.
+**FRs cobertos:** FR6, FR14, FR24
+
+### Epic 5: Escudo & Voz (SOS & Community)
+Módulos críticos de segurança (SOS de alta prioridade) e canais de comunicação direta (Comunicados/Chat).
+**FRs cobertos:** FR7, FR8, FR9, FR10
+
+### Epic 6: Vida em Comum (Governance & Facilities)
+Gestão de reservas de áreas comuns com regras automatizadas e visualização de documentos administrativos.
+**FRs cobertos:** FR11, FR12, FR13
+
+### Epic 7: Central de Acordos Pix Express (Financial Recovery)
+Renegociação de inadimplência com simulação de parcelamento, geração de Pix Asaas e log imutável de auditoria.
+**FRs cobertos:** FR16, FR17, FR18, FR19, FR25 (Auditoria Contábil)
+
+### Epic 8: Dashboard Multi-condomínio (Professional Management)
+Painel unificado para síndicos profissionais com troca rápida de contexto e indicadores consolidados de cobrança.
+**FRs cobertos:** FR20, FR21
+
+### Epic 9: Assembleias Paperless (Electoral & Compliance)
+Votação digital secreta, procurações eletrônicas, integração Jitsi/vídeo e sincronização instantânea de elegibilidade eleitoral (Art. 1.335 do CC).
+**FRs cobertos:** FR22, FR23, FR25 (Auditoria Eleitoral)
+
+---
+
+## Epic 1: Fundação & Identidade (The Entryway)
 
 Configuração do motor técnico (Supabase/PowerSync) e sistema de autenticação ultra-rápido via WhatsApp OTP + PIN.
 
 ### Story 1.1: Inicialização do Projeto & Design System
+**[STATUS: JÁ IMPLEMENTADO]**
 
 As a developer,
 I want to initialize the Flutter project with a custom theme and Tailwind UI tokens,
@@ -96,6 +162,7 @@ So that all features have a consistent and premium "Tranquilidade" look and feel
 **And** custom widgets (Buttons, Inputs) should match the Tailwind UI style.
 
 ### Story 1.2: Schema Multi-Condomínio (Postgres + RLS)
+**[STATUS: JÁ IMPLEMENTADO]**
 
 As a system,
 I want to establish the core database schema with Row Level Security (RLS) policies,
@@ -104,11 +171,12 @@ So that data isolation between condominiums is enforced at the database level.
 **Acceptance Criteria:**
 
 **Given** a Supabase project connection
-**When** the `condominiums` and `profiles` tables are created
-**Then** RLS policies must prevent a user from one `condominium_id` from reading data from another
+**When** the `condominios` and `perfil` tables are created
+**Then** RLS policies must prevent a user from one `condominio_id` from reading data from another
 **And** all subsequent tables must inherit this isolation pattern.
 
 ### Story 1.3: Termos de Uso & Consentimento LGPD
+**[STATUS: JÁ IMPLEMENTADO]**
 
 As a user (Resident or Porter),
 I want to review and accept the Terms of Use and Privacy Policy (LGPD) during the first login,
@@ -122,6 +190,7 @@ So that I know my personal data is being handled securely and legally.
 **And** the login flow must be blocked until the user explicitly accepts.
 
 ### Story 1.4: Solicitação de Acesso via WhatsApp (OTP)
+**[STATUS: JÁ IMPLEMENTADO]**
 
 As a user,
 I want to receive an OTP code via WhatsApp,
@@ -135,6 +204,7 @@ So that I can verify my identity without remembering complex passwords.
 **And** the app should navigate to the verification screen.
 
 ### Story 1.5: PIN de Acesso & Login Persistente
+**[STATUS: JÁ IMPLEMENTADO]**
 
 As a verified user,
 I want to set up a 6-digit PIN and enable biometrics,
@@ -147,11 +217,14 @@ So that future app entries are instantaneous.
 **Then** the app must encrypt the local session key
 **And** subsequent entries should allow "FaceID/TouchID" or "PIN" entry to unlock.
 
-### Epic 2: Guariteiro Relâmpago (Operating the Gate)
+---
+
+## Epic 2: Guariteiro Relâmpago (Operating the Gate)
 
 Implementação do scanner OCR e busca fuzzy local para registro de encomendas em menos de 15 segundos.
 
 ### Story 2.1: Busca Preditiva de Moradores (Offline)
+**[STATUS: JÁ IMPLEMENTADO]**
 
 As a porter,
 I want to find residents instantly by typing unit numbers or names,
@@ -165,6 +238,7 @@ So that I can register parcels without manually browsing long lists.
 **And** the first result should show the resident's photo for visual confirmation.
 
 ### Story 2.2: Scanner OCR de Etiquetas (ML Kit)
+**[STATUS: JÁ IMPLEMENTADO]**
 
 As a porter,
 I want to scan package labels using the device camera,
@@ -179,6 +253,7 @@ So that I can extract the unit number without manual typing.
 **And** if scanning takes > 2s, the manual search field must be automatically focused as fallback.
 
 ### Story 2.3: Registro de Encomenda (Local-First)
+**[STATUS: JÁ IMPLEMENTADO]**
 
 As a porter,
 I want to register a parcel with a single tap,
@@ -192,6 +267,7 @@ So that I can clear the gate queue immediately.
 **And** the record must be saved to the local SQLite (PowerSync) for background sync.
 
 ### Story 2.4: Orquestração de Alerta WhatsApp
+**[STATUS: JÁ IMPLEMENTADO]**
 
 As a system,
 I want to trigger a WhatsApp notification with the parcel photo,
@@ -201,10 +277,11 @@ So that the resident is immediately informed of the arrival.
 
 **Given** a new parcel record in the database
 **When** the record is synced to Supabase
-**Then** a Supabase Edge Function must send a WhatsApp message (Z-API/Evolution) to the resident
-**And** the message must include the package photo and a "Já retirei" button.
+**Then** a Supabase Edge Function must send a WhatsApp message to the resident
+**And** the message must include the package photo and a pickup notification.
 
 ### Story 2.5: Fallback de Notificação Push
+**[STATUS: JÁ IMPLEMENTADO]**
 
 As a system,
 I want to send a native push notification if WhatsApp fails,
@@ -216,11 +293,14 @@ So that the resident receives the alert even if they are offline on WhatsApp.
 **When** no delivery confirmation is received within 15 seconds
 **Then** the system must trigger a parallel Native Push Notification (FCM/APNS) to the resident's devices.
 
-### Epic 3: Ciclo de Vida da Encomenda (Closing the Loop)
+---
+
+## Epic 3: Ciclo de Vida da Encomenda (Closing the Loop)
 
 Gerenciamento de retiradas e confirmações, garantindo que o morador e o porteiro tenham visibilidade total do status.
 
 ### Story 3.1: Dashboard de Encomendas (Morador)
+**[STATUS: JÁ IMPLEMENTADO]**
 
 As a resident,
 I want to see a clear list of my pending parcels with photos,
@@ -234,6 +314,7 @@ So that I know exactly what needs to be collected from the gate.
 **And** each card must display the arrival time and the photo captured by the porter.
 
 ### Story 3.2: Fluxo de Entrega (Porteiro)
+**[STATUS: JÁ IMPLEMENTADO]**
 
 As a porter,
 I want to mark a parcel as "Delivered" when the resident collects it,
@@ -247,6 +328,7 @@ So that the inventory is always up-to-date and the queue is cleared.
 **And** the record must move to the history view.
 
 ### Story 3.3: Comprovação de Retirada (Segurança)
+**[STATUS: JÁ IMPLEMENTADO]**
 
 As a system,
 I want to require a proof of pickup (photo or PIN),
@@ -260,6 +342,7 @@ So that there is a secure audit trail for every delivered parcel.
 **And** the chosen proof must be attached to the delivery record in the audit trail.
 
 ### Story 3.4: Histórico & Arquivamento
+**[STATUS: JÁ IMPLEMENTADO]**
 
 As a user,
 I want to consult the history of parcels delivered in the last 30 days,
@@ -270,13 +353,16 @@ So that I can resolve any disputes about past deliveries.
 **Given** the history view
 **When** I filter by date or unit number
 **Then** I must see all resolved parcel records including the timestamp and pickup proof
-**And** records older than 90 days (per LGPD/UX spec) should be archived/auto-deleted.
+**And** records older than 90 days must be archived/auto-deleted.
 
-### Epic 4: Portões Abertos (Access & Trust)
+---
 
-Sistema de convites digitais para visitantes e fluxo de aprovação de novos moradores pelo Síndico.
+## Epic 4: Portões Abertos (Access & Trust)
+
+Sistema de convites digitais, liberação rápida e fluxo de aprovação de novos moradores.
 
 ### Story 4.1: Gerador de Convite Digital (Morador)
+**[STATUS: JÁ IMPLEMENTADO]**
 
 As a resident,
 I want to generate a digital invitation with an explicit expiration date,
@@ -290,6 +376,7 @@ So that I can securely share temporary access with my guests via WhatsApp.
 **And** the QR Code must automatically invalidate at 23:59 of the chosen end date.
 
 ### Story 4.2: Terminal de Acesso de Visitantes (Porteiro)
+**[STATUS: JÁ IMPLEMENTADO]**
 
 As a porter,
 I want to validate digital invitations by scanning QR Codes,
@@ -303,6 +390,7 @@ So that I can authorize visitors quickly and accurately.
 **And** display a "CLEAR" message with the guest's name if valid, or a "EXPIRED/INVALID" warning if not.
 
 ### Story 4.3: Cadastro de Novo Morador (Self-Onboarding)
+**[STATUS: JÁ IMPLEMENTADO]**
 
 As a potential resident,
 I want to request access to the condominium by providing my unit and documents,
@@ -316,6 +404,7 @@ So that I can start using the platform after being verified.
 **And** I must see a screen stating "Aprovação pendente pelo Síndico."
 
 ### Story 4.4: Fila de Aprovação "Swipe" (Síndico)
+**[STATUS: JÁ IMPLEMENTADO]**
 
 As a síndico,
 I want to approve or reject resident requests using a swipe gesture,
@@ -329,11 +418,29 @@ So that I can manage onboarding with zero bureaucracy and modern UX.
 **When** I swipe LEFT
 **Then** I must be prompted for a "Reason of Rejection" before the request is dismissed.
 
-### Epic 5: Escudo & Voz (SOS & Community)
+### Story 4.5: Liberação Express de Visitantes via WhatsApp
+**[STATUS: PLANEJADO]**
 
-Módulos críticos de segurança (SOS redundante) e canais de comunicação direta (Comunicados/Chat).
+As a resident,
+I want to approve unexpected visitors arriving at the portaria using WhatsApp interactive buttons,
+So that I can authorize entry without downloading the app or answering phone calls.
+
+**Acceptance Criteria:**
+
+**Given** an unannounced visitor registered at the gate by the porter (Status: 'aguardando_aprovacao')
+**When** the system sends a WhatsApp message with interactive buttons to the registered resident
+**And** the resident clicks the "[Aprovar]" button in their WhatsApp chat
+**Then** the visitor registration status must be updated to 'liberado' with `aprovado_por = resident_id` and `aprovado_at = NOW()`
+**And** the porter's terminal must immediately display a visual unlock confirmation via Supabase Realtime.
+
+---
+
+## Epic 5: Escudo & Voz (SOS & Community)
+
+Módulos críticos de segurança (SOS de alta prioridade) e canais de comunicação direta (Comunicados/Chat).
 
 ### Story 5.1: Botão SOS (GPS + Critical Alert)
+**[STATUS: JÁ IMPLEMENTADO]**
 
 As a user in danger,
 I want to trigger a silent SOS alert with my GPS coordinates,
@@ -342,11 +449,12 @@ So that porters and administrators can respond quickly with my exact location.
 **Acceptance Criteria:**
 
 **Given** the persistent SOS button on the dashboard
-**When** I long-press (hold) the button for 3 seconds (with haptic feedback)
+**When** I long-press the button for 3 seconds (with haptic feedback)
 **Then** the app must capture my current GPS coordinates
 **And** send a critical alert (bypassing silent mode) to all porter tablets and manager devices via Supabase Realtime + WhatsApp Fallback.
 
 ### Story 5.2: Mural de Comunicados Oficiais
+**[STATUS: JÁ IMPLEMENTADO]**
 
 As a manager,
 I want to write and broadcast official announcements to specific blocks,
@@ -360,6 +468,7 @@ So that residents are informed of relevant events without notification noise.
 **And** the message must appear prominently pinned on the resident's dashboard.
 
 ### Story 5.3: Registro de Ocorrência com Foto
+**[STATUS: JÁ IMPLEMENTADO]**
 
 As a resident,
 I want to register an "Ocorrência" (leak, noise, maintenance) with photo proof,
@@ -373,6 +482,7 @@ So that I can track the resolution progress without bureaucratic calls.
 **And** the resident must be able to see the status (Pendente -> Em Progresso -> Resolvido).
 
 ### Story 5.4: Canal "Fale Conosco" (Internal Chat)
+**[STATUS: JÁ IMPLEMENTADO]**
 
 As a resident,
 I want to chat directly with administration within the app,
@@ -385,11 +495,14 @@ So that there is an official audit log of my requests and responses.
 **Then** it must be delivered via Supabase Realtime to the manager's dashboard
 **And** the conversation history must be stored securely for audit and compliance (LGPD).
 
-### Epic 6: Vida em Comum (Governance)
+---
 
-Gestão de reservas de áreas comuns com regras automatizadas e visualização de documentos.
+## Epic 6: Vida em Comum (Governance & Facilities)
+
+Gestão de reservas de áreas comuns com regras automatizadas e visualização de documentos administrativos.
 
 ### Story 6.1: Visualização de Disponibilidade (Calendário)
+**[STATUS: JÁ IMPLEMENTADO]**
 
 As a resident,
 I want to see a real-time calendar of common area availability,
@@ -403,6 +516,7 @@ So that I can plan my events without calling the porter.
 **And** the data must be synced locally for zero-lag browsing.
 
 ### Story 6.2: Reserva com Regras & Bloqueio de Inadimplência
+**[STATUS: JÁ IMPLEMENTADO]**
 
 As a resident,
 I want to request a booking and have eligibility rules applied automatically,
@@ -417,6 +531,7 @@ So that the process is fair and aligned with condominium bylaws.
 **Then** the system must calculate fees and apply usage limits (e.g., max 1 party per month) before confirming.
 
 ### Story 6.3: Central de Documentos do Condomínio
+**[STATUS: JÁ IMPLEMENTADO]**
 
 As a user,
 I want to access official documents like assembly minutes and bylaws,
@@ -430,569 +545,177 @@ So that I am always up-to-date with condominium governance.
 **And** access must be logged for the manager's oversight.
 
 ---
-*Épicos 1–7: Documento Original Finalizado e Validado.*
+
+## Epic 7: Central de Acordos Pix Express (Financial Recovery)
+
+Renegociação de inadimplência com simulação de parcelamento, geração de Pix Asaas e log imutável de auditoria.
+
+### Story 7.1: Modelagem das Tabelas de Acordo & RLS
+**[STATUS: PLANEJADO]**
+
+As a system,
+I want to establish the core database schema for Pix agreements and audit logs with correct constraints and RLS,
+So that agreement data is isolated per condominium and logs remain completely immutable.
+
+**Acceptance Criteria:**
+
+**Given** a Supabase database instance
+**When** I create the tables `financeiro_acordos`, `financeiro_acordo_parcelas`, `financeiro_acordo_faturamentos` and `financeiro_acordos_audit_log`
+**Then** RLS policies must restrict residents to only see and create agreements/parcelas linked to their units
+**And** the audit log table `financeiro_acordos_audit_log` must NOT have any UPDATE or DELETE policies, ensuring it is append-only.
+
+### Story 7.2: Interface de Simulação e Termos Contratuais (Morador)
+**[STATUS: PLANEJADO]**
+
+As a resident,
+I want to view my outstanding fees, simulate installment options, and sign the agreement terms using biometrics/PIN,
+So that I can formalize my debt settlement in a self-service manner.
+
+**Acceptance Criteria:**
+
+**Given** a resident logged into the app with outstanding faturamentos
+**When** they open the "Central de Acordos" screen
+**Then** they must see the total overdue balance and a simulator slider for installments (from 1 to 12 times)
+**When** they choose a plan, the app displays the monthly installment value and the legally binding terms document
+**And** when they tap "Assinar Acordo", the app must request FaceID/TouchID or PIN validation to record the signature.
+
+### Story 7.3: Integração Asaas & Geração de Pix (Edge Function)
+**[STATUS: PLANEJADO]**
+
+As a system,
+I want to register the customer in Asaas and generate the Pix Copia e Cola / QR Codes for the first installment,
+So that the resident can pay immediately after signing.
+
+**Acceptance Criteria:**
+
+**Given** a signed agreement with status 'pendente'
+**When** the system triggers the Asaas integration Edge Function
+**Then** it must create/retrieve the Asaas Customer ID for the resident
+**And** generate the payment charge for the first installment (including Pix Copia e Cola, QR Code, and PDF invoice URL)
+**And** update the database fields in `financeiro_acordo_parcelas` with the generated Pix credentials.
+
+### Story 7.4: Webhook de Pagamento & Desbloqueio Eleitoral
+**[STATUS: PLANEJADO]**
+
+As a system,
+I want to receive payment webhooks from Asaas, update the installment status, and automatically restore the resident's voting rights,
+So that political status is restored instantly upon payment confirmation.
+
+**Acceptance Criteria:**
+
+**Given** a payment webhook request sent from Asaas to `/asaas-webhook`
+**When** the Edge Function validates the cryptographic signature of the request header
+**Then** it must update the first installment status to 'pago' and the agreement status to 'ativo'
+**And** set `unidades.bloqueada_assembleia = false` for the corresponding unit
+**And** update the negotiated `faturamentos` to status 'cancelado'
+**And** write a record to `financeiro_acordos_audit_log` with the transaction detail.
 
 ---
 
-## Épicos Retroativos (8–15) — Funcionalidades construídas além do PRD original
+## Epic 8: Dashboard Multi-condomínio (Professional Management)
 
-*Adicionados em 2026-03-26 para documentar features implementadas pós-planejamento.*
+Painel unificado para síndicos profissionais com troca rápida de contexto e indicadores consolidados de cobrança.
 
-### Epic 8: Enquetes & Votações
+### Story 8.1: Seletor de Contexto Multi-condomínio
+**[STATUS: PLANEJADO]**
 
-Sistema de criação de enquetes pelo admin com votação em tempo real pelos moradores.
-
-### Story 8.1: Criação de Enquetes (Admin)
-
-As an admin/síndico,
-I want to create polls with multiple options and optional deadlines,
-So that I can collect resident opinions on condo matters.
+As a professional manager,
+I want to switch the dashboard context between multiple managed condominiums using a header selector,
+So that I can manage different properties from a single login.
 
 **Acceptance Criteria:**
 
-**Given** the admin panel (mobile + web)
-**When** I create a poll with title, options, and deadline
-**Then** residents see it in their menu and can vote
-**And** push notifications are sent via `enquete-push-notify`.
+**Given** a manager logged into the Admin Web Panel with a profile role of 'administradora'
+**When** they open the dashboard header selector
+**Then** it must display a dropdown list of all condominiums registered under their `administradora_id` (Administradora Bypass)
+**And** selecting a condominium must update the layout routing and context (Next.js App Router params) in less than 3 seconds.
 
-### Story 8.2: Votação de Enquetes (Morador)
+### Story 8.2: RPC de Métricas Consolidadas
+**[STATUS: PLANEJADO]**
 
-As a resident,
-I want to vote on active polls and see live results,
-So that I can participate in condominium decisions.
+As a professional manager,
+I want a consolidated database query to fetch all condominium KPIs in a single network round-trip,
+So that switching properties doesn't trigger heavy or multiple database requests.
 
 **Acceptance Criteria:**
 
-**Given** an active poll
-**When** I select my option and confirm
-**Then** my vote is recorded and results update in real-time.
+**Given** the dashboard requested condo IDs
+**When** the frontend calls the Supabase RPC `get_consolidated_condo_metrics`
+**Then** the function must check if the authenticated user is an authorized admin of each condo in the list
+**And** return a single JSON containing unit count, default financial rates, active SOS alerts, and pending parcels.
+
+### Story 8.3: Caching e Pre-fetching de Contexto (Next.js Client)
+**[STATUS: PLANEJADO]**
+
+As a professional manager,
+I want the system to pre-load and cache the next condominium's metrics on menu hover,
+So that context switching is instantaneous.
+
+**Acceptance Criteria:**
+
+**Given** the manager dashboard
+**When** the mouse hovers over an option in the condominium selector dropdown
+**Then** the client must pre-fetch the data via React Query/SWR
+**And** when clicked, the page loads the cached metrics in under 3 seconds (NFR11).
 
 ---
 
-### Epic 9: Comunidade (Classificados, Indicações & Álbum)
+## Epic 9: Assembleias Paperless (Electoral & Compliance)
 
-Módulos comunitários para compra/venda entre moradores, indicações de serviços e álbum de fotos.
+Votação digital secreta, procurações eletrônicas, integração Jitsi/vídeo e sincronização instantânea de elegibilidade eleitoral (Art. 1.335 do CC).
 
-### Story 9.1: Classificados (Compra/Venda)
+### Story 9.1: Bloqueio Eleitoral Automatizado (Código Civil Art. 1.335)
+**[STATUS: PLANEJADO]**
 
-As a resident,
-I want to post items for sale and browse listings from neighbors,
-So that I can buy/sell within the condominium community.
+As a system,
+I want to block votes from units with delinquent status in the database,
+So that the voting process complies with the Brazilian Civil Code requirements.
 
 **Acceptance Criteria:**
 
-**Given** the classificados screen
-**When** I create a listing with photos, price, and description
-**Then** it appears for all residents and notifies via `classificados-notify`.
+**Given** a resident attempting to insert or update a vote in `assembleia_votos`
+**When** the database trigger `trg_check_vote_eligibility` detects that `unidades.bloqueada_assembleia = true`
+**Then** it must raise an exception and reject the vote write
+**And** the UI must disable the vote button and display a warning message with an agreement shortcut link.
 
-### Story 9.2: Indicações do Síndico
+### Story 9.2: Votação Secreta com RLS & View Agregada
+**[STATUS: PLANEJADO]**
+
+As a resident,
+I want my individual vote to remain secret from other residents and administrators,
+So that my electoral choices are completely private.
+
+**Acceptance Criteria:**
+
+**Given** the `assembleia_votos` table
+**When** a non-owner user attempts to select individual rows
+**Then** the RLS policy must restrict rows to only where `votante_user_id = auth.uid()`
+**And** administrators must only be able to view vote counts and aggregate values via the database view `view_assembleia_votos_agregados`.
+
+### Story 9.3: Outorga de Procuração Eletrônica
+**[STATUS: PLANEJADO]**
+
+As a resident,
+I want to designate a proxy representation to another resident,
+So that they can vote on my behalf if I cannot attend the assembly.
+
+**Acceptance Criteria:**
+
+**Given** the proxy outorga screen
+**When** I select an active assembly and search for a neighbor to outorgate my vote
+**Then** the system must record the request as 'pendente'
+**And** when confirmed by PIN validation, the designated proxy is registered in `assembleia_procuracoes` and can cast a vote on behalf of the outorgante unit.
+
+### Story 9.4: Transmissão Jitsi Meet & Ata Autônoma via IA
+**[STATUS: PLANEJADO]**
 
 As a síndico,
-I want to recommend trusted service providers with UF/city filtering,
-So that residents can find vetted professionals.
+I want to stream the live assembly via Jitsi and trigger minutes (Ata) draft generation by IA,
+So that the assembly has complete digital compliance and easy documentation.
 
 **Acceptance Criteria:**
 
-**Given** the indicações screen
-**When** I filter by UF and city
-**Then** only relevant recommendations appear
-**And** new indicações trigger `indicacoes-notify`.
-
-### Story 9.3: Álbum de Fotos do Condomínio
-
-As an admin,
-I want to upload community event photos organized by albums,
-So that residents can view and relive shared moments.
-
-**Acceptance Criteria:**
-
-**Given** the album admin screen
-**When** I create an album and upload photos
-**Then** residents see the album in their menu with push notification via `album-push-notify`.
-
----
-
-### Epic 10: Gestão de Contratos
-
-Controle de contratos do condomínio com alertas automáticos de vencimento.
-
-### Story 10.1: Central de Contratos (Admin & Morador)
-
-As an admin,
-I want to upload and manage condominium contracts with expiry dates,
-So that all stakeholders have visibility and no contract expires unnoticed.
-
-**Acceptance Criteria:**
-
-**Given** the contratos admin screen
-**When** I upload a contract with expiry date
-**Then** it's visible to authorized residents
-**And** `contratos-vencimento-check` triggers alerts before expiry
-**And** `contratos-push-notify` notifies relevant parties.
-
----
-
-### Epic 11: Meu Bolso (Dinglo) — Gestão Financeira Pessoal
-
-App financeiro pessoal completo integrado ao ecossistema Condomeet, com monetização via RevenueCat.
-
-### Story 11.1: Contas & Cartões
-
-As a user,
-I want to register my bank accounts and credit cards,
-So that I can track my finances in one place.
-
-**Acceptance Criteria:**
-
-**Given** the Dinglo module
-**When** I register accounts and cards
-**Then** they appear on the home dashboard with balances.
-
-### Story 11.2: Lançamentos & Movimentos
-
-As a user,
-I want to record income and expenses categorized by type,
-So that I can understand my spending patterns.
-
-**Acceptance Criteria:**
-
-**Given** registered accounts
-**When** I create a transaction with category, amount, and date
-**Then** it appears in the movements timeline with running balance.
-
-### Story 11.3: Metas, Indicadores & Despesas Fixas
-
-As a user,
-I want to set savings goals, view financial indicators, and manage recurring expenses,
-So that I can plan my financial future.
-
-**Acceptance Criteria:**
-
-**Given** existing transactions
-**When** I create goals and fixed expenses
-**Then** indicators show progress and projections.
-
-### Story 11.4: Monetização (Planos Premium)
-
-As a user,
-I want to access premium features via subscription,
-So that I get advanced financial tools.
-
-**Acceptance Criteria:**
-
-**Given** free tier limitations
-**When** I subscribe via RevenueCat paywall
-**Then** premium features unlock (onboarding + planos screens).
-
----
-
-### Epic 12: Lista Inteligente de Supermercado
-
-Comparador de preços com OCR de cupom fiscal, gamificação comunitária e monetização.
-
-### Story 12.1: Criação & Edição de Listas
-
-As a user,
-I want to create shopping lists and add products,
-So that I can organize my grocery shopping.
-
-**Acceptance Criteria:**
-
-**Given** the lista-mercado module
-**When** I create a list and add items
-**Then** items are saved with quantities and categories.
-
-### Story 12.2: Comparador de Preços
-
-As a user,
-I want to compare prices across stores for my list items,
-So that I can save money on groceries.
-
-**Acceptance Criteria:**
-
-**Given** a list with items
-**When** I open the compare screen
-**Then** I see prices from different stores ranked by total cost.
-
-### Story 12.3: Scanner OCR de Cupom Fiscal
-
-As a user,
-I want to scan receipt photos to extract prices automatically,
-So that I contribute price data without manual entry.
-
-**Acceptance Criteria:**
-
-**Given** a receipt photo
-**When** I scan via `lista-ocr-receipt` edge function
-**Then** products and prices are extracted and saved.
-
-### Story 12.4: Gamificação & Ranking
-
-As a user,
-I want to earn points for contributing prices and see community rankings,
-So that price sharing becomes rewarding and fun.
-
-**Acceptance Criteria:**
-
-**Given** price contributions
-**When** I report prices or scan receipts
-**Then** points accumulate and my ranking updates.
-
-### Story 12.5: Monetização (Paywall & Cartão Economia)
-
-As a user,
-I want to access premium features like savings card and unlimited lists,
-So that I get maximum value from the platform.
-
-**Acceptance Criteria:**
-
-**Given** free tier limitations
-**When** I subscribe via RevenueCat
-**Then** premium features unlock including cartão economia.
-
----
-
-### Epic 13: Garagem Inteligente (Aluguel de Vagas)
-
-Sistema completo de aluguel de vagas de garagem entre moradores com trial e notificações.
-
-### Story 13.1: Cadastro & Listagem de Vagas
-
-As a resident,
-I want to list my parking spot for rent with availability and pricing,
-So that I can earn income from unused garage space.
-
-**Acceptance Criteria:**
-
-**Given** the garagem module
-**When** I register a spot with photo, price, and availability
-**Then** it appears in the community listing.
-
-### Story 13.2: Reserva & Confirmação
-
-As a resident,
-I want to reserve available parking spots from neighbors,
-So that I can park when I need extra space.
-
-**Acceptance Criteria:**
-
-**Given** an available spot
-**When** I request a reservation
-**Then** the owner is notified via `garagem-notify`
-**And** can confirm or reject with real-time status updates.
-
-### Story 13.3: Trial por Condomínio & Onboarding
-
-As a system,
-I want to manage trial periods per condominium,
-So that condos can try the feature before committing.
-
-**Acceptance Criteria:**
-
-**Given** a new condominium accessing garagem
-**When** no trial record exists
-**Then** auto-create trial with configurable duration
-**And** show onboarding for first-time users.
-
----
-
-### Epic 14: Vistoria Digital (Checklist de Imóvel)
-
-Checklist digital com análise IA, timeline histórica e monetização.
-
-### Story 14.1: Criação & Edição de Vistorias
-
-As a user,
-I want to create property inspection checklists with photos and notes,
-So that I have documented proof of property condition.
-
-**Acceptance Criteria:**
-
-**Given** the vistoria module
-**When** I create a vistoria and add items with photos
-**Then** items are saved with timestamps and location.
-
-### Story 14.2: Análise IA & Timeline
-
-As a user,
-I want AI analysis of inspection photos and historical timeline,
-So that I can track property condition over time.
-
-**Acceptance Criteria:**
-
-**Given** a completed vistoria
-**When** I request AI analysis via `vistoria-ai-analyze`
-**Then** the system generates condition assessment
-**And** the timeline screen shows all vistorias for an address chronologically.
-
-### Story 14.3: Monetização & Onboarding
-
-As a user,
-I want to access premium vistoria features via subscription,
-So that I get AI analysis and unlimited inspections.
-
-**Acceptance Criteria:**
-
-**Given** free tier limitations
-**When** I subscribe via RevenueCat
-**Then** premium features unlock (onboarding + paywall).
-
----
-
-### Epic 15: Infraestrutura & Plataforma
-
-Features transversais de plataforma: WhatsApp Chatbot IA, Push Universal, Menu Dinâmico, Propaganda, e Visita Proprietário.
-
-### Story 15.1: WhatsApp Chatbot IA
-
-As a system,
-I want an AI chatbot that answers resident questions via WhatsApp,
-So that common inquiries are resolved 24/7 without admin intervention.
-
-**Acceptance Criteria:**
-
-**Given** a WhatsApp message from a resident
-**When** the `whatsapp-chatbot` edge function receives it
-**Then** it responds using the system prompt with condo-specific context
-**And** `whatsapp-health-check` monitors availability.
-
-### Story 15.2: Push Universal & Avisos Admin
-
-As an admin,
-I want to send custom push notifications and manage official announcements,
-So that I can communicate with residents through multiple channels.
-
-**Acceptance Criteria:**
-
-**Given** the admin panel
-**When** I compose a push notification or announcement
-**Then** it's delivered via `universal-push-notify` to targeted audiences.
-
-### Story 15.3: Menu Dinâmico por Condomínio
-
-As an admin,
-I want to configure which menu items appear for each role in my condominium,
-So that the app experience is customized per community.
-
-**Acceptance Criteria:**
-
-**Given** the configure-menu screen
-**When** I toggle features on/off for each role
-**Then** residents/porters see only enabled menu items.
-
-### Story 15.4: Propaganda & Empresas Parceiras
-
-As a super-admin,
-I want to manage partner companies and their logos on the resident dashboard,
-So that the platform generates revenue from local business promotion.
-
-**Acceptance Criteria:**
-
-**Given** the super-admin propaganda panel
-**When** I create a partner entry with logo and details
-**Then** it appears on the home screen for residents in that region.
-
-### Story 15.5: Visita Proprietário
-
-As a property owner,
-I want to schedule visits to my property with notifications to the porter,
-So that my access is pre-authorized without calling ahead.
-
-**Acceptance Criteria:**
-
-**Given** the visita-proprietário screen
-**When** I schedule a visit
-**Then** the porter is notified via `visita-proprietario-push-notify`
-**And** my visit appears on their approval queue.
-
----
-*Documento Atualizado em 2026-03-26 — Épicos 8–15 adicionados retroativamente.*
-
----
-
-## Épicos Retroativos (16–18) — Features construídas em Abril 2026
-
-*Adicionados em 2026-04-05 para documentar features implementadas pós-épicos 15.*
-
-### Epic 16: Manutenção & Fornecedores
-
-Gestão de manutenções com comentários interativos e cadastro de fornecedores aprovados.
-
-### Story 16.1: Manutenção (Admin Web)
-
-As an admin,
-I want to create and manage maintenance tasks with photos, priorities, and status tracking,
-So that I can organize building upkeep efficiently.
-
-**Acceptance Criteria:**
-
-**Given** the admin manutencao screen
-**When** I create a task with title, description, priority, photos, and assign it
-**Then** it appears in the task list with status tracking (Pendente → Em Andamento → Concluído)
-**And** residents can view and comment on tasks relevant to their unit.
-
-### Story 16.2: Manutenção (Condo/Morador Web)
-
-As a resident,
-I want to view maintenance tasks affecting my building and add comments,
-So that I can report issues and follow up on progress.
-
-**Acceptance Criteria:**
-
-**Given** the condo manutencao screen
-**When** I view and comment on a maintenance task
-**Then** my comment appears in the timeline with timestamp.
-
-### Story 16.3: Fornecedores (Admin)
-
-As an admin,
-I want to manage a registry of approved service providers,
-So that I can quickly find trusted professionals for building maintenance.
-
-**Acceptance Criteria:**
-
-**Given** the admin fornecedores screen
-**When** I register a fornecedor with name, category, phone, and rating
-**Then** it's searchable and filterable by category.
-
----
-
-### Epic 17: Suporte Sistema (Global Chat)
-
-Canal de suporte direto entre moradores/admins e o super-admin da plataforma.
-
-### Story 17.1: Suporte Sistema (Admin Web)
-
-As a super-admin,
-I want a WhatsApp-style chat interface to provide support to condominiums,
-So that admins can get help with platform issues directly.
-
-**Acceptance Criteria:**
-
-**Given** the admin suporte screen
-**When** a condo admin sends a support message
-**Then** it appears in real-time on the super-admin dashboard
-**And** read receipts (blue ticks) sync correctly.
-
-### Story 17.2: Suporte Sistema (Flutter)
-
-As a mobile user,
-I want to access platform support from the app,
-So that I can get help without switching to a browser.
-
-**Acceptance Criteria:**
-
-**Given** the suporte sistema screen in Flutter
-**When** I send a message
-**Then** it's delivered via Supabase Realtime to the super-admin.
-
----
-
-### Epic 18: Assembleias Ao Vivo & Faturamento
-
-Módulo completo de assembleias virtuais com transmissão de vídeo, votação em tempo real, ATA via IA, e faturamento para super-admin.
-
-### Story 18.1: CRUD de Assembleias & Pautas
-
-As an admin,
-I want to create assemblies with dates, agendas (pautas), and voting options,
-So that I can organize virtual condominium meetings.
-
-**Acceptance Criteria:**
-
-**Given** the nova assembleia screen
-**When** I fill in title, dates, type, and add pautas (votação or informativa)
-**Then** the assembly is created with status "Agendada".
-
-### Story 18.2: Live Dashboard com Vídeo (Agora.io)
-
-As an admin,
-I want to stream live video during an assembly with moderation controls,
-So that residents can participate remotely in real-time.
-
-**Acceptance Criteria:**
-
-**Given** an active assembly
-**When** I start the transmission
-**Then** video streams via Agora.io with chat, mute-all, and recording controls
-**And** graceful degradation if Agora App ID is missing.
-
-### Story 18.3: Votação em Tempo Real
-
-As a resident,
-I want to vote on pautas during the live assembly,
-So that my voice is counted in real-time.
-
-**Acceptance Criteria:**
-
-**Given** an open pauta during a live assembly
-**When** I cast my vote
-**Then** it's recorded immediately via Supabase Realtime
-**And** the admin sees live vote counts.
-
-### Story 18.4: ATA via IA (Gemini 2.5 Flash)
-
-As an admin,
-I want to generate official meeting minutes using AI,
-So that I have a professional document ready for printing.
-
-**Acceptance Criteria:**
-
-**Given** a finalized assembly
-**When** I click "Gerar ATA via IA"
-**Then** the Edge Function calls Gemini 2.5 Flash to generate the ATA
-**And** R$ 9,90 is logged in `consumo_extras` table.
-
-### Story 18.5: Dashboard Analítico
-
-As an admin,
-I want to view voting analytics filtered by assembly,
-So that I can understand engagement and results.
-
-**Acceptance Criteria:**
-
-**Given** the dashboard screen
-**When** I select a specific assembly from the dropdown
-**Then** I see engagement %, vote counts, and presence-per-unit table.
-
-### Story 18.6: Edital & Procuração
-
-As an admin,
-I want to generate printable convocation notices and proxy documents,
-So that assemblies comply with legal requirements.
-
-**Acceptance Criteria:**
-
-**Given** a created assembly
-**When** I access edital or procuração
-**Then** I see an A4-formatted document ready for printing
-**And** procuração fields are customizable (condo name, city).
-
-### Story 18.7: Guia Passo a Passo
-
-As a non-technical admin,
-I want a visual step-by-step guide explaining how to run assemblies,
-So that I can operate the system without technical knowledge.
-
-**Acceptance Criteria:**
-
-**Given** the guia screen
-**When** I read through the 5 steps
-**Then** each step has clear instructions, tips, and visual icons.
-
-### Story 18.8: Faturamento Super Admin
-
-As the platform owner (super-admin),
-I want a private billing dashboard showing consumption per condominium,
-So that I can invoice clients with the 3x markup.
-
-**Acceptance Criteria:**
-
-**Given** the faturamento screen (restricted to `cristiano.santos@gmx.com`)
-**When** I filter by month and condominium
-**Then** I see base cost (1x) and billing amount (3x)
-**And** only condominiums with actual consumption appear in the dropdown.
-
----
-*Documento Atualizado em 2026-04-05 — Épicos 16–18 adicionados retroativamente.*
-
+**Given** a live assembly session
+**When** the manager starts the Jitsi session, it must embed the Jitsi Meet Iframe API with moderation tools
+**And** when the voting ends, clicking "Gerar ATA via IA" triggers the Edge Function to send transcripts and voting details to the LLM (Gemini 2.5 Flash / GPT-4o)
+**Then** the function must generate a formal PDF draft, save it to Supabase Storage, and update the assembly status to 'ata_publicada'.

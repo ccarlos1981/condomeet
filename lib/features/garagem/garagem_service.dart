@@ -69,7 +69,6 @@ class GaragemService {
     return data;
   }
 
-  /// Criar nova vaga
   Future<Map<String, dynamic>> createVaga({
     required String condominioId,
     String? apartamentoId,
@@ -79,6 +78,7 @@ class GaragemService {
     double precoHora = 0,
     double precoDia = 0,
     double precoMes = 0,
+    required String chavePix,
     List<Map<String, dynamic>>? disponibilidade,
   }) async {
     final garage = await _supabase
@@ -93,9 +93,22 @@ class GaragemService {
           'preco_hora': precoHora,
           'preco_dia': precoDia,
           'preco_mes': precoMes,
+          'chave_pix': chavePix,
         })
         .select()
         .single();
+
+    // Disparar push notification de nova vaga
+    try {
+      await _supabase.functions.invoke('garagem-notify', body: {
+        'action': 'nova_vaga',
+        'condominio_id': condominioId,
+        'vaga_numero': numeroVaga,
+      });
+    } catch (e) {
+      // Falha não bloqueante
+      print('Erro ao notificar nova vaga: $e');
+    }
 
     // Se tem disponibilidade programada, inserir
     if (disponibilidade != null && disponibilidade.isNotEmpty) {

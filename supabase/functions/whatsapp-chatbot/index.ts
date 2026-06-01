@@ -14,7 +14,7 @@ import { executeActions } from "./actions.ts";
 
 // ── Constants ─────────────────────────────────────────────────────────────
 
-const GEMINI_MODEL = "gemini-2.5-flash";
+const GEMINI_MODEL = "gemini-3-flash-preview";
 const GEMINI_API_URL =
   "https://generativelanguage.googleapis.com/v1beta/models";
 const MAX_HISTORY = 10; // last N messages for context
@@ -660,33 +660,63 @@ Deno.serve(async (req) => {
 
     // 5. Fetch context data for the resident's unit
 
-    // Encomendas pendentes da unidade
-    const { data: encomendas } = await supabase
-      .from("encomendas")
-      .select("tipo, arrival_time, tracking_code, observacao, status")
-      .eq("condominio_id", perfil.condominio_id)
-      .eq("bloco", perfil.bloco_txt)
-      .eq("apto", perfil.apto_txt)
-      .eq("status", "pending")
-      .order("arrival_time", { ascending: false })
-      .limit(5);
-
-    // Autorizações de visitante ativas da unidade
-    const { data: autorizacoes } = await supabase
-      .from("convites")
-      .select("guest_name, visitor_type, validity_date, status")
-      .eq("resident_id", perfil.id)
-      .eq("status", "active")
-      .gte("validity_date", new Date().toISOString().split("T")[0])
-      .order("validity_date", { ascending: true })
-      .limit(5);
-
     // Fetch condominium name
     const { data: condo } = await supabase
       .from("condominios")
       .select("nome")
       .eq("id", perfil.condominio_id)
       .single();
+
+    // Fetch pending parcels
+    let encomendas: any[] = [];
+    try {
+      const { data: encData } = await supabase
+        .from("encomendas")
+        .select("tipo, tracking_code, arrival_time, observacao")
+        .eq("condominio_id", perfil.condominio_id)
+        .eq("bloco", perfil.bloco_txt)
+        .eq("apto", perfil.apto_txt)
+        .eq("status", "pending");
+      encomendas = encData || [];
+    } catch (encErr) {
+      console.error("[Chatbot] Error loading parcels context:", encErr);
+    }
+
+    // Search condo rules if the message matches rules keywords
+    let regras: any[] = [];
+    try {
+      const searchKeywords = ["regra", "regimento", "mudança", "silencio", "barulho", "pet", "cachorro", "gato", "lixo", "piscina", "horario", "visita", "vaga", "garagem", "festa", "salao"];
+      const textNormalized = incoming.text.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+      const isRulesQuery = searchKeywords.some(keyword => textNormalized.includes(keyword));
+
+      if (isRulesQuery) {
+        console.log(`[Chatbot] Rules keyword matched. Searching rules for condo ${perfil.condominio_id}...`);
+        const { data: rulesData, error: rulesErr } = await supabase
+          .rpc("buscar_regras_condominio", {
+            p_condominio_id: perfil.condominio_id,
+            p_busca: incoming.text.trim()
+          });
+        
+        if (rulesErr) {
+          console.error("[Chatbot] buscar_regras_condominio RPC error:", rulesErr);
+        } else {
+          regras = rulesData || [];
+        }
+
+        // Fallback: If no specific rules found, load the last 5 rules of this condo to provide some context
+        if (regras.length === 0) {
+          const { data: fallbackRules } = await supabase
+            .from("condominio_regras")
+            .select("categoria, titulo, conteudo")
+            .eq("condominio_id", perfil.condominio_id)
+            .order("created_at", { ascending: false })
+            .limit(5);
+          regras = fallbackRules || [];
+        }
+      }
+    } catch (rulesErr) {
+      console.error("[Chatbot] Error loading rules context:", rulesErr);
+    }
 
     // 6. Load conversation history
     const cutoff = new Date(Date.now() - HISTORY_TTL_HOURS * 60 * 60 * 1000)
@@ -714,8 +744,8 @@ Deno.serve(async (req) => {
       apto: perfil.apto_txt,
       condominioNome: condo?.nome || "Condomínio",
       tipoMorador: perfil.tipo_morador || perfil.papel_sistema || "Morador",
-      encomendasPendentes: encomendas || [],
-      autorizacoesAtivas: autorizacoes || [],
+      encomendas,
+      regras,
     };
 
     const systemPrompt = buildSystemPrompt(moradorCtx);

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:condomeet/core/design_system/app_colors.dart';
 import 'package:condomeet/features/assembleia/domain/models/pauta_model.dart';
+import 'package:condomeet/features/financeiro/presentation/screens/acordo_simulator_screen.dart';
 
 class AssembleiaVotingSheet extends StatefulWidget {
   final PautaModel pauta;
@@ -28,12 +29,44 @@ class _AssembleiaVotingSheetState extends State<AssembleiaVotingSheet> {
   String? _selected;
   bool _submitting = false;
   bool _voted = false;
+  bool _unitBlocked = false;
+  bool _loadingEligibility = true;
 
   @override
   void initState() {
     super.initState();
     _voted = widget.myVote != null;
     _selected = widget.myVote;
+    _checkEligibility();
+  }
+
+  Future<void> _checkEligibility() async {
+    try {
+      final res = await _supabase
+          .from('unidade_perfil')
+          .select('unidades(bloqueada_assembleia)')
+          .eq('perfil_id', widget.userId)
+          .maybeSingle();
+
+      if (res != null && res['unidades'] != null) {
+        final blocked = res['unidades']['bloqueada_assembleia'] as bool? ?? false;
+        if (mounted) {
+          setState(() {
+            _unitBlocked = blocked;
+            _loadingEligibility = false;
+          });
+        }
+      } else {
+        if (mounted) {
+          setState(() => _loadingEligibility = false);
+        }
+      }
+    } catch (e) {
+      debugPrint('Error checking voting eligibility: $e');
+      if (mounted) {
+        setState(() => _loadingEligibility = false);
+      }
+    }
   }
 
   Future<void> _submitVote() async {
@@ -163,7 +196,69 @@ class _AssembleiaVotingSheetState extends State<AssembleiaVotingSheet> {
           const SizedBox(height: 12),
 
           // Status banner
-          if (_voted) ...[
+          if (_loadingEligibility) ...[
+            const Center(
+              child: Padding(
+                padding: EdgeInsets.all(12.0),
+                child: CircularProgressIndicator(color: AppColors.primary),
+              ),
+            ),
+            const SizedBox(height: 12),
+          ] else if (_unitBlocked) ...[
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: Colors.amber.shade50,
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: Colors.amber.shade300),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Icon(Icons.warning_amber_rounded, color: Colors.amber.shade800, size: 24),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Text(
+                          'Voto Suspenso (Art. 1.335 do CC)',
+                          style: TextStyle(color: Colors.amber.shade900, fontWeight: FontWeight.bold, fontSize: 14),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    'Regularize suas pendências financeiras para recuperar o direito de voto imediatamente.',
+                    style: TextStyle(color: Colors.amber.shade800, fontSize: 12, height: 1.3),
+                  ),
+                  const SizedBox(height: 12),
+                  SizedBox(
+                    width: double.infinity,
+                    height: 38,
+                    child: ElevatedButton.icon(
+                      onPressed: () {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(builder: (context) => const AcordoSimulatorScreen()),
+                        ).then((_) => _checkEligibility());
+                      },
+                      icon: const Icon(Icons.pix, size: 16),
+                      label: const Text('Negociar via Pix Express', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: AppColors.primary,
+                        foregroundColor: Colors.white,
+                        elevation: 0,
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 12),
+          ] else if (_voted) ...[
             Container(
               width: double.infinity,
               padding: const EdgeInsets.all(12),
@@ -196,7 +291,7 @@ class _AssembleiaVotingSheetState extends State<AssembleiaVotingSheet> {
             final showBar = _voted || !widget.pauta.isAberta;
 
             return GestureDetector(
-              onTap: _voted || !widget.pauta.isAberta
+              onTap: _voted || !widget.pauta.isAberta || _unitBlocked
                   ? null
                   : () => setState(() => _selected = opcao),
               child: Container(
@@ -276,7 +371,7 @@ class _AssembleiaVotingSheetState extends State<AssembleiaVotingSheet> {
               width: double.infinity,
               height: 50,
               child: ElevatedButton(
-                onPressed: _selected == null || _submitting ? null : _submitVote,
+                onPressed: _selected == null || _submitting || _unitBlocked ? null : _submitVote,
                 style: ElevatedButton.styleFrom(
                   backgroundColor: AppColors.primary,
                   foregroundColor: Colors.white,

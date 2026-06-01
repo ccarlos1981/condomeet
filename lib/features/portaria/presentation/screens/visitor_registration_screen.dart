@@ -35,6 +35,8 @@ class _VisitorRegistrationScreenState extends State<VisitorRegistrationScreen>
     with SingleTickerProviderStateMixin {
   final _supabase = Supabase.instance.client;
   late final TabController _tabController;
+  bool _requestWhatsappApproval = false;
+  RealtimeChannel? _channel;
 
   // ── Block / Apt ──────────────────────────────────────────────
   List<Map<String, dynamic>> _blocos = [];
@@ -76,10 +78,12 @@ class _VisitorRegistrationScreenState extends State<VisitorRegistrationScreen>
     _tabController = TabController(length: 2, vsync: this, initialIndex: widget.initialTab);
     _loadBlocos();
     _loadVisitantes();
+    _setupRealtimeListener();
   }
 
   @override
   void dispose() {
+    _channel?.unsubscribe();
     _tabController.dispose();
     _cpfCtrl.dispose();
     _nomeCtrl.dispose();
@@ -112,6 +116,27 @@ class _VisitorRegistrationScreenState extends State<VisitorRegistrationScreen>
     }
   }
 
+  void _setupRealtimeListener() {
+    final condoId = context.read<AuthBloc>().state.condominiumId;
+    if (condoId == null) return;
+    _channel = _supabase
+        .channel('public:visitante_registros:condominio_id=eq.$condoId')
+        .onPostgresChanges(
+          event: PostgresChangeEvent.all,
+          schema: 'public',
+          table: 'visitante_registros',
+          filter: PostgresChangeFilter(
+            type: PostgresChangeFilterType.eq,
+            column: 'condominio_id',
+            value: condoId,
+          ),
+          callback: (payload) {
+            _loadVisitantes();
+          },
+        )
+        .subscribe();
+  }
+
   // ── Handle exit release ──────────────────────────────────
   Future<void> _handleRegistrarSaida(String id) async {
     try {
@@ -142,6 +167,50 @@ class _VisitorRegistrationScreenState extends State<VisitorRegistrationScreen>
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text('Erro ao registrar saída: $e'),
+            backgroundColor: AppColors.error,
+          ),
+        );
+      }
+    }
+  }
+
+  Future<void> _handleLiberarManual(String id) async {
+    try {
+      await _supabase
+          .from('visitante_registros')
+          .update({
+            'status': 'liberado',
+            'canal_liberacao': 'manual_portaria',
+            'aprovado_at': DateTime.now().toUtc().toIso8601String(),
+          })
+          .eq('id', id);
+
+      // Optimistic update
+      setState(() {
+        final idx = _visitantes.indexWhere((v) => v['id'] == id);
+        if (idx >= 0) {
+          _visitantes[idx] = {
+            ..._visitantes[idx],
+            'status': 'liberado',
+            'canal_liberacao': 'manual_portaria',
+            'aprovado_at': DateTime.now().toIso8601String(),
+          };
+        }
+      });
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('✅ Visitante liberado manualmente com sucesso'),
+            backgroundColor: Colors.green,
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Erro ao liberar visitante: $e'),
             backgroundColor: AppColors.error,
           ),
         );
@@ -300,6 +369,7 @@ class _VisitorRegistrationScreenState extends State<VisitorRegistrationScreen>
       _photo = null;
       _lastVisit = null;
       _existingPhotoUrl = null;
+      _requestWhatsappApproval = false;
     });
   }
 
@@ -435,29 +505,33 @@ class _VisitorRegistrationScreenState extends State<VisitorRegistrationScreen>
             _obsCtrl.text.trim().isEmpty ? null : _obsCtrl.text.trim(),
         'foto_url': photoUrl,
         'registrado_por': authState.userId,
+        'status': _requestWhatsappApproval ? 'aguardando_aprovacao' : 'liberado',
+        'canal_liberacao': _requestWhatsappApproval ? 'whatsapp' : 'manual_portaria',
       });
 
-      // Fire-and-forget: WhatsApp notification to unit residents
-      try {
-        unawaited(
-          _supabase.functions.invoke(
-            'visitor-register-whatsapp-notify',
-            body: {
-              'condominio_id': condoId,
-              'nome': _nomeCtrl.text.trim(),
-              'whatsapp': _wpCtrl.text.trim().isEmpty ? null : _wpCtrl.text.trim(),
-              'tipo_visitante': _selectedTipo,
-              'empresa': _empresaCtrl.text.trim().isEmpty ? null : _empresaCtrl.text.trim(),
-              'bloco': blocoTxt.isEmpty ? null : blocoTxt,
-              'apto': aptoTxt.isEmpty ? null : aptoTxt,
-              'data_visita': DateTime.now().toUtc().toIso8601String(),
-            },
-          ).then((_) {}).catchError((e) {
-            debugPrint('WhatsApp notify error: $e');
-          }),
-        );
-      } catch (e) {
-        debugPrint('WhatsApp notify error: $e');
+      if (!_requestWhatsappApproval) {
+        // Fire-and-forget: WhatsApp notification to unit residents
+        try {
+          unawaited(
+            _supabase.functions.invoke(
+              'visitor-register-whatsapp-notify',
+              body: {
+                'condominio_id': condoId,
+                'nome': _nomeCtrl.text.trim(),
+                'whatsapp': _wpCtrl.text.trim().isEmpty ? null : _wpCtrl.text.trim(),
+                'tipo_visitante': _selectedTipo,
+                'empresa': _empresaCtrl.text.trim().isEmpty ? null : _empresaCtrl.text.trim(),
+                'bloco': blocoTxt.isEmpty ? null : blocoTxt,
+                'apto': aptoTxt.isEmpty ? null : aptoTxt,
+                'data_visita': DateTime.now().toUtc().toIso8601String(),
+              },
+            ).then((_) {}).catchError((e) {
+              debugPrint('WhatsApp notify error: $e');
+            }),
+          );
+        } catch (e) {
+          debugPrint('WhatsApp notify error: $e');
+        }
       }
 
       if (mounted) _showSuccess();
@@ -596,7 +670,36 @@ class _VisitorRegistrationScreenState extends State<VisitorRegistrationScreen>
             const SizedBox(width: 12),
             Expanded(child: _buildAptoDropdown()),
           ]),
-          const SizedBox(height: 20),
+          const SizedBox(height: 16),
+
+          // ── Solicitar liberação via WhatsApp ──────────────────────
+          if (_selectedBloco != null && _selectedApto != null) ...[
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                const Row(
+                  children: [
+                    Icon(Icons.chat_bubble_outline, color: AppColors.primary, size: 20),
+                    SizedBox(width: 8),
+                    Text(
+                      'Aprovação pelo WhatsApp do Morador',
+                      style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13),
+                    ),
+                  ],
+                ),
+                Switch(
+                  value: _requestWhatsappApproval,
+                  activeThumbColor: AppColors.primary,
+                  onChanged: (val) {
+                    setState(() {
+                      _requestWhatsappApproval = val;
+                    });
+                  },
+                ),
+              ],
+            ),
+            const SizedBox(height: 16),
+          ],
 
           // ── Photo (only for new visitors) ──────────────
           if (_lastVisit == null) ...[
@@ -699,123 +802,182 @@ class _VisitorRegistrationScreenState extends State<VisitorRegistrationScreen>
                   itemCount: filtered.length + (hasMore ? 1 : 0),
                   itemBuilder: (context, index) {
                     if (index >= filtered.length) {
-          return Padding(
-            padding: const EdgeInsets.symmetric(vertical: 8),
-            child: Center(
-              child: TextButton.icon(
-                onPressed: () {
-                  setState(() => _visitanteLimit += 10);
-                  _loadVisitantes();
-                },
-                icon: const Icon(Icons.expand_more),
-                label: const Text('Carregar mais'),
-                style: TextButton.styleFrom(foregroundColor: AppColors.primary),
-              ),
-            ),
-          );
-        }
+                      return Padding(
+                        padding: const EdgeInsets.symmetric(vertical: 8),
+                        child: Center(
+                          child: TextButton.icon(
+                            onPressed: () {
+                              setState(() => _visitanteLimit += 10);
+                              _loadVisitantes();
+                            },
+                            icon: const Icon(Icons.expand_more),
+                            label: const Text('Carregar mais'),
+                            style: TextButton.styleFrom(foregroundColor: AppColors.primary),
+                          ),
+                        ),
+                      );
+                    }
 
-        final v = _visitantes[index];
-        final nome = v['nome'] ?? '';
-        final bloco = v['bloco'] ?? '';
-        final apto = v['apto'] ?? '';
-        final rawFotoUrl = v['foto_url'] as String?;
-        final fotoUrl = (rawFotoUrl != null && rawFotoUrl.startsWith('http')) ? rawFotoUrl : null;
-        final entradaAt = v['entrada_at'] as String?;
-        final saidaAt = v['saida_at'] as String?;
-        final hasSaida = saidaAt != null;
+                    final v = filtered[index];
+                    final nome = v['nome'] ?? '';
+                    final bloco = v['bloco'] ?? '';
+                    final apto = v['apto'] ?? '';
+                    final rawFotoUrl = v['foto_url'] as String?;
+                    final fotoUrl = (rawFotoUrl != null && rawFotoUrl.startsWith('http')) ? rawFotoUrl : null;
+                    final entradaAt = v['entrada_at'] as String?;
+                    final saidaAt = v['saida_at'] as String?;
+                    final hasSaida = saidaAt != null;
+                    final status = v['status'] ?? 'liberado';
 
-        return Container(
-          margin: const EdgeInsets.only(bottom: 10),
-          decoration: BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.circular(14),
-            border: Border.all(
-              color: hasSaida ? Colors.green.shade100 : Colors.orange.shade100,
-            ),
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withValues(alpha: 0.04),
-                blurRadius: 6,
-                offset: const Offset(0, 2),
-              ),
-            ],
-          ),
-          child: Padding(
-            padding: const EdgeInsets.all(12),
-            child: Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                // Photo
-                CircleAvatar(
-                  radius: 24,
-                  backgroundColor: Colors.grey.shade200,
-                  backgroundImage: fotoUrl != null ? NetworkImage(fotoUrl) : null,
-                  child: fotoUrl == null
-                      ? Icon(Icons.person, color: Colors.grey.shade400)
-                      : null,
+                    Color cardBorderColor;
+                    Color cardBgColor;
+                    if (hasSaida) {
+                      cardBorderColor = Colors.green.shade100;
+                      cardBgColor = Colors.white;
+                    } else if (status == 'rejeitado') {
+                      cardBorderColor = Colors.red.shade100;
+                      cardBgColor = Colors.red.shade50.withValues(alpha: 0.3);
+                    } else if (status == 'aguardando_aprovacao') {
+                      cardBorderColor = Colors.amber.shade200;
+                      cardBgColor = Colors.amber.shade50.withValues(alpha: 0.3);
+                    } else {
+                      cardBorderColor = Colors.orange.shade100;
+                      cardBgColor = Colors.white;
+                    }
+
+                    return Container(
+                      margin: const EdgeInsets.only(bottom: 10),
+                      decoration: BoxDecoration(
+                        color: cardBgColor,
+                        borderRadius: BorderRadius.circular(14),
+                        border: Border.all(
+                          color: cardBorderColor,
+                        ),
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.black.withValues(alpha: 0.04),
+                            blurRadius: 6,
+                            offset: const Offset(0, 2),
+                          ),
+                        ],
+                      ),
+                      child: Padding(
+                        padding: const EdgeInsets.all(12),
+                        child: Row(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            // Photo
+                            CircleAvatar(
+                              radius: 24,
+                              backgroundColor: Colors.grey.shade200,
+                              backgroundImage: fotoUrl != null ? NetworkImage(fotoUrl) : null,
+                              child: fotoUrl == null
+                                  ? Icon(Icons.person, color: Colors.grey.shade400)
+                                  : null,
+                            ),
+                            const SizedBox(width: 12),
+                            // Info
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(nome,
+                                      style: const TextStyle(
+                                          fontWeight: FontWeight.bold, fontSize: 14)),
+                                  if (bloco.isNotEmpty || apto.isNotEmpty)
+                                    Text('${getBlocoLabel(context.read<AuthBloc>().state.tipoEstrutura)} $bloco / ${getAptoLabel(context.read<AuthBloc>().state.tipoEstrutura)} $apto',
+                                        style: TextStyle(
+                                            fontSize: 12, color: Colors.grey.shade600)),
+                                  if (entradaAt != null)
+                                    Text('Entrada: ${_formatDate(entradaAt)}',
+                                        style: TextStyle(
+                                            fontSize: 11, color: Colors.grey.shade500)),
+                                  if (hasSaida)
+                                    Text('Saída: ${_formatDate(saidaAt)}',
+                                        style: TextStyle(
+                                            fontSize: 11, color: Colors.green.shade600)),
+                                ],
+                              ),
+                            ),
+                            // Action
+                            if (!hasSaida) ...[
+                              if (status == 'aguardando_aprovacao') ...[
+                                Column(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    Container(
+                                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                      decoration: BoxDecoration(
+                                        color: Colors.amber.shade100,
+                                        borderRadius: BorderRadius.circular(6),
+                                      ),
+                                      child: Text(
+                                        'Aguardando',
+                                        style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Colors.amber.shade800),
+                                      ),
+                                    ),
+                                    const SizedBox(height: 6),
+                                    TextButton(
+                                      onPressed: () => _handleLiberarManual(v['id']),
+                                      style: TextButton.styleFrom(
+                                        padding: EdgeInsets.zero,
+                                        minimumSize: const Size(50, 30),
+                                        tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                                      ),
+                                      child: const Text('Liberar\nManual', textAlign: TextAlign.center, style: TextStyle(fontSize: 10, color: AppColors.primary, fontWeight: FontWeight.bold)),
+                                    ),
+                                  ],
+                                )
+                              ] else if (status == 'rejeitado') ...[
+                                Container(
+                                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                                  decoration: BoxDecoration(
+                                    color: Colors.red.shade50,
+                                    borderRadius: BorderRadius.circular(8),
+                                  ),
+                                  child: Text('❌ Recusado',
+                                      style: TextStyle(
+                                          fontSize: 11,
+                                          fontWeight: FontWeight.bold,
+                                          color: Colors.red.shade700)),
+                                )
+                              ] else ...[
+                                ElevatedButton(
+                                  onPressed: () => _handleRegistrarSaida(v['id']),
+                                  style: ElevatedButton.styleFrom(
+                                    backgroundColor: Colors.red.shade500,
+                                    foregroundColor: Colors.white,
+                                    padding: const EdgeInsets.symmetric(
+                                        horizontal: 12, vertical: 8),
+                                    shape: RoundedRectangleBorder(
+                                        borderRadius: BorderRadius.circular(8)),
+                                    textStyle: const TextStyle(
+                                        fontSize: 12, fontWeight: FontWeight.bold),
+                                  ),
+                                  child: const Text('Registrar\nSaída',
+                                      textAlign: TextAlign.center),
+                                ),
+                              ]
+                            ] else
+                              Container(
+                                padding:
+                                    const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                                decoration: BoxDecoration(
+                                  color: Colors.green.shade50,
+                                  borderRadius: BorderRadius.circular(8),
+                                ),
+                                child: Text('✅ Saiu',
+                                    style: TextStyle(
+                                        fontSize: 11,
+                                        fontWeight: FontWeight.bold,
+                                        color: Colors.green.shade700)),
+                              ),
+                          ],
+                        ),
+                      ),
+                    );
+                  },
                 ),
-                const SizedBox(width: 12),
-                // Info
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(nome,
-                          style: const TextStyle(
-                              fontWeight: FontWeight.bold, fontSize: 14)),
-                      if (bloco.isNotEmpty || apto.isNotEmpty)
-                        Text('${getBlocoLabel(context.read<AuthBloc>().state.tipoEstrutura)} $bloco / ${getAptoLabel(context.read<AuthBloc>().state.tipoEstrutura)} $apto',
-                            style: TextStyle(
-                                fontSize: 12, color: Colors.grey.shade600)),
-                      if (entradaAt != null)
-                        Text('Entrada: ${_formatDate(entradaAt)}',
-                            style: TextStyle(
-                                fontSize: 11, color: Colors.grey.shade500)),
-                      if (hasSaida)
-                        Text('Saída: ${_formatDate(saidaAt)}',
-                            style: TextStyle(
-                                fontSize: 11, color: Colors.green.shade600)),
-                    ],
-                  ),
-                ),
-                // Action
-                if (!hasSaida)
-                  ElevatedButton(
-                    onPressed: () => _handleRegistrarSaida(v['id']),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: Colors.red.shade500,
-                      foregroundColor: Colors.white,
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 12, vertical: 8),
-                      shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(8)),
-                      textStyle: const TextStyle(
-                          fontSize: 12, fontWeight: FontWeight.bold),
-                    ),
-                    child: const Text('Registrar\nSaída',
-                        textAlign: TextAlign.center),
-                  )
-                else
-                  Container(
-                    padding:
-                        const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                    decoration: BoxDecoration(
-                      color: Colors.green.shade50,
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                    child: Text('✅ Saiu',
-                        style: TextStyle(
-                            fontSize: 11,
-                            fontWeight: FontWeight.bold,
-                            color: Colors.green.shade700)),
-                  ),
-              ],
-            ),
-          ),
-        );
-      },
-    ),
         ),
       ],
     );

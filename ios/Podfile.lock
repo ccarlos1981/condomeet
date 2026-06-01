@@ -1,51 +1,11 @@
 PODS:
-  - agora_rtc_engine (6.5.3):
-    - AgoraIrisRTC_iOS (= 4.5.2-build.1)
-    - AgoraRtcEngine_iOS (= 4.5.2)
+  - agora_rtc_engine (6.5.4):
+    - AgoraIrisRTC_iOS (= 4.5.3-build.1)
+    - AgoraRtcEngine_Special_iOS (= 4.5.3.70)
     - Flutter
-  - AgoraInfra_iOS (1.2.13.1)
-  - AgoraIrisRTC_iOS (4.5.2-build.1)
-  - AgoraRtcEngine_iOS (4.5.2):
-    - AgoraRtcEngine_iOS/AIAEC (= 4.5.2)
-    - AgoraRtcEngine_iOS/AIAECLL (= 4.5.2)
-    - AgoraRtcEngine_iOS/AINS (= 4.5.2)
-    - AgoraRtcEngine_iOS/AINSLL (= 4.5.2)
-    - AgoraRtcEngine_iOS/AudioBeauty (= 4.5.2)
-    - AgoraRtcEngine_iOS/ClearVision (= 4.5.2)
-    - AgoraRtcEngine_iOS/ContentInspect (= 4.5.2)
-    - AgoraRtcEngine_iOS/FaceCapture (= 4.5.2)
-    - AgoraRtcEngine_iOS/FaceDetection (= 4.5.2)
-    - AgoraRtcEngine_iOS/LipSync (= 4.5.2)
-    - AgoraRtcEngine_iOS/ReplayKit (= 4.5.2)
-    - AgoraRtcEngine_iOS/RtcBasic (= 4.5.2)
-    - AgoraRtcEngine_iOS/SpatialAudio (= 4.5.2)
-    - AgoraRtcEngine_iOS/VideoAv1CodecDec (= 4.5.2)
-    - AgoraRtcEngine_iOS/VideoAv1CodecEnc (= 4.5.2)
-    - AgoraRtcEngine_iOS/VideoCodecDec (= 4.5.2)
-    - AgoraRtcEngine_iOS/VideoCodecEnc (= 4.5.2)
-    - AgoraRtcEngine_iOS/VirtualBackground (= 4.5.2)
-    - AgoraRtcEngine_iOS/VQA (= 4.5.2)
-  - AgoraRtcEngine_iOS/AIAEC (4.5.2)
-  - AgoraRtcEngine_iOS/AIAECLL (4.5.2)
-  - AgoraRtcEngine_iOS/AINS (4.5.2)
-  - AgoraRtcEngine_iOS/AINSLL (4.5.2)
-  - AgoraRtcEngine_iOS/AudioBeauty (4.5.2)
-  - AgoraRtcEngine_iOS/ClearVision (4.5.2)
-  - AgoraRtcEngine_iOS/ContentInspect (4.5.2)
-  - AgoraRtcEngine_iOS/FaceCapture (4.5.2)
-  - AgoraRtcEngine_iOS/FaceDetection (4.5.2)
-  - AgoraRtcEngine_iOS/LipSync (4.5.2)
-  - AgoraRtcEngine_iOS/ReplayKit (4.5.2)
-  - AgoraRtcEngine_iOS/RtcBasic (4.5.2):
-    - AgoraInfra_iOS (= 1.2.13.1)
-  - AgoraRtcEngine_iOS/SpatialAudio (4.5.2)
-  - AgoraRtcEngine_iOS/VideoAv1CodecDec (4.5.2)
-  - AgoraRtcEngine_iOS/VideoAv1CodecEnc (4.5.2)
-  - AgoraRtcEngine_iOS/VideoCodecDec (4.5.2)
-  - AgoraRtcEngine_iOS/VideoCodecEnc (4.5.2)
-  - AgoraRtcEngine_iOS/VirtualBackground (4.5.2)
-  - AgoraRtcEngine_iOS/VQA (4.5.2)
-  - app_links (6.4.1):
+  - AgoraIrisRTC_iOS (4.5.3-build.1)
+  - AgoraRtcEngine_Special_iOS (4.5.3.70)
+  - app_links (7.0.0):
     - Flutter
   - connectivity_plus (0.0.1):
     - Flutter
@@ -122,6 +82,8 @@ PODS:
     - Flutter
   - flutter_secure_storage (6.0.0):
     - Flutter
+  - geocoding_ios (1.0.5):
+    - Flutter
   - geolocator_apple (1.2.0):
     - Flutter
     - FlutterMacOS
@@ -168,20 +130,20 @@ PODS:
     - Flutter
   - permission_handler_apple (9.3.0):
     - Flutter
-  - powersync-sqlite-core (0.4.12)
+  - powersync-sqlite-core (0.4.14)
   - powersync_flutter_libs (0.0.1):
     - Flutter
     - FlutterMacOS
-    - powersync-sqlite-core (~> 0.4.10)
+    - powersync-sqlite-core (~> 0.4.11)
   - printing (1.0.0):
     - Flutter
   - PromisesObjC (2.4.0)
-  - purchases_flutter (9.15.1):
+  - purchases_flutter (9.16.1):
     - Flutter
-    - PurchasesHybridCommon (= 17.53.0)
-  - PurchasesHybridCommon (17.53.0):
-    - RevenueCat (= 5.66.0)
-  - RevenueCat (5.66.0)
+    - PurchasesHybridCommon (= 17.55.1)
+  - PurchasesHybridCommon (17.55.1):
+    - RevenueCat (= 5.67.1)
+  - RevenueCat (5.67.1)
   - SDWebImage (5.21.7):
     - SDWebImage/Core (= 5.21.7)
   - SDWebImage/Core (5.21.7)
@@ -190,25 +152,25 @@ PODS:
   - shared_preferences_foundation (0.0.1):
     - Flutter
     - FlutterMacOS
-  - sqlite3 (3.51.1):
-    - sqlite3/common (= 3.51.1)
-  - sqlite3/common (3.51.1)
-  - sqlite3/dbstatvtab (3.51.1):
+  - sqlite3 (3.52.0):
+    - sqlite3/common (= 3.52.0)
+  - sqlite3/common (3.52.0)
+  - sqlite3/dbstatvtab (3.52.0):
     - sqlite3/common
-  - sqlite3/fts5 (3.51.1):
+  - sqlite3/fts5 (3.52.0):
     - sqlite3/common
-  - sqlite3/math (3.51.1):
+  - sqlite3/math (3.52.0):
     - sqlite3/common
-  - sqlite3/perf-threadsafe (3.51.1):
+  - sqlite3/perf-threadsafe (3.52.0):
     - sqlite3/common
-  - sqlite3/rtree (3.51.1):
+  - sqlite3/rtree (3.52.0):
     - sqlite3/common
-  - sqlite3/session (3.51.1):
+  - sqlite3/session (3.52.0):
     - sqlite3/common
   - sqlite3_flutter_libs (0.0.1):
     - Flutter
     - FlutterMacOS
-    - sqlite3 (~> 3.51.1)
+    - sqlite3 (~> 3.52.0)
     - sqlite3/dbstatvtab
     - sqlite3/fts5
     - sqlite3/math
@@ -240,6 +202,7 @@ DEPENDENCIES:
   - Flutter (from `Flutter`)
   - flutter_local_notifications (from `.symlinks/plugins/flutter_local_notifications/ios`)
   - flutter_secure_storage (from `.symlinks/plugins/flutter_secure_storage/ios`)
+  - geocoding_ios (from `.symlinks/plugins/geocoding_ios/ios`)
   - geolocator_apple (from `.symlinks/plugins/geolocator_apple/darwin`)
   - image_picker_ios (from `.symlinks/plugins/image_picker_ios/ios`)
   - iris_method_channel (from `.symlinks/plugins/iris_method_channel/ios`)
@@ -260,9 +223,8 @@ DEPENDENCIES:
 
 SPEC REPOS:
   trunk:
-    - AgoraInfra_iOS
     - AgoraIrisRTC_iOS
-    - AgoraRtcEngine_iOS
+    - AgoraRtcEngine_Special_iOS
     - DKImagePickerController
     - DKPhotoGallery
     - Firebase
@@ -302,6 +264,8 @@ EXTERNAL SOURCES:
     :path: ".symlinks/plugins/flutter_local_notifications/ios"
   flutter_secure_storage:
     :path: ".symlinks/plugins/flutter_secure_storage/ios"
+  geocoding_ios:
+    :path: ".symlinks/plugins/geocoding_ios/ios"
   geolocator_apple:
     :path: ".symlinks/plugins/geolocator_apple/darwin"
   image_picker_ios:
@@ -338,11 +302,10 @@ EXTERNAL SOURCES:
     :path: ".symlinks/plugins/webview_flutter_wkwebview/darwin"
 
 SPEC CHECKSUMS:
-  agora_rtc_engine: 0c7d50312967c4dc31c3c45e50589ce48f57e08a
-  AgoraInfra_iOS: 3691b2b277a1712a35ae96de25af319de0d73d08
-  AgoraIrisRTC_iOS: eab58c126439adf5ec99632828a558ea216860da
-  AgoraRtcEngine_iOS: 97e2398a2addda9057815a2a583a658e36796ff6
-  app_links: 3dbc685f76b1693c66a6d9dd1e9ab6f73d97dc0a
+  agora_rtc_engine: c8ad6313ec7a1b2f28ab3328ff485df6d19a32de
+  AgoraIrisRTC_iOS: d6468160cad25d36c2b6cb5e9bd5b17ba4e58677
+  AgoraRtcEngine_Special_iOS: 48063561d21b07524358ee0a17abc6be762c58f7
+  app_links: a754cbec3c255bd4bbb4d236ecc06f28cd9a7ce8
   connectivity_plus: cb623214f4e1f6ef8fe7403d580fdad517d2f7dd
   device_info_plus: 21fcca2080fbcd348be798aa36c3e5ed849eefbe
   DKImagePickerController: 946cec48c7873164274ecc4624d19e3da4c1ef3c
@@ -358,6 +321,7 @@ SPEC CHECKSUMS:
   Flutter: cabc95a1d2626b1b06e7179b784ebcf0c0cde467
   flutter_local_notifications: 643a3eda1ce1c0599413ca31672536d423dee214
   flutter_secure_storage: 1ed9476fba7e7a782b22888f956cce43e2c62f13
+  geocoding_ios: 33776c9ebb98d037b5e025bb0e7537f6dd19646e
   geolocator_apple: ab36aa0e8b7d7a2d7639b3b4e48308394e8cef5e
   GoogleDataTransport: aae35b7ea0c09004c3797d53c8c41f66f219d6a7
   GoogleUtilities: 00c88b9a86066ef77f0da2fab05f65d7768ed8e1
@@ -367,22 +331,22 @@ SPEC CHECKSUMS:
   nanopb: fad817b59e0457d11a5dfbde799381cd727c1275
   package_info_plus: af8e2ca6888548050f16fa2f1938db7b5a5df499
   permission_handler_apple: 4ed2196e43d0651e8ff7ca3483a069d469701f2d
-  powersync-sqlite-core: 116ecf3391859445f1477f8c230914e04d9874e7
-  powersync_flutter_libs: 1e296b482926ebb5a993d287a59fae1df91caf44
+  powersync-sqlite-core: 6ce0b8b254812855e4ec52899ddc3ac6a30bda12
+  powersync_flutter_libs: 20381b877038d27d8fa918f8c3fff08bfc3925d0
   printing: 54ff03f28fe9ba3aa93358afb80a8595a071dd07
   PromisesObjC: f5707f49cb48b9636751c5b2e7d227e43fba9f47
-  purchases_flutter: eaa65afecf3a856e8729efceab7a01b8685e2eab
-  PurchasesHybridCommon: 53d966ac5c39df13c3c759289bb3ef3e2f9f1622
-  RevenueCat: a3cf721ad8b1b56a930d748a40342aba16c09bbb
+  purchases_flutter: b44fcb4ff5e68a4dfe53fd0c339683803b04dd2c
+  PurchasesHybridCommon: ecd9d7c586287625f1225b8de5e24c1021502270
+  RevenueCat: 9357239a9f0978285e68983637b8a602e65c94f0
   SDWebImage: e9fc87c1aab89a8ab1bbd74eba378c6f53be8abf
   share_plus: 50da8cb520a8f0f65671c6c6a99b3617ed10a58a
   shared_preferences_foundation: 7036424c3d8ec98dfe75ff1667cb0cd531ec82bb
-  sqlite3: 8d708bc63e9f4ce48f0ad9d6269e478c5ced1d9b
-  sqlite3_flutter_libs: d13b8b3003f18f596e542bcb9482d105577eff41
+  sqlite3: a51c07cf16e023d6c48abd5e5791a61a47354921
+  sqlite3_flutter_libs: b3e120efe9a82017e5552a620f696589ed4f62ab
   SwiftyGif: 706c60cf65fa2bc5ee0313beece843c8eb8194d4
   syncfusion_flutter_pdfviewer: 90dc48305d2e33d4aa20681d1e98ddeda891bc14
   url_launcher_ios: 7a95fa5b60cc718a708b8f2966718e93db0cef1b
-  video_player_avfoundation: dd410b52df6d2466a42d28550e33e4146928280a
+  video_player_avfoundation: 3453f792138786248960ca029747fcd9f318ef52
   wakelock_plus: e29112ab3ef0b318e58cfa5c32326458be66b556
   webview_flutter_wkwebview: 8ebf4fded22593026f7dbff1fbff31ea98573c8d
 

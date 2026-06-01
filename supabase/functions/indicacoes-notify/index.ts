@@ -1,6 +1,7 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2"
 import { create } from "https://deno.land/x/djwt@v2.9.1/mod.ts"
+import { sendByPhone } from "../_shared/botconversa.ts"
 
 // ── FCM helpers ──────────────────────────────────────────────────────────────
 
@@ -116,7 +117,7 @@ serve(async (req) => {
     // 3. Fetch indicação + criador
     const { data: indicacao } = await supabase
       .from("indicacoes_servico")
-      .select("nome, especialidade, criado_por")
+      .select("nome, especialidade, criado_por, whatsapp")
       .eq("id", indicacao_id)
       .single()
 
@@ -174,8 +175,39 @@ serve(async (req) => {
     const successCount = results.filter((r: any) => r.success).length
     console.log(`[indicacoes-notify] push=${successCount}/${results.length}`)
 
+    // 6. Send WhatsApp to recommended professional if phone exists
+    const botconversaApiKey = Deno.env.get("BOTCONVERSA_API_KEY")
+    let whatsappSent = false
+    let whatsappError: string | undefined
+
+    if (indicacao.whatsapp && botconversaApiKey) {
+      console.log(`[indicacoes-notify] Sending WhatsApp to professional: ${indicacao.whatsapp}`)
+      const whatsMessage = `Olá, ${indicacao.nome}\n\nTemos uma ótima notícia!\n\nO(a) morador(a) ${indicadorNome}, do Condomínio ${condoNome}, indicou seus serviços no App Condomeet, o aplicativo que conecta moradores a profissionais de confiança. 🏡\n\nSua indicação agora está visível para todos os moradores do Condomínio.\n\nSe desejar destacar seu perfil e atrair mais clientes, entre em contato com nosso suporte:\n📞 (62) 99918-8555\n\nAgradecemos pela confiança e desejamos muito sucesso!\n\nAtenciosamente,\nEquipe Condomeet\n🌐 Conectando pessoas, serviços e bons negócios.`
+
+      try {
+        const whatsResult = await sendByPhone(
+          botconversaApiKey,
+          indicacao.whatsapp,
+          "text",
+          whatsMessage,
+          indicacao.nome.split(" ")[0]
+        )
+        whatsappSent = whatsResult.success
+        whatsappError = whatsResult.error
+        console.log(`[indicacoes-notify] WhatsApp send result: success=${whatsResult.success}, error=${whatsResult.error || 'none'}`)
+      } catch (whatsErr: any) {
+        whatsappError = whatsErr.message || String(whatsErr)
+        console.error("[indicacoes-notify] Error sending WhatsApp:", whatsErr)
+      }
+    } else {
+      console.log(`[indicacoes-notify] WhatsApp send skipped: phone=${indicacao.whatsapp ? 'yes' : 'no'}, apiKey=${botconversaApiKey ? 'yes' : 'no'}`)
+    }
+
     return new Response(
-      JSON.stringify({ push: { sent: successCount, total: results.length } }),
+      JSON.stringify({ 
+        push: { sent: successCount, total: results.length },
+        whatsapp: { sent: whatsappSent, error: whatsappError }
+      }),
       { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
     )
   } catch (err: any) {

@@ -18,6 +18,7 @@ type HistoricoItem = {
   created_at: string
   bloco: string
   apto: string
+  valor: number | null
 }
 
 type UnitOption = { id: string; bloco: string; apto: string }
@@ -48,6 +49,7 @@ export default function NotificacoesMultasClient({
   const [formData, setFormData] = useState('')
   const [formBloco, setFormBloco] = useState('')
   const [formApto, setFormApto] = useState('')
+  const [formValor, setFormValor] = useState('')
   const [formOcorrencia, setFormOcorrencia] = useState('')
   const [formDescricao, setFormDescricao] = useState('')
   const [file, setFile] = useState<File | null>(null)
@@ -114,6 +116,7 @@ export default function NotificacoesMultasClient({
       tipo: formTipo,
       titulo: formOcorrencia,
       descricao: formDescricao,
+      valor: formTipo === 'MULTA' && formValor ? Number(formValor) : null,
       data_ocorrencia: formData ? new Date(formData).toISOString() : new Date().toISOString(),
       anexo_url: uploadedPath
     }
@@ -122,7 +125,7 @@ export default function NotificacoesMultasClient({
       .from('notificacoes_multas')
       .insert(newRecord)
       .select(`
-        id, tipo, titulo, descricao, anexo_url, lido_em, data_ocorrencia, created_at, status,
+        id, tipo, titulo, descricao, anexo_url, lido_em, data_ocorrencia, created_at, status, valor,
         unidades ( blocos (nome_ou_numero), apartamentos(numero) )
       `)
       .single()
@@ -141,6 +144,7 @@ export default function NotificacoesMultasClient({
         lido_em: inserted.lido_em,
         created_at: inserted.created_at,
         status: inserted.status,
+        valor: inserted.valor,
         bloco: (inserted.unidades as any)?.blocos?.nome_ou_numero ?? '',
         apto: (inserted.unidades as any)?.apartamentos?.numero ?? ''
       }
@@ -156,6 +160,7 @@ export default function NotificacoesMultasClient({
     setFormData('')
     setFormBloco('')
     setFormApto('')
+    setFormValor('')
     setFormOcorrencia('')
     setFormDescricao('')
     setFile(null)
@@ -180,11 +185,12 @@ export default function NotificacoesMultasClient({
           historico.map(item => (
             <div key={item.id} className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 relative max-w-4xl">
               <div className="space-y-3.5 pr-24">
-                <div className="text-sm"><span className="font-extrabold text-gray-900 w-24 inline-block">Tipo:</span> <span className="text-gray-700">{item.tipo}</span></div>
-                <div className="text-sm"><span className="font-extrabold text-gray-900 w-24 inline-block">Data:</span> <span className="text-gray-700">{item.data_ocorrencia ? format(parseISO(item.data_ocorrencia), "MMM d, yyyy h:mm a", { locale: ptBR }) : '-'}</span></div>
                 <div className="text-sm"><span className="font-extrabold text-gray-900 w-24 inline-block">Bloco:</span> <span className="text-gray-700">{item.bloco}</span></div>
                 <div className="text-sm"><span className="font-extrabold text-gray-900 w-24 inline-block">Unidade:</span> <span className="text-gray-700">{item.apto}</span></div>
                 <div className="text-sm"><span className="font-extrabold text-gray-900 w-24 inline-block">Ocorrência:</span> <span className="text-gray-700">{item.titulo}</span></div>
+                {item.tipo === 'MULTA' && item.valor !== null && item.valor !== undefined && (
+                  <div className="text-sm"><span className="font-extrabold text-red-600 w-24 inline-block">Valor:</span> <span className="text-red-600 font-bold">R$ {Number(item.valor).toFixed(2).replace('.', ',')}</span></div>
+                )}
                 {item.descricao && (
                   <div className="text-sm flex"><span className="font-extrabold text-gray-900 w-24 inline-block shrink-0">Descrição:</span> <span className="text-gray-700">{item.descricao}</span></div>
                 )}
@@ -285,6 +291,23 @@ export default function NotificacoesMultasClient({
                   ))}
                 </select>
               </div>
+
+              {/* Valor (only for MULTA) */}
+              {formTipo === 'MULTA' && (
+                <div className="flex items-center gap-4">
+                  <label className="w-24 font-bold text-gray-800 shrink-0 text-sm">Valor (R$):</label>
+                  <input 
+                    type="number"
+                    step="0.01"
+                    min="0.01"
+                    required
+                    placeholder="0,00"
+                    value={formValor} 
+                    onChange={e => setFormValor(e.target.value)} 
+                    className="w-full p-2.5 rounded-xl border border-gray-200 outline-none focus:border-[#FC5931] focus:ring-1 focus:ring-[#FC5931] text-sm"
+                  />
+                </div>
+              )}
 
               {/* Documento */}
               <div className="flex items-center gap-4">

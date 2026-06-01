@@ -1,4 +1,4 @@
-# generated: 2026-02-21
+# generated: 2026-05-31
 # project: condomeet
 # project_key: condomeet
 # tracking_system: file-system
@@ -33,7 +33,7 @@
 # - SM typically creates next story after previous one is 'done' to incorporate learnings
 # - Dev moves story to 'review', then runs code-review (fresh context, different LLM recommended)
 
-generated: 2026-02-21
+generated: 2026-05-31
 project: condomeet
 project_key: condomeet
 tracking_system: file-system
@@ -47,6 +47,7 @@ development_status:
   1-4-autenticacao-whatsapp-otp: done
   1-5-login-persistente-biometria: done
   epic-1-retrospective: done
+
   epic-2: done
   2-1-busca-preditiva-moradores: done
   2-2-scanner-ocr-etiquetas: done
@@ -54,111 +55,51 @@ development_status:
   2-4-alerta-whatsapp: done
   2-5-fallback-notificacao-push: done
   epic-2-retrospective: optional
+
   epic-3: done
   3-1-dashboard-encomendas-morador: done
   3-2-fluxo-entrega-porteiro: done
   3-3-comprovacao-retirada: done
   3-4-historico-arquivamento: done
   epic-3-retrospective: done
-  epic-4: done
+
+  epic-4: in-progress
   4-1-gerador-convites: done
   4-2-terminal-visitantes: done
   4-3-onboarding-morador: done
   4-4-aprovacao-gestor: done
-  epic-4-retrospective: done
+  4-5-liberacao-express-visitantes-whatsapp: in-progress
+  epic-4-retrospective: optional
+
   epic-5: done
   5-1-botao-sos: done
   5-2-comunicados-oficiais: done
-  5-3-livro-ocorrencias: done
+  5-3-registro-ocorrencias: done
   5-4-chat-oficial: done
   epic-5-retrospective: done
+
   epic-6: done
-  6-1-painel-reservas: done
+  6-1-disponibilidade-areas: done
   6-2-engine-reservas: done
-  6-3-gestao-doc: done
+  6-3-central-documentos: done
   epic-6-retrospective: done
-  epic-7: done
-  7-1-dashboard-sindico: done
-  7-2-gestao-inventario: done
-  7-3-assembleias-virtuais: done
-  epic-7-retrospective: done
 
-  # ── Épicos Retroativos (8–15) ─────────────────────────
-  # Adicionados em 2026-03-26 para documentar features
-  # construídas além do PRD original.
+  epic-7: in-progress
+  7-1-modelagem-tabelas-acordo-rls: in-progress
+  7-2-interface-simulacao-termos-morador: backlog
+  7-3-integracao-asaas-geracao-pix: backlog
+  7-4-webhook-pagamento-desbloqueio-eleitoral: in-progress
+  epic-7-retrospective: optional
 
-  epic-8: done
-  8-1-criacao-enquetes-admin: done
-  8-2-votacao-enquetes-morador: done
+  epic-8: in-progress
+  8-1-seletor-contexto-multi-condominio: backlog
+  8-2-rpc-metricas-consolidadas: in-progress
+  8-3-caching-pre-fetching-contexto: backlog
   epic-8-retrospective: optional
 
-  epic-9: done
-  9-1-classificados: done
-  9-2-indicacoes-sindico: done
-  9-3-album-fotos: done
+  epic-9: in-progress
+  9-1-bloqueio-eleitoral-automatizado: in-progress
+  9-2-votacao-secreta-rls-view-agregada: in-progress
+  9-3-outorga-procuracao-eletronica: backlog
+  9-4-transmissao-jitsi-meet-ata-autonoma-ia: backlog
   epic-9-retrospective: optional
-
-  epic-10: done
-  10-1-central-contratos: done
-  epic-10-retrospective: optional
-
-  epic-11: done
-  11-1-contas-cartoes: done
-  11-2-lancamentos-movimentos: done
-  11-3-metas-indicadores-despesas: done
-  11-4-monetizacao-planos: done
-  epic-11-retrospective: optional
-
-  epic-12: done
-  12-1-criacao-edicao-listas: done
-  12-2-comparador-precos: done
-  12-3-scanner-ocr-cupom: done
-  12-4-gamificacao-ranking: done
-  12-5-monetizacao-paywall: done
-  epic-12-retrospective: optional
-
-  epic-13: done
-  13-1-cadastro-listagem-vagas: done
-  13-2-reserva-confirmacao: done
-  13-3-trial-onboarding: done
-  epic-13-retrospective: optional
-
-  epic-14: done
-  14-1-criacao-edicao-vistorias: done
-  14-2-analise-ia-timeline: done
-  14-3-monetizacao-onboarding: done
-  epic-14-retrospective: optional
-
-  epic-15: done
-  15-1-whatsapp-chatbot-ia: done
-  15-2-push-universal-avisos: done
-  15-3-menu-dinamico: done
-  15-4-propaganda-parceiros: done
-  15-5-visita-proprietario: done
-  epic-15-retrospective: optional
-
-  # ── Épicos Retroativos (16–18) ─────────────────────────
-  # Adicionados em 2026-04-05 para documentar features
-  # construídas além dos épicos 8-15.
-
-  epic-16: done
-  16-1-manutencao-admin-web: done
-  16-2-manutencao-condo-web: done
-  16-3-fornecedores-admin: done
-  epic-16-retrospective: done
-
-  epic-17: done
-  17-1-suporte-sistema-admin: done
-  17-2-suporte-sistema-flutter: done
-  epic-17-retrospective: done
-
-  epic-18: done
-  18-1-assembleias-crud-pautas: done
-  18-2-live-dashboard-agora-video: done
-  18-3-votacao-tempo-real: done
-  18-4-ata-ia-gemini: done
-  18-5-dashboard-analitico: done
-  18-6-edital-procuracao: done
-  18-7-guia-passo-a-passo: done
-  18-8-faturamento-super-admin: done
-  epic-18-retrospective: done

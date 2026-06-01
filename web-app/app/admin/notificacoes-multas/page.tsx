@@ -46,7 +46,7 @@ export default async function NotificacoesMultasPage() {
   const { data: historicoRaw } = await supabase
     .from('notificacoes_multas')
     .select(`
-      id, tipo, titulo, descricao, anexo_url, lido_em, data_ocorrencia, created_at, status,
+      id, tipo, titulo, descricao, anexo_url, lido_em, data_ocorrencia, created_at, status, valor,
       unidades ( blocos (nome_ou_numero), apartamentos(numero) )
     `)
     .eq('condominio_id', condoId)
@@ -62,6 +62,7 @@ export default async function NotificacoesMultasPage() {
     lido_em: h.lido_em,
     created_at: h.created_at,
     status: h.status,
+    valor: h.valor,
     bloco: (h.unidades as any)?.blocos?.nome_ou_numero ?? '',
     apto: (h.unidades as any)?.apartamentos?.numero ?? ''
   }))

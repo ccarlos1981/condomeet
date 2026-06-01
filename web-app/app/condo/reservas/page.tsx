@@ -34,7 +34,7 @@ export default async function ReservasPage() {
   // Load resident's own reservations
   const { data: minhasReservas } = await supabase
     .from('reservas')
-    .select('id, data_reserva, status, nome_evento, created_at, areas_comuns(tipo_agenda), areas_comuns_horarios(hora_inicio)')
+    .select('id, data_reserva, status, nome_evento, created_at, areas_comuns(tipo_agenda, precos), areas_comuns_horarios(hora_inicio)')
     .eq('user_id', user.id)
     .order('data_reserva', { ascending: false })
     .limit(20)
@@ -73,6 +73,6 @@ export interface MinhaReserva {
   status: string
   nome_evento: string | null
   created_at: string
-  areas_comuns: { tipo_agenda: string }
+  areas_comuns: { tipo_agenda: string; precos?: { valor: number; regra: string }[] }
   areas_comuns_horarios: { hora_inicio: string } | null
 }

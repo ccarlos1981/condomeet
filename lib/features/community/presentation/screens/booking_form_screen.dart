@@ -291,6 +291,10 @@ class _BookingFormScreenState extends State<BookingFormScreen> {
         }
       }
 
+      final taxa = widget.area['taxa_reserva'] != null 
+          ? (widget.area['taxa_reserva'] as num).toDouble() 
+          : 0.0;
+
       final insertData = <String, dynamic>{
         'area_id': areaId,
         'horario_id': _selectedSlotId,
@@ -298,6 +302,8 @@ class _BookingFormScreenState extends State<BookingFormScreen> {
         'data_reserva': _selectedDate,
         'nome_evento': _nomeCtrl.text.trim().isEmpty ? widget.area['tipo_agenda'] : _nomeCtrl.text.trim(),
         'status': aprovAuto ? 'aprovado' : 'pendente',
+        'valor_reserva': taxa,
+        'status_pagamento': taxa > 0 ? 'pendente' : 'isento',
       };
 
       if (widget.portariaMode) {
@@ -435,6 +441,9 @@ class _BookingFormScreenState extends State<BookingFormScreen> {
   Widget build(BuildContext context) {
     final tipo = widget.area['tipo_agenda'] as String? ?? '—';
     final tipoReserva = widget.area['tipo_reserva'] as String? ?? 'por_dia';
+    final taxa = widget.area['taxa_reserva'] != null 
+        ? (widget.area['taxa_reserva'] as num).toDouble() 
+        : 0.0;
 
     final today = DateTime.now();
     final todayIso = '${today.year}-${today.month.toString().padLeft(2,'0')}-${today.day.toString().padLeft(2,'0')}';
@@ -593,6 +602,40 @@ class _BookingFormScreenState extends State<BookingFormScreen> {
             const SizedBox(height: 16),
 
             // Regimento checkbox
+            if (taxa > 0) ...[
+              Container(
+                margin: const EdgeInsets.only(bottom: 16),
+                padding: const EdgeInsets.all(14),
+                decoration: BoxDecoration(
+                  color: AppColors.primary.withValues(alpha: 0.05),
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: AppColors.primary.withValues(alpha: 0.2)),
+                ),
+                child: Row(
+                  children: [
+                    const Icon(Icons.info_outline, color: AppColors.primary, size: 20),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Text(
+                            'Taxa de Reserva',
+                            style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: AppColors.textMain),
+                          ),
+                          const SizedBox(height: 2),
+                          Text(
+                            'Esta reserva possui um custo de R\$ ${taxa.toStringAsFixed(2)}. Este valor será cobrado na sua próxima mensalidade de condomínio.',
+                            style: const TextStyle(fontSize: 12, color: Color(0xFF666666), height: 1.3),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+
             GestureDetector(
               onTap: () { HapticFeedback.selectionClick(); setState(() => _ciente = !_ciente); },
               child: Row(children: [

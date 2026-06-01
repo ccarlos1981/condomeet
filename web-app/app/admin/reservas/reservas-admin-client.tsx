@@ -10,8 +10,21 @@ interface ReservaRow {
   status: string
   created_at: string
   user_id: string
-  areas_comuns: { tipo_agenda: string }
+  nome_evento?: string
+  valor_reserva?: number
+  status_pagamento?: string
+  areas_comuns: { tipo_agenda: string; precos?: { valor: number; regra: string }[] }
   perfil: { nome_completo: string; bloco_txt: string; apto_txt: string; papel_sistema: string; whatsapp?: string; botconversa_id?: string }
+}
+
+const formatCurrency = (val: number) => {
+  return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(val)
+}
+
+const getReservaValor = (areas_comuns: any) => {
+  const precos = areas_comuns?.precos ?? []
+  const p = precos.find((p: any) => p.valor > 0)
+  return p ? formatCurrency(p.valor) : 'Gratuito'
 }
 
 interface Props {
@@ -182,12 +195,14 @@ export default function ReservasAdminClient({ reservas: initial, tiposAgenda, ti
           <table className="w-full text-sm">
             <thead>
               <tr className="bg-[#FC5931] text-white">
-                <th className="text-left px-4 py-3 font-semibold">Tipo Agenda</th>
+                <th className="text-left px-4 py-3 font-semibold">Espaço</th>
                 <th className="text-left px-4 py-3 font-semibold">Nome do Evento</th>
-                <th className="px-4 py-3 font-semibold">Data</th>
+                <th className="px-4 py-3 font-semibold text-center">Data</th>
                 <th className="text-left px-4 py-3 font-semibold">Usuário</th>
-                <th className="px-4 py-3 font-semibold">{aptoLabel}/{blocoLabel}</th>
-                <th className="px-4 py-3 font-semibold">Status</th>
+                <th className="px-4 py-3 font-semibold text-center">{aptoLabel}/{blocoLabel}</th>
+                <th className="px-4 py-3 font-semibold text-right">Taxa</th>
+                <th className="px-4 py-3 font-semibold text-center">Pagamento</th>
+                <th className="px-4 py-3 font-semibold text-center">Status</th>
                 <th className="px-4 py-3 font-semibold text-center">Ações</th>
               </tr>
             </thead>
@@ -201,7 +216,7 @@ export default function ReservasAdminClient({ reservas: initial, tiposAgenda, ti
                       {r.areas_comuns?.tipo_agenda ?? '—'}
                     </td>
                     <td className="px-4 py-3 text-gray-700">
-                      {r.areas_comuns?.tipo_agenda ?? '—'}
+                      {r.nome_evento || r.areas_comuns?.tipo_agenda || '—'}
                     </td>
                     <td className="px-4 py-3 text-center text-gray-600">
                       {new Date(r.data_reserva + 'T00:00:00').toLocaleDateString('pt-BR')}
@@ -210,7 +225,29 @@ export default function ReservasAdminClient({ reservas: initial, tiposAgenda, ti
                       {r.perfil?.nome_completo ?? '—'}
                     </td>
                     <td className="px-4 py-3 text-center text-gray-600">
-                      {r.perfil ? `${aptoLabel}: ${r.perfil.apto_txt} / ${blocoLabel}: ${r.perfil.bloco_txt}` : '—'}
+                      {r.perfil ? `${r.perfil.apto_txt} / ${r.perfil.bloco_txt}` : '—'}
+                    </td>
+                    <td className="px-4 py-3 text-right font-medium text-gray-900">
+                      {r.valor_reserva && Number(r.valor_reserva) > 0 
+                        ? formatCurrency(Number(r.valor_reserva)) 
+                        : 'Grátis'}
+                    </td>
+                    <td className="px-4 py-3 text-center">
+                      {(() => {
+                        const statusMap: Record<string, { label: string; style: string }> = {
+                          isento: { label: 'Isento', style: 'bg-gray-100 text-gray-500 border border-gray-200' },
+                          pendente: { label: 'Pendente', style: 'bg-yellow-100 text-yellow-700 border border-yellow-200' },
+                          faturado: { label: 'Faturado', style: 'bg-blue-100 text-blue-700 border border-blue-200' },
+                          pago: { label: 'Pago', style: 'bg-green-100 text-green-700 border border-green-200' },
+                        }
+                        const pStatus = r.status_pagamento || 'isento'
+                        const meta = statusMap[pStatus] ?? { label: pStatus, style: 'bg-gray-100 text-gray-500' }
+                        return (
+                          <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${meta.style}`}>
+                            {meta.label}
+                          </span>
+                        )
+                      })()}
                     </td>
                     <td className="px-4 py-3 text-center">
                       <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${statusBadge(r.status)}`}>

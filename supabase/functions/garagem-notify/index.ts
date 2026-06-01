@@ -106,10 +106,10 @@ serve(async (req) => {
   }
 
   try {
-    const { condominio_id, reservation_id, action } = await req.json()
+    const { condominio_id, reservation_id, garage_id, action } = await req.json()
 
-    if (!condominio_id || !reservation_id || !action) {
-      return new Response(JSON.stringify({ error: "Missing required fields: condominio_id, reservation_id, action" }), {
+    if (!condominio_id || !action) {
+      return new Response(JSON.stringify({ error: "Missing required fields: condominio_id, action" }), {
         status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" }
       })
     }
@@ -132,36 +132,58 @@ serve(async (req) => {
     const BOTCONVERSA_API_KEY = Deno.env.get("BOTCONVERSA_API_KEY") ?? ""
 
     // 3. Fetch reservation + garage data
-    const { data: reservation, error: resError } = await supabase
-      .from("garage_reservations")
-      .select("*")
-      .eq("id", reservation_id)
-      .single()
+    let reservation = null;
+    let garage = null;
 
-    if (resError || !reservation) {
-      return new Response(JSON.stringify({ error: "Reservation not found" }), {
-        status: 404, headers: { ...corsHeaders, "Content-Type": "application/json" }
-      })
+    if (reservation_id) {
+      const { data: res, error: resError } = await supabase
+        .from("garage_reservations")
+        .select("*")
+        .eq("id", reservation_id)
+        .single()
+
+      if (resError || !res) {
+        return new Response(JSON.stringify({ error: "Reservation not found" }), {
+          status: 404, headers: { ...corsHeaders, "Content-Type": "application/json" }
+        })
+      }
+      reservation = res;
+
+      const { data: g } = await supabase
+        .from("garages")
+        .select("spot_identifier, spot_type, owner_id")
+        .eq("id", reservation.garage_id)
+        .single()
+      garage = g;
+    } else if (garage_id) {
+      const { data: g } = await supabase
+        .from("garages")
+        .select("spot_identifier, spot_type, owner_id")
+        .eq("id", garage_id)
+        .single()
+      garage = g;
     }
 
-    const { data: garage } = await supabase
-      .from("garages")
-      .select("spot_identifier, spot_type, owner_id")
-      .eq("id", reservation.garage_id)
-      .single()
-
     // 4. Fetch profiles (with botconversa_id)
-    const { data: renter } = await supabase
-      .from("perfil")
-      .select("nome_completo, bloco_txt, apto_txt, whatsapp, botconversa_id, fcm_token")
-      .eq("id", reservation.renter_id)
-      .single()
+    let renter = null;
+    if (reservation?.renter_id) {
+      const { data: r } = await supabase
+        .from("perfil")
+        .select("nome_completo, bloco_txt, apto_txt, whatsapp, botconversa_id, fcm_token")
+        .eq("id", reservation.renter_id)
+        .single()
+      renter = r;
+    }
 
-    const { data: owner } = await supabase
-      .from("perfil")
-      .select("nome_completo, bloco_txt, apto_txt, whatsapp, botconversa_id, fcm_token")
-      .eq("id", garage?.owner_id)
-      .single()
+    let owner = null;
+    if (garage?.owner_id) {
+      const { data: o } = await supabase
+        .from("perfil")
+        .select("nome_completo, bloco_txt, apto_txt, whatsapp, botconversa_id, fcm_token")
+        .eq("id", garage.owner_id)
+        .single()
+      owner = o;
+    }
 
     // 5. Fetch condo info
     const { data: condoData } = await supabase
@@ -180,9 +202,35 @@ serve(async (req) => {
     const pushResults: any[] = []
     const whatsappResults: any[] = []
 
-    const startDate = new Date(reservation.start_date).toLocaleDateString("pt-BR")
-    const endDate = new Date(reservation.end_date).toLocaleDateString("pt-BR")
+    const startDate = reservation ? new Date(reservation.start_date).toLocaleDateString("pt-BR") : ""
+    const endDate = reservation ? new Date(reservation.end_date).toLocaleDateString("pt-BR") : ""
     const vagaId = garage?.spot_identifier ?? "?"
+
+    // ══════════════════════════════════════════════════════════
+    // ACTION: nova_vaga — Notify all residents
+    // ══════════════════════════════════════════════════════════
+    if (action === "nova_vaga") {
+      const pushTitle = "🚗 Nova vaga disponível!"
+      const pushBody = `Uma nova vaga (${vagaId}) acabou de ser disponibilizada para aluguel. Confira no app!`
+
+      // Get all residents of the condo, except the owner
+      const { data: moradores } = await supabase
+        .from("perfil")
+        .select("id, fcm_token")
+        .eq("condominio_id", condominio_id)
+        .neq("id", garage?.owner_id || "0")
+
+      const validMoradores = (moradores ?? []).filter((p: any) => p.fcm_token && p.fcm_token.length > 10)
+      
+      for (const p of validMoradores) {
+        const result = await sendFcmMessage(accessToken, firebaseProjectId, p.fcm_token, pushTitle, pushBody, {
+          type: "garagem_nova_vaga",
+          garage_id: garage_id ?? "",
+        })
+        pushResults.push(result)
+      }
+      console.log(`[garagem-notify] nova_vaga push sent to ${pushResults.length} residents`)
+    }
 
     // ══════════════════════════════════════════════════════════
     // ACTION: reserva_nova — Notify garage owner

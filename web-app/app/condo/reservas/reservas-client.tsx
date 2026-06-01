@@ -35,6 +35,12 @@ function getPreco(area: AreaComum) {
   return p ? `R$ ${p.valor.toFixed(2).replace('.', ',')}` : 'Gratuito'
 }
 
+function getPrecoReserva(areas_comuns: any) {
+  const precos = areas_comuns?.precos ?? []
+  const p = precos.find((p: any) => p.valor > 0)
+  return p ? `R$ ${p.valor.toFixed(2).replace('.', ',')}` : 'Gratuito'
+}
+
 function labelLocal(area: AreaComum) {
   if (area.local === 'Outro') return area.outro_local ?? 'Outro'
   return area.local ?? ''
@@ -562,7 +568,8 @@ export default function ReservasClient({ areas, minhasReservas, profile, tipoEst
                     <th className="text-left px-4 py-3 font-semibold">Área</th>
                     <th className="text-left px-4 py-3 font-semibold">Data</th>
                     <th className="px-4 py-3 font-semibold">Horário</th>
-                    <th className="px-4 py-3 font-semibold">Status</th>
+                    <th className="px-4 py-3 font-semibold text-right">Taxa</th>
+                    <th className="px-4 py-3 font-semibold text-center">Status</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -581,6 +588,9 @@ export default function ReservasClient({ areas, minhasReservas, profile, tipoEst
                           {(r.areas_comuns_horarios as { hora_inicio: string } | null)?.hora_inicio
                             ? fmtHora((r.areas_comuns_horarios as { hora_inicio: string }).hora_inicio)
                             : 'Dia inteiro'}
+                        </td>
+                        <td className="px-4 py-3 text-right text-gray-600 font-medium">
+                          {getPrecoReserva(r.areas_comuns)}
                         </td>
                         <td className="px-4 py-3 text-center">
                           <span className={`text-xs px-2 py-0.5 rounded-full font-semibold ${st.cls}`}>

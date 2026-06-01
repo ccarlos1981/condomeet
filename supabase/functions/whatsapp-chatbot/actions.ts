@@ -33,9 +33,6 @@ export async function executeActions(
       let result: ActionResult
 
       switch (action.type) {
-        case "CREATE_VISITOR_AUTH":
-          result = await createVisitorAuth(ctx, action.params || {})
-          break
         case "ESCALATE_TO_HUMAN":
           result = await escalateToHuman(ctx)
           break
@@ -66,47 +63,6 @@ export async function executeActions(
   }
 
   return results
-}
-
-// ── Action: Create Visitor Authorization ────────────────────────────────────
-
-async function createVisitorAuth(
-  ctx: ActionParams,
-  params: Record<string, unknown>
-): Promise<ActionResult> {
-  const guestName = String(params.guest_name || "")
-  const visitorType = String(params.visitor_type || "Visitante")
-  const validityDate = String(params.validity_date || new Date().toISOString().split("T")[0])
-
-  if (!guestName) {
-    return { type: "CREATE_VISITOR_AUTH", success: false, error: "Nome do visitante não informado" }
-  }
-
-  // Generate QR code data
-  const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789'
-  const shortCode = Array.from({ length: 3 }, () => chars[Math.floor(Math.random() * chars.length)]).join('')
-
-  const { error } = await ctx.supabase.from("convites").insert({
-    resident_id: ctx.perfilId,
-    condominio_id: ctx.condominioId,
-    guest_name: guestName,
-    visitor_type: visitorType,
-    validity_date: `${validityDate}T23:59:59-03:00`,
-    qr_data: shortCode,
-    status: "active",
-  })
-
-  if (error) {
-    console.error("[ACTION] CREATE_VISITOR_AUTH error:", error)
-    return { type: "CREATE_VISITOR_AUTH", success: false, error: error.message }
-  }
-
-  console.log(`[ACTION] Created visitor auth: ${guestName} (${visitorType}) for ${validityDate}, code: ${shortCode}`)
-  return {
-    type: "CREATE_VISITOR_AUTH",
-    success: true,
-    details: `Autorização criada para ${guestName}. Código: ${shortCode}`,
-  }
 }
 
 // ── Action: Escalate to Human Attendant ─────────────────────────────────────

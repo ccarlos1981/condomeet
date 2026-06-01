@@ -12,6 +12,7 @@ const ALL_FUNCTIONS = [
   { id: 'occurrences',       label: 'Ocorrências',             icon: 'warning',       emoji: '⚠️', route: '/report-occurrence',           defaultRoles: ['morador'] },
   { id: 'bookings',          label: 'Reservas',                icon: 'calendar_month',emoji: '📅', route: '/area-booking',                defaultRoles: ['morador'] },
   { id: 'documents',         label: 'Documentos',              icon: 'file_copy',     emoji: '📄', route: '/document-center',             defaultRoles: ['morador'] },
+  { id: 'meus_boletos',      label: 'Meus Boletos',            icon: 'payments',      emoji: '💸', route: '/meus-boletos',                defaultRoles: [] },
   { id: 'contracts',         label: 'Contratos',               icon: 'description',   emoji: '📋', route: '/contratos',                    defaultRoles: ['morador'] },
   { id: 'avisos',            label: 'Avisos',                  icon: 'campaign',      emoji: '📢', route: '/avisos',                      defaultRoles: ['morador'] },
   { id: 'notificacoes_multas',label: 'Notificações / Multas',   icon: 'notification_important', emoji: '🔔', route: '/notificacoes-multas', defaultRoles: ['morador'] },

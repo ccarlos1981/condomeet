@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:condomeet/core/design_system/app_colors.dart';
 import 'package:condomeet/features/garagem/garagem_service.dart';
+import 'package:condomeet/features/garagem/presentation/screens/garagem_checkout_screen.dart';
 
 class GaragemReservationScreen extends StatefulWidget {
   final Map<String, dynamic> vaga;
@@ -108,7 +109,13 @@ class _GaragemReservationScreenState extends State<GaragemReservationScreen> {
             behavior: SnackBarBehavior.floating,
           ),
         );
-        Navigator.pop(context, true);
+        Navigator.pop(context); // Pop current screen
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (context) => GaragemCheckoutScreen(reserva: result),
+          ),
+        );
       } else {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(

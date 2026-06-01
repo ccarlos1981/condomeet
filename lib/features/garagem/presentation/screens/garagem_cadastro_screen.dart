@@ -19,6 +19,7 @@ class _GaragemCadastroScreenState extends State<GaragemCadastroScreen> {
   final _precoHoraController = TextEditingController(text: '5');
   final _precoDiaController = TextEditingController(text: '25');
   final _precoMesController = TextEditingController(text: '200');
+  final _chavePixController = TextEditingController();
 
   String _tipoVaga = 'carro_grande';
   final Map<int, bool> _diasSelecionados = {0: false, 1: true, 2: true, 3: true, 4: true, 5: true, 6: false};
@@ -47,6 +48,7 @@ class _GaragemCadastroScreenState extends State<GaragemCadastroScreen> {
           _precoHoraController.text = ((data['preco_hora'] ?? 0) as num).toStringAsFixed(0);
           _precoDiaController.text = ((data['preco_dia'] ?? 0) as num).toStringAsFixed(0);
           _precoMesController.text = ((data['preco_mes'] ?? 0) as num).toStringAsFixed(0);
+          _chavePixController.text = data['chave_pix'] ?? '';
 
           final avail = data['garage_availability'] as List? ?? [];
           for (final a in avail) {
@@ -72,6 +74,7 @@ class _GaragemCadastroScreenState extends State<GaragemCadastroScreen> {
     _precoHoraController.dispose();
     _precoDiaController.dispose();
     _precoMesController.dispose();
+    _chavePixController.dispose();
     super.dispose();
   }
 
@@ -79,6 +82,13 @@ class _GaragemCadastroScreenState extends State<GaragemCadastroScreen> {
     if (_numeroController.text.trim().isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Informe o número da vaga'), behavior: SnackBarBehavior.floating),
+      );
+      return;
+    }
+
+    if (_chavePixController.text.trim().isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Informe a chave PIX para receber os pagamentos'), behavior: SnackBarBehavior.floating),
       );
       return;
     }
@@ -111,6 +121,7 @@ class _GaragemCadastroScreenState extends State<GaragemCadastroScreen> {
           'preco_hora': double.tryParse(_precoHoraController.text) ?? 0,
           'preco_dia': double.tryParse(_precoDiaController.text) ?? 0,
           'preco_mes': double.tryParse(_precoMesController.text) ?? 0,
+          'chave_pix': _chavePixController.text.trim(),
         });
         // Update availability
         // TODO: rebuild availability rows on edit
@@ -123,6 +134,7 @@ class _GaragemCadastroScreenState extends State<GaragemCadastroScreen> {
           precoHora: double.tryParse(_precoHoraController.text) ?? 0,
           precoDia: double.tryParse(_precoDiaController.text) ?? 0,
           precoMes: double.tryParse(_precoMesController.text) ?? 0,
+          chavePix: _chavePixController.text.trim(),
           disponibilidade: disponibilidade,
         );
       }
@@ -220,7 +232,29 @@ class _GaragemCadastroScreenState extends State<GaragemCadastroScreen> {
             _buildSection(
               '💰 Preços',
               Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
+                  Container(
+                    padding: const EdgeInsets.all(12),
+                    margin: const EdgeInsets.only(bottom: 16),
+                    decoration: BoxDecoration(
+                      color: Colors.amber.shade50,
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(color: Colors.amber.shade200),
+                    ),
+                    child: Row(
+                      children: [
+                        Icon(Icons.info_outline, color: Colors.amber.shade800, size: 20),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: Text(
+                            'Você receberá 85% do valor na sua conta via PIX. Uma taxa de 15% é retida pelo Condomeet.',
+                            style: TextStyle(color: Colors.amber.shade900, fontSize: 12),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
                   Row(
                     children: [
                       Expanded(child: _buildPrecoField('Por hora (R\$)', _precoHoraController)),
@@ -231,6 +265,21 @@ class _GaragemCadastroScreenState extends State<GaragemCadastroScreen> {
                   const SizedBox(height: 12),
                   _buildPrecoField('Por mês (R\$)', _precoMesController),
                 ],
+              ),
+            ),
+
+            // Chave PIX
+            _buildSection(
+              '🔑 Chave PIX para Recebimento *',
+              TextField(
+                controller: _chavePixController,
+                decoration: InputDecoration(
+                  hintText: 'Ex: seu@email.com, celular ou CPF',
+                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                  prefixIcon: const Icon(Icons.pix),
+                  helperText: 'Você receberá 85% do valor da reserva instantaneamente via PIX.',
+                  helperMaxLines: 2,
+                ),
               ),
             ),
 

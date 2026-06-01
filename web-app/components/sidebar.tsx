@@ -7,7 +7,7 @@ import { useRouter } from 'next/navigation'
 import {
   Home, UserCheck, Package, QrCode, Bell, LogOut,
   Building2, ChevronLeft, ChevronRight, Menu, X,
-  Shield, ClipboardList, Users, CalendarDays, AlertCircle, MessageSquare, FileText, UserCog, BadgeCheck, BarChart3, Camera, DoorOpen, ShoppingBag, Heart, Car, UserSearch, BookOpen, FileWarning
+  Shield, ClipboardList, Users, CalendarDays, AlertCircle, MessageSquare, FileText, UserCog, BadgeCheck, BarChart3, Camera, DoorOpen, ShoppingBag, Heart, Car, UserSearch, BookOpen, FileWarning, DollarSign
 } from 'lucide-react'
 
 type NavItem = { label: string; href: string; icon: React.ReactNode; fnId?: string }
@@ -22,6 +22,7 @@ const FN_TO_NAV: Record<string, { label: string; href: string; icon: React.React
   documents:          { label: 'Documentos',               href: '/condo/documentos',            icon: <FileText size={18} /> },
   contracts:          { label: 'Contratos',                href: '/condo/contratos',             icon: <FileText size={18} /> },
   visitor_approval:   { label: 'Liberar Visitante\nCadastrado', href: '/condo/liberar-visitante', icon: <UserCheck size={18} /> },
+  meus_boletos:       { label: 'Meus Boletos',             href: '/condo/meus-boletos',          icon: <DollarSign size={18} /> },
   pending_del:        { label: 'Encomendas do Cond.',       href: '/condo/encomendas-admin',      icon: <Package size={18} /> },
   approvals:          { label: 'Aprovações',               href: '/condo/aprovacoes',            icon: <Users size={18} /> },
   resident_search:    { label: 'Busca Moradores',          href: '/condo/resident-search',       icon: <UserSearch size={18} /> },
@@ -43,6 +44,9 @@ const FN_TO_NAV: Record<string, { label: string; href: string; icon: React.React
   indicacoes_servico:  { label: 'Indicações de Serviço',     href: '/condo/indicacoes',            icon: <Heart size={18} /> },
   aluguel_vaga:        { label: 'Garagem Inteligente',        href: '/condo/garagem',               icon: <Car size={18} /> },
   passo_a_passo:       { label: 'Passo a Passo',              href: '/condo/passo-a-passo',         icon: <BookOpen size={18} /> },
+  financeiro:          { label: 'Faturamento & Boletos',      href: '/condo/financeiro',            icon: <DollarSign size={18} /> },
+  contas_bancarias:    { label: 'Contas & Planos',            href: '/condo/contas-bancarias',      icon: <Building2 size={18} /> },
+  previsao_orcamento:  { label: 'Previsão Orçamentária',      href: '/condo/previsao-orcamentaria', icon: <BarChart3 size={18} /> },
 }
 
 function normalizeRoleKey(role: string): string {
@@ -125,6 +129,9 @@ const ADMIN_NAV: NavItem[] = [
   { label: 'Reservas (Portaria)', href: '/condo/reservas-portaria', icon: <CalendarDays size={18} /> },
   { label: 'Visita Proprietário', href: '/condo/visita-proprietario', icon: <DoorOpen size={18} /> },
   { label: 'Busca Moradores', href: '/condo/resident-search', icon: <UserSearch size={18} /> },
+  { label: 'Faturamento & Boletos', href: '/admin/financeiro', icon: <DollarSign size={18} /> },
+  { label: 'Contas & Planos', href: '/admin/contas-bancarias', icon: <Building2 size={18} /> },
+  { label: 'Previsão Orçamentária', href: '/admin/previsao-orcamentaria', icon: <BarChart3 size={18} /> },
   { label: 'Passo a Passo', href: '/condo/passo-a-passo', icon: <BookOpen size={18} /> },
   { label: 'Painel Admin', href: '/admin', icon: <Shield size={18} /> },
 ]

@@ -29,11 +29,13 @@ export default function AdminSidebar({
   userName,
   role,
   isSuperAdmin,
+  managedCondos = [],
 }: {
   condoName: string
   userName: string
   role: string
   isSuperAdmin: boolean
+  managedCondos?: { id: string; nome: string }[]
 }) {
   const pathname = usePathname()
   const router = useRouter()
@@ -54,6 +56,7 @@ export default function AdminSidebar({
         { label: 'Aprovações', href: '/admin/aprovacoes', icon: <UserCheck size={18} /> },
         { label: 'Moradores',  href: '/admin/moradores',  icon: <Users size={18} /> },
         { label: 'Busca Moradores', href: '/admin/resident-search', icon: <UserSearch size={18} /> },
+        { label: 'Reservas',        href: '/admin/reservas',        icon: <CalendarDays size={18} /> },
       ],
     },
     {
@@ -76,7 +79,6 @@ export default function AdminSidebar({
         { label: 'Manutenção',      href: '/admin/manutencao',      icon: <Wrench size={18} /> },
         { label: 'Contratos',       href: '/admin/contratos',       icon: <FileText size={18} /> },
         { label: 'Áreas Comuns',    href: '/admin/areas-comuns',    icon: <MapPin size={18} /> },
-        { label: 'Reservas',        href: '/admin/reservas',        icon: <CalendarDays size={18} /> },
         { label: 'Registro Turno',  href: '/admin/registro-turno',  icon: <ClipboardList size={18} /> },
         { label: 'Estrutura',       href: '/admin/estrutura',       icon: <Building2 size={18} /> },
         { label: 'Classificados',   href: '/admin/classificados',   icon: <ShoppingBag size={18} /> },
@@ -84,6 +86,17 @@ export default function AdminSidebar({
         { label: 'Controle Estoque', href: '/admin/estoque',         icon: <Warehouse size={18} /> },
         { label: 'Funcionários',    href: '/admin/funcionarios',    icon: <UserCheck size={18} /> },
         { label: 'Visita Proprietário', href: '/admin/visita-proprietario', icon: <DoorOpen size={18} /> },
+        {
+          label: 'Financeiro',
+          href: '#',
+          icon: <DollarSign size={18} />,
+          children: [
+            { label: 'Passo a Passo', href: '/admin/financeiro/guia', icon: <ClipboardList size={18} /> },
+            { label: 'Faturamento & Boletos', href: '/admin/financeiro', icon: <DollarSign size={18} /> },
+            { label: 'Contas & Planos', href: '/admin/contas-bancarias', icon: <Building2 size={18} /> },
+            { label: 'Previsão Orçamentária', href: '/admin/previsao-orcamentaria', icon: <BarChart3 size={18} /> },
+          ],
+        },
         {
           label: 'Assembleias',
           href: '#',
@@ -146,14 +159,39 @@ export default function AdminSidebar({
     <div className="flex flex-col h-full bg-[#111827] text-white">
       {/* Header */}
       <div className="flex items-center justify-between px-4 py-5 border-b border-white/10">
-        <div className={`flex items-center gap-3 overflow-hidden transition-all duration-300 ${collapsed ? 'w-0 opacity-0' : 'w-full opacity-100'}`}>
+        <div className={`flex items-center gap-3 overflow-hidden transition-all duration-300 ${collapsed ? 'w-0 opacity-0' : 'w-full opacity-100'} flex-1`}>
           <div className="w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0 overflow-hidden">
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img src="/logo.png" alt="Condomeet" className="w-9 h-9 object-cover" />
           </div>
-          <div className="min-w-0">
-            <p className="font-bold text-sm truncate">{condoName}</p>
-            <p className="text-xs text-white/40 truncate">Painel Admin</p>
+          <div className="min-w-0 flex-1">
+            {managedCondos.length > 0 ? (
+              <div className="relative w-full">
+                <select
+                  value={managedCondos.find(c => c.nome === condoName)?.id || ""}
+                  onChange={(e) => {
+                    const id = e.target.value;
+                    if (id) {
+                      document.cookie = `selected_condo_id=${id}; path=/; max-age=31536000`;
+                      router.refresh();
+                    }
+                  }}
+                  className="bg-[#1f2937] text-white text-xs rounded border border-white/10 p-1 w-full focus:outline-none focus:ring-1 focus:ring-[#FC5931] cursor-pointer"
+                  title="Selecionar Condomínio"
+                >
+                  {managedCondos.map((c) => (
+                    <option key={c.id} value={c.id}>
+                      {c.nome}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            ) : (
+              <>
+                <p className="font-bold text-sm truncate">{condoName}</p>
+                <p className="text-xs text-white/40 truncate">Painel Admin</p>
+              </>
+            )}
           </div>
         </div>
         <button
@@ -205,7 +243,7 @@ export default function AdminSidebar({
                 const isExpanded = expandedMenus[item.label] || isChildActive
 
                 return (
-                  <div key={item.href}>
+                  <div key={item.label}>
                     {/* Parent item */}
                     <div className="flex items-center">
                       <Link

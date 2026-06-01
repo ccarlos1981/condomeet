@@ -100,7 +100,7 @@ import 'package:condomeet/features/vistoria/presentation/screens/vistoria_home_s
 import 'package:condomeet/features/vistoria/presentation/screens/vistoria_editor_screen.dart';
 import 'package:condomeet/features/vistoria/presentation/screens/vistoria_timeline_screen.dart';
 import 'package:condomeet/features/vistoria/presentation/screens/vistoria_onboarding_screen.dart';
-
+import 'package:condomeet/features/financeiro/presentation/screens/boletos_list_screen.dart';
 
 class AppRouter {
   static final GlobalKey<NavigatorState> navigatorKey = GlobalKey<NavigatorState>();
@@ -298,6 +298,8 @@ class AppRouter {
         final endereco = ModalRoute.of(context)!.settings.arguments as String;
         return VistoriaTimelineScreen(endereco: endereco);
       },
+      // Boletos
+      '/boletos': (context) => const BoletosListScreen(),
     };
   }
 
