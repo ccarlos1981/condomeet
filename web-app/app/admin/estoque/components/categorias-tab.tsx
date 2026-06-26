@@ -5,6 +5,7 @@ import { createClient } from '@/lib/supabase/client'
 import { useRouter } from 'next/navigation'
 import type { Categoria } from '../estoque-client'
 import { Tag, Plus, Edit2, Trash2, X, Save } from 'lucide-react'
+import { translateEstoqueError } from '../lib/estoque-error-handler'
 
 export default function CategoriasTab({
   categorias,
@@ -41,7 +42,7 @@ export default function CategoriasTab({
     if (!confirm('Deseja realmente excluir esta categoria?')) return
     const { error } = await supabase.from('estoque_categorias').delete().eq('id', id)
     if (error) {
-      alert('Erro ao excluir: ' + error.message)
+      alert(translateEstoqueError(error))
     } else {
       setCategorias(prev => prev.filter(c => c.id !== id))
       router.refresh()
@@ -63,7 +64,10 @@ export default function CategoriasTab({
         if (error) throw error
         setCategorias(prev => prev.map(c => c.id === editingId ? { ...c, nome: form.nome.trim(), observacoes: form.observacoes.trim() || null } : c))
       } else {
-        const nextCode = String((categorias.length > 0 ? Math.max(...categorias.map(c => parseInt(c.codigo) || 0)) : 0) + 1)
+        // Generate code atomically via DB function
+        const { data: nextCodeData } = await supabase
+          .rpc('get_next_estoque_codigo', { p_condo_id: condominioId, p_tabela: 'categorias' })
+        const nextCode = String(nextCodeData ?? (categorias.length > 0 ? Math.max(...categorias.map(c => parseInt(c.codigo) || 0)) + 1 : 1))
         const { data, error } = await supabase
           .from('estoque_categorias')
           .insert({
@@ -80,7 +84,7 @@ export default function CategoriasTab({
       setIsModalOpen(false)
       router.refresh()
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Erro ao salvar.')
+      setError(translateEstoqueError(err))
     } finally {
       setIsSaving(false)
     }

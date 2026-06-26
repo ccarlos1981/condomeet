@@ -5,6 +5,7 @@ import { createClient } from '@/lib/supabase/client'
 import { useRouter } from 'next/navigation'
 import type { Local } from '../estoque-client'
 import { MapPin, Plus, Edit2, Trash2, X, Save } from 'lucide-react'
+import { translateEstoqueError } from '../lib/estoque-error-handler'
 
 export default function LocaisTab({
   locais,
@@ -41,7 +42,7 @@ export default function LocaisTab({
     if (!confirm('Deseja realmente excluir este local de estoque?')) return
     const { error } = await supabase.from('estoque_locais').delete().eq('id', id)
     if (error) {
-      alert('Erro ao excluir: ' + error.message)
+      alert(translateEstoqueError(error))
     } else {
       setLocais(prev => prev.filter(l => l.id !== id))
       router.refresh()
@@ -63,8 +64,10 @@ export default function LocaisTab({
         if (error) throw error
         setLocais(prev => prev.map(l => l.id === editingId ? { ...l, nome: form.nome.trim(), observacoes: form.observacoes.trim() || null } : l))
       } else {
-        // Generate code
-        const nextCode = String((locais.length > 0 ? Math.max(...locais.map(l => parseInt(l.codigo) || 0)) : 0) + 1)
+        // Generate code atomically via DB function
+        const { data: nextCodeData } = await supabase
+          .rpc('get_next_estoque_codigo', { p_condo_id: condominioId, p_tabela: 'locais' })
+        const nextCode = String(nextCodeData ?? (locais.length > 0 ? Math.max(...locais.map(l => parseInt(l.codigo) || 0)) + 1 : 1))
         const { data, error } = await supabase
           .from('estoque_locais')
           .insert({
@@ -81,7 +84,7 @@ export default function LocaisTab({
       setIsModalOpen(false)
       router.refresh()
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Erro ao salvar.')
+      setError(translateEstoqueError(err))
     } finally {
       setIsSaving(false)
     }

@@ -5,6 +5,7 @@ import { createClient } from '@/lib/supabase/client'
 import { useRouter } from 'next/navigation'
 import type { Movimentacao, Emprestimo, Produto } from '../estoque-client'
 import { ClipboardList, CheckCircle2, AlertCircle, XCircle, Clock } from 'lucide-react'
+import { translateEstoqueError } from '../lib/estoque-error-handler'
 
 type TabView = 'movimentacoes' | 'emprestimos'
 
@@ -123,7 +124,7 @@ export default function MovimentacoesTab({
 
       router.refresh()
     } catch (err) {
-      alert('Erro ao registrar devolução: ' + (err instanceof Error ? err.message : 'Erro desconhecido'))
+      alert(translateEstoqueError(err))
     } finally {
       setIsReturning(false)
       setReturningId(null)

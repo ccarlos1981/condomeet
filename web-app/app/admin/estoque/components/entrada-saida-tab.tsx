@@ -5,6 +5,7 @@ import { createClient } from '@/lib/supabase/client'
 import { useRouter } from 'next/navigation'
 import type { Produto, Movimentacao, Emprestimo } from '../estoque-client'
 import { ArrowLeftRight, ArrowDown, ArrowUp, Save } from 'lucide-react'
+import { translateEstoqueError, checkEstoqueSession } from '../lib/estoque-error-handler'
 
 export default function EntradaSaidaTab({
   produtos,
@@ -63,6 +64,10 @@ export default function EntradaSaidaTab({
     setIsSaving(true)
     setError('')
     setSuccess('')
+
+    // Verifica sessão antes de qualquer operação
+    const sessionError = await checkEstoqueSession(supabase)
+    if (sessionError) { setError(sessionError); setIsSaving(false); return }
 
     try {
       const isLoan = showLoanFields || (selectedProduct?.tipo_controle === 'retornavel' && tipo === 'saida')
@@ -165,7 +170,7 @@ export default function EntradaSaidaTab({
       setIsEmprestimo(false)
       router.refresh()
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Erro ao registrar movimentação.')
+      setError(translateEstoqueError(err))
     } finally {
       setIsSaving(false)
     }

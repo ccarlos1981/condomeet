@@ -5,10 +5,25 @@ import { createClient } from '@/lib/supabase/client'
 import { useRouter } from 'next/navigation'
 import type { Produto, Local, Categoria, Fornecedor } from '../estoque-client'
 import { ShoppingCart, Plus, X, Save, PlusCircle } from 'lucide-react'
+import { translateEstoqueError, checkEstoqueSession } from '../lib/estoque-error-handler'
 
 const UNIDADES = [
   'unidade', 'litro', 'kg', 'metro', 'caixa', 'rolo', 'pacote', 'par', 'galão', 'saco', 'frasco', 'lata', 'balde', 'pote',
 ]
+
+/** Converte string para inteiro, aceitando tanto '05' quanto '05,' (vírgula por engano) */
+const safeInt = (val: string, fallback = 0): number => {
+  const cleaned = val.replace(/[^0-9.-]/g, '') // remove vírgula, espaço etc
+  const n = parseInt(cleaned, 10)
+  return isNaN(n) ? fallback : Math.max(0, n)
+}
+
+/** Converte string para decimal, trocando vírgula por ponto */
+const safeFloat = (val: string, fallback = 0): number => {
+  const cleaned = val.replace(',', '.').replace(/[^0-9.]/g, '')
+  const n = parseFloat(cleaned)
+  return isNaN(n) ? fallback : Math.max(0, n)
+}
 
 export default function ProdutosTab({
   produtos,
@@ -72,12 +87,32 @@ export default function ProdutosTab({
     setIsSaving(true)
     setError('')
 
+    // Verifica sessão antes de qualquer operação
+    const sessionError = await checkEstoqueSession(supabase)
+    if (sessionError) { setError(sessionError); setIsSaving(false); return }
+
+    // Valida formato da data se preenchida
+    if (form.data_validade) {
+      const dateRegex = /^\d{4}-\d{2}-\d{2}$/
+      if (!dateRegex.test(form.data_validade)) {
+        setError('⚠️ Data de validade inválida. Use o formato: DD/MM/AAAA ou selecione no calendário.')
+        setIsSaving(false)
+        return
+      }
+      const parsed = new Date(form.data_validade)
+      if (isNaN(parsed.getTime())) {
+        setError('⚠️ Data de validade inválida. Verifique o dia, mês e ano.')
+        setIsSaving(false)
+        return
+      }
+    }
+
     try {
-      // Generate next code
-      const maxCode = produtos.length > 0
-        ? Math.max(...produtos.map(p => parseInt(p.codigo) || 0))
-        : 100
-      const nextCode = String(maxCode + 1)
+      // Generate next code atomically via DB function (avoids race conditions)
+      const { data: nextCodeData, error: codeError } = await supabase
+        .rpc('get_next_estoque_codigo', { p_condo_id: condominioId, p_tabela: 'produtos' })
+      if (codeError) throw codeError
+      const nextCode = String(nextCodeData ?? (produtos.length > 0 ? Math.max(...produtos.map(p => parseInt(p.codigo) || 0)) + 1 : 101))
 
       const { data, error: insertError } = await supabase
         .from('estoque_produtos')
@@ -92,10 +127,10 @@ export default function ProdutosTab({
           unidade: form.unidade,
           tipo_controle: form.tipo_controle,
           marca: form.marca.trim() || null,
-          quantidade_minima: parseInt(form.quantidade_minima) || 0,
-          quantidade_maxima: parseInt(form.quantidade_maxima) || 0,
-          quantidade_atual: parseInt(form.quantidade_atual) || 0,
-          custo_unitario: parseFloat(form.custo_unitario) || 0,
+          quantidade_minima: safeInt(form.quantidade_minima),
+          quantidade_maxima: safeInt(form.quantidade_maxima),
+          quantidade_atual: safeInt(form.quantidade_atual),
+          custo_unitario: safeFloat(form.custo_unitario),
           data_validade: form.data_validade || null,
         })
         .select('*, estoque_locais(nome), estoque_categorias(nome), fornecedores(nome)')
@@ -106,7 +141,7 @@ export default function ProdutosTab({
       setIsModalOpen(false)
       router.refresh()
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Erro ao salvar.')
+      setError(translateEstoqueError(err))
     } finally {
       setIsSaving(false)
     }
@@ -114,13 +149,17 @@ export default function ProdutosTab({
 
   const handleQuickAddLocal = async () => {
     if (!quickLocalNome.trim()) return
-    const nextCode = String((locais.length > 0 ? Math.max(...locais.map(l => parseInt(l.codigo) || 0)) : 0) + 1)
+    const { data: nextCodeData } = await supabase
+      .rpc('get_next_estoque_codigo', { p_condo_id: condominioId, p_tabela: 'locais' })
+    const nextCode = String(nextCodeData ?? (locais.length > 0 ? Math.max(...locais.map(l => parseInt(l.codigo) || 0)) + 1 : 1))
     const { data, error } = await supabase
       .from('estoque_locais')
       .insert({ condominio_id: condominioId, codigo: nextCode, nome: quickLocalNome.trim() })
       .select()
       .single()
-    if (!error && data) {
+    if (error) {
+      setError(translateEstoqueError(error))
+    } else if (data) {
       setLocais(prev => [...prev, data].sort((a, b) => a.nome.localeCompare(b.nome)))
       setForm(f => ({ ...f, local_id: data.id }))
     }
@@ -130,13 +169,17 @@ export default function ProdutosTab({
 
   const handleQuickAddCategoria = async () => {
     if (!quickCategoriaNome.trim()) return
-    const nextCode = String((categorias.length > 0 ? Math.max(...categorias.map(c => parseInt(c.codigo) || 0)) : 0) + 1)
+    const { data: nextCodeData } = await supabase
+      .rpc('get_next_estoque_codigo', { p_condo_id: condominioId, p_tabela: 'categorias' })
+    const nextCode = String(nextCodeData ?? (categorias.length > 0 ? Math.max(...categorias.map(c => parseInt(c.codigo) || 0)) + 1 : 1))
     const { data, error } = await supabase
       .from('estoque_categorias')
       .insert({ condominio_id: condominioId, codigo: nextCode, nome: quickCategoriaNome.trim() })
       .select()
       .single()
-    if (!error && data) {
+    if (error) {
+      setError(translateEstoqueError(error))
+    } else if (data) {
       setCategorias(prev => [...prev, data].sort((a, b) => a.nome.localeCompare(b.nome)))
       setForm(f => ({ ...f, categoria_id: data.id }))
     }
@@ -344,9 +387,12 @@ export default function ProdutosTab({
               </div>
 
               {/* Data de Validade */}
-              <div className="grid grid-cols-[160px_1fr] items-center gap-4">
-                <label className="text-gray-600 font-medium">Validade:</label>
-                <input type="date" title="Data de validade" value={form.data_validade} onChange={e => setForm({ ...form, data_validade: e.target.value })} className="w-full border border-gray-300 rounded-xl px-4 py-2 bg-white focus:outline-none focus:ring-2 focus:ring-[#FC5931]/30 focus:border-[#FC5931] transition-all" />
+              <div className="grid grid-cols-[160px_1fr] items-start gap-4">
+                <label className="text-gray-600 font-medium mt-2">Validade:</label>
+                <div>
+                  <input type="date" title="Data de validade" value={form.data_validade} onChange={e => setForm({ ...form, data_validade: e.target.value })} className="w-full border border-gray-300 rounded-xl px-4 py-2 bg-white focus:outline-none focus:ring-2 focus:ring-[#FC5931]/30 focus:border-[#FC5931] transition-all" />
+                  <p className="text-xs text-gray-400 mt-1">Deixe em branco se validade indeterminada</p>
+                </div>
               </div>
 
               {/* Marca */}
