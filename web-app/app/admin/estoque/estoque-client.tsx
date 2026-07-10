@@ -69,6 +69,7 @@ export type Movimentacao = {
   motivo: string | null
   observacao: string | null
   realizado_por: string | null
+  nota_fiscal_path: string | null
   created_at: string
   estoque_produtos?: { nome: string; unidade: string } | null
   perfil?: { nome_completo: string } | null

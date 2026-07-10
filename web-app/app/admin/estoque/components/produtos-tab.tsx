@@ -4,7 +4,7 @@ import { useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { useRouter } from 'next/navigation'
 import type { Produto, Local, Categoria, Fornecedor } from '../estoque-client'
-import { ShoppingCart, Plus, X, Save, PlusCircle } from 'lucide-react'
+import { ShoppingCart, Plus, X, Save, PlusCircle, Edit2, Trash2 } from 'lucide-react'
 import { translateEstoqueError, checkEstoqueSession } from '../lib/estoque-error-handler'
 
 const UNIDADES = [
@@ -47,6 +47,7 @@ export default function ProdutosTab({
   const supabase = createClient()
   const router = useRouter()
   const [isModalOpen, setIsModalOpen] = useState(false)
+  const [editingId, setEditingId] = useState<string | null>(null)
   const [isSaving, setIsSaving] = useState(false)
   const [error, setError] = useState('')
 
@@ -74,9 +75,49 @@ export default function ProdutosTab({
   const [form, setForm] = useState(emptyForm)
 
   const openNew = () => {
+    setEditingId(null)
     setForm(emptyForm)
     setError('')
     setIsModalOpen(true)
+  }
+
+  const openEdit = (p: Produto) => {
+    setEditingId(p.id)
+    setForm({
+      local_id: p.local_id || '',
+      categoria_id: p.categoria_id || '',
+      fornecedor_id: p.fornecedor_id || '',
+      nome: p.nome,
+      descricao: p.descricao || '',
+      unidade: p.unidade,
+      tipo_controle: p.tipo_controle,
+      marca: p.marca || '',
+      quantidade_atual: p.quantidade_atual.toString(),
+      quantidade_minima: p.quantidade_minima.toString(),
+      quantidade_maxima: p.quantidade_maxima.toString(),
+      custo_unitario: p.custo_unitario.toString(),
+      data_validade: p.data_validade || '',
+    })
+    setError('')
+    setIsModalOpen(true)
+  }
+
+  const handleDelete = async (id: string) => {
+    if (!confirm('Deseja realmente excluir este produto?')) return
+    const sessionError = await checkEstoqueSession(supabase)
+    if (sessionError) { alert(sessionError); return }
+
+    try {
+      const { error } = await supabase
+        .from('estoque_produtos')
+        .update({ ativo: false, updated_at: new Date().toISOString() })
+        .eq('id', id)
+      if (error) throw error
+      setProdutos(prev => prev.filter(p => p.id !== id))
+      router.refresh()
+    } catch (err) {
+      alert(translateEstoqueError(err))
+    }
   }
 
   const handleSave = async (e: React.FormEvent) => {
@@ -108,36 +149,65 @@ export default function ProdutosTab({
     }
 
     try {
-      // Generate next code atomically via DB function (avoids race conditions)
-      const { data: nextCodeData, error: codeError } = await supabase
-        .rpc('get_next_estoque_codigo', { p_condo_id: condominioId, p_tabela: 'produtos' })
-      if (codeError) throw codeError
-      const nextCode = String(nextCodeData ?? (produtos.length > 0 ? Math.max(...produtos.map(p => parseInt(p.codigo) || 0)) + 1 : 101))
+      if (editingId) {
+        const { data, error: updateError } = await supabase
+          .from('estoque_produtos')
+          .update({
+            local_id: form.local_id,
+            categoria_id: form.categoria_id,
+            fornecedor_id: form.fornecedor_id || null,
+            nome: form.nome.trim(),
+            descricao: form.descricao.trim() || null,
+            unidade: form.unidade,
+            tipo_controle: form.tipo_controle,
+            marca: form.marca.trim() || null,
+            quantidade_minima: safeInt(form.quantidade_minima),
+            quantidade_maxima: safeInt(form.quantidade_maxima),
+            quantidade_atual: safeInt(form.quantidade_atual),
+            custo_unitario: safeFloat(form.custo_unitario),
+            data_validade: form.data_validade || null,
+            updated_at: new Date().toISOString()
+          })
+          .eq('id', editingId)
+          .select('*, estoque_locais(nome), estoque_categorias(nome), fornecedores(nome)')
+          .single()
 
-      const { data, error: insertError } = await supabase
-        .from('estoque_produtos')
-        .insert({
-          condominio_id: condominioId,
-          local_id: form.local_id,
-          categoria_id: form.categoria_id,
-          fornecedor_id: form.fornecedor_id || null,
-          codigo: nextCode,
-          nome: form.nome.trim(),
-          descricao: form.descricao.trim() || null,
-          unidade: form.unidade,
-          tipo_controle: form.tipo_controle,
-          marca: form.marca.trim() || null,
-          quantidade_minima: safeInt(form.quantidade_minima),
-          quantidade_maxima: safeInt(form.quantidade_maxima),
-          quantidade_atual: safeInt(form.quantidade_atual),
-          custo_unitario: safeFloat(form.custo_unitario),
-          data_validade: form.data_validade || null,
-        })
-        .select('*, estoque_locais(nome), estoque_categorias(nome), fornecedores(nome)')
-        .single()
+        if (updateError) throw updateError
+        if (data) {
+          setProdutos(prev => prev.map(p => p.id === editingId ? data : p).sort((a, b) => a.nome.localeCompare(b.nome)))
+        }
+      } else {
+        // Generate next code atomically via DB function (avoids race conditions)
+        const { data: nextCodeData, error: codeError } = await supabase
+          .rpc('get_next_estoque_codigo', { p_condo_id: condominioId, p_tabela: 'produtos' })
+        if (codeError) throw codeError
+        const nextCode = String(nextCodeData ?? (produtos.length > 0 ? Math.max(...produtos.map(p => parseInt(p.codigo) || 0)) + 1 : 101))
 
-      if (insertError) throw insertError
-      if (data) setProdutos(prev => [...prev, data].sort((a, b) => a.nome.localeCompare(b.nome)))
+        const { data, error: insertError } = await supabase
+          .from('estoque_produtos')
+          .insert({
+            condominio_id: condominioId,
+            local_id: form.local_id,
+            categoria_id: form.categoria_id,
+            fornecedor_id: form.fornecedor_id || null,
+            codigo: nextCode,
+            nome: form.nome.trim(),
+            descricao: form.descricao.trim() || null,
+            unidade: form.unidade,
+            tipo_controle: form.tipo_controle,
+            marca: form.marca.trim() || null,
+            quantidade_minima: safeInt(form.quantidade_minima),
+            quantidade_maxima: safeInt(form.quantidade_maxima),
+            quantidade_atual: safeInt(form.quantidade_atual),
+            custo_unitario: safeFloat(form.custo_unitario),
+            data_validade: form.data_validade || null,
+          })
+          .select('*, estoque_locais(nome), estoque_categorias(nome), fornecedores(nome)')
+          .single()
+
+        if (insertError) throw insertError
+        if (data) setProdutos(prev => [...prev, data].sort((a, b) => a.nome.localeCompare(b.nome)))
+      }
       setIsModalOpen(false)
       router.refresh()
     } catch (err) {
@@ -228,17 +298,29 @@ export default function ProdutosTab({
             const isZero = p.quantidade_atual === 0
             return (
               <div key={p.id} className={`bg-white rounded-2xl shadow-sm border ${isCritical ? 'border-red-200 bg-red-50/30' : isZero ? 'border-gray-300 bg-gray-50/50' : 'border-gray-100'} p-5 hover:shadow-md transition-all`}>
-                <div className="flex items-start gap-3 mb-3">
-                  <div className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 ${isCritical ? 'bg-red-100' : isZero ? 'bg-gray-200' : 'bg-blue-50'}`}>
-                    <ShoppingCart size={18} className={isCritical ? 'text-red-500' : isZero ? 'text-gray-500' : 'text-blue-500'} />
+                <div className="flex justify-between items-start mb-3">
+                  <div className="flex items-start gap-3 min-w-0 flex-1">
+                    <div className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 ${isCritical ? 'bg-red-100' : isZero ? 'bg-gray-200' : 'bg-blue-50'}`}>
+                      <ShoppingCart size={18} className={isCritical ? 'text-red-500' : isZero ? 'text-gray-500' : 'text-blue-500'} />
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <h3 className="font-bold text-gray-800 truncate" title={p.nome}>{p.nome}</h3>
+                      <p className="text-xs text-gray-400">Cód: {p.codigo} · {p.marca || 'Sem marca'}</p>
+                    </div>
                   </div>
-                  <div className="flex-1 min-w-0">
-                    <h3 className="font-bold text-gray-800 truncate">{p.nome}</h3>
-                    <p className="text-xs text-gray-400">Cód: {p.codigo} · {p.marca || 'Sem marca'}</p>
-                  </div>
-                  <div className="text-right">
-                    <p className={`text-2xl font-bold ${isCritical ? 'text-red-600' : isZero ? 'text-gray-400' : 'text-gray-800'}`}>{p.quantidade_atual}</p>
-                    <p className="text-xs text-gray-400">{p.unidade}</p>
+                  <div className="flex items-center gap-2 shrink-0">
+                    <div className="text-right">
+                      <p className={`text-2xl font-bold ${isCritical ? 'text-red-600' : isZero ? 'text-gray-400' : 'text-gray-800'}`}>{p.quantidade_atual}</p>
+                      <p className="text-xs text-gray-400">{p.unidade}</p>
+                    </div>
+                    <div className="flex flex-col gap-1 border-l border-gray-100 pl-2 ml-1">
+                      <button onClick={() => openEdit(p)} className="p-1 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors" title="Editar">
+                        <Edit2 size={15} />
+                      </button>
+                      <button onClick={() => handleDelete(p.id)} className="p-1 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors" title="Excluir">
+                        <Trash2 size={15} />
+                      </button>
+                    </div>
                   </div>
                 </div>
                 <div className="flex flex-wrap gap-1.5 text-xs">
@@ -272,7 +354,9 @@ export default function ProdutosTab({
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm">
           <div className="bg-[#f5f5f5] w-full max-w-2xl rounded-2xl shadow-xl overflow-hidden animate-in fade-in zoom-in-95 duration-200 max-h-[90vh] flex flex-col">
             <div className="bg-white border-b border-gray-200 px-6 py-4 flex items-center justify-between shadow-sm shrink-0">
-              <h2 className="text-xl font-bold text-gray-800">Cadastrar Produto</h2>
+              <h2 className="text-xl font-bold text-gray-800">
+                {editingId ? 'Editar Produto' : 'Cadastrar Produto'}
+              </h2>
               <button onClick={() => setIsModalOpen(false)} className="text-gray-400 hover:text-gray-600 bg-gray-50 hover:bg-gray-100 p-1.5 rounded-full transition-colors" title="Fechar">
                 <X size={20} />
               </button>

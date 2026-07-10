@@ -40,6 +40,78 @@ export default function MovimentacoesTab({
   const [returningId, setReturningId] = useState<string | null>(null)
   const [isReturning, setIsReturning] = useState(false)
 
+  const handleViewInvoice = async (path: string) => {
+    try {
+      const { data, error } = await supabase.storage
+        .from('estoque-notas')
+        .createSignedUrl(path, 60)
+      
+      if (error) throw error
+      if (data?.signedUrl) {
+        window.open(data.signedUrl, '_blank')
+      } else {
+        throw new Error('URL assinada não retornada.')
+      }
+    } catch (err) {
+      console.error('Error generating signed URL:', err)
+      alert('Erro ao visualizar a Nota Fiscal. O arquivo pode ter sido removido ou você não tem permissão.')
+    }
+  }
+
+  const handleUploadInvoice = async (movId: string, file: File | null, oldPath: string | null) => {
+    if (!file) return
+
+    // Validations
+    const allowedTypes = ['application/pdf', 'image/jpeg', 'image/png']
+    if (!allowedTypes.includes(file.type)) {
+      alert('⚠️ Formato de arquivo não permitido. Apenas PDF, JPG, JPEG e PNG.')
+      return
+    }
+    if (file.size > 10 * 1024 * 1024) {
+      alert('⚠️ O arquivo de Nota Fiscal deve ter no máximo 10 MB.')
+      return
+    }
+
+    try {
+      const sanitizedFileName = file.name.replace(/[^a-zA-Z0-9._-]/g, '_')
+      const newPath = `estoque_notas/${condominioId}/${Date.now()}_${sanitizedFileName}`
+      
+      // 1. Upload to storage
+      const { error: uploadError } = await supabase.storage
+        .from('estoque-notas')
+        .upload(newPath, file, {
+          upsert: false
+        })
+
+      if (uploadError) throw uploadError
+
+      // 2. Update DB record
+      const { error: dbError } = await supabase
+        .from('estoque_movimentacoes')
+        .update({ nota_fiscal_path: newPath })
+        .eq('id', movId)
+
+      if (dbError) {
+        await supabase.storage.from('estoque-notas').remove([newPath])
+        throw dbError
+      }
+
+      // 3. Remove old file
+      if (oldPath) {
+        await supabase.storage.from('estoque-notas').remove([oldPath])
+      }
+
+      // 4. Update state locally
+      setMovimentacoes(prev => prev.map(item => item.id === movId ? { ...item, nota_fiscal_path: newPath } : item))
+
+      alert('Nota Fiscal salva com sucesso!')
+      router.refresh()
+    } catch (err) {
+      console.error('Error uploading invoice:', err)
+      alert(translateEstoqueError(err))
+    }
+  }
+
   // Filtered movements
   const filtered = useMemo(() => {
     return movimentacoes.filter(m => {
@@ -222,6 +294,7 @@ export default function MovimentacoesTab({
                   <th className="px-4 py-3 font-semibold text-center">Quantidade</th>
                   <th className="px-4 py-3 font-semibold">Responsável</th>
                   <th className="px-4 py-3 font-semibold text-center">Saldo atual</th>
+                  <th className="px-4 py-3 font-semibold text-center">Nota Fiscal</th>
                   <th className="px-4 py-3 font-semibold">Motivo</th>
                 </tr>
               </thead>
@@ -248,6 +321,40 @@ export default function MovimentacoesTab({
                       <td className="px-4 py-3 text-center font-semibold text-gray-800">{m.quantidade}</td>
                       <td className="px-4 py-3 text-gray-600">{m.perfil?.nome_completo || '—'}</td>
                       <td className="px-4 py-3 text-center font-semibold text-gray-800">{product ? product.quantidade_atual : '—'}</td>
+                      <td className="px-4 py-3 text-center whitespace-nowrap">
+                        <div className="flex items-center justify-center gap-2">
+                          {m.nota_fiscal_path ? (
+                            <>
+                              <button
+                                onClick={() => handleViewInvoice(m.nota_fiscal_path!)}
+                                className="text-blue-600 hover:text-blue-800 font-medium hover:underline text-xs flex items-center gap-1"
+                                title="Visualizar Nota Fiscal"
+                              >
+                                📄 Ver Nota
+                              </button>
+                              <label className="cursor-pointer text-gray-400 hover:text-[#FC5931] text-[10px]" title="Substituir Nota Fiscal">
+                                <input
+                                  type="file"
+                                  accept=".pdf,image/jpeg,image/png"
+                                  onChange={(e) => handleUploadInvoice(m.id, e.target.files?.[0] || null, m.nota_fiscal_path)}
+                                  className="hidden"
+                                />
+                                🔄 Alterar
+                              </label>
+                            </>
+                          ) : (
+                            <label className="cursor-pointer text-[#FC5931] hover:text-[#D42F1D] text-xs font-semibold flex items-center gap-1" title="Anexar Nota Fiscal">
+                              <input
+                                type="file"
+                                accept=".pdf,image/jpeg,image/png"
+                                onChange={(e) => handleUploadInvoice(m.id, e.target.files?.[0] || null, null)}
+                                className="hidden"
+                              />
+                              📎 Anexar
+                            </label>
+                          )}
+                        </div>
+                      </td>
                       <td className="px-4 py-3 text-gray-500 max-w-[200px] truncate" title={m.motivo || ''}>{m.motivo || '—'}</td>
                     </tr>
                   )

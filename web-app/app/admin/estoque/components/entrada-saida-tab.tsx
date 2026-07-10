@@ -29,6 +29,8 @@ export default function EntradaSaidaTab({
   const [quantidade, setQuantidade] = useState('')
   const [motivo, setMotivo] = useState('')
   const [observacao, setObservacao] = useState('')
+  const [notaFiscalFile, setNotaFiscalFile] = useState<File | null>(null)
+  const [fileInputKey, setFileInputKey] = useState(0)
   const [isSaving, setIsSaving] = useState(false)
   const [error, setError] = useState('')
   const [success, setSuccess] = useState('')
@@ -70,6 +72,39 @@ export default function EntradaSaidaTab({
     if (sessionError) { setError(sessionError); setIsSaving(false); return }
 
     try {
+      let notaFiscalPath: string | null = null
+
+      if (notaFiscalFile) {
+        // Double check validations before uploading
+        const allowedTypes = ['application/pdf', 'image/jpeg', 'image/png']
+        if (!allowedTypes.includes(notaFiscalFile.type)) {
+          setError('⚠️ Formato de arquivo não permitido. Apenas PDF, JPG, JPEG e PNG.')
+          setIsSaving(false)
+          return
+        }
+        if (notaFiscalFile.size > 10 * 1024 * 1024) {
+          setError('⚠️ O arquivo de Nota Fiscal deve ter no máximo 10 MB.')
+          setIsSaving(false)
+          return
+        }
+
+        const sanitizedFileName = notaFiscalFile.name.replace(/[^a-zA-Z0-9._-]/g, '_')
+        const fileName = `estoque_notas/${condominioId}/${Date.now()}_${sanitizedFileName}`
+        
+        const { error: uploadError } = await supabase.storage
+          .from('estoque-notas')
+          .upload(fileName, notaFiscalFile, {
+            upsert: false
+          })
+
+        if (uploadError) {
+          console.error('Storage upload error:', uploadError)
+          throw new Error('Falha ao enviar o arquivo de Nota Fiscal. Tente novamente.')
+        }
+
+        notaFiscalPath = fileName
+      }
+
       const isLoan = showLoanFields || (selectedProduct?.tipo_controle === 'retornavel' && tipo === 'saida')
       const movTipo = isLoan ? 'emprestimo' : tipo
 
@@ -84,6 +119,7 @@ export default function EntradaSaidaTab({
           motivo: motivo.trim() || null,
           observacao: observacao.trim() || null,
           realizado_por: userId,
+          nota_fiscal_path: notaFiscalPath,
         })
         .select('*, estoque_produtos(nome, unidade), perfil:realizado_por(nome_completo)')
         .single()
@@ -168,6 +204,8 @@ export default function EntradaSaidaTab({
       setRetiradoPorNome('')
       setDataPrevistaDevolucao('')
       setIsEmprestimo(false)
+      setNotaFiscalFile(null)
+      setFileInputKey(prev => prev + 1)
       router.refresh()
     } catch (err) {
       setError(translateEstoqueError(err))
@@ -290,6 +328,37 @@ export default function EntradaSaidaTab({
             <textarea value={observacao} onChange={e => setObservacao(e.target.value)} placeholder="Escreva aqui uma observação" rows={3} className="w-full border border-gray-300 rounded-xl px-4 py-2 bg-white focus:outline-none focus:ring-2 focus:ring-[#FC5931]/30 focus:border-[#FC5931] transition-all resize-none" />
           </div>
 
+          {/* Nota Fiscal */}
+          <div className="grid grid-cols-[140px_1fr] items-center gap-4">
+            <label className="text-gray-600 font-medium">Nota Fiscal:</label>
+            <div className="flex flex-col gap-1">
+              <input
+                key={fileInputKey}
+                type="file"
+                accept=".pdf,image/jpeg,image/png"
+                onChange={e => {
+                  const file = e.target.files?.[0] || null
+                  if (file) {
+                    if (file.size > 10 * 1024 * 1024) {
+                      setError('⚠️ O arquivo de Nota Fiscal deve ter no máximo 10 MB.')
+                      setNotaFiscalFile(null)
+                    } else if (!['application/pdf', 'image/jpeg', 'image/png'].includes(file.type)) {
+                      setError('⚠️ Formato não permitido. Apenas PDF, JPG, JPEG e PNG.')
+                      setNotaFiscalFile(null)
+                    } else {
+                      setError('')
+                      setNotaFiscalFile(file)
+                    }
+                  } else {
+                    setNotaFiscalFile(null)
+                  }
+                }}
+                className="w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-xl file:border-0 file:text-sm file:font-semibold file:bg-orange-50 file:text-[#FC5931] hover:file:bg-orange-100 cursor-pointer"
+              />
+              <p className="text-[11px] text-gray-400">PDF, JPG, JPEG ou PNG de até 10 MB (Opcional)</p>
+            </div>
+          </div>
+
           {error && <div className="p-3 bg-red-50 text-red-600 border border-red-100 rounded-xl text-sm">{error}</div>}
           {success && <div className="p-3 bg-green-50 text-green-600 border border-green-100 rounded-xl text-sm flex items-center gap-2">✅ {success}</div>}
 
@@ -300,7 +369,7 @@ export default function EntradaSaidaTab({
             </button>
             <button
               type="button"
-              onClick={() => { setProdutoId(''); setQuantidade(''); setMotivo(''); setObservacao(''); setRetiradoPorNome(''); setError(''); setSuccess('') }}
+              onClick={() => { setProdutoId(''); setQuantidade(''); setMotivo(''); setObservacao(''); setRetiradoPorNome(''); setNotaFiscalFile(null); setFileInputKey(prev => prev + 1); setError(''); setSuccess('') }}
               className="bg-white border border-gray-300 text-gray-700 hover:bg-gray-50 px-8 py-2.5 rounded-2xl font-medium shadow-sm transition-colors"
             >
               Limpar
