@@ -838,7 +838,9 @@ class _DarBaixaSheetState extends State<_DarBaixaSheet> {
           .select('id, nome_completo')
           .eq('bloco_txt', widget.parcel.block)
           .eq('apto_txt', widget.parcel.unitNumber)
-          .neq('papel_sistema', 'portaria');
+          .neq('papel_sistema', 'portaria')
+          .eq('status_aprovacao', 'aprovado')
+          .neq('bloqueado', true);
       setState(() {
         _residents = List<Map<String, dynamic>>.from(data);
         _isLoading = false;

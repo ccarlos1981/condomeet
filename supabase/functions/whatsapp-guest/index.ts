@@ -1,7 +1,7 @@
 // supabase/functions/whatsapp-guest/index.ts
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.39.3";
-import { sendInteractiveButtons, parseWebhook, smartSend } from "../_shared/botconversa.ts";
+import { sendInteractiveButtons, parseWebhook, smartSend, normalizePhone, isValidPhone } from "../_shared/botconversa.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -78,38 +78,20 @@ serve(async (req) => {
       ];
 
       for (const resident of activeResidents) {
-        let subId = resident.botconversa_id;
-        if (!subId && resident.whatsapp) {
-          // Resolve subscriber ID by phone
-          const phone = resident.whatsapp.startsWith("55") ? resident.whatsapp : `55${resident.whatsapp}`;
-          const resolveRes = await fetch("https://backend.botconversa.com.br/api/v1/webhook/subscriber/", {
-            method: "POST",
-            headers: {
-              "Content-Type": "application/json",
-              "API-KEY": BOTCONVERSA_API_KEY,
-            },
-            body: JSON.stringify({
-              phone: phone,
-              first_name: resident.nome_completo?.split(" ")[0] || "Morador",
-              last_name: ".",
-            }),
-          });
-          if (resolveRes.ok) {
-            const subData = await resolveRes.json();
-            subId = String(subData.id || subData.subscriber_id || "");
-          }
-        }
-
-        if (subId) {
-          await sendInteractiveButtons(
-            BOTCONVERSA_API_KEY,
-            subId,
-            msgText,
-            buttons,
-            condoNome,
-            "Powered by Condomeet"
-          );
-        }
+        const subId = resident.botconversa_id || null;
+        const phone = resident.whatsapp || null;
+        
+        await sendInteractiveButtons(
+          BOTCONVERSA_API_KEY,
+          subId,
+          msgText,
+          buttons,
+          condoNome,
+          "Powered by Condomeet",
+          supabaseServiceRole,
+          resident.id,
+          phone
+        );
       }
 
       return new Response("Approval requests dispatched", { status: 200 });
@@ -119,6 +101,15 @@ serve(async (req) => {
     const incoming = parseWebhook(body);
     if (!incoming) {
       return new Response("Ignored: not a valid BotConversa message", { status: 200 });
+    }
+
+    // Update last_message_received_at in whatsapp_health_status
+    try {
+      await supabaseServiceRole.from("whatsapp_health_status").update({
+        last_message_received_at: new Date().toISOString()
+      }).eq("id", "singleton");
+    } catch (err) {
+      console.error("[HealthCheck] Failed to update last_message_received_at:", err);
     }
 
     // Identify if the text/value contains approve_ or reject_
@@ -214,7 +205,10 @@ serve(async (req) => {
         incoming.botconversa_id,
         incoming.phone,
         "text",
-        feedbackMsg
+        feedbackMsg,
+        perfil.nome_completo?.split(" ")[0],
+        supabaseServiceRole,
+        perfil.id
       );
 
       return new Response("Response processed", { status: 200 });

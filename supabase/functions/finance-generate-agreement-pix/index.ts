@@ -170,9 +170,10 @@ serve(async (req) => {
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 }
     )
   } catch (error) {
-    console.error(`[Agreement Pix] Error: ${error.message}`);
+    const errorMsg = error instanceof Error ? error.message : String(error);
+    console.error(`[Agreement Pix] Error: ${errorMsg}`);
     return new Response(
-      JSON.stringify({ success: false, error: error.message }),
+      JSON.stringify({ success: false, error: errorMsg }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 400 }
     )
   }

@@ -8,7 +8,7 @@
 
 import { createClient } from "npm:@supabase/supabase-js@2"
 import { create, getNumericDate } from "https://deno.land/x/djwt@v2.9.1/mod.ts"
-import { smartSend, sendByPhone } from "../_shared/botconversa.ts"
+import { smartSend } from "../_shared/botconversa.ts"
 
 // ── Dynamic structure labels ────────────────────────────────────────────────
 function getBlocoLabel(tipo?: string): string {
@@ -203,9 +203,11 @@ async function sendWhatsApp(
   botconversaId: string | null | undefined,
   phone: string,
   message: string,
-  firstName?: string
+  firstName?: string,
+  supabase?: any,
+  perfilId?: string
 ): Promise<boolean> {
-  const result = await smartSend(botconversaApiKey, botconversaId, phone, "text", message, firstName)
+  const result = await smartSend(botconversaApiKey, botconversaId, phone, "text", message, firstName, supabase, perfilId)
   return result.success
 }
 
@@ -224,13 +226,14 @@ async function handleCreated(
     guest_name,
     visitor_phone,
     validity_date,
+    valid_until,
     qr_data,
   } = payload as Record<string, string>
 
   // ── Fetch resident data ──────────────────────────────────────────
   const { data: perfil } = await supabase
     .from("perfil")
-    .select("nome_completo, whatsapp, botconversa_id, fcm_token, bloco_txt, apto_txt, notificacoes_whatsapp")
+    .select("id, nome_completo, whatsapp, botconversa_id, fcm_token, bloco_txt, apto_txt, notificacoes_whatsapp")
     .eq("id", resident_id)
     .single()
 
@@ -256,7 +259,10 @@ async function handleCreated(
   // ── Extract short code from qr_data ──────────────────────────────
   const shortCode = extractShortCode(qr_data)
 
-  const visitDate = formatDateBR(validity_date)
+  let visitDate = formatDateBR(validity_date)
+  if (valid_until && valid_until.trim() !== "") {
+    visitDate = `de ${visitDate} até ${formatDateBR(valid_until)}`
+  }
   const residentFirstName =
     perfil.nome_completo?.split(" ")[0] || "Morador"
   const codInterno = genCodInterno()
@@ -314,7 +320,9 @@ async function handleCreated(
     perfil.botconversa_id,
     cleanPhone(perfil.whatsapp),
     msg1,
-    residentFirstName
+    residentFirstName,
+    supabase,
+    perfil.id
   )
   console.log(
     `Msg1 (resident ${resident_id}): ${sentResident ? "✅" : "❌"}`
@@ -448,6 +456,7 @@ async function handlePortariaCreated(
     visitor_phone,
     visitor_type,
     validity_date,
+    valid_until,
     qr_data,
     observacao,
     bloco_destino,
@@ -467,7 +476,10 @@ async function handlePortariaCreated(
   const aptoLabel = getAptoLabel(tipoEstrutura)
 
   const shortCode = qr_data || "---"
-  const visitDate = formatDateBR(validity_date)
+  let visitDate = formatDateBR(validity_date)
+  if (valid_until && valid_until.trim() !== "") {
+    visitDate = `de ${visitDate} até ${formatDateBR(valid_until)}`
+  }
   const tipoVisitante = visitor_type || "Visitante"
   const obsText = observacao && observacao.trim() ? observacao.trim() : "Não preenchida"
   const codInterno = genCodInterno()
@@ -536,7 +548,7 @@ async function handlePortariaCreated(
   if (resident_id && resident_id.trim() !== "") {
     const { data: perfil } = await supabase
       .from("perfil")
-      .select("nome_completo, whatsapp, botconversa_id, notificacoes_whatsapp")
+      .select("id, nome_completo, whatsapp, botconversa_id, notificacoes_whatsapp")
       .eq("id", resident_id)
       .single()
 
@@ -561,7 +573,7 @@ async function handlePortariaCreated(
         `Condomeet agradece!\n` +
         `Cod. int: ${codInterno}`
 
-      const sent = await sendWhatsApp(botconversaApiKey, perfil.botconversa_id, cleanPhone(perfil.whatsapp), msg1, residentName)
+      const sent = await sendWhatsApp(botconversaApiKey, perfil.botconversa_id, cleanPhone(perfil.whatsapp), msg1, residentName, supabase, perfil.id)
       results.push(`Msg1 resident ${resident_id}: ${sent ? "✅" : "❌"}`)
     } else {
       results.push(`Msg1 skipped: no whatsapp for ${resident_id}`)
@@ -613,7 +625,7 @@ async function handlePortariaCreated(
           const delay = 200
           await new Promise((resolve) => setTimeout(resolve, delay))
         }
-        const sent = await sendWhatsApp(botconversaApiKey, r.botconversa_id, cleanPhone(r.whatsapp), msg2)
+        const sent = await sendWhatsApp(botconversaApiKey, r.botconversa_id, cleanPhone(r.whatsapp), msg2, undefined, supabase, r.id)
         results.push(`Msg2 resident ${r.id}: ${sent ? "✅" : "❌"}`)
       }
     }
@@ -831,7 +843,7 @@ async function handleEntryReleased(
       `Condomeet agradece sua colaboração.\n` +
       `Cód interno: ${codInterno}`
 
-    const sent = await sendWhatsApp(botconversaApiKey, r.botconversa_id, cleanPhone(r.whatsapp), msg, firstName)
+    const sent = await sendWhatsApp(botconversaApiKey, r.botconversa_id, cleanPhone(r.whatsapp), msg, firstName, supabase, r.id)
     results.push(`WhatsApp ${r.id}: ${sent ? "✅" : "❌"}`)
   }
 

@@ -32,6 +32,7 @@ class _VisitorAuthorizationScreenState extends State<VisitorAuthorizationScreen>
   String _listSearchQuery = '';
   String? _listTypeFilter;
   DateTime _selectedDate = DateTime.now();
+  DateTime? _endDate;
   final _phoneMask = MaskTextInputFormatter(
     mask: '(##) #####-####',
     filter: {"#": RegExp(r'[0-9]')},
@@ -75,7 +76,7 @@ class _VisitorAuthorizationScreenState extends State<VisitorAuthorizationScreen>
     final DateTime? picked = await showDatePicker(
       context: context,
       initialDate: _selectedDate,
-      firstDate: DateTime.now(),
+      firstDate: DateTime.now().subtract(const Duration(days: 1)),
       lastDate: DateTime.now().add(const Duration(days: 365)),
       builder: (context, child) {
         return Theme(
@@ -90,6 +91,59 @@ class _VisitorAuthorizationScreenState extends State<VisitorAuthorizationScreen>
     );
     if (picked != null && picked != _selectedDate) {
       setState(() => _selectedDate = picked);
+    }
+  }
+
+  Future<void> _selectStartDate(BuildContext context) async {
+    final DateTime? picked = await showDatePicker(
+      context: context,
+      initialDate: _selectedDate,
+      firstDate: DateTime.now().subtract(const Duration(days: 1)),
+      lastDate: DateTime.now().add(const Duration(days: 365)),
+      builder: (context, child) {
+        return Theme(
+          data: Theme.of(context).copyWith(
+            colorScheme: ColorScheme.light(
+              primary: AppColors.primary,
+            ),
+          ),
+          child: child!,
+        );
+      },
+    );
+    if (picked != null && picked != _selectedDate) {
+      setState(() {
+        _selectedDate = picked;
+        if (_endDate != null) {
+          if (_endDate!.isBefore(_selectedDate)) {
+            _endDate = _selectedDate;
+          } else if (_endDate!.isAfter(_selectedDate.add(const Duration(days: 15)))) {
+            _endDate = _selectedDate.add(const Duration(days: 15));
+          }
+        }
+      });
+    }
+  }
+
+  Future<void> _selectEndDate(BuildContext context) async {
+    final DateTime? picked = await showDatePicker(
+      context: context,
+      initialDate: _endDate ?? _selectedDate,
+      firstDate: _selectedDate,
+      lastDate: _selectedDate.add(const Duration(days: 15)),
+      builder: (context, child) {
+        return Theme(
+          data: Theme.of(context).copyWith(
+            colorScheme: ColorScheme.light(
+              primary: AppColors.primary,
+            ),
+          ),
+          child: child!,
+        );
+      },
+    );
+    if (picked != null && picked != _endDate) {
+      setState(() => _endDate = picked);
     }
   }
 
@@ -110,6 +164,7 @@ class _VisitorAuthorizationScreenState extends State<VisitorAuthorizationScreen>
           documento: _docController.text,
           placa: _placaController.text,
           crachaReferencia: _crachaController.text,
+          validUntil: (_visitorType == 'Visitante' || _visitorType == 'Hóspedes') ? _endDate : null,
         ),
       );
     }
@@ -255,7 +310,14 @@ class _VisitorAuthorizationScreenState extends State<VisitorAuthorizationScreen>
                     )).toList(),
                   ),
                 );
-                if (selected != null) setState(() => _visitorType = selected);
+                if (selected != null) {
+                  setState(() {
+                    _visitorType = selected;
+                    if (_visitorType != 'Visitante' && _visitorType != 'Hóspedes') {
+                      _endDate = null;
+                    }
+                  });
+                }
               },
               child: Container(
                 padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
@@ -292,25 +354,88 @@ class _VisitorAuthorizationScreenState extends State<VisitorAuthorizationScreen>
             const SizedBox(height: 12),
             
             // Data
-            GestureDetector(
-              onTap: () => _selectDate(context),
-              child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                decoration: BoxDecoration(
-                  borderRadius: BorderRadius.circular(12),
-                  border: Border.all(color: Colors.grey.shade300),
-                ),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Text(
-                      DateFormat('dd/MM/yyyy').format(_selectedDate),
-                      style: AppTypography.bodyLarge,
+            if (_visitorType == 'Visitante' || _visitorType == 'Hóspedes')
+              Row(
+                children: [
+                  Expanded(
+                    child: GestureDetector(
+                      onTap: () => _selectStartDate(context),
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+                        decoration: BoxDecoration(
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(color: Colors.grey.shade300),
+                        ),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              'Data de entrada',
+                              style: TextStyle(fontSize: 10, color: Colors.grey.shade500),
+                            ),
+                            const SizedBox(height: 2),
+                            Text(
+                              DateFormat('dd/MM/yyyy').format(_selectedDate),
+                              style: AppTypography.bodyMedium,
+                            ),
+                          ],
+                        ),
+                      ),
                     ),
-                  ],
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: GestureDetector(
+                      onTap: () => _selectEndDate(context),
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+                        decoration: BoxDecoration(
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(color: Colors.grey.shade300),
+                        ),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              'Data final',
+                              style: TextStyle(fontSize: 10, color: Colors.grey.shade500),
+                            ),
+                            const SizedBox(height: 2),
+                            Text(
+                              _endDate != null
+                                  ? DateFormat('dd/MM/yyyy').format(_endDate!)
+                                  : 'Selecionar',
+                              style: AppTypography.bodyMedium.copyWith(
+                                color: _endDate == null ? Colors.grey.shade400 : Colors.black87,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              )
+            else
+              GestureDetector(
+                onTap: () => _selectDate(context),
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: Colors.grey.shade300),
+                  ),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Text(
+                        DateFormat('dd/MM/yyyy').format(_selectedDate),
+                        style: AppTypography.bodyLarge,
+                      ),
+                    ],
+                  ),
                 ),
               ),
-            ),
             const SizedBox(height: 16),
             Text(
               'Envie a autorização para seu visitante (Opcional).',
@@ -584,7 +709,7 @@ class _VisitorAuthorizationScreenState extends State<VisitorAuthorizationScreen>
                 Text(inv.guestName, style: AppTypography.h3),
                 const SizedBox(height: 2),
                 Text(
-                  '${inv.visitorType ?? 'Visita'} · ${DateFormat('dd/MM/yyyy').format(inv.validityDate)}',
+                  '${inv.visitorType ?? 'Visita'} · ${inv.validUntil != null ? 'de ${DateFormat('dd/MM/yyyy').format(inv.validityDate)} até ${DateFormat('dd/MM/yyyy').format(inv.validUntil!)}' : DateFormat('dd/MM/yyyy').format(inv.validityDate)}',
                   style: AppTypography.bodySmall.copyWith(color: Colors.grey.shade600),
                 ),
                 const SizedBox(height: 4),
@@ -650,7 +775,7 @@ class _VisitorAuthorizationScreenState extends State<VisitorAuthorizationScreen>
                           ),
                           const SizedBox(height: 8),
                           Text(
-                            'Data da visita: ${DateFormat('dd/MM/yyyy').format(inv.validityDate)}',
+                            'Data da visita: ${inv.validUntil != null ? 'de ${DateFormat('dd/MM/yyyy').format(inv.validityDate)} até ${DateFormat('dd/MM/yyyy').format(inv.validUntil!)}' : DateFormat('dd/MM/yyyy').format(inv.validityDate)}',
                             style: AppTypography.bodySmall.copyWith(color: Colors.grey.shade500),
                           ),
                           const SizedBox(height: 16),
@@ -711,6 +836,7 @@ class _VisitorAuthorizationScreenState extends State<VisitorAuthorizationScreen>
       _visitorType = null;
       _showTypeError = false;
       _selectedDate = DateTime.now();
+      _endDate = null;
     });
   }
 
@@ -733,7 +859,7 @@ class _VisitorAuthorizationScreenState extends State<VisitorAuthorizationScreen>
               const SizedBox(height: 16),
               Text(invitation.guestName, style: AppTypography.h3),
               Text(
-                'Data da visita: ${DateFormat('dd/MM/yyyy').format(invitation.validityDate)}',
+                'Data da visita: ${invitation.validUntil != null ? 'de ${DateFormat('dd/MM/yyyy').format(invitation.validityDate)} até ${DateFormat('dd/MM/yyyy').format(invitation.validUntil!)}' : DateFormat('dd/MM/yyyy').format(invitation.validityDate)}',
                 style: AppTypography.bodySmall,
               ),
             ],

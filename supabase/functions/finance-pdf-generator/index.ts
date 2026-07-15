@@ -1,6 +1,7 @@
+// deno-lint-ignore-file no-import-prefix
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts'
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.7.1'
-import { PDFDocument, rgb } from 'https://cdn.skypack.dev/pdf-lib'
+import { PDFDocument, rgb } from 'https://esm.sh/pdf-lib'
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -22,13 +23,13 @@ serve(async (req) => {
     )
 
     // 1. Fetch faturamento info
-    const { data: faturamento, error } = await supabaseClient
+    const { data: faturamento, error: faturamentoErr } = await supabaseClient
       .from('faturamentos')
       .select('*, condominios(nome)')
       .eq('id', faturamento_id)
       .single()
 
-    if (error || !faturamento) throw new Error('Faturamento não encontrado')
+    if (faturamentoErr || !faturamento) throw new Error('Faturamento não encontrado')
 
     // 2. Fetch DRE (Lançamentos do mês)
     const { data: lancamentos } = await supabaseClient
@@ -117,7 +118,8 @@ serve(async (req) => {
     )
 
   } catch (error) {
-    return new Response(JSON.stringify({ error: error.message }), {
+    const errorMsg = error instanceof Error ? error.message : String(error);
+    return new Response(JSON.stringify({ error: errorMsg }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       status: 400,
     })

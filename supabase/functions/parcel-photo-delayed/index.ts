@@ -62,34 +62,39 @@ Deno.serve(async (req) => {
       .eq("status_aprovacao", "aprovado")
       .eq("bloqueado", false)
       .eq("notificacoes_whatsapp", true)
-      .not("botconversa_id", "is", null)
+      .not("whatsapp", "is", null)
+      .neq("whatsapp", "")
 
     if (error || !recipients || recipients.length === 0) {
       console.log("No recipients found for photo delivery")
       return jsonResponse({ skipped: true, reason: "No recipients found" })
     }
 
-    // Deduplicate by botconversa_id
+    // Deduplicate by botconversa_id or whatsapp
     const seen = new Set<string>()
     const unique = recipients.filter((r: Record<string, unknown>) => {
-      const bcid = (r.botconversa_id as string)?.trim()
-      if (!bcid || seen.has(bcid)) return false
-      seen.add(bcid)
+      const key = (r.botconversa_id as string)?.trim() || (r.whatsapp as string)?.trim()
+      if (!key || seen.has(key)) return false
+      seen.add(key)
       return true
     })
 
     console.log(`📸 Sending parcel photo to ${unique.length} recipient(s)`)
 
     // 3. Send photo as image to each recipient
-    const { sendMessage } = await import("../_shared/botconversa.ts")
+    const { smartSend } = await import("../_shared/botconversa.ts")
     const results = []
     for (let i = 0; i < unique.length; i++) {
       const r = unique[i] as Record<string, unknown>
-      const result = await sendMessage(
+      const result = await smartSend(
         BOTCONVERSA_API_KEY,
         r.botconversa_id as string,
+        r.whatsapp as string,
         "file",
-        ensureJpegUrl(photo_url)
+        ensureJpegUrl(photo_url),
+        (r.nome_completo as string)?.split(" ")[0],
+        supabase,
+        r.id as string
       )
       results.push({ ...result, nome: r.nome_completo })
 

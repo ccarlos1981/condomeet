@@ -41,6 +41,8 @@ class _HomeScreenState extends State<HomeScreen> {
   bool _uploadingSelfie = false;
   List<Map<String, dynamic>> _propaganda = [];
   bool _showPartnersChecklist = true;
+  bool _isDrawerOpen = false;
+  bool _isEndDrawerOpen = false;
 
   @override
   void initState() {
@@ -339,55 +341,68 @@ class _HomeScreenState extends State<HomeScreen> {
       ],
       child: BlocBuilder<AuthBloc, AuthState>(
         builder: (context, authState) {
-          return Scaffold(
-            key: _scaffoldKey,
-            backgroundColor: const Color(0xFFF5F5F5),
-            endDrawer: _buildDrawer(context, authState),
-            body: SafeArea(
-              child: StreamBuilder<Condominium?>(
-                stream: _condominiumStream,
-                builder: (context, snapshot) {
-                  final condominium =
-                      snapshot.data ??
-                      Condominium(
-                        id: authState.condominiumId ?? 'default',
-                        name: 'Condomeet',
-                        slug: 'default',
-                        createdAt: DateTime.now(),
-                        updatedAt: DateTime.now(),
-                      );
-                  final menuItems = condominium.getMenuForRole(
-                    authState.role ?? 'resident',
-                  );
+          return PopScope(
+            canPop: !_isDrawerOpen && !_isEndDrawerOpen,
+            onPopInvokedWithResult: (didPop, result) {
+              if (didPop) return;
+              if (_isEndDrawerOpen) {
+                _scaffoldKey.currentState?.closeEndDrawer();
+              } else if (_isDrawerOpen) {
+                _scaffoldKey.currentState?.closeDrawer();
+              }
+            },
+            child: Scaffold(
+              key: _scaffoldKey,
+              backgroundColor: const Color(0xFFF5F5F5),
+              onDrawerChanged: (isOpen) => setState(() => _isDrawerOpen = isOpen),
+              onEndDrawerChanged: (isOpen) => setState(() => _isEndDrawerOpen = isOpen),
+              endDrawer: _buildDrawer(context, authState),
+              body: SafeArea(
+                child: StreamBuilder<Condominium?>(
+                  stream: _condominiumStream,
+                  builder: (context, snapshot) {
+                    final condominium =
+                        snapshot.data ??
+                        Condominium(
+                          id: authState.condominiumId ?? 'default',
+                          name: 'Condomeet',
+                          slug: 'default',
+                          createdAt: DateTime.now(),
+                          updatedAt: DateTime.now(),
+                        );
+                    final menuItems = condominium.getMenuForRole(
+                      authState.role ?? 'resident',
+                    );
 
-                  return Column(
-                    children: [
-                      _buildHeader(authState),
-                      Expanded(
-                        child: SingleChildScrollView(
-                          dragStartBehavior: DragStartBehavior.down,
-                          padding: const EdgeInsets.only(bottom: 24),
-                          child: Column(
-                            children: [
-                              _buildSelfieBanner(),
-                              if (menuItems.isNotEmpty)
-                                _buildMenuSection(context, menuItems),
-                              _buildParcelCard(),
-                              _buildPartnersSection(),
-                              _buildFeaturedSection(),
-                              const SizedBox(
-                                height: 80,
-                              ), // Space for bottom nav
-                            ],
+                    return Column(
+                      children: [
+                        _buildHeader(authState),
+                        Expanded(
+                          child: SingleChildScrollView(
+                            dragStartBehavior: DragStartBehavior.down,
+                            padding: const EdgeInsets.only(bottom: 24),
+                            child: Column(
+                              children: [
+                                _buildSelfieBanner(),
+                                if (menuItems.isNotEmpty)
+                                  _buildMenuSection(context, menuItems),
+                                _buildParcelCard(),
+                                _buildPartnersSection(),
+                                _buildFeaturedSection(),
+                                const SizedBox(
+                                  height: 80,
+                                ), // Space for bottom nav
+                              ],
+                            ),
                           ),
                         ),
-                      ),
-                    ],
-                  );
-                },
+                      ],
+                    );
+                  },
+                ),
               ),
+              bottomNavigationBar: _buildBottomNav(context, authState),
             ),
-            bottomNavigationBar: _buildBottomNav(context, authState),
           );
         },
       ),
@@ -828,10 +843,13 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   Widget _buildDrawer(BuildContext context, AuthState authState) {
+    final String roleLower = (authState.role ?? '').toLowerCase();
     final bool isAdmin =
-        authState.role == 'admin' ||
-        authState.role == 'syndic' ||
-        authState.role == 'Síndico';
+        roleLower == 'admin' ||
+        roleLower == 'administrador' ||
+        roleLower == 'syndic' ||
+        roleLower == 'sindico' ||
+        roleLower == 'síndico';
 
     return Drawer(
       backgroundColor: AppColors.primary,

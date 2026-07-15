@@ -75,237 +75,254 @@ class _ConsentScreenState extends State<ConsentScreen>
           ),
         ),
         child: SafeArea(
-          child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 24.0),
-            child: Column(
-              children: [
-                const SizedBox(height: 24),
-
-                // Shield icon with floating animation
-                AnimatedBuilder(
-                  animation: _shieldAnimation,
-                  builder: (context, child) {
-                    return Transform.translate(
-                      offset: Offset(0, -_shieldAnimation.value),
-                      child: child,
-                    );
-                  },
-                  child: Container(
-                    width: 80,
-                    height: 80,
-                    decoration: BoxDecoration(
-                      gradient: LinearGradient(
-                        begin: Alignment.topLeft,
-                        end: Alignment.bottomRight,
-                        colors: [
-                          AppColors.primary,
-                          AppColors.primary.withValues(alpha: 0.7),
-                        ],
-                      ),
-                      shape: BoxShape.circle,
-                      boxShadow: [
-                        BoxShadow(
-                          color: AppColors.primary.withValues(alpha: 0.3),
-                          blurRadius: 20,
-                          spreadRadius: 2,
-                        ),
-                      ],
-                    ),
-                    child: const Icon(
-                      Icons.shield_outlined,
-                      size: 40,
-                      color: Colors.white,
-                    ),
+          child: LayoutBuilder(
+            builder: (context, constraints) {
+              return SingleChildScrollView(
+                physics: const BouncingScrollPhysics(),
+                child: ConstrainedBox(
+                  constraints: BoxConstraints(
+                    minHeight: constraints.maxHeight,
                   ),
-                ),
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 24.0),
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        // Top & Middle Content
+                        Column(
+                          children: [
+                            const SizedBox(height: 24),
 
-                const SizedBox(height: 20),
-
-                Text(
-                  'Proteção dos seus Dados',
-                  style: AppTypography.h1.copyWith(
-                    fontSize: 22,
-                  ),
-                  textAlign: TextAlign.center,
-                ),
-                const SizedBox(height: 8),
-                Text(
-                  'Para sua segurança, precisamos do seu consentimento\npara processar seus dados conforme a LGPD.',
-                  style: AppTypography.bodyMedium.copyWith(
-                    color: AppColors.textSecondary,
-                    height: 1.4,
-                  ),
-                  textAlign: TextAlign.center,
-                ),
-
-                const SizedBox(height: 20),
-
-                // Warning banner
-                Container(
-                  width: double.infinity,
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                  decoration: BoxDecoration(
-                    color: const Color(0xFFFFF3CD),
-                    borderRadius: BorderRadius.circular(12),
-                    border: Border.all(
-                      color: const Color(0xFFFFD666),
-                      width: 1,
-                    ),
-                  ),
-                  child: Row(
-                    children: [
-                      const Icon(
-                        Icons.info_outline_rounded,
-                        color: Color(0xFF856404),
-                        size: 22,
-                      ),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: Text(
-                          'A aceitação é obrigatória para uso do aplicativo.',
-                          style: AppTypography.bodySmall.copyWith(
-                            color: const Color(0xFF856404),
-                            fontWeight: FontWeight.w600,
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-
-                const SizedBox(height: 20),
-
-                // Consent cards
-                Expanded(
-                  child: AnimatedBuilder(
-                    animation: _shakeAnimation,
-                    builder: (context, child) {
-                      final shakeOffset =
-                          _shakeAnimation.value * 8 * (1 - _shakeAnimation.value);
-                      return Transform.translate(
-                        offset: Offset(
-                          shakeOffset *
-                              ((_shakeAnimation.value * 10).toInt().isEven
-                                  ? 1
-                                  : -1),
-                          0,
-                        ),
-                        child: child,
-                      );
-                    },
-                    child: SingleChildScrollView(
-                      child: Column(
-                        children: [
-                          _buildConsentCard(
-                            icon: Icons.description_outlined,
-                            title: 'Termos de Uso',
-                            description:
-                                'Li e aceito os Termos de Uso do Condomeet.',
-                            value: _termsAccepted,
-                            onChanged: (value) {
-                              setState(() => _termsAccepted = value ?? false);
-                            },
-                            onViewDocument: () {
-                              _showDocument(
-                                'Termos de Uso',
-                                _termsOfUseText,
-                              );
-                            },
-                          ),
-                          const SizedBox(height: 16),
-                          _buildConsentCard(
-                            icon: Icons.privacy_tip_outlined,
-                            title: 'Política de Privacidade',
-                            description:
-                                'Li e aceito a Política de Privacidade e o tratamento dos meus dados pessoais.',
-                            value: _privacyAccepted,
-                            onChanged: (value) {
-                              setState(() => _privacyAccepted = value ?? false);
-                            },
-                            onViewDocument: () {
-                              _showDocument(
-                                'Política de Privacidade',
-                                _privacyPolicyText,
-                              );
-                            },
-                          ),
-                          const SizedBox(height: 16),
-                        ],
-                      ),
-                    ),
-                  ),
-                ),
-
-                // Accept button
-                Padding(
-                  padding: const EdgeInsets.only(bottom: 24, top: 8),
-                  child: Column(
-                    children: [
-                      SizedBox(
-                        width: double.infinity,
-                        height: 52,
-                        child: ElevatedButton(
-                          onPressed: _isLoading ? null : _handleButtonPress,
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: _canProceed
-                                ? AppColors.primary
-                                : Colors.grey.shade300,
-                            foregroundColor:
-                                _canProceed ? Colors.white : Colors.grey.shade500,
-                            elevation: _canProceed ? 4 : 0,
-                            shadowColor: _canProceed
-                                ? AppColors.primary.withValues(alpha: 0.4)
-                                : Colors.transparent,
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(14),
-                            ),
-                          ),
-                          child: _isLoading
-                              ? const SizedBox(
-                                  height: 22,
-                                  width: 22,
-                                  child: CircularProgressIndicator(
-                                    strokeWidth: 2.5,
-                                    color: Colors.white,
+                            // Shield icon with floating animation
+                            AnimatedBuilder(
+                              animation: _shieldAnimation,
+                              builder: (context, child) {
+                                return Transform.translate(
+                                  offset: Offset(0, -_shieldAnimation.value),
+                                  child: child,
+                                );
+                              },
+                              child: Container(
+                                width: 80,
+                                height: 80,
+                                decoration: BoxDecoration(
+                                  gradient: LinearGradient(
+                                    begin: Alignment.topLeft,
+                                    end: Alignment.bottomRight,
+                                    colors: [
+                                      AppColors.primary,
+                                      AppColors.primary.withValues(alpha: 0.7),
+                                    ],
                                   ),
-                                )
-                              : Row(
-                                  mainAxisAlignment: MainAxisAlignment.center,
-                                  children: [
-                                    Icon(
-                                      _canProceed
-                                          ? Icons.check_circle_outline
-                                          : Icons.lock_outline,
-                                      size: 20,
-                                    ),
-                                    const SizedBox(width: 8),
-                                    Text(
-                                      'Aceitar e Continuar',
-                                      style: AppTypography.bodyMedium.copyWith(
-                                        fontWeight: FontWeight.w700,
-                                        color: _canProceed
-                                            ? Colors.white
-                                            : Colors.grey.shade500,
-                                      ),
+                                  shape: BoxShape.circle,
+                                  boxShadow: [
+                                    BoxShadow(
+                                      color: AppColors.primary.withValues(alpha: 0.3),
+                                      blurRadius: 20,
+                                      spreadRadius: 2,
                                     ),
                                   ],
                                 ),
+                                child: const Icon(
+                                  Icons.shield_outlined,
+                                  size: 40,
+                                  color: Colors.white,
+                                ),
+                              ),
+                            ),
+
+                            const SizedBox(height: 20),
+
+                            Text(
+                              'Proteção dos seus Dados',
+                              style: AppTypography.h1.copyWith(
+                                fontSize: 22,
+                              ),
+                              textAlign: TextAlign.center,
+                            ),
+                            const SizedBox(height: 8),
+                            Text(
+                              'Para sua segurança, precisamos do seu consentimento\npara processar seus dados conforme a LGPD.',
+                              style: AppTypography.bodyMedium.copyWith(
+                                color: AppColors.textSecondary,
+                                height: 1.4,
+                              ),
+                              textAlign: TextAlign.center,
+                            ),
+
+                            const SizedBox(height: 20),
+
+                            // Warning banner
+                            Container(
+                              width: double.infinity,
+                              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                              decoration: BoxDecoration(
+                                color: const Color(0xFFFFF3CD),
+                                borderRadius: BorderRadius.circular(12),
+                                border: Border.all(
+                                  color: const Color(0xFFFFD666),
+                                  width: 1,
+                                ),
+                              ),
+                              child: Row(
+                                children: [
+                                  const Icon(
+                                    Icons.info_outline_rounded,
+                                    color: Color(0xFF856404),
+                                    size: 22,
+                                  ),
+                                  const SizedBox(width: 12),
+                                  Expanded(
+                                    child: Text(
+                                      'A aceitação é obrigatória para uso do aplicativo.',
+                                      style: AppTypography.bodySmall.copyWith(
+                                        color: const Color(0xFF856404),
+                                        fontWeight: FontWeight.w600,
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+
+                            const SizedBox(height: 20),
+
+                            // Consent cards
+                            AnimatedBuilder(
+                              animation: _shakeAnimation,
+                              builder: (context, child) {
+                                final shakeOffset = _shakeAnimation.value *
+                                    8 *
+                                    (1 - _shakeAnimation.value);
+                                return Transform.translate(
+                                  offset: Offset(
+                                    shakeOffset *
+                                        ((_shakeAnimation.value * 10)
+                                                .toInt()
+                                                .isEven
+                                            ? 1
+                                            : -1),
+                                    0,
+                                  ),
+                                  child: child,
+                                );
+                              },
+                              child: Column(
+                                children: [
+                                  _buildConsentCard(
+                                    icon: Icons.description_outlined,
+                                    title: 'Termos de Uso',
+                                    description:
+                                        'Li e aceito os Termos de Uso do Condomeet.',
+                                    value: _termsAccepted,
+                                    onChanged: (value) {
+                                      setState(() => _termsAccepted = value ?? false);
+                                    },
+                                    onViewDocument: () {
+                                      _showDocument(
+                                        'Termos de Uso',
+                                        _termsOfUseText,
+                                      );
+                                    },
+                                  ),
+                                  const SizedBox(height: 16),
+                                  _buildConsentCard(
+                                    icon: Icons.privacy_tip_outlined,
+                                    title: 'Política de Privacidade',
+                                    description:
+                                        'Li e aceito a Política de Privacidade e o tratamento dos meus dados pessoais.',
+                                    value: _privacyAccepted,
+                                    onChanged: (value) {
+                                      setState(() => _privacyAccepted = value ?? false);
+                                    },
+                                    onViewDocument: () {
+                                      _showDocument(
+                                        'Política de Privacidade',
+                                        _privacyPolicyText,
+                                      );
+                                    },
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ],
                         ),
-                      ),
-                      const SizedBox(height: 8),
-                      Text(
-                        'Condomeet v1.0 • Todos os direitos reservados',
-                        style: AppTypography.bodySmall.copyWith(
-                          color: AppColors.textSecondary.withValues(alpha: 0.5),
-                          fontSize: 11,
+
+                        // Bottom Content (Accept button & footer)
+                        Padding(
+                          padding: const EdgeInsets.only(bottom: 24, top: 24),
+                          child: Column(
+                            children: [
+                              SizedBox(
+                                width: double.infinity,
+                                height: 52,
+                                child: ElevatedButton(
+                                  onPressed: _isLoading ? null : _handleButtonPress,
+                                  style: ElevatedButton.styleFrom(
+                                    backgroundColor: _canProceed
+                                        ? AppColors.primary
+                                        : Colors.grey.shade300,
+                                    foregroundColor: _canProceed
+                                        ? Colors.white
+                                        : Colors.grey.shade500,
+                                    elevation: _canProceed ? 4 : 0,
+                                    shadowColor: _canProceed
+                                        ? AppColors.primary.withValues(alpha: 0.4)
+                                        : Colors.transparent,
+                                    shape: RoundedRectangleBorder(
+                                      borderRadius: BorderRadius.circular(14),
+                                    ),
+                                  ),
+                                  child: _isLoading
+                                      ? const SizedBox(
+                                          height: 22,
+                                          width: 22,
+                                          child: CircularProgressIndicator(
+                                            strokeWidth: 2.5,
+                                            color: Colors.white,
+                                          ),
+                                        )
+                                      : Row(
+                                          mainAxisAlignment: MainAxisAlignment.center,
+                                          children: [
+                                            Icon(
+                                              _canProceed
+                                                  ? Icons.check_circle_outline
+                                                  : Icons.lock_outline,
+                                              size: 20,
+                                            ),
+                                            const SizedBox(width: 8),
+                                            Text(
+                                              'Aceitar e Continuar',
+                                              style: AppTypography.bodyMedium.copyWith(
+                                                fontWeight: FontWeight.w700,
+                                                color: _canProceed
+                                                    ? Colors.white
+                                                    : Colors.grey.shade500,
+                                              ),
+                                            ),
+                                          ],
+                                        ),
+                                ),
+                              ),
+                              const SizedBox(height: 8),
+                              Text(
+                                'Condomeet v1.0 • Todos os direitos reservados',
+                                style: AppTypography.bodySmall.copyWith(
+                                  color: AppColors.textSecondary.withValues(alpha: 0.5),
+                                  fontSize: 11,
+                                ),
+                              ),
+                            ],
+                          ),
                         ),
-                      ),
-                    ],
+                      ],
+                    ),
                   ),
                 ),
-              ],
-            ),
+              );
+            },
           ),
         ),
       ),
@@ -327,14 +344,10 @@ class _ConsentScreenState extends State<ConsentScreen>
       curve: Curves.easeInOut,
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: isAccepted
-            ? const Color(0xFFF0FFF4)
-            : AppColors.surface,
+        color: isAccepted ? const Color(0xFFF0FFF4) : AppColors.surface,
         borderRadius: BorderRadius.circular(16),
         border: Border.all(
-          color: isAccepted
-              ? const Color(0xFF38A169)
-              : AppColors.border,
+          color: isAccepted ? const Color(0xFF38A169) : AppColors.border,
           width: isAccepted ? 1.5 : 1,
         ),
         boxShadow: [
@@ -363,9 +376,7 @@ class _ConsentScreenState extends State<ConsentScreen>
                 ),
                 child: Icon(
                   isAccepted ? Icons.check_circle : icon,
-                  color: isAccepted
-                      ? const Color(0xFF38A169)
-                      : AppColors.primary,
+                  color: isAccepted ? const Color(0xFF38A169) : AppColors.primary,
                   size: 22,
                 ),
               ),
@@ -375,9 +386,7 @@ class _ConsentScreenState extends State<ConsentScreen>
                   title,
                   style: AppTypography.h3.copyWith(
                     fontSize: 16,
-                    color: isAccepted
-                        ? const Color(0xFF276749)
-                        : AppColors.textMain,
+                    color: isAccepted ? const Color(0xFF276749) : AppColors.textMain,
                   ),
                 ),
               ),
@@ -396,8 +405,7 @@ class _ConsentScreenState extends State<ConsentScreen>
                   ),
                 ),
                 style: TextButton.styleFrom(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                   minimumSize: Size.zero,
                   tapTargetSize: MaterialTapTargetSize.shrinkWrap,
                 ),
@@ -409,20 +417,18 @@ class _ConsentScreenState extends State<ConsentScreen>
             onTap: () => onChanged(!value),
             borderRadius: BorderRadius.circular(8),
             child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 AnimatedContainer(
+                  margin: const EdgeInsets.only(top: 2),
                   duration: const Duration(milliseconds: 200),
                   width: 24,
                   height: 24,
                   decoration: BoxDecoration(
-                    color: isAccepted
-                        ? const Color(0xFF38A169)
-                        : Colors.transparent,
+                    color: isAccepted ? const Color(0xFF38A169) : Colors.transparent,
                     borderRadius: BorderRadius.circular(6),
                     border: Border.all(
-                      color: isAccepted
-                          ? const Color(0xFF38A169)
-                          : Colors.grey.shade400,
+                      color: isAccepted ? const Color(0xFF38A169) : Colors.grey.shade400,
                       width: 2,
                     ),
                   ),
@@ -435,9 +441,7 @@ class _ConsentScreenState extends State<ConsentScreen>
                   child: Text(
                     description,
                     style: AppTypography.bodyMedium.copyWith(
-                      color: isAccepted
-                          ? const Color(0xFF276749)
-                          : AppColors.textSecondary,
+                      color: isAccepted ? const Color(0xFF276749) : AppColors.textSecondary,
                       fontSize: 13.5,
                     ),
                   ),

@@ -52,7 +52,7 @@ class _ReservaApprovalScreenState extends State<ReservaApprovalScreen>
           .from('reservas')
           .select(
               'id, data_reserva, nome_evento, status, created_at, user_id, '
-              'areas_comuns(tipo_agenda, local), '
+              'areas_comuns(id, tipo_agenda, local), '
               'perfil!reservas_user_id_fkey(nome_completo, bloco_txt, apto_txt), '
               'areas_comuns_horarios(hora_inicio)')
           .eq('condominio_id', condoId)
@@ -65,7 +65,7 @@ class _ReservaApprovalScreenState extends State<ReservaApprovalScreen>
           .from('reservas')
           .select(
               'id, data_reserva, nome_evento, status, created_at, updated_at, user_id, '
-              'areas_comuns(tipo_agenda, local), '
+              'areas_comuns(id, tipo_agenda, local), '
               'perfil!reservas_user_id_fkey(nome_completo, bloco_txt, apto_txt), '
               'areas_comuns_horarios(hora_inicio)')
           .eq('condominio_id', condoId)
@@ -410,14 +410,50 @@ class _ReservaApprovalScreenState extends State<ReservaApprovalScreen>
             const Divider(height: 1),
             const SizedBox(height: 12),
 
-            // Details
-            _infoRow(Icons.person_outline, 'Morador', moradorNome),
-            if (unidade.isNotEmpty)
-              _infoRow(Icons.apartment, 'Unidade', unidade),
-            _infoRow(Icons.calendar_today, 'Data', hora != null ? '$data às $hora' : data),
-            if (nomeEvento.isNotEmpty && nomeEvento != areaNome)
-              _infoRow(Icons.celebration, 'Evento', nomeEvento),
-            _infoRow(Icons.access_time, 'Solicitado em', criadoEm),
+            // Details with calendar button on the right
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.center,
+              children: [
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      _infoRow(Icons.person_outline, 'Morador', moradorNome),
+                      if (unidade.isNotEmpty)
+                        _infoRow(Icons.apartment, 'Unidade', unidade),
+                      _infoRow(Icons.calendar_today, 'Data', hora != null ? '$data às $hora' : data),
+                      if (nomeEvento.isNotEmpty && nomeEvento != areaNome)
+                        _infoRow(Icons.celebration, 'Evento', nomeEvento),
+                      _infoRow(Icons.access_time, 'Solicitado em', criadoEm),
+                    ],
+                  ),
+                ),
+                if (area?['id'] != null) ...[
+                  const SizedBox(width: 12),
+                  GestureDetector(
+                    onTap: () => _showAreaCalendar(
+                      area!['id'] as String,
+                      areaNome,
+                      r['data_reserva'] as String?,
+                    ),
+                    child: Container(
+                      width: 44,
+                      height: 44,
+                      decoration: BoxDecoration(
+                        color: AppColors.primary.withValues(alpha: 0.1),
+                        shape: BoxShape.circle,
+                        border: Border.all(color: AppColors.primary.withValues(alpha: 0.3)),
+                      ),
+                      child: const Icon(
+                        Icons.calendar_month_rounded,
+                        color: AppColors.primary,
+                        size: 22,
+                      ),
+                    ),
+                  ),
+                ],
+              ],
+            ),
 
             const SizedBox(height: 14),
 
@@ -524,25 +560,55 @@ class _ReservaApprovalScreenState extends State<ReservaApprovalScreen>
                 ),
                 const SizedBox(width: 12),
                 Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
+                  child: Row(
                     children: [
-                      Text(areaNome,
-                          style: const TextStyle(
-                              fontWeight: FontWeight.bold,
-                              fontSize: 14,
-                              color: AppColors.textMain)),
-                      const SizedBox(height: 2),
-                      Text(
-                        '$moradorNome${unidade.isNotEmpty ? ' • $unidade' : ''}',
-                        style: const TextStyle(
-                            fontSize: 12, color: AppColors.textHint),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(areaNome,
+                                style: const TextStyle(
+                                    fontWeight: FontWeight.bold,
+                                    fontSize: 14,
+                                    color: AppColors.textMain)),
+                            const SizedBox(height: 2),
+                            Text(
+                              '$moradorNome${unidade.isNotEmpty ? ' • $unidade' : ''}',
+                              style: const TextStyle(
+                                  fontSize: 12, color: AppColors.textHint),
+                            ),
+                            Text(
+                              hora != null ? '$data às $hora' : data,
+                              style: const TextStyle(
+                                  fontSize: 12, color: AppColors.textHint),
+                            ),
+                          ],
+                        ),
                       ),
-                      Text(
-                        hora != null ? '$data às $hora' : data,
-                        style: const TextStyle(
-                            fontSize: 12, color: AppColors.textHint),
-                      ),
+                      if (area?['id'] != null) ...[
+                        const SizedBox(width: 8),
+                        GestureDetector(
+                          onTap: () => _showAreaCalendar(
+                            area!['id'] as String,
+                            areaNome,
+                            r['data_reserva'] as String?,
+                          ),
+                          child: Container(
+                            width: 36,
+                            height: 36,
+                            decoration: BoxDecoration(
+                              color: AppColors.primary.withValues(alpha: 0.1),
+                              shape: BoxShape.circle,
+                              border: Border.all(color: AppColors.primary.withValues(alpha: 0.3)),
+                            ),
+                            child: const Icon(
+                              Icons.calendar_month_rounded,
+                              color: AppColors.primary,
+                              size: 18,
+                            ),
+                          ),
+                        ),
+                      ],
                     ],
                   ),
                 ),
@@ -614,6 +680,455 @@ class _ReservaApprovalScreenState extends State<ReservaApprovalScreen>
                     fontWeight: FontWeight.w600)),
           ),
         ],
+      ),
+    );
+  }
+
+  void _showAreaCalendar(String areaId, String areaNome, String? focusDate) {
+    showDialog(
+      context: context,
+      builder: (_) => AreaCalendarDialog(
+        areaId: areaId,
+        areaNome: areaNome,
+        focusDate: focusDate,
+      ),
+    );
+  }
+}
+
+const _mesesList = [
+  'Janeiro',
+  'Fevereiro',
+  'Março',
+  'Abril',
+  'Maio',
+  'Junho',
+  'Julho',
+  'Agosto',
+  'Setembro',
+  'Outubro',
+  'Novembro',
+  'Dezembro'
+];
+
+const _diasSemanaList = ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'];
+
+class AreaCalendarDialog extends StatefulWidget {
+  final String areaId;
+  final String areaNome;
+  final String? focusDate;
+
+  const AreaCalendarDialog({
+    super.key,
+    required this.areaId,
+    required this.areaNome,
+    this.focusDate,
+  });
+
+  @override
+  State<AreaCalendarDialog> createState() => _AreaCalendarDialogState();
+}
+
+class _AreaCalendarDialogState extends State<AreaCalendarDialog> {
+  late int _viewYear;
+  late int _viewMonth;
+  String? _selectedDate;
+  List<Map<String, dynamic>> _reservations = [];
+  bool _loading = true;
+
+  @override
+  void initState() {
+    super.initState();
+    if (widget.focusDate != null && widget.focusDate!.isNotEmpty) {
+      final dt = DateTime.tryParse(widget.focusDate!);
+      if (dt != null) {
+        _viewYear = dt.year;
+        _viewMonth = dt.month;
+        _selectedDate = widget.focusDate;
+      } else {
+        final now = DateTime.now();
+        _viewYear = now.year;
+        _viewMonth = now.month;
+        _selectedDate = '${now.year}-${now.month.toString().padLeft(2, '0')}-${now.day.toString().padLeft(2, '0')}';
+      }
+    } else {
+      final now = DateTime.now();
+      _viewYear = now.year;
+      _viewMonth = now.month;
+      _selectedDate = '${now.year}-${now.month.toString().padLeft(2, '0')}-${now.day.toString().padLeft(2, '0')}';
+    }
+    _loadReservations();
+  }
+
+  Future<void> _loadReservations() async {
+    setState(() => _loading = true);
+    try {
+      final firstOfMonth = '$_viewYear-${_viewMonth.toString().padLeft(2, '0')}-01';
+      final lastDay = DateTime(_viewYear, _viewMonth + 1, 0).day;
+      final lastOfMonth = '$_viewYear-${_viewMonth.toString().padLeft(2, '0')}-$lastDay';
+
+      final data = await sl<SupabaseClient>()
+          .from('reservas')
+          .select(
+              'id, data_reserva, status, nome_evento, '
+              'perfil!reservas_user_id_fkey(nome_completo, bloco_txt, apto_txt), '
+              'areas_comuns_horarios(hora_inicio)')
+          .eq('area_id', widget.areaId)
+          .inFilter('status', ['pendente', 'aprovado'])
+          .gte('data_reserva', firstOfMonth)
+          .lte('data_reserva', lastOfMonth);
+
+      if (mounted) {
+        setState(() {
+          _reservations = List<Map<String, dynamic>>.from(data as List);
+          _loading = false;
+        });
+      }
+    } catch (e) {
+      debugPrint('Error loading calendar reservations: $e');
+      if (mounted) {
+        setState(() => _loading = false);
+      }
+    }
+  }
+
+  void _prevMonth() {
+    setState(() {
+      if (_viewMonth == 1) {
+        _viewYear--;
+        _viewMonth = 12;
+      } else {
+        _viewMonth--;
+      }
+      _selectedDate = null;
+    });
+    _loadReservations();
+  }
+
+  void _nextMonth() {
+    setState(() {
+      if (_viewMonth == 12) {
+        _viewYear++;
+        _viewMonth = 1;
+      } else {
+        _viewMonth++;
+      }
+      _selectedDate = null;
+    });
+    _loadReservations();
+  }
+
+  String _fmtDateBr(String iso) {
+    final parts = iso.split('-');
+    if (parts.length != 3) return iso;
+    return '${parts[2]}/${parts[1]}/${parts[0]}';
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final Map<String, List<Map<String, dynamic>>> resByDate = {};
+    for (final r in _reservations) {
+      final date = r['data_reserva'] as String?;
+      if (date != null) {
+        resByDate[date] ??= [];
+        resByDate[date]!.add(r);
+      }
+    }
+
+    final firstDay = DateTime(_viewYear, _viewMonth, 1);
+    final lastDay = DateTime(_viewYear, _viewMonth + 1, 0).day;
+    final startDow = firstDay.weekday % 7; // 0 = Sunday
+
+    final selectedDayReservations = _selectedDate != null ? (resByDate[_selectedDate] ?? []) : [];
+
+    return Dialog(
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+      insetPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 24),
+      backgroundColor: Colors.white,
+      child: Container(
+        constraints: const BoxConstraints(maxHeight: 620),
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Text(
+                        'Agenda da Área Comum',
+                        style: TextStyle(fontSize: 11, color: AppColors.textHint, fontWeight: FontWeight.w500),
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        widget.areaNome,
+                        style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: AppColors.textMain),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ],
+                  ),
+                ),
+                IconButton(
+                  icon: const Icon(Icons.close, color: AppColors.primary, size: 22),
+                  onPressed: () => Navigator.of(context).pop(),
+                  padding: EdgeInsets.zero,
+                  constraints: const BoxConstraints(),
+                ),
+              ],
+            ),
+            const SizedBox(height: 12),
+            const Divider(height: 1),
+            const SizedBox(height: 12),
+
+            Row(
+              children: [
+                IconButton(
+                  icon: const Icon(Icons.chevron_left, color: AppColors.primary),
+                  onPressed: _prevMonth,
+                ),
+                const Spacer(),
+                Text(
+                  '${_mesesList[_viewMonth - 1]} de $_viewYear',
+                  style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: AppColors.textMain),
+                ),
+                const Spacer(),
+                IconButton(
+                  icon: const Icon(Icons.chevron_right, color: AppColors.primary),
+                  onPressed: _nextMonth,
+                ),
+              ],
+            ),
+            const SizedBox(height: 8),
+
+            Row(
+              children: _diasSemanaList
+                  .map((d) => Expanded(
+                        child: Center(
+                          child: Text(
+                            d,
+                            style: const TextStyle(fontSize: 11, color: AppColors.textHint, fontWeight: FontWeight.w600),
+                          ),
+                        ),
+                      ))
+                  .toList(),
+            ),
+            const SizedBox(height: 6),
+
+            if (_loading)
+              const SizedBox(
+                height: 180,
+                child: Center(child: CircularProgressIndicator(color: AppColors.primary)),
+              )
+            else
+              GridView.builder(
+                shrinkWrap: true,
+                physics: const NeverScrollableScrollPhysics(),
+                gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                  crossAxisCount: 7,
+                  childAspectRatio: 1.2,
+                ),
+                itemCount: startDow + lastDay,
+                itemBuilder: (_, i) {
+                  if (i < startDow) return const SizedBox();
+                  final day = i - startDow + 1;
+                  final iso = '$_viewYear-${_viewMonth.toString().padLeft(2, '0')}-${day.toString().padLeft(2, '0')}';
+                  final dayReservations = resByDate[iso] ?? [];
+                  
+                  final isSelected = iso == _selectedDate;
+                  final isFocus = iso == widget.focusDate;
+
+                  bool hasPending = false;
+                  bool hasApproved = false;
+                  for (final r in dayReservations) {
+                    if (r['status'] == 'pendente') hasPending = true;
+                    if (r['status'] == 'aprovado') hasApproved = true;
+                  }
+
+                  Color textColor = AppColors.textMain;
+                  BoxDecoration? boxDec;
+
+                  if (isSelected) {
+                    textColor = Colors.white;
+                    boxDec = BoxDecoration(
+                      color: AppColors.textMain,
+                      shape: BoxShape.circle,
+                    );
+                  } else if (isFocus) {
+                    boxDec = BoxDecoration(
+                      border: Border.all(color: Colors.orange.shade400, width: 2),
+                      shape: BoxShape.circle,
+                    );
+                  }
+
+                  return GestureDetector(
+                    onTap: () {
+                      HapticFeedback.selectionClick();
+                      setState(() {
+                        _selectedDate = iso;
+                      });
+                    },
+                    child: Container(
+                      decoration: boxDec,
+                      margin: const EdgeInsets.all(2),
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Text(
+                            '$day',
+                            style: TextStyle(
+                              fontSize: 13,
+                              fontWeight: isSelected || isFocus ? FontWeight.bold : FontWeight.normal,
+                              color: textColor,
+                            ),
+                          ),
+                          if (dayReservations.isNotEmpty) ...[
+                            const SizedBox(height: 2),
+                            Row(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                if (hasApproved)
+                                  Container(
+                                    width: 5,
+                                    height: 5,
+                                    decoration: const BoxDecoration(
+                                      color: Colors.green,
+                                      shape: BoxShape.circle,
+                                    ),
+                                  ),
+                                if (hasApproved && hasPending) const SizedBox(width: 2),
+                                if (hasPending)
+                                  Container(
+                                    width: 5,
+                                    height: 5,
+                                    decoration: const BoxDecoration(
+                                      color: Colors.orange,
+                                      shape: BoxShape.circle,
+                                    ),
+                                  ),
+                              ],
+                            ),
+                          ],
+                        ],
+                      ),
+                    ),
+                  );
+                },
+              ),
+            const SizedBox(height: 16),
+            const Divider(height: 1),
+            const SizedBox(height: 12),
+
+            Expanded(
+              child: _selectedDate == null
+                  ? const Center(
+                      child: Text(
+                        'Selecione um dia para ver as reservas',
+                        style: TextStyle(fontSize: 12, color: AppColors.textHint),
+                      ),
+                    )
+                  : Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'Reservas em ${_fmtDateBr(_selectedDate!)}:',
+                          style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: AppColors.textMain),
+                        ),
+                        const SizedBox(height: 8),
+                        Expanded(
+                          child: selectedDayReservations.isEmpty
+                              ? Center(
+                                  child: Text(
+                                    'Nenhuma reserva para este dia',
+                                    style: TextStyle(fontSize: 12, color: Colors.grey.shade400),
+                                  ),
+                                )
+                              : ListView.builder(
+                                  itemCount: selectedDayReservations.length,
+                                  itemBuilder: (_, idx) {
+                                    final res = selectedDayReservations[idx];
+                                    final p = res['perfil'] as Map<String, dynamic>?;
+                                    final h = res['areas_comuns_horarios'] as Map<String, dynamic>?;
+                                    final morador = p?['nome_completo'] as String? ?? 'Morador';
+                                    final blk = p?['bloco_txt'] as String? ?? '';
+                                    final apt = p?['apto_txt'] as String? ?? '';
+                                    final unitStr = blk.isNotEmpty && apt.isNotEmpty ? ' ($blk/$apt)' : '';
+                                    
+                                    final status = res['status'] as String? ?? '';
+                                    final isAppr = status == 'aprovado';
+                                    
+                                    final time = h != null && h['hora_inicio'] != null
+                                        ? (h['hora_inicio'] as String).substring(0, 5)
+                                        : 'Dia inteiro';
+
+                                    return Container(
+                                      margin: const EdgeInsets.only(bottom: 6),
+                                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                                      decoration: BoxDecoration(
+                                        color: Colors.grey.shade50,
+                                        borderRadius: BorderRadius.circular(8),
+                                        border: Border.all(color: Colors.grey.shade200),
+                                      ),
+                                      child: Row(
+                                        children: [
+                                          Icon(
+                                            isAppr ? Icons.check_circle : Icons.pending,
+                                            color: isAppr ? Colors.green : Colors.orange,
+                                            size: 16,
+                                          ),
+                                          const SizedBox(width: 8),
+                                          Expanded(
+                                            child: Column(
+                                              crossAxisAlignment: CrossAxisAlignment.start,
+                                              children: [
+                                                Text(
+                                                  '$morador$unitStr',
+                                                  style: const TextStyle(
+                                                    fontSize: 12,
+                                                    fontWeight: FontWeight.w600,
+                                                    color: AppColors.textMain,
+                                                  ),
+                                                ),
+                                                Text(
+                                                  'Horário: $time',
+                                                  style: TextStyle(
+                                                    fontSize: 11,
+                                                    color: Colors.grey.shade600,
+                                                  ),
+                                                ),
+                                              ],
+                                            ),
+                                          ),
+                                          Container(
+                                            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                            decoration: BoxDecoration(
+                                              color: isAppr ? Colors.green.shade50 : Colors.orange.shade50,
+                                              borderRadius: BorderRadius.circular(4),
+                                            ),
+                                            child: Text(
+                                              isAppr ? 'Aprovado' : 'Pendente',
+                                              style: TextStyle(
+                                                fontSize: 10,
+                                                fontWeight: FontWeight.bold,
+                                                color: isAppr ? Colors.green.shade700 : Colors.orange.shade700,
+                                              ),
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    );
+                                  },
+                                ),
+                        ),
+                      ],
+                    ),
+            ),
+          ],
+        ),
       ),
     );
   }

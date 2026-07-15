@@ -9,6 +9,62 @@ const corsHeaders = {
 const ASAAS_API_KEY = Deno.env.get("ASAAS_API_KEY") || "";
 const ASAAS_URL = Deno.env.get("ASAAS_API_URL") || "https://sandbox.asaas.com/api/v3";
 
+interface Perfil {
+  id: string
+  nome_completo: string | null
+  email: string | null
+  whatsapp: string | null
+  gateway_customer_id: string | null
+}
+
+interface UnidadePerfil {
+  perfil: Perfil | null
+}
+
+interface UnidadeResponse {
+  id: string
+  unidade_perfil: UnidadePerfil[] | null
+}
+
+interface Reserva {
+  id: string
+  valor_reserva: number
+  areas_comuns: {
+    tipo_agenda: string | null
+  } | null
+}
+
+interface FaturamentoItemInput {
+  faturamento_id: string
+  descricao: string
+  valor: number
+  tipo_item: string
+  referencia_id?: string
+}
+
+interface CustomerPayload {
+  name: string
+  email: string
+  cpfCnpj: string
+  mobilePhone?: string
+}
+
+interface PaymentPayload {
+  customer: string
+  billingType: string
+  value: number
+  dueDate: string
+  description: string
+  fine: { value: number; type: string }
+  interest: { value: number; type: string }
+  split?: { walletId: string; percentualValue: number }[]
+}
+
+interface EngineError {
+  unidade_id: string
+  error: unknown
+}
+
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response('ok', { headers: corsHeaders })
@@ -40,7 +96,7 @@ serve(async (req) => {
       mesReferenciaDate = `${y}-${m.padStart(2, '0')}-01`;
     }
 
-    const errors: any[] = [];
+    const errors: EngineError[] = [];
     let gerados = 0;
     const dataVencimento = new Date();
     dataVencimento.setDate(dataVencimento.getDate() + 10); // Vence em 10 dias
@@ -51,20 +107,21 @@ serve(async (req) => {
        if (!unidade_id || valor_total <= 0) continue;
 
        // Buscar dados da unidade e morador
-        const { data: unidade } = await supabaseClient
+        const { data: rawUnidade } = await supabaseClient
           .from('unidades')
           .select('id, unidade_perfil(perfil(id, nome_completo, email, whatsapp, gateway_customer_id))')
           .eq('id', unidade_id)
           .single()
 
+        const unidade = rawUnidade as unknown as UnidadeResponse | null;
         const morador = unidade?.unidade_perfil?.[0]?.perfil; 
 
-        if (morador) {
+        if (morador && unidade) {
           // Integracao ASAAS
           let customerId = morador.gateway_customer_id;
 
           if (!customerId) {
-             const customerPayload: any = {
+             const customerPayload: CustomerPayload = {
                name: morador.nome_completo || `Morador Unidade ${unidade.id}`,
                email: morador.email || `morador-${unidade.id}@condomeet.com`,
                cpfCnpj: '05864928283'
@@ -79,17 +136,17 @@ serve(async (req) => {
             const customerData = await customerRes.json();
 
             if (customerData.id) {
-               customerId = customerData.id;
-               await supabaseClient.from('perfil').update({ gateway_customer_id: customerId }).eq('id', morador.id);
+                customerId = customerData.id;
+                await supabaseClient.from('perfil').update({ gateway_customer_id: customerId }).eq('id', morador.id);
             } else {
-               console.error('Falha Asaas Customer:', customerData);
-               errors.push({ unidade_id, error: customerData });
-               continue; 
+                console.error('Falha Asaas Customer:', customerData);
+                errors.push({ unidade_id, error: customerData });
+                continue; 
             }
          }
 
-         const paymentPayload: any = {
-            customer: customerId,
+         const paymentPayload: PaymentPayload = {
+            customer: customerId!,
             billingType: 'UNDEFINED',
             value: valor_total,
             dueDate: dataVencimento.toISOString().split('T')[0],
@@ -115,132 +172,132 @@ serve(async (req) => {
          const paymentData = await paymentRes.json();
 
          if (paymentData.id) {
-             let pixCopiaECola = '';
-             try {
-                const pixRes = await fetch(`${ASAAS_URL}/payments/${paymentData.id}/pixQrCode`, {
-                   headers: { 'access_token': ASAAS_API_KEY }
-                });
-                const pixData = await pixRes.json();
-                pixCopiaECola = pixData.payload || '';
-             } catch(e) { console.error('Falha PIX:', e); }
-
-             const { data: fatRow, error: fatErr } = await supabaseClient
-               .from('faturamentos')
-               .insert({
-                 condominio_id,
-                 unidade_id: unidade.id,
-                 morador_id: morador.id,
-                 mes_referencia: mesReferenciaDate,
-                 valor_total: valor_total,
-                 data_vencimento: dataVencimento.toISOString().split('T')[0],
-                 status_pagamento: 'pendente',
-                 gateway_fatura_id: paymentData.id,
-                 gateway_invoice_url: paymentData.invoiceUrl,
-                 gateway_pix_copia_cola: pixCopiaECola
-               })
-               .select('id')
-               .single();
-
-              if (fatErr || !fatRow) {
-                 console.error('Erro ao inserir faturamento:', fatErr);
-                 errors.push({ unidade_id, error: fatErr || 'No fatRow returned' });
-                 continue;
-              }
-
-             const faturamentoId = fatRow.id;
-
-             // Fetch multas and reservations to breakdown items
-             const { data: multas } = await supabaseClient
-               .from('notificacoes_multas')
-               .select('id, valor, titulo')
-               .eq('unidade_id', unidade.id)
-               .eq('tipo', 'MULTA')
-               .eq('status', 'pendente');
-
-              const userIds = unidade.unidade_perfil
-                ?.map((up: any) => up.perfil?.id)
-                .filter(Boolean) || [];
-
-              let reservas: any[] = [];
-              if (userIds.length > 0) {
-                const { data: resData } = await supabaseClient
-                  .from('reservas')
-                  .select('id, valor_reserva, areas_comuns(tipo_agenda)')
-                  .in('user_id', userIds)
-                  .eq('status', 'aprovado')
-                  .eq('status_pagamento', 'pendente');
-                reservas = resData || [];
-              }
-
-             const itemsParaInserir: any[] = [];
-             let totalAdicionais = 0;
-
-             if (multas) multas.forEach(m => totalAdicionais += Number(m.valor || 0));
-             if (reservas) reservas.forEach(r => totalAdicionais += Number(r.valor_reserva || 0));
-
-             const valorBase = valor_total - totalAdicionais;
-
-             // Add Base item
-             itemsParaInserir.push({
-               faturamento_id: faturamentoId,
-               descricao: 'Taxa Condominial',
-               valor: valorBase,
-               tipo_item: 'ordinaria'
-             });
-
-             // Add multas items
-             if (multas && multas.length > 0) {
-               multas.forEach(m => {
-                 itemsParaInserir.push({
-                   faturamento_id: faturamentoId,
-                   descricao: `Multa: ${m.titulo}`,
-                   valor: m.valor,
-                   tipo_item: 'multa',
-                   referencia_id: m.id
+              let pixCopiaECola = '';
+              try {
+                 const pixRes = await fetch(`${ASAAS_URL}/payments/${paymentData.id}/pixQrCode`, {
+                    headers: { 'access_token': ASAAS_API_KEY }
                  });
-               });
-             }
+                 const pixData = await pixRes.json();
+                 pixCopiaECola = pixData.payload || '';
+              } catch(e) { console.error('Falha PIX:', e); }
 
-             // Add reservations items
-             if (reservas && reservas.length > 0) {
-               const resIds = [];
-               for (const r of reservas) {
-                 itemsParaInserir.push({
-                   faturamento_id: faturamentoId,
-                   descricao: `Reserva: ${r.areas_comuns?.tipo_agenda || 'Área Comum'}`,
-                   valor: r.valor_reserva,
-                   tipo_item: 'reserva',
-                   referencia_id: r.id
-                 });
-                 resIds.push(r.id);
+              const { data: fatRow, error: fatErr } = await supabaseClient
+                .from('faturamentos')
+                .insert({
+                  condominio_id,
+                  unidade_id: unidade.id,
+                  morador_id: morador.id,
+                  mes_referencia: mesReferenciaDate,
+                  valor_total: valor_total,
+                  data_vencimento: dataVencimento.toISOString().split('T')[0],
+                  status_pagamento: 'pendente',
+                  gateway_fatura_id: paymentData.id,
+                  gateway_invoice_url: paymentData.invoiceUrl,
+                  gateway_pix_copia_cola: pixCopiaECola
+                })
+                .select('id')
+                .single();
+
+               if (fatErr || !fatRow) {
+                  console.error('Erro ao inserir faturamento:', fatErr);
+                  errors.push({ unidade_id, error: fatErr || 'No fatRow returned' });
+                  continue;
                }
 
-               // Mark reservations as faturado
-               if (resIds.length > 0) {
-                 await supabaseClient
+              const faturamentoId = fatRow.id;
+
+              // Fetch multas and reservations to breakdown items
+              const { data: multas } = await supabaseClient
+                .from('notificacoes_multas')
+                .select('id, valor, titulo')
+                .eq('unidade_id', unidade.id)
+                .eq('tipo', 'MULTA')
+                .eq('status', 'pendente');
+
+               const userIds = unidade.unidade_perfil
+                 ?.map((up) => up.perfil?.id)
+                 .filter(Boolean) || [];
+
+               let reservas: Reserva[] = [];
+               if (userIds.length > 0) {
+                 const { data: resData } = await supabaseClient
                    .from('reservas')
-                   .update({ status_pagamento: 'faturado' })
-                   .in('id', resIds);
+                   .select('id, valor_reserva, areas_comuns(tipo_agenda)')
+                   .in('user_id', userIds)
+                   .eq('status', 'aprovado')
+                   .eq('status_pagamento', 'pendente');
+                 reservas = (resData || []) as unknown as Reserva[];
                }
-             }
 
-             // Bulk insert items
-             if (itemsParaInserir.length > 0) {
-               const { error: itemsErr } = await supabaseClient
-                 .from('faturamento_itens')
-                 .insert(itemsParaInserir);
-               if (itemsErr) {
-                 console.error('Erro ao inserir faturamento_itens:', itemsErr);
-                 errors.push({ unidade_id, error: itemsErr });
-               }
-             }
+              const itemsParaInserir: FaturamentoItemInput[] = [];
+              let totalAdicionais = 0;
 
-             gerados++;
+              if (multas) multas.forEach(m => totalAdicionais += Number(m.valor || 0));
+              if (reservas) reservas.forEach(r => totalAdicionais += Number(r.valor_reserva || 0));
+
+              const valorBase = valor_total - totalAdicionais;
+
+              // Add Base item
+              itemsParaInserir.push({
+                faturamento_id: faturamentoId,
+                descricao: 'Taxa Condominial',
+                valor: valorBase,
+                tipo_item: 'ordinaria'
+              });
+
+              // Add multas items
+              if (multas && multas.length > 0) {
+                multas.forEach(m => {
+                  itemsParaInserir.push({
+                    faturamento_id: faturamentoId,
+                    descricao: `Multa: ${m.titulo}`,
+                    valor: m.valor,
+                    tipo_item: 'multa',
+                    referencia_id: m.id
+                  });
+                });
+              }
+
+              // Add reservations items
+              if (reservas && reservas.length > 0) {
+                const resIds: string[] = [];
+                for (const r of reservas) {
+                  itemsParaInserir.push({
+                    faturamento_id: faturamentoId,
+                    descricao: `Reserva: ${r.areas_comuns?.tipo_agenda || 'Área Comum'}`,
+                    valor: r.valor_reserva,
+                    tipo_item: 'reserva',
+                    referencia_id: r.id
+                  });
+                  resIds.push(r.id);
+                }
+
+                // Mark reservations as faturado
+                if (resIds.length > 0) {
+                  await supabaseClient
+                    .from('reservas')
+                    .update({ status_pagamento: 'faturado' })
+                    .in('id', resIds);
+                }
+              }
+
+              // Bulk insert items
+              if (itemsParaInserir.length > 0) {
+                const { error: itemsErr } = await supabaseClient
+                  .from('faturamento_itens')
+                  .insert(itemsParaInserir);
+                if (itemsErr) {
+                  console.error('Erro ao inserir faturamento_itens:', itemsErr);
+                  errors.push({ unidade_id, error: itemsErr });
+                }
+              }
+
+              gerados++;
          } else {
-             console.error('Falha Asaas Payment:', paymentData);
-             errors.push({ unidade_id, error: paymentData });
+              console.error('Falha Asaas Payment:', paymentData);
+              errors.push({ unidade_id, error: paymentData });
          }
-       }
+        }
     }
 
     // Faturas já gravadas individualmente com seus itens e baixas de reservas correspondentes
@@ -255,8 +312,9 @@ serve(async (req) => {
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 }
     )
   } catch (error) {
+    const errorMsg = error instanceof Error ? error.message : String(error);
     return new Response(
-      JSON.stringify({ error: error.message }),
+      JSON.stringify({ error: errorMsg }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 400 }
     )
   }

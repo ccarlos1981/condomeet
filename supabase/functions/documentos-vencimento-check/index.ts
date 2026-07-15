@@ -65,7 +65,7 @@ serve(async (_req) => {
           if (BOTCONVERSA_API_KEY) {
             const { data: sindicos } = await supabase
               .from('perfil')
-              .select('nome_completo, whatsapp, botconversa_id, notificacoes_whatsapp')
+              .select('id, nome_completo, whatsapp, botconversa_id, notificacoes_whatsapp')
               .eq('condominio_id', doc.condominio_id)
               .in('tipo_morador', ['Síndico'])
 
@@ -75,7 +75,7 @@ serve(async (_req) => {
                 const cod = genCodInterno()
                 const msg = `${labelCapital} do condomínio ${condoNome}\nEi, ${firstName}.\n\nO ${itemLabel} de Título:\n${doc.titulo || ''}\n\nCategoria do ${itemLabel}:\n${doc.categoria || ''}\n\nData de Expedição:\n${formatDate(doc.data_expedicao)}\n\nData de Validade:\n${formatDate(doc.data_validade)}\n\nVencerá daqui a ${label}.\n\nFique atento.\n\nCondomeet Agradece.\ncód interno: ${cod}`
 
-                const result = await smartSend(BOTCONVERSA_API_KEY, s.botconversa_id, s.whatsapp, 'text', msg, firstName)
+                const result = await smartSend(BOTCONVERSA_API_KEY, s.botconversa_id, s.whatsapp, 'text', msg, firstName, supabase, s.id)
                 log.push({ table, doc_id: doc.id, sindico: firstName, canal: result.success ? 'whatsapp_ok' : 'whatsapp_fail', dias })
                 if (result.success) totalDisparos++
                 await new Promise(r => setTimeout(r, DELAY_TEXT_MS))

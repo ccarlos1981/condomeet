@@ -135,9 +135,9 @@ function MiniCalendar({
           const isSel = iso === selected
           const isToday = iso === todayStr
 
-          let cls = 'text-xs flex items-center justify-center rounded-lg h-8 w-full cursor-pointer transition-all font-medium '
-          if (isPast) cls += 'text-gray-300 cursor-default'
-          else if (isBooked) cls += 'bg-[#FC5931] text-white cursor-default font-bold'
+          let cls = 'text-xs flex items-center justify-center rounded-lg h-8 w-full cursor-pointer transition-all font-medium relative '
+          if (isBooked) cls += 'bg-[#FC5931] text-white font-bold hover:bg-[#FC5931]/90' + (isPast ? ' opacity-70' : '')
+          else if (isPast) cls += 'text-gray-300 cursor-default'
           else if (isSel) cls += 'bg-[#222] text-white'
           else if (isToday) cls += 'border-2 border-[#FC5931] text-[#FC5931]'
           else cls += 'text-gray-700 hover:bg-gray-100'

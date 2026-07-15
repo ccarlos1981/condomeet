@@ -187,6 +187,167 @@ class _BookingFormScreenState extends State<BookingFormScreen> {
     _loadBookedDates();
   }
 
+  String _fmtDateBr(String iso) {
+    final parts = iso.split('-');
+    if (parts.length != 3) return iso;
+    return '${parts[2]}/${parts[1]}/${parts[0]}';
+  }
+
+  Future<void> _showBookedDetails(String iso) async {
+    HapticFeedback.selectionClick();
+    
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => const Center(
+        child: CircularProgressIndicator(color: AppColors.primary),
+      ),
+    );
+
+    try {
+      final areaId = widget.area['id'] as String;
+      
+      final data = await _supabase
+          .from('reservas')
+          .select('''
+            id,
+            user_id,
+            nome_evento,
+            data_reserva,
+            areas_comuns_horarios(hora_inicio),
+            perfil!reservas_user_id_fkey(nome_completo, bloco_txt, apto_txt)
+          ''')
+          .eq('area_id', areaId)
+          .eq('data_reserva', iso)
+          .inFilter('status', ['pendente', 'aprovado'])
+          .order('created_at');
+
+      if (mounted) Navigator.of(context).pop();
+
+      final list = List<Map<String, dynamic>>.from(data as List);
+      if (list.isEmpty) return;
+
+      final currentUser = _supabase.auth.currentUser;
+      
+      bool canSeeAll = widget.portariaMode;
+      if (!canSeeAll && currentUser != null) {
+        final profile = await _supabase
+            .from('perfil')
+            .select('papel_sistema')
+            .eq('id', currentUser.id)
+            .maybeSingle();
+        final role = (profile?['papel_sistema'] as String?)?.toLowerCase().trim() ?? '';
+        final allowedRoles = ['síndico', 'sindico', 'sub síndico', 'sub sindico', 'admin', 'administrador', 'porteiro', 'portaria', 'zelador'];
+        if (allowedRoles.contains(role)) {
+          canSeeAll = true;
+        }
+      }
+
+      if (!mounted) return;
+
+      showModalBottomSheet(
+        context: context,
+        backgroundColor: Colors.white,
+        shape: const RoundedRectangleBorder(
+          borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+        ),
+        builder: (context) {
+          final labelBloco = StructureHelper.getNivel1Label(_tipoEstrutura);
+          final labelApto = StructureHelper.getNivel2Label(_tipoEstrutura);
+          
+          return SafeArea(
+            child: Padding(
+              padding: const EdgeInsets.all(20),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Text(
+                        'Reservas em ${_fmtDateBr(iso)}',
+                        style: const TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.bold,
+                          color: AppColors.textMain,
+                        ),
+                      ),
+                      IconButton(
+                        icon: const Icon(Icons.close, color: Colors.grey),
+                        onPressed: () => Navigator.of(context).pop(),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 10),
+                  Flexible(
+                    child: ListView.separated(
+                      shrinkWrap: true,
+                      itemCount: list.length,
+                      separatorBuilder: (_, __) => const Divider(height: 16),
+                      itemBuilder: (context, idx) {
+                        final r = list[idx];
+                        final isOwner = currentUser != null && r['user_id'] == currentUser.id;
+                        final showDetails = canSeeAll || isOwner;
+                        
+                        final perfil = r['perfil'] as Map<String, dynamic>?;
+                        final nomeMorador = showDetails && perfil != null
+                            ? (perfil['nome_completo'] as String?)?.split(' ')[0] ?? ''
+                            : 'Reservado';
+                        final unidade = showDetails && perfil != null
+                            ? ' ($labelBloco ${perfil['bloco_txt']}, $labelApto ${perfil['apto_txt']})'
+                            : '';
+                        
+                        final horarioMap = r['areas_comuns_horarios'] as Map<String, dynamic>?;
+                        final horaInicio = horarioMap != null ? _fmtHora(horarioMap['hora_inicio'] as String) : null;
+                        
+                        return Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              r['nome_evento'] as String? ?? widget.area['tipo_agenda'] as String? ?? 'Reserva',
+                              style: const TextStyle(
+                                fontSize: 14,
+                                fontWeight: FontWeight.bold,
+                                color: AppColors.textMain,
+                              ),
+                            ),
+                            const SizedBox(height: 4),
+                            Text(
+                              'Reservado por: $nomeMorador$unidade',
+                              style: const TextStyle(
+                                fontSize: 12,
+                                color: AppColors.textHint,
+                              ),
+                            ),
+                            if (horaInicio != null) ...[
+                              const SizedBox(height: 4),
+                              Text(
+                                'Horário: $horaInicio',
+                                style: const TextStyle(
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.w600,
+                                  color: AppColors.primary,
+                                ),
+                              ),
+                            ],
+                          ],
+                        );
+                      },
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          );
+        },
+      );
+    } catch (e) {
+      if (mounted) Navigator.of(context).pop();
+      debugPrint('Erro ao buscar detalhes da reserva: $e');
+    }
+  }
+
   Future<void> _onDateTap(String iso) async {
     setState(() { _selectedDate = iso; _selectedSlotId = null; _slots = []; });
     HapticFeedback.selectionClick();
@@ -524,18 +685,32 @@ class _BookingFormScreenState extends State<BookingFormScreen> {
 
                 Color bg = Colors.transparent;
                 Color textColor = AppColors.textMain;
-                if (isPast) { textColor = AppColors.disabledIcon; }
-                else if (isBooked) { bg = AppColors.primary.withValues(alpha: 0.15); textColor = AppColors.primary; }
-                else if (isSel) { bg = AppColors.textMain; textColor = Colors.white; }
-                else if (isToday) { bg = AppColors.primary.withValues(alpha: 0.1); textColor = AppColors.primary; }
+                if (isBooked) {
+                  bg = AppColors.primary.withValues(alpha: isPast ? 0.08 : 0.15);
+                  textColor = isPast ? AppColors.primary.withValues(alpha: 0.6) : AppColors.primary;
+                } else if (isPast) {
+                  textColor = AppColors.disabledIcon;
+                } else if (isSel) {
+                  bg = AppColors.textMain;
+                  textColor = Colors.white;
+                } else if (isToday) {
+                  bg = AppColors.primary.withValues(alpha: 0.1);
+                  textColor = AppColors.primary;
+                }
 
                 return GestureDetector(
-                  onTap: () { if (!isPast && !isBooked) _onDateTap(iso); },
+                  onTap: () {
+                    if (isBooked) {
+                      _showBookedDetails(iso);
+                    } else if (!isPast) {
+                      _onDateTap(iso);
+                    }
+                  },
                   child: Container(
                     margin: const EdgeInsets.all(2),
                     decoration: BoxDecoration(color: bg, borderRadius: BorderRadius.circular(8)),
                     child: Center(child: Text('$day',
-                      style: TextStyle(fontSize: 12, fontWeight: isSel || isToday ? FontWeight.bold : FontWeight.normal, color: textColor))),
+                      style: TextStyle(fontSize: 12, fontWeight: isSel || isToday || isBooked ? FontWeight.bold : FontWeight.normal, color: textColor))),
                   ),
                 );
               },

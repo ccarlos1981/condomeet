@@ -141,7 +141,7 @@ serve(async (req) => {
     // 4. Fetch creator profile
     const { data: criador } = await supabase
       .from("perfil")
-      .select("nome_completo, bloco_txt, apto_txt, whatsapp, botconversa_id, fcm_token")
+      .select("id, nome_completo, bloco_txt, apto_txt, whatsapp, botconversa_id, fcm_token")
       .eq("id", classificado.criado_por)
       .single()
 
@@ -170,7 +170,7 @@ serve(async (req) => {
       // Fetch síndicos (use ilike for accent-safe matching)
       const { data: sindicos, error: sindicosError } = await supabase
         .from("perfil")
-        .select("id, nome_completo, fcm_token, botconversa_id")
+        .select("id, nome_completo, whatsapp, botconversa_id, fcm_token")
         .eq("condominio_id", condominio_id)
         .or("papel_sistema.ilike.%síndico%,papel_sistema.ilike.%sindico%,papel_sistema.ilike.%subsíndico%,papel_sistema.ilike.%subsindico%,papel_sistema.eq.admin,papel_sistema.eq.ADMIN")
 
@@ -206,8 +206,8 @@ serve(async (req) => {
         }
         if (BOTCONVERSA_API_KEY && (criador.botconversa_id || criador.whatsapp)) {
           const waMsg = `📰 *Condomeet informa:*\n\nSeu anúncio "${classificado.titulo}" foi recebido com sucesso e está em análise pela administração do condomínio.\n\nAvisaremos você por aqui assim que for aprovado!`
-          const waResult = await smartSend(BOTCONVERSA_API_KEY, criador.botconversa_id as string, criador.whatsapp as string, "text", waMsg, criador.nome_completo as string)
-          whatsappResults.push({ success: waResult.success, subscriberId: criador.botconversa_id, error: waResult.error })
+          const waResult = await smartSend(BOTCONVERSA_API_KEY, criador.botconversa_id as string, criador.whatsapp as string, "text", waMsg, criador.nome_completo as string, supabase, criador.id)
+          whatsappResults.push({ success: waResult.success, subscriberId: waResult.subscriberId || criador.botconversa_id, error: waResult.error })
         }
       }
 
@@ -215,16 +215,24 @@ serve(async (req) => {
       const codInterno = classificado.cod_interno || Math.random().toString(36).substring(2, 7).toUpperCase()
       const whatsappMsg = `📦 Condomeet informa\n\nTem um novo anúncio do morador do:\nNome: ${criador?.nome_completo ?? "Morador"}\n\n${blocoLabel}: ${criador?.bloco_txt ?? "?"}\n${aptoLabel}: ${criador?.apto_txt ?? "?"}\n\nAnúncio: ${classificado.titulo}\n\nO anúncio está pronto para você avaliar e se estiver dentro do regimento do condomínio, aprovar.\n\nCondomeet agradece!\nCod. interno: ${codInterno}`
 
-      const whatsappRecipients = (sindicos ?? []).filter((s: any) => s.botconversa_id && s.botconversa_id.trim() !== "")
+      const whatsappRecipients = (sindicos ?? []).filter((s: any) => s.botconversa_id || s.whatsapp)
       console.log(`[classificados-notify] WA recipients: ${whatsappRecipients.length}, BOTCONVERSA_API_KEY set: ${!!BOTCONVERSA_API_KEY}`)
 
       if (whatsappRecipients.length > 0 && BOTCONVERSA_API_KEY) {
         for (const recipient of whatsappRecipients) {
-          const subscriberId = recipient.botconversa_id
-          console.log(`[classificados-notify] Sending WA to ${recipient.nome_completo} (${subscriberId})...`)
-          const result = await sendMessage(BOTCONVERSA_API_KEY, subscriberId, "text", whatsappMsg)
+          console.log(`[classificados-notify] Sending WA to ${recipient.nome_completo}...`)
+          const result = await smartSend(
+            BOTCONVERSA_API_KEY,
+            recipient.botconversa_id,
+            recipient.whatsapp,
+            "text",
+            whatsappMsg,
+            recipient.nome_completo?.split(" ")[0],
+            supabase,
+            recipient.id
+          )
           console.log(`[classificados-notify] WA result: ${result.success ? '✅' : '❌'} ${result.error || ''}`)
-          whatsappResults.push({ success: result.success, subscriberId, error: result.error })
+          whatsappResults.push({ success: result.success, subscriberId: result.subscriberId || recipient.botconversa_id, error: result.error })
           // Rate limit between sends
           if (whatsappRecipients.indexOf(recipient) < whatsappRecipients.length - 1) {
             await new Promise(r => setTimeout(r, 1000))
@@ -293,9 +301,9 @@ serve(async (req) => {
         const codInterno = classificado.cod_interno || Math.random().toString(36).substring(2, 7).toUpperCase()
         const waMsg = `📰 ${condoNome}\n\nSeu anúncio foi aprovado pelo Condomínio!\n\nAnúncio: ${classificado.titulo}\n\nLembre-se que o anúncio terá validade de 60 dias.\nData: ${dataFormatada}\n\nCondomeet agradece!\nCod. interno: ${codInterno}`
         console.log(`[classificados-notify] Sending approval WA to creator ${criador.nome_completo}`)
-        const waResult = await smartSend(BOTCONVERSA_API_KEY, criador.botconversa_id as string, criador.whatsapp as string, "text", waMsg, criador.nome_completo as string)
+        const waResult = await smartSend(BOTCONVERSA_API_KEY, criador.botconversa_id as string, criador.whatsapp as string, "text", waMsg, criador.nome_completo as string, supabase, criador.id)
         console.log(`[classificados-notify] WA approval result: ${waResult.success ? '✅' : '❌'} ${waResult.error || ''}`)
-        whatsappResults.push({ success: waResult.success, subscriberId: criador.botconversa_id, error: waResult.error })
+        whatsappResults.push({ success: waResult.success, subscriberId: waResult.subscriberId || criador.botconversa_id, error: waResult.error })
       }
     }
 

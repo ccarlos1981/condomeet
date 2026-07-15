@@ -129,7 +129,7 @@ serve(async (req) => {
         `Condomeet agradece!\n` +
         `Cód interno: ${cod1}`
 
-      const result1 = await smartSend(BOTCONVERSA_API_KEY, perfil.botconversa_id, perfil.whatsapp, "text", msg1, firstName)
+      const result1 = await smartSend(BOTCONVERSA_API_KEY, perfil.botconversa_id, perfil.whatsapp, "text", msg1, firstName, supabase, perfil_id)
       results.push(`WhatsApp msg1: ${result1.success ? "✅" : "❌"}`)
 
       // Wait 5 seconds before second message
@@ -153,7 +153,7 @@ serve(async (req) => {
         `Seja Bem vindo(a)!\n` +
         `Cód interno: ${cod2}`
 
-      const result2 = await smartSend(BOTCONVERSA_API_KEY, perfil.botconversa_id, perfil.whatsapp, "text", msg2, firstName)
+      const result2 = await smartSend(BOTCONVERSA_API_KEY, perfil.botconversa_id, perfil.whatsapp, "text", msg2, firstName, supabase, perfil_id)
       results.push(`WhatsApp msg2: ${result2.success ? "✅" : "❌"}`)
     } else {
       results.push("WhatsApp resident: skipped (no whatsapp or opt-out)")
@@ -207,7 +207,7 @@ serve(async (req) => {
             const d = Math.floor(Math.random() * 5000) + 3000
             await delay(d)
           }
-          const result = await smartSend(BOTCONVERSA_API_KEY, s.botconversa_id as string, s.whatsapp as string, "text", msgSindico)
+          const result = await smartSend(BOTCONVERSA_API_KEY, s.botconversa_id as string, s.whatsapp as string, "text", msgSindico, undefined, supabase, s.id as string)
           if (result.success) sindicoWhatsappCount++
         }
       }

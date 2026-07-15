@@ -102,6 +102,8 @@ function DeliveryModal({ parcel, condoId, tipoEstrutura, onClose, onConfirm }: D
         .eq('bloco_txt', bloco)
         .eq('apto_txt', apto)
         .not('nome_completo', 'is', null)
+        .eq('status_aprovacao', 'aprovado')
+        .neq('bloqueado', true)
       setResidents(data ?? [])
       if (data && data.length === 1) setPickedById(data[0].id)
       setLoadingResidents(false)

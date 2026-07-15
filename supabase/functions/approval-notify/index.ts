@@ -2,7 +2,7 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2"
 import { create, getNumericDate } from "https://deno.land/x/djwt@v2.9.1/mod.ts"
-import { sendMessage } from "../_shared/botconversa.ts"
+import { smartSend } from "../_shared/botconversa.ts"
 
 // ── FCM helpers ─────────────────────────────────────────────────────────────
 function pemToBinary(pem: string): ArrayBuffer {
@@ -86,7 +86,7 @@ serve(async (req) => {
     // Fetch approved perfil
     const { data: perfil, error: perfilErr } = await supabase
       .from("perfil")
-      .select("nome_completo, whatsapp, botconversa_id, fcm_token, bloco_txt, apto_txt, notificacoes_whatsapp")
+      .select("id, nome_completo, whatsapp, botconversa_id, fcm_token, bloco_txt, apto_txt, notificacoes_whatsapp")
       .eq("id", perfil_id)
       .single()
 
@@ -110,9 +110,10 @@ serve(async (req) => {
     const results: string[] = []
 
     // ── 1. WhatsApp to approved resident ──────────────────────────────────
-    if (perfil.botconversa_id && perfil.notificacoes_whatsapp !== false) {
+    if ((perfil.botconversa_id || perfil.whatsapp) && perfil.notificacoes_whatsapp !== false) {
       const codInterno = genCodInterno()
       const msg =
+        `` +
         `😄\n` +
         `${condoNome}\n` +
         `\n` +
@@ -131,13 +132,22 @@ serve(async (req) => {
       const BOTCONVERSA_API_KEY = Deno.env.get("BOTCONVERSA_API_KEY")
 
       if (BOTCONVERSA_API_KEY) {
-        const sentRes = await sendMessage(BOTCONVERSA_API_KEY, perfil.botconversa_id, "text", msg)
+        const sentRes = await smartSend(
+          BOTCONVERSA_API_KEY,
+          perfil.botconversa_id,
+          perfil.whatsapp,
+          "text",
+          msg,
+          perfil.nome_completo?.split(" ")[0],
+          supabase,
+          perfil_id
+        )
         results.push(`WhatsApp resident: ${sentRes.success ? "✅" : "❌"}`)
       } else {
         results.push("WhatsApp: BotConversa not configured")
       }
     } else {
-      results.push("WhatsApp: no botconversa_id or opt-out")
+      results.push("WhatsApp: no botconversa_id/whatsapp or opt-out")
     }
 
     // ── 2. Push notification to approved resident ─────────────────────────

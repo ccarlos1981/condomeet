@@ -63,6 +63,7 @@ class InvitationRepositoryImpl implements InvitationRepository {
         .select()
         .eq('resident_id', residentId)
         .eq('status', 'active')
+        .filter('parent_id', 'is', null)
         .gte('validity_date', DateTime.now().toIso8601String())
         .order('created_at', ascending: false);
     return (rows as List).map((r) => _fromMap(r as Map<String, dynamic>)).toList();
@@ -265,6 +266,7 @@ class InvitationRepositoryImpl implements InvitationRepository {
     String? documento,
     String? placa,
     String? crachaReferencia,
+    DateTime? validUntil,
   }) async {
     try {
       final id = const Uuid().v4();
@@ -290,6 +292,7 @@ class InvitationRepositoryImpl implements InvitationRepository {
         status: 'active',
         createdAt: now,
         updatedAt: now,
+        validUntil: validUntil,
       );
 
       // Use Supabase directly — PowerSync only holds local user data,
@@ -311,7 +314,40 @@ class InvitationRepositoryImpl implements InvitationRepository {
         'visitante_compareceu': 0,
         'created_at': now.toIso8601String(),
         'updated_at': now.toIso8601String(),
+        'valid_until': validUntil?.toIso8601String(),
       });
+
+      // If validUntil is set and after validityDate, generate child invitations for each day in range
+      if (validUntil != null && validUntil.isAfter(validityDate)) {
+        final startDateOnly = DateTime(validityDate.year, validityDate.month, validityDate.day);
+        final endDateOnly = DateTime(validUntil.year, validUntil.month, validUntil.day);
+        final daysDifference = endDateOnly.difference(startDateOnly).inDays;
+
+        for (int i = 1; i <= daysDifference; i++) {
+          final childId = const Uuid().v4();
+          final childDate = validityDate.add(Duration(days: i));
+          await _supabase.from('convites').insert({
+            'id': childId,
+            'resident_id': residentId,
+            'condominio_id': condominiumId,
+            'guest_name': guestName,
+            'validity_date': childDate.toIso8601String(),
+            'qr_data': qrData,
+            'visitor_type': visitorType,
+            'visitor_phone': visitorPhone,
+            'observation': observation,
+            'documento': documento,
+            'placa': placa,
+            'cracha_referencia': crachaReferencia,
+            'status': 'active',
+            'visitante_compareceu': 0,
+            'created_at': now.toIso8601String(),
+            'updated_at': now.toIso8601String(),
+            'parent_id': id,
+            'valid_until': validUntil.toIso8601String(),
+          });
+        }
+      }
 
       return Success(invitation);
     } catch (e) {
@@ -330,6 +366,7 @@ class InvitationRepositoryImpl implements InvitationRepository {
           .from('convites')
           .select()
           .eq('resident_id', residentId)
+          .filter('parent_id', 'is', null)
           .order('created_at', ascending: false)
           .range(offset, offset + limit - 1);
 

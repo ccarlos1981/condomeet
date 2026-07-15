@@ -319,6 +319,15 @@ Deno.serve(async (req) => {
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "",
     );
 
+    // Update last_message_received_at in whatsapp_health_status
+    try {
+      await supabase.from("whatsapp_health_status").update({
+        last_message_received_at: new Date().toISOString()
+      }).eq("id", "singleton");
+    } catch (err) {
+      console.error("[HealthCheck] Failed to update last_message_received_at:", err);
+    }
+
     // ── DEBOUNCE: wait 4s to see if user sends more messages ─────────────
     const arrivalTs = new Date().toISOString();
 
@@ -374,6 +383,7 @@ Deno.serve(async (req) => {
         }).eq("id", 1);
         await smartSend(BOTCONVERSA_API_KEY_tmp, null, incoming.phone, "text",
           "🔴 Bot DESATIVADO. Atenda os moradores normalmente. Quando terminar, envie ATIVAR.",
+          undefined, supabase
         );
         return jsonResponse({ ok: true, action: "bot_desativado" });
       }
@@ -385,6 +395,7 @@ Deno.serve(async (req) => {
         }).eq("id", 1);
         await smartSend(BOTCONVERSA_API_KEY_tmp, null, incoming.phone, "text",
           "🟢 Bot ATIVADO. Voltei a atender os moradores automaticamente!",
+          undefined, supabase
         );
         return jsonResponse({ ok: true, action: "bot_ativado" });
       }
@@ -406,7 +417,7 @@ Deno.serve(async (req) => {
               ? ` Desde: ${new Date(cfg.desativado_em).toLocaleString("pt-BR")}`
               : ""
           }`;
-        await smartSend(BOTCONVERSA_API_KEY_tmp, null, incoming.phone, "text", statusMsg);
+        await smartSend(BOTCONVERSA_API_KEY_tmp, null, incoming.phone, "text", statusMsg, undefined, supabase);
         return jsonResponse({ ok: true, action: "status_enviado" });
       }
 
@@ -560,6 +571,7 @@ Deno.serve(async (req) => {
         "Olá! 👋 Não consegui identificar seu número no nosso sistema.\n\n" +
           "Se você é morador, verifique se seu celular está cadastrado corretamente no aplicativo *Condomeet*.\n\n" +
           "Caso precise de ajuda, procure o síndico do seu condomínio. 😊",
+        undefined, supabase
       );
       return jsonResponse({
         skipped: true,
@@ -615,6 +627,9 @@ Deno.serve(async (req) => {
               incoming.phone,
               "text",
               `Obrigado, *${firstName}*! ✅\n\nVocê continuará recebendo as notificações do seu condomínio pelo WhatsApp.\n\nQualquer dúvida, estou por aqui! 😊`,
+              firstName,
+              supabase,
+              perfil.id
             );
 
             console.log(`[OptIn] ${perfil.id} opted IN`);
@@ -632,6 +647,9 @@ Deno.serve(async (req) => {
               incoming.phone,
               "text",
               `Entendido, *${firstName}*. 🙏\n\nVocê não receberá mais notificações pelo WhatsApp.\n\nCaso mude de ideia, basta acessar o app Condomeet e reativar nas configurações.`,
+              firstName,
+              supabase,
+              perfil.id
             );
 
             console.log(`[OptIn] ${perfil.id} opted OUT`);
@@ -826,10 +844,13 @@ Deno.serve(async (req) => {
     // 10. Send response to morador via BotConversa
     const sendResult = await smartSend(
       BOTCONVERSA_API_KEY,
-      null,
+      perfil.botconversa_id,
       incoming.phone,
       "text",
       geminiResponse.message,
+      perfil.nome_completo?.split(" ")[0],
+      supabase,
+      perfil.id
     );
 
     // 11. Save conversation to history

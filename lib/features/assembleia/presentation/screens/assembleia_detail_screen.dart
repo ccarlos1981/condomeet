@@ -1049,7 +1049,7 @@ class _AssembleiaDetalheScreenState extends State<AssembleiaDetalheScreen> {
                         labelText: 'Selecionar Vizinho',
                         border: OutlineInputBorder(),
                       ),
-                      value: selectedVizinhoId,
+                      initialValue: selectedVizinhoId,
                       items: _vizinhos.map((v) {
                         return DropdownMenuItem<String>(
                           value: v['id'] as String,

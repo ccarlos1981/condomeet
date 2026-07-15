@@ -31,6 +31,7 @@ abstract class InvitationRepository {
     String? documento,
     String? placa,
     String? crachaReferencia,
+    DateTime? validUntil,
   });
 
   /// Fetches paginated invitations for a resident.

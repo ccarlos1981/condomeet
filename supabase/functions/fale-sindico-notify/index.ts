@@ -81,7 +81,7 @@ serve(async (req) => {
         for (const s of (sindicos ?? [])) {
           const sData = s as Record<string, unknown>
           if (sData.notificacoes_whatsapp !== false && (sData.botconversa_id || (sData.whatsapp as string)?.trim())) {
-            const result = await smartSend(BOTCONVERSA_API_KEY, sData.botconversa_id as string, sData.whatsapp as string, "text", msg)
+            const result = await smartSend(BOTCONVERSA_API_KEY, sData.botconversa_id as string, sData.whatsapp as string, "text", msg, undefined, supabase, sData.id as string)
             results.push(`WhatsApp síndico: ${result.success ? "✅" : "❌"}`)
             await new Promise(r => setTimeout(r, DELAY_TEXT_MS))
           }
@@ -108,7 +108,7 @@ serve(async (req) => {
       // ── Síndico respondeu → notificar morador ──
       const { data: resident } = await supabase
         .from("perfil")
-        .select("nome_completo, whatsapp, botconversa_id, fcm_token, notificacoes_whatsapp")
+        .select("id, nome_completo, whatsapp, botconversa_id, fcm_token, notificacoes_whatsapp")
         .eq("id", resident_id)
         .single()
 
@@ -116,7 +116,7 @@ serve(async (req) => {
         const firstName = resident.nome_completo?.split(" ")[0] || "Morador"
         const cod = genCodInterno()
         const msg = `📬 ${condoNome}\n\nEi ${firstName}, o Síndico do seu condomínio acabou de responder no Fale Conosco.\n\nAbra o app e veja a resposta 😊\n\nCondomeet agradece.\nCód. interno: ${cod}`
-        const result = await smartSend(BOTCONVERSA_API_KEY, resident.botconversa_id, resident.whatsapp, "text", msg, firstName)
+        const result = await smartSend(BOTCONVERSA_API_KEY, resident.botconversa_id, resident.whatsapp, "text", msg, firstName, supabase, resident.id)
         results.push(`WhatsApp morador: ${result.success ? "✅" : "❌"}`)
       }
 

@@ -169,7 +169,7 @@ serve(async (req) => {
     if (reservation?.renter_id) {
       const { data: r } = await supabase
         .from("perfil")
-        .select("nome_completo, bloco_txt, apto_txt, whatsapp, botconversa_id, fcm_token")
+        .select("id, nome_completo, bloco_txt, apto_txt, whatsapp, botconversa_id, fcm_token")
         .eq("id", reservation.renter_id)
         .single()
       renter = r;
@@ -179,7 +179,7 @@ serve(async (req) => {
     if (garage?.owner_id) {
       const { data: o } = await supabase
         .from("perfil")
-        .select("nome_completo, bloco_txt, apto_txt, whatsapp, botconversa_id, fcm_token")
+        .select("id, nome_completo, bloco_txt, apto_txt, whatsapp, botconversa_id, fcm_token")
         .eq("id", garage.owner_id)
         .single()
       owner = o;
@@ -252,8 +252,8 @@ serve(async (req) => {
       // WhatsApp to owner via BotConversa
       if (BOTCONVERSA_API_KEY && (owner?.botconversa_id || owner?.whatsapp)) {
         const waMsg = `🅿️ Condomeet - ${condoNome}\n\nNova solicitação de aluguel de vaga!\n\nVaga: ${vagaId}\nSolicitante: ${renter?.nome_completo ?? "Morador"}\n${blocoLabel}: ${renter?.bloco_txt ?? "?"}\n${aptoLabel}: ${renter?.apto_txt ?? "?"}\n\nPeríodo: ${startDate} a ${endDate}\nVeículo: ${reservation.vehicle_model ?? ""} - Placa: ${reservation.vehicle_plate ?? ""}\nValor: R$ ${Number(reservation.total_price || 0).toFixed(2)}\n\nAcesse o app para confirmar ou recusar.\n\nCondomeet agradece!`
-        const waResult = await smartSend(BOTCONVERSA_API_KEY, owner.botconversa_id, owner.whatsapp, "text", waMsg)
-        whatsappResults.push({ success: waResult.success, subscriberId: waResult.subscriberId, error: waResult.error })
+        const waResult = await smartSend(BOTCONVERSA_API_KEY, owner.botconversa_id, owner.whatsapp, "text", waMsg, owner.nome_completo as string, supabase, owner.id)
+        whatsappResults.push({ success: waResult.success, subscriberId: waResult.subscriberId || owner.botconversa_id, error: waResult.error })
       }
 
       // Notify portaria too
@@ -296,8 +296,8 @@ serve(async (req) => {
       // WhatsApp to renter via BotConversa
       if (BOTCONVERSA_API_KEY && (renter?.botconversa_id || renter?.whatsapp)) {
         const waMsg = `✅ Condomeet - ${condoNome}\n\nSua reserva de vaga foi confirmada!\n\nVaga: ${vagaId}\nProprietário: ${owner?.nome_completo ?? "?"}\nPeríodo: ${startDate} a ${endDate}\nValor: R$ ${Number(reservation.total_price || 0).toFixed(2)}\n\nLembre-se de combinar a entrega da chave/controle com o proprietário.\n\nCondomeet agradece!`
-        const waResult = await smartSend(BOTCONVERSA_API_KEY, renter.botconversa_id, renter.whatsapp, "text", waMsg)
-        whatsappResults.push({ success: waResult.success, subscriberId: waResult.subscriberId, error: waResult.error })
+        const waResult = await smartSend(BOTCONVERSA_API_KEY, renter.botconversa_id, renter.whatsapp, "text", waMsg, renter.nome_completo as string, supabase, renter.id)
+        whatsappResults.push({ success: waResult.success, subscriberId: waResult.subscriberId || renter.botconversa_id, error: waResult.error })
       }
 
       // Notify portaria about confirmed reservation

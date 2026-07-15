@@ -140,7 +140,9 @@ Deno.serve(async (req) => {
         phone,
         "text",
         msg,
-        firstName
+        firstName,
+        supabase,
+        resident.id
       )
 
       // Log the send

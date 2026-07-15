@@ -243,7 +243,7 @@ serve(async (req) => {
         const sData = s as Record<string, unknown>
         if (sData.notificacoes_whatsapp !== false && (sData.botconversa_id || (sData.whatsapp as string)?.trim())) {
           const msg = buildSosMessage(sData.nome_completo as string)
-          const sentRes = await smartSend(BOTCONVERSA_API_KEY, sData.botconversa_id as string, sData.whatsapp as string, "text", msg)
+          const sentRes = await smartSend(BOTCONVERSA_API_KEY, sData.botconversa_id as string, sData.whatsapp as string, "text", msg, undefined, supabase, sData.id as string)
           if (sentRes.success) staffWaCount++
           await new Promise(r => setTimeout(r, DELAY_TEXT_MS))
         }

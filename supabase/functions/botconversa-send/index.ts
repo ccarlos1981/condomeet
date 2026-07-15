@@ -30,7 +30,8 @@ interface SendRequest {
 interface Recipient {
   id: string
   nome_completo: string
-  botconversa_id: string
+  botconversa_id?: string | null
+  whatsapp?: string | null
 }
 
 // ── Constants ─────────────────────────────────────────────────────────────
@@ -96,32 +97,33 @@ async function resolveRecipients(
       .eq("status_aprovacao", "aprovado")
       .eq("bloqueado", false)
       .eq("notificacoes_whatsapp", true)
-      .not("botconversa_id", "is", null)
+      .not("whatsapp", "is", null)
+      .neq("whatsapp", "")
 
   let query: any
 
   switch (modo_envio) {
     case "por_apto": {
-      query = supabase.from("perfil").select("id, nome_completo, botconversa_id").eq("condominio_id", condominio_id)
+      query = supabase.from("perfil").select("id, nome_completo, whatsapp, botconversa_id").eq("condominio_id", condominio_id)
       if (bloco) query = query.eq("bloco_txt", bloco)
       if (apto) query = query.eq("apto_txt", apto)
       query = baseFilters(query)
       break
     }
     case "por_bloco": {
-      query = supabase.from("perfil").select("id, nome_completo, botconversa_id").eq("condominio_id", condominio_id)
+      query = supabase.from("perfil").select("id, nome_completo, whatsapp, botconversa_id").eq("condominio_id", condominio_id)
       if (bloco) query = query.eq("bloco_txt", bloco)
       query = baseFilters(query)
       break
     }
     case "por_condominio": {
       query = baseFilters(
-        supabase.from("perfil").select("id, nome_completo, botconversa_id").eq("condominio_id", condominio_id)
+        supabase.from("perfil").select("id, nome_completo, whatsapp, botconversa_id").eq("condominio_id", condominio_id)
       )
       break
     }
     case "por_perfil": {
-      query = supabase.from("perfil").select("id, nome_completo, botconversa_id").eq("condominio_id", condominio_id)
+      query = supabase.from("perfil").select("id, nome_completo, whatsapp, botconversa_id").eq("condominio_id", condominio_id)
       if (perfil) query = query.eq("papel_sistema", perfil)
       query = baseFilters(query)
       break
@@ -129,13 +131,13 @@ async function resolveRecipients(
     case "por_morador": {
       if (!user_id) return []
       query = baseFilters(
-        supabase.from("perfil").select("id, nome_completo, botconversa_id").eq("condominio_id", condominio_id).eq("id", user_id)
+        supabase.from("perfil").select("id, nome_completo, whatsapp, botconversa_id").eq("condominio_id", condominio_id).eq("id", user_id)
       )
       break
     }
     case "por_botconversa": {
       if (!botconversa_id) return []
-      query = supabase.from("perfil").select("id, nome_completo, botconversa_id").eq("botconversa_id", botconversa_id)
+      query = supabase.from("perfil").select("id, nome_completo, whatsapp, botconversa_id").eq("botconversa_id", botconversa_id)
       break
     }
     default:
@@ -147,7 +149,7 @@ async function resolveRecipients(
     console.error("Error querying recipients:", error)
     return []
   }
-  return (data || []).filter((r: any) => r.botconversa_id?.length > 0)
+  return (data || []).filter((r: any) => (r.botconversa_id && r.botconversa_id.length > 0) || (r.whatsapp && r.whatsapp.trim().length > 0))
 }
 
 // ── In-memory deduplication (30s window) ──────────────────────────────────
@@ -250,15 +252,16 @@ Deno.serve(async (req) => {
       return jsonResponse({
         sent: 0,
         total: 0,
-        message: "Nenhum destinatário encontrado com botconversa_id",
+        message: "Nenhum destinatário encontrado com WhatsApp",
       })
     }
 
-    // Deduplicate by botconversa_id
+    // Deduplicate by botconversa_id or whatsapp
     const seen = new Set<string>()
     const uniqueRecipients = recipients.filter((r) => {
-      if (seen.has(r.botconversa_id)) return false
-      seen.add(r.botconversa_id)
+      const key = r.botconversa_id || r.whatsapp
+      if (!key || seen.has(key)) return false
+      seen.add(key)
       return true
     })
 
@@ -272,7 +275,7 @@ Deno.serve(async (req) => {
       uniqueRecipients,
       params.msg,
       tipoNormalized,
-      { flowId: params.flow_id, personalizeMsg: true }
+      { flowId: params.flow_id, personalizeMsg: true, supabase }
     )
 
     const successCount = results.filter((r) => r.success).length

@@ -1,7 +1,7 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2"
 import { create } from "https://deno.land/x/djwt@v2.9.1/mod.ts"
-import { sendByPhone } from "../_shared/botconversa.ts"
+import { smartSend } from "../_shared/botconversa.ts"
 
 // ── FCM helpers ──────────────────────────────────────────────────────────────
 
@@ -185,12 +185,14 @@ serve(async (req) => {
       const whatsMessage = `Olá, ${indicacao.nome}\n\nTemos uma ótima notícia!\n\nO(a) morador(a) ${indicadorNome}, do Condomínio ${condoNome}, indicou seus serviços no App Condomeet, o aplicativo que conecta moradores a profissionais de confiança. 🏡\n\nSua indicação agora está visível para todos os moradores do Condomínio.\n\nSe desejar destacar seu perfil e atrair mais clientes, entre em contato com nosso suporte:\n📞 (62) 99918-8555\n\nAgradecemos pela confiança e desejamos muito sucesso!\n\nAtenciosamente,\nEquipe Condomeet\n🌐 Conectando pessoas, serviços e bons negócios.`
 
       try {
-        const whatsResult = await sendByPhone(
+        const whatsResult = await smartSend(
           botconversaApiKey,
+          null,
           indicacao.whatsapp,
           "text",
           whatsMessage,
-          indicacao.nome.split(" ")[0]
+          indicacao.nome.split(" ")[0],
+          supabase
         )
         whatsappSent = whatsResult.success
         whatsappError = whatsResult.error

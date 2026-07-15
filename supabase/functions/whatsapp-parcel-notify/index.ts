@@ -3,7 +3,7 @@
 // Uses BotConversa for WhatsApp messaging.
 
 import { createClient } from "npm:@supabase/supabase-js@2"
-import { sendToRecipients, sendMessage } from "../_shared/botconversa.ts"
+import { sendToRecipients, smartSend } from "../_shared/botconversa.ts"
 
 // ── Dynamic structure labels ────────────────────────────────────────────────
 function getBlocoLabel(tipo?: string): string {
@@ -67,7 +67,7 @@ Deno.serve(async (req) => {
     }
 
     // ── Fetch residents with whatsapp ─────────────────────────────────
-    const { data: profiles, error } = await supabaseAdmin
+        const { data: profiles, error } = await supabaseAdmin
       .from('perfil')
       .select('id, nome_completo, whatsapp, botconversa_id, notificacoes_whatsapp')
       .eq('condominio_id', condominio_id)
@@ -76,10 +76,11 @@ Deno.serve(async (req) => {
       .eq('status_aprovacao', 'aprovado')
       .eq('bloqueado', false)
       .eq('notificacoes_whatsapp', true)
-      .not('botconversa_id', 'is', null)
+      .not('whatsapp', 'is', null)
+      .neq('whatsapp', '')
 
     if (error || !profiles || profiles.length === 0) {
-      console.log(`No residents with botconversa_id in ${bloco}/${apto}`)
+      console.log(`No residents with whatsapp number in ${bloco}/${apto}`)
       return new Response(JSON.stringify({ error: "Nenhum contato encontrado para notificação" }), { status: 200 })
     }
 
@@ -125,7 +126,16 @@ Deno.serve(async (req) => {
           txtMsg = `✅ ${condoNome}\n\nEncomenda retirada com sucesso!\n\n📨 Tipo: ${tipo || 'Pacote'}\n\n🏢 Unidade\n${blocoLabel}: ${bloco} / ${aptoLabel}: ${apto}\n\n👤 Retirada por: ${whoPickedUp}\n📅 Data/Hora: ${deliveryStr}\n\nCondomeet agradece!\nCod. interno: ${codInterno}`
         }
 
-        const result = await sendMessage(BOTCONVERSA_API_KEY, profile.botconversa_id, "text", txtMsg)
+                const result = await smartSend(
+          BOTCONVERSA_API_KEY,
+          profile.botconversa_id,
+          profile.whatsapp,
+          "text",
+          txtMsg,
+          profile.nome_completo?.split(" ")[0],
+          supabaseAdmin,
+          profile.id
+        )
         console.log(`WhatsApp to ${profile.nome_completo}: ${result.success ? "✅" : "❌"}`)
 
         // Send photo on 'arrived' if available
@@ -136,7 +146,16 @@ Deno.serve(async (req) => {
           console.log(`Waiting ${delayObj}ms before sending photo to bypass anti-spam...`)
           await new Promise(res => setTimeout(res, delayObj))
           
-          const photoResult = await sendMessage(BOTCONVERSA_API_KEY, profile.botconversa_id, "file", parcelData.photo_url as string)
+          const photoResult = await smartSend(
+            BOTCONVERSA_API_KEY,
+            profile.botconversa_id,
+            profile.whatsapp,
+            "file",
+            parcelData.photo_url as string,
+            profile.nome_completo?.split(" ")[0],
+            supabaseAdmin,
+            profile.id
+          )
           console.log(`Photo to ${profile.nome_completo}: ${photoResult.success ? "✅" : "❌"} ${photoResult.error || ''}`)
         }
 

@@ -84,7 +84,7 @@ serve(async (req) => {
         for (const s of (sindicos ?? [])) {
           const sData = s as Record<string, unknown>
           if (sData.notificacoes_whatsapp !== false && (sData.botconversa_id || (sData.whatsapp as string)?.trim())) {
-            const result = await smartSend(BOTCONVERSA_API_KEY, sData.botconversa_id as string, sData.whatsapp as string, "text", msgSindico)
+            const result = await smartSend(BOTCONVERSA_API_KEY, sData.botconversa_id as string, sData.whatsapp as string, "text", msgSindico, undefined, supabase, sData.id as string)
             results.push(`WhatsApp síndico: ${result.success ? "✅" : "❌"}`)
             await new Promise(r => setTimeout(r, DELAY_TEXT_MS))
           }
@@ -115,7 +115,7 @@ serve(async (req) => {
         if (BOTCONVERSA_API_KEY && resident.notificacoes_whatsapp !== false && (resident.botconversa_id || (resident.whatsapp as string)?.trim())) {
           const codRes = genCodInterno()
           const msgResident = `📆 Condomínio ${condoNome}:\n\nA reserva do(a) ${area_nome || "Área comum"} para sua unidade, foi feita com sucesso.\n\nAguarde a administração do seu condomínio aprovar a reserva.\n\nData do evento:\n${formattedDate}\n\nSempre fique atento(a) a data e horário!\n\nCondomeet agradece!\nCód interno: ${codRes}`
-          const result = await smartSend(BOTCONVERSA_API_KEY, resident.botconversa_id as string, resident.whatsapp as string, "text", msgResident)
+          const result = await smartSend(BOTCONVERSA_API_KEY, resident.botconversa_id as string, resident.whatsapp as string, "text", msgResident, undefined, supabase, resident.id as string)
           results.push(`WhatsApp morador: ${result.success ? "✅" : "❌"}`)
         }
         if (fcmAccessToken && fcmProjectId && (resident.fcm_token as string)?.length > 10) {
@@ -128,7 +128,7 @@ serve(async (req) => {
 
         for (const r of unitResidents) {
           if (BOTCONVERSA_API_KEY && r.notificacoes_whatsapp !== false && (r.botconversa_id || (r.whatsapp as string)?.trim())) {
-            const result = await smartSend(BOTCONVERSA_API_KEY, r.botconversa_id as string, r.whatsapp as string, "text", msgUnit)
+            const result = await smartSend(BOTCONVERSA_API_KEY, r.botconversa_id as string, r.whatsapp as string, "text", msgUnit, undefined, supabase, r.id as string)
             results.push(`WhatsApp unidade ${r.nome_completo}: ${result.success ? "✅" : "❌"}`)
             await new Promise(res => setTimeout(res, DELAY_TEXT_MS))
           }
@@ -141,13 +141,13 @@ serve(async (req) => {
       }
 
     } else if (action === "approved" || action === "auto_approved") {
-      const { data: resident } = await supabase.from("perfil").select("nome_completo, whatsapp, botconversa_id, fcm_token, notificacoes_whatsapp").eq("id", user_id).single()
+      const { data: resident } = await supabase.from("perfil").select("id, nome_completo, whatsapp, botconversa_id, fcm_token, notificacoes_whatsapp").eq("id", user_id).single()
       const firstName = resident?.nome_completo?.split(" ")[0] || "Morador"
 
       if (resident?.notificacoes_whatsapp !== false && BOTCONVERSA_API_KEY && (resident?.botconversa_id || resident?.whatsapp)) {
         const cod = genCodInterno()
         const msg = `📆Condomínio ${condoNome}\n\nEi ${firstName}, seu agendamento foi registrado com sucesso.\n\nSua reserva já está aprovada!\n\nIremos lembrar você um dia antes do evento.\n\nCondomeet Agradece.\ncód interno: ${cod}`
-        const result = await smartSend(BOTCONVERSA_API_KEY, resident.botconversa_id, resident.whatsapp, "text", msg, firstName)
+        const result = await smartSend(BOTCONVERSA_API_KEY, resident.botconversa_id, resident.whatsapp, "text", msg, firstName, supabase, resident.id)
         results.push(`WhatsApp morador: ${result.success ? "✅" : "❌"}`)
       }
 
@@ -164,13 +164,13 @@ serve(async (req) => {
       }
 
     } else if (action === "rejected") {
-      const { data: resident } = await supabase.from("perfil").select("nome_completo, whatsapp, botconversa_id, fcm_token, notificacoes_whatsapp").eq("id", user_id).single()
+      const { data: resident } = await supabase.from("perfil").select("id, nome_completo, whatsapp, botconversa_id, fcm_token, notificacoes_whatsapp").eq("id", user_id).single()
       const firstName = resident?.nome_completo?.split(" ")[0] || "Morador"
 
       if (resident?.notificacoes_whatsapp !== false && BOTCONVERSA_API_KEY && (resident?.botconversa_id || resident?.whatsapp)) {
         const cod = genCodInterno()
         const msg = `📆 Condomínio ${condoNome}\n\nOlá ${firstName},\n\nInfelizmente sua reserva foi recusada. ❌\n\n🏠 Espaço: ${area_nome || "Área comum"}\n📅 Data: ${data_reserva || ""}\n\nEntre em contato com o síndico para mais informações.\n\nCondomeet agradece.\nCód interno: ${cod}`
-        const result = await smartSend(BOTCONVERSA_API_KEY, resident.botconversa_id, resident.whatsapp, "text", msg, firstName)
+        const result = await smartSend(BOTCONVERSA_API_KEY, resident.botconversa_id, resident.whatsapp, "text", msg, firstName, supabase, resident.id)
         results.push(`WhatsApp morador: ${result.success ? "✅" : "❌"}`)
       }
 

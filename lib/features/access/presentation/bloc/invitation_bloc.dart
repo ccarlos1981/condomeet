@@ -126,6 +126,7 @@ class InvitationBloc extends Bloc<InvitationEvent, InvitationState> {
       documento: event.documento,
       placa: event.placa,
       crachaReferencia: event.crachaReferencia,
+      validUntil: event.validUntil,
     );
 
     if (result.isSuccess) {

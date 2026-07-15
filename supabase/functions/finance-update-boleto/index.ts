@@ -1,3 +1,4 @@
+// deno-lint-ignore-file no-import-prefix
 import { serve } from 'https://deno.land/std@0.177.0/http/server.ts'
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.39.3'
 
@@ -8,6 +9,12 @@ const corsHeaders = {
 
 const ASAAS_API_KEY = Deno.env.get("ASAAS_API_KEY") || "";
 const ASAAS_URL = Deno.env.get("ASAAS_API_URL") || "https://sandbox.asaas.com/api/v3";
+
+interface UpdatePayload {
+  fine?: { value: number; type: string }
+  interest?: { value: number; type: string }
+  dueDate?: string
+}
 
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
@@ -44,7 +51,7 @@ serve(async (req) => {
     }
 
     // Preparar payload para o Asaas
-    const updatePayload: any = {};
+    const updatePayload: UpdatePayload = {};
     if (isentar_juros) {
         updatePayload.fine = { value: 0, type: 'PERCENTAGE' };
         updatePayload.interest = { value: 0, type: 'PERCENTAGE' };
@@ -84,8 +91,9 @@ serve(async (req) => {
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 }
     )
   } catch (error) {
+    const errorMsg = error instanceof Error ? error.message : String(error);
     return new Response(
-      JSON.stringify({ error: error.message }),
+      JSON.stringify({ error: errorMsg }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 400 }
     )
   }

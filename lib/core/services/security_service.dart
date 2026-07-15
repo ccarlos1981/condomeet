@@ -19,6 +19,7 @@ class SecurityService {
   static const String _biometricsEnabledKey = 'biometrics_enabled';
   static const String _savedEmailKey = 'saved_email';
   static const String _savedPasswordKey = 'saved_password';
+  static const String _autoLoginActiveKey = 'auto_login_active';
 
   // --- Saved Credentials (Auto-Login) ---
 
@@ -26,6 +27,7 @@ class SecurityService {
   Future<void> saveCredentials(String email, String password) async {
     await _safeWrite(_savedEmailKey, email);
     await _safeWrite(_savedPasswordKey, password);
+    await setAutoLoginActive(true);
   }
 
   /// Returns saved credentials or null if not available.
@@ -42,6 +44,18 @@ class SecurityService {
   Future<void> clearCredentials() async {
     await _safeDelete(_savedEmailKey);
     await _safeDelete(_savedPasswordKey);
+    await _safeDelete(_autoLoginActiveKey);
+  }
+
+  /// Set whether auto-login is active.
+  Future<void> setAutoLoginActive(bool active) async {
+    await _safeWrite(_autoLoginActiveKey, active.toString());
+  }
+
+  /// Check if auto-login is active.
+  Future<bool> isAutoLoginActive() async {
+    final value = await _safeRead(_autoLoginActiveKey);
+    return value == 'true';
   }
 
   // --- Safe storage wrappers with SharedPreferences fallback ---

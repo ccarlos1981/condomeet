@@ -1,9 +1,39 @@
+// deno-lint-ignore-file no-import-prefix
 import { serve } from 'https://deno.land/std@0.177.0/http/server.ts'
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.39.3'
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+}
+
+interface TaxaExtra {
+  valor: number
+  descricao?: string
+}
+
+interface PerfilSimples {
+  id: string
+  nome_completo: string | null
+}
+
+interface UnidadePerfilSimples {
+  perfil: PerfilSimples | null
+}
+
+interface BlocoSimples {
+  nome_ou_numero: string | null
+}
+
+interface ApartamentoSimples {
+  numero: string | null
+}
+
+interface UnidadeSimulada {
+  id: string
+  blocos: BlocoSimples | null
+  apartamentos: ApartamentoSimples | null
+  unidade_perfil: UnidadePerfilSimples[] | null
 }
 
 serve(async (req) => {
@@ -51,7 +81,7 @@ serve(async (req) => {
     // Calcular Extra Global
     let totalExtraGlobal = 0;
     if (taxas_extras && Array.isArray(taxas_extras)) {
-        taxas_extras.forEach((t: any) => totalExtraGlobal += Number(t.valor || 0));
+        taxas_extras.forEach((t: TaxaExtra) => totalExtraGlobal += Number(t.valor || 0));
     }
 
     const valorFixoGlobal = valorRateioBase + totalExtraGlobal;
@@ -75,10 +105,12 @@ serve(async (req) => {
       throw new Error('Nenhuma unidade encontrada')
     }
 
+    const rawUnidades = unidades as unknown as UnidadeSimulada[];
+
     const simulação = [];
     let valorTotalCondominio = 0;
 
-    for (const unidade of unidades) {
+    for (const unidade of rawUnidades) {
        let valorFinal = valorFixoGlobal;
        let multasValor = 0;
        let reservasValor = 0;
@@ -94,7 +126,7 @@ serve(async (req) => {
 
         const morador = unidade.unidade_perfil?.[0]?.perfil;
         const userIds = unidade.unidade_perfil
-          ?.map((up: any) => up.perfil?.id)
+          ?.map((up) => up.perfil?.id)
           .filter(Boolean) || [];
 
         if (userIds.length > 0) {
@@ -111,18 +143,18 @@ serve(async (req) => {
        valorFinal += multasValor + reservasValor;
 
        if (valorFinal > 0) {
-           valorTotalCondominio += valorFinal;
-           simulação.push({
-               unidade_id: unidade.id,
-               bloco: unidade.blocos?.nome_ou_numero || '',
-               apto: unidade.apartamentos?.numero || '',
-               morador_nome: morador?.nome_completo || 'Sem morador',
-               valor_base: valorRateioBase,
-               taxas_extras: totalExtraGlobal,
-               multas: multasValor,
-               reservas: reservasValor,
-               valor_total: valorFinal
-           });
+            valorTotalCondominio += valorFinal;
+            simulação.push({
+                unidade_id: unidade.id,
+                bloco: unidade.blocos?.nome_ou_numero || '',
+                apto: unidade.apartamentos?.numero || '',
+                morador_nome: morador?.nome_completo || 'Sem morador',
+                valor_base: valorRateioBase,
+                taxas_extras: totalExtraGlobal,
+                multas: multasValor,
+                reservas: reservasValor,
+                valor_total: valorFinal
+            });
        }
     }
 
@@ -138,8 +170,9 @@ serve(async (req) => {
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 }
     )
   } catch (error) {
+    const errorMsg = error instanceof Error ? error.message : String(error);
     return new Response(
-      JSON.stringify({ error: error.message }),
+      JSON.stringify({ error: errorMsg }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 400 }
     )
   }

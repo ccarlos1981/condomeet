@@ -61,7 +61,9 @@ async function sendWhatsAppReminder(
   phone: string | null | undefined,
   nome: string,
   area: string,
-  data: string
+  data: string,
+  supabase?: any,
+  perfilId?: string
 ): Promise<boolean> {
   const codInterno = Math.random().toString(36).substring(2, 7).toUpperCase()
   const firstName = nome.split(' ')[0]
@@ -73,7 +75,7 @@ async function sendWhatsAppReminder(
     `Condomeet agradece!\n` +
     `Cód interno: ${codInterno}`
 
-  const result = await smartSend(apiKey, botconversaId, phone, 'text', msg, firstName)
+  const result = await smartSend(apiKey, botconversaId, phone, 'text', msg, firstName, supabase, perfilId)
   return result.success
 }
 
@@ -112,7 +114,7 @@ Deno.serve(async (req) => {
         .select(`
           id, nome_evento, user_id, data_reserva, bloco_destino, apto_destino, condominio_id,
           areas_comuns!inner(tipo_agenda, tipo_reserva, local),
-          perfil:perfil!reservas_user_id_fkey(nome_completo, telefone, whatsapp, botconversa_id, fcm_token)
+          perfil:perfil!reservas_user_id_fkey(id, nome_completo, telefone, whatsapp, botconversa_id, fcm_token)
         `)
         .eq('areas_comuns.tipo_reserva', 'por_dia')
         .eq('data_reserva', date)
@@ -156,7 +158,9 @@ Deno.serve(async (req) => {
               perfil?.whatsapp || perfil?.telefone,
               perfil?.nome_completo ?? '',
               nomeArea,
-              dataFmt
+              dataFmt,
+              supabase,
+              perfil?.id
             )
             if (waSent) canal = 'whatsapp'
           }
@@ -181,7 +185,9 @@ Deno.serve(async (req) => {
                 r.whatsapp || r.telefone,
                 r.nome_completo ?? '',
                 nomeArea,
-                dataFmt
+                dataFmt,
+                supabase,
+                r.id
               )
               if (waSent) canal = 'whatsapp'
               await new Promise(res => setTimeout(res, DELAY_TEXT_MS))

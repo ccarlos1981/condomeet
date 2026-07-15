@@ -62,3 +62,9 @@ enabled = true
 verify_jwt = false
 import_map = "./functions/import_map.json"
 entrypoint = "./functions/whatsapp-chatbot/index.ts"
+
+[functions.whatsapp-dashboard]
+enabled = true
+verify_jwt = false
+entrypoint = "./functions/whatsapp-dashboard/index.ts"
+

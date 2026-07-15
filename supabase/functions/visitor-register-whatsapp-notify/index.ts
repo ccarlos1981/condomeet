@@ -88,24 +88,25 @@ Deno.serve(async (req: Request) => {
     const whatsappDisplay = whatsapp && whatsapp.trim() ? whatsapp.trim() : "Não informado"
     const empresaDisplay = empresa && empresa.trim() ? empresa.trim() : "Não informada"
 
-    // ── Fetch ALL residents of the unit with botconversa_id ───────────
+    // ── Fetch ALL residents of the unit with whatsapp ───────────
     const { data: unitResidents } = await supabase
       .from("perfil")
-      .select("id, nome_completo, botconversa_id, notificacoes_whatsapp")
+      .select("id, nome_completo, whatsapp, botconversa_id, notificacoes_whatsapp")
       .eq("condominio_id", condominio_id)
       .eq("bloco_txt", bloco)
       .eq("apto_txt", apto)
-      .not("botconversa_id", "is", null)
+      .not("whatsapp", "is", null)
+      .neq("whatsapp", "")
 
     if (!unitResidents || unitResidents.length === 0) {
-      console.log(`No residents with botconversa_id in ${bloco}/${apto}`)
-      return jsonResponse({ sent: false, reason: "No residents with BotConversa configured" })
+      console.log(`No residents with whatsapp in ${bloco}/${apto}`)
+      return jsonResponse({ sent: false, reason: "No residents with WhatsApp configured" })
     }
 
-    const validRecipients = unitResidents.filter(r => r.notificacoes_whatsapp !== false && r.botconversa_id)
+    const validRecipients = unitResidents.filter(r => r.notificacoes_whatsapp !== false && (r.botconversa_id || r.whatsapp))
     
     if (validRecipients.length === 0) {
-      console.log(`All residents with botconversa_id opted out in ${bloco}/${apto}`)
+      console.log(`All residents with WhatsApp opted out in ${bloco}/${apto}`)
       return jsonResponse({ sent: false, reason: "All residents opted out" })
     }
 
@@ -130,7 +131,7 @@ Deno.serve(async (req: Request) => {
       `Condomeet agradece!\n` +
       `Cód interno: ${codInterno}`
 
-    const results = await sendToRecipients(BOTCONVERSA_API_KEY, validRecipients, msg, "text", { personalizeMsg: true })
+    const results = await sendToRecipients(BOTCONVERSA_API_KEY, validRecipients, msg, "text", { personalizeMsg: true, supabase })
     console.log(`[visitor-register-notify] Results:`, results)
 
     return jsonResponse({

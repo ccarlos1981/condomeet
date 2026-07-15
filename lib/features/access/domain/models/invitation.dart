@@ -20,6 +20,8 @@ class Invitation extends Equatable {
   final String? aptoTxt;
   final DateTime createdAt;
   final DateTime updatedAt;
+  final DateTime? validUntil;
+  final String? parentId;
 
   const Invitation({
     required this.id,
@@ -40,6 +42,8 @@ class Invitation extends Equatable {
     this.aptoTxt,
     required this.createdAt,
     required this.updatedAt,
+    this.validUntil,
+    this.parentId,
   });
 
   factory Invitation.fromMap(Map<String, dynamic> map) {
@@ -71,6 +75,10 @@ class Invitation extends Equatable {
       updatedAt: map['updated_at'] != null
           ? DateTime.tryParse(map['updated_at'] as String) ?? DateTime.now()
           : DateTime.now(),
+      validUntil: map['valid_until'] != null
+          ? DateTime.tryParse(map['valid_until'] as String)
+          : null,
+      parentId: map['parent_id'] as String?,
     );
   }
 
@@ -78,6 +86,8 @@ class Invitation extends Equatable {
     bool? visitanteCompareceu,
     String? liberadoPor,
     DateTime? liberadoEm,
+    DateTime? validUntil,
+    String? parentId,
   }) {
     return Invitation(
       id: id,
@@ -98,6 +108,8 @@ class Invitation extends Equatable {
       aptoTxt: aptoTxt,
       createdAt: createdAt,
       updatedAt: updatedAt,
+      validUntil: validUntil ?? this.validUntil,
+      parentId: parentId ?? this.parentId,
     );
   }
 
@@ -121,5 +133,7 @@ class Invitation extends Equatable {
         aptoTxt,
         createdAt,
         updatedAt,
+        validUntil,
+        parentId,
       ];
 }

@@ -46,20 +46,23 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
     bool autoLoggedIn = false;
     if (session == null) {
       print('🔐 AuthCheckRequested: No session found. Checking saved credentials...');
-      // Try auto-login with saved credentials
-      final creds = await _securityService.getCredentials();
-      if (creds != null) {
-        try {
-          print('🔑 Auto-login attempt with saved credentials for ${creds['email']}');
-          await _authRepository.signInWithEmail(creds['email']!, creds['password']!);
-          session = _authRepository.currentSession;
-          autoLoggedIn = true;
-          print('✅ Auto-login successful');
-        } catch (e) {
-          print('❌ Auto-login failed: $e — clearing saved credentials');
-          await _securityService.clearCredentials();
-          emit(const AuthState.unauthenticated());
-          return;
+      // Try auto-login with saved credentials ONLY if auto-login is active
+      final isAutoActive = await _securityService.isAutoLoginActive();
+      if (isAutoActive) {
+        final creds = await _securityService.getCredentials();
+        if (creds != null) {
+          try {
+            print('🔑 Auto-login attempt with saved credentials for ${creds['email']}');
+            await _authRepository.signInWithEmail(creds['email']!, creds['password']!);
+            session = _authRepository.currentSession;
+            autoLoggedIn = true;
+            print('✅ Auto-login successful');
+          } catch (e) {
+            print('❌ Auto-login failed: $e — clearing saved credentials');
+            await _securityService.clearCredentials();
+            emit(const AuthState.unauthenticated());
+            return;
+          }
         }
       }
       if (session == null) {
@@ -547,7 +550,7 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
   }
 
   Future<void> _onAuthLogoutRequested(AuthLogoutRequested event, Emitter<AuthState> emit) async {
-    await _securityService.clearCredentials();
+    await _securityService.setAutoLoginActive(false);
     await _authRepository.signOut();
     emit(const AuthState.unauthenticated());
   }

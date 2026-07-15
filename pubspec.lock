@@ -177,14 +177,6 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "1.1.2"
-  code_assets:
-    dependency: transitive
-    description:
-      name: code_assets
-      sha256: dad6bf6b9f4f378b0a69edbf42584d336efd1a9ce15deb1ba591cbb1b5ff440f
-      url: "https://pub.dev"
-    source: hosted
-    version: "1.1.0"
   collection:
     dependency: transitive
     description:
@@ -728,14 +720,6 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "2.2.0"
-  hooks:
-    dependency: transitive
-    description:
-      name: hooks
-      sha256: a41af4e8fc687cd6d33de9751eb936c8c0204ebe2bcb6c15ecf707504bf47f31
-      url: "https://pub.dev"
-    source: hosted
-    version: "2.0.0"
   html:
     dependency: transitive
     description:
@@ -1072,14 +1056,6 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "2.0.2"
-  objective_c:
-    dependency: transitive
-    description:
-      name: objective_c
-      sha256: "6cb691c686fa2838c6deb34980d426145c2a5d537491cb83d463c33cdbc726ed"
-      url: "https://pub.dev"
-    source: hosted
-    version: "9.4.1"
   package_config:
     dependency: transitive
     description:
@@ -1137,13 +1113,13 @@ packages:
     source: hosted
     version: "2.3.1"
   path_provider_foundation:
-    dependency: transitive
+    dependency: "direct overridden"
     description:
       name: path_provider_foundation
-      sha256: "2a376b7d6392d80cd3705782d2caa734ca4727776db0b6ec36ef3f1855197699"
+      sha256: "6d13aece7b3f5c5a9731eaf553ff9dcbc2eff41087fd2df587fd0fed9a3eb0c4"
       url: "https://pub.dev"
     source: hosted
-    version: "2.6.0"
+    version: "2.5.1"
   path_provider_linux:
     dependency: transitive
     description:
@@ -1376,14 +1352,6 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "2.7.3"
-  record_use:
-    dependency: transitive
-    description:
-      name: record_use
-      sha256: "2551bd8eecfe95d14ae75f6021ad0248be5c27f138c2ec12fcb52b500b3ba1ed"
-      url: "https://pub.dev"
-    source: hosted
-    version: "0.6.0"
   retry:
     dependency: transitive
     description:
@@ -2047,4 +2015,4 @@ packages:
     version: "2.1.0"
 sdks:
   dart: ">=3.11.0 <4.0.0"
-  flutter: ">=3.38.4"
+  flutter: ">=3.38.1"
