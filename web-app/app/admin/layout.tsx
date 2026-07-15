@@ -3,8 +3,6 @@ import { redirect } from 'next/navigation'
 import AdminSidebar from './admin-sidebar'
 import { cookies } from 'next/headers'
 
-const SUPER_ADMIN_EMAILS = ['ccarlos1981+60@gmail.com', 'cristiano.santos@gmx.com']
-
 export default async function AdminLayout({ children }: { children: React.ReactNode }) {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
@@ -17,7 +15,17 @@ export default async function AdminLayout({ children }: { children: React.ReactN
     .single()
 
   const role = profile?.papel_sistema ?? ''
-  const isSuperAdmin = SUPER_ADMIN_EMAILS.includes(user.email ?? '')
+
+  // Query system_superadmins table dynamically
+  const { data: superadmin } = await supabase
+    .from('system_superadmins')
+    .select('email')
+    .eq('email', user.email ?? '')
+    .maybeSingle()
+
+  const isRoleMaster = ['admin', 'superadmin', 'super_admin', 'master'].includes(role.toLowerCase())
+  const isSuperAdmin = isRoleMaster || !!superadmin
+
   const isAdmin = ['Síndico', 'Síndico (a)', 'sindico', 'ADMIN', 'admin', 'Porteiro', 'Porteria', 'Administradora'].some(r =>
     role.toLowerCase().includes(r.toLowerCase())
   )
@@ -54,6 +62,7 @@ export default async function AdminLayout({ children }: { children: React.ReactN
         role={role}
         isSuperAdmin={isSuperAdmin}
         managedCondos={managedCondos}
+        userEmail={user.email ?? ''}
       />
       <main className="flex-1 overflow-y-auto min-h-screen p-6 lg:p-8">
         {children}

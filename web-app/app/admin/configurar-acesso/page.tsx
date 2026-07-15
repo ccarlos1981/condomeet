@@ -2,8 +2,6 @@ import { createClient } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
 import ConfigurarAcessoClient from './configurar-acesso-client'
 
-const SUPER_ADMIN_EMAIL = 'cristiano.santos@gmx.com'
-
 export default async function ConfigurarAcessoPage({
   searchParams,
 }: {
@@ -13,7 +11,13 @@ export default async function ConfigurarAcessoPage({
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) redirect('/login')
 
-  const isSuperAdmin = user.email === SUPER_ADMIN_EMAIL
+  const { data: superadmin } = await supabase
+    .from('system_superadmins')
+    .select('email')
+    .eq('email', user.email ?? '')
+    .maybeSingle()
+
+  const isSuperAdmin = !!superadmin
 
   const { data: profile } = await supabase
     .from('perfil')

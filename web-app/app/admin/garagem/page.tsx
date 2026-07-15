@@ -5,13 +5,18 @@ import GaragemAdminClient from './garagem-admin-client'
 export const dynamic = 'force-dynamic'
 export const metadata = { title: 'Garagem Inteligente — Painel Admin' }
 
-const SUPER_ADMIN_EMAILS = ['ccarlos1981+60@gmail.com', 'cristiano.santos@gmx.com']
-
 export default async function GaragemAdminPage() {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) redirect('/login')
-  if (!SUPER_ADMIN_EMAILS.includes(user.email ?? '')) redirect('/admin')
+
+  const { data: superadmin } = await supabase
+    .from('system_superadmins')
+    .select('email')
+    .eq('email', user.email ?? '')
+    .maybeSingle()
+
+  if (!superadmin) redirect('/admin')
 
   // Fetch all garages with owner + condo info
   const { data: garages } = await supabase

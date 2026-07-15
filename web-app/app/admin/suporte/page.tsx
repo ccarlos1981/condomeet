@@ -28,10 +28,14 @@ export default async function SuporteSistemaAdminPage() {
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) redirect('/login')
 
-  // Check if they are SuperAdmin
-  const isSuperAdmin = user.email === 'cristiano.santos@gmx.com' || user.email === 'erikaosc@gmail.com'
-  
-  if (!isSuperAdmin) redirect('/admin') // Redirect non-superadmins back to standard admin
+  // Check system_superadmins table dynamically
+  const { data: superadmin } = await supabase
+    .from('system_superadmins')
+    .select('email')
+    .eq('email', user.email ?? '')
+    .maybeSingle()
+
+  if (!superadmin) redirect('/admin')
 
   // Fetch all chats
   const { data: chats, error } = await supabase

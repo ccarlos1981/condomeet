@@ -10,10 +10,13 @@ export default async function ChecklistAdminPage() {
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) redirect('/login')
 
-  const SUPER_ADMIN_EMAILS = ['ccarlos1981+60@gmail.com', 'cristiano.santos@gmx.com']
-  const isSuperAdmin = SUPER_ADMIN_EMAILS.includes(user.email ?? '')
+  const { data: superadmin } = await supabase
+    .from('system_superadmins')
+    .select('email')
+    .eq('email', user.email ?? '')
+    .maybeSingle()
 
-  if (!isSuperAdmin) {
+  if (!superadmin) {
     redirect('/admin')
   }
 

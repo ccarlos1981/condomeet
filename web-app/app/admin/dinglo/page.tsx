@@ -10,8 +10,14 @@ export default async function DingloAdminPage() {
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) redirect('/login')
 
-  // Only owner can access
-  if (user.email !== 'cristiano.santos@gmx.com') {
+  // Check system_superadmins table dynamically
+  const { data: superadmin } = await supabase
+    .from('system_superadmins')
+    .select('email')
+    .eq('email', user.email ?? '')
+    .maybeSingle()
+
+  if (!superadmin) {
     redirect('/admin')
   }
 

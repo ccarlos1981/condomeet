@@ -2,15 +2,21 @@ import { createClient } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
 import PropagandaClient from './propaganda-client'
 
-const SUPER_ADMIN_EMAIL = 'cristiano.santos@gmx.com'
-
 export const dynamic = 'force-dynamic'
 export const metadata = { title: 'Empresas Parceiras — Admin' }
 
 export default async function PropagandaAdminPage() {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
-  if (!user || user.email !== SUPER_ADMIN_EMAIL) redirect('/admin')
+  if (!user) redirect('/admin')
+
+  const { data: superadmin } = await supabase
+    .from('system_superadmins')
+    .select('email')
+    .eq('email', user.email ?? '')
+    .maybeSingle()
+
+  if (!superadmin) redirect('/admin')
 
   const { data: condominios } = await supabase
     .from('condominios')
@@ -20,7 +26,7 @@ export default async function PropagandaAdminPage() {
   return (
     <PropagandaClient
       condominios={condominios ?? []}
-      superAdminEmail={SUPER_ADMIN_EMAIL}
+      superAdminEmail={user.email ?? ''}
     />
   )
 }

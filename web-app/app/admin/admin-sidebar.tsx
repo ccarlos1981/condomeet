@@ -30,12 +30,14 @@ export default function AdminSidebar({
   role,
   isSuperAdmin,
   managedCondos = [],
+  userEmail = '',
 }: {
   condoName: string
   userName: string
   role: string
   isSuperAdmin: boolean
   managedCondos?: { id: string; nome: string }[]
+  userEmail?: string
 }) {
   const pathname = usePathname()
   const router = useRouter()
@@ -117,11 +119,20 @@ export default function AdminSidebar({
       items: [
         { label: 'Configurar Acesso', href: '/admin/configurar-acesso', icon: <Settings size={18} /> },
         { label: 'Configurar Ordem',  href: '/admin/configurar-ordem',  icon: <SlidersHorizontal size={18} /> },
-        ...(isSuperAdmin
+        ...((isSuperAdmin || ['admin', 'superadmin', 'super_admin', 'master'].includes(role.toLowerCase()))
           ? [
               { label: 'Push Universal', href: '/admin/push-universal', icon: <Megaphone size={18} /> },
               { label: 'Suporte Usuário', href: '/admin/suporte', icon: <MessageSquare size={18} /> },
               { label: 'Faturamento', href: '/super-admin/faturamento', icon: <DollarSign size={18} /> },
+              {
+                label: 'API Oficial',
+                href: '#',
+                icon: <SlidersHorizontal size={18} />,
+                children: [
+                  { label: 'Dashboard', href: '/admin/api-oficial/dashboard', icon: <BarChart3 size={18} /> },
+                  { label: 'Chat', href: '/admin/api-oficial/chat', icon: <MessageSquare size={18} /> },
+                ],
+              },
             ]
           : []),
       ],
