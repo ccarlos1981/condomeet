@@ -248,6 +248,20 @@ A implantação da API Oficial Meta foi promovida para produção no ambiente Co
 - Billing futuro: **COMPATÍVEL**
 - Hardening: **CONCLUÍDO**
 
+---
+
+## 📊 Baseline Oficial — Módulo de Visitantes (convites)
+
+A migração estrutural do módulo de visitantes foi concluída, e a arquitetura final está homologada em produção.
+
+### Premissas Obrigatórias:
+1. **Relação de Produção Única**: O módulo de visitantes utiliza exclusivamente a tabela física `public.convites` para persistência, leitura e escrita de dados.
+2. **Estrutura Legacy Descontinuada**: Toda a estrutura legada anterior (`vw_convites_legacy`, `tb_autorizacao_visitante`, `fn_convites_view_insert` e respectivos triggers e relacionamentos) está oficialmente descontinuada e expurgada.
+3. **Estratégia de Alteração de Schema**: Futuras alterações estruturais neste módulo devem seguir obrigatoriamente a estratégia *Expand → Migrate → Contract (Cleanup)* para garantir indisponibilidade zero e compatibilidade retroativa.
+4. **Preservação de Backups**: Backups estruturais e de dados permanentes devem ser obrigatoriamente preservados antes de qualquer operação DDL destrutiva.
+5. **Documento de Referência**: O Walkthrough desta migração (`walkthrough.md`) passa a ser o documento oficial de referência arquitetural e operacional para este módulo.
+
+
 
 
 
