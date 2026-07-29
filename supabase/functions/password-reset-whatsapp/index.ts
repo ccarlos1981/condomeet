@@ -1,9 +1,14 @@
 // password-reset-whatsapp — Supabase Edge Function
-// Sends a 6-digit password reset code via WhatsApp (BotConversa)
+// Sends a 6-digit password reset code via WhatsApp using the official
+// MetaTemplateService architecture (AUTHENTICATION template).
+//
+// Architecture: Structured Contract (FASE 2) → smartSend → whatsapp_outbox → worker
+// Template: condomeet_recuperacao_senha_v1 (AUTHENTICATION category)
+// MessageType: OTP (Priority 1 — Queue High)
 
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
 import { createClient } from "npm:@supabase/supabase-js@2"
-import { smartSend } from "../_shared/botconversa.ts"
+import { smartSend, MessageType } from "../_shared/botconversa.ts"
 
 serve(async (req) => {
   try {
@@ -48,6 +53,9 @@ serve(async (req) => {
 
     const firstName = name || "Morador"
 
+    // Texto da mensagem (fallback visual para BotConversa e logs de auditoria).
+    // Quando enviado via Meta Cloud API, o worker utiliza o template AUTHENTICATION
+    // via contrato estruturado, ignorando este texto.
     const msg =
       `🔐 Condomeet - Recuperação de Senha\n\n` +
       `Olá ${firstName},\n\n` +
@@ -55,6 +63,12 @@ serve(async (req) => {
       `⏱️ Este código expira em 5 minutos.\n` +
       `🚫 Não compartilhe este código com ninguém.\n\n` +
       `Condomeet`
+
+    // Template parameters para o contrato estruturado FASE 2.
+    // O template AUTHENTICATION 'condomeet_recuperacao_senha_v1' espera 2 parâmetros:
+    //   {{1}} = Nome do usuário
+    //   {{2}} = Código de verificação (OTP)
+    const templateParams = [firstName, code]
 
     const result = await smartSend(
       BOTCONVERSA_API_KEY,
@@ -64,7 +78,10 @@ serve(async (req) => {
       msg,
       firstName,
       supabase,
-      perfil?.id
+      perfil?.id,
+      MessageType.OTP,                    // messageType — Resolução oficial via EVENT_PRIORITY_MAP
+      "password-reset-whatsapp",          // callerFunction — Rastreabilidade operacional
+      templateParams                      // templateParams — Contrato estruturado FASE 2
     )
 
     return new Response(

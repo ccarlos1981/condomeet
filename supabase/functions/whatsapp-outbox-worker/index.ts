@@ -1,4 +1,5 @@
 import { createClient } from "npm:@supabase/supabase-js@2"
+import { renderTemplateText } from "../_shared/template_renderer.ts"
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -458,6 +459,32 @@ Deno.serve(async (req) => {
     return new Response("ok", { headers: corsHeaders })
   }
 
+  const urlObj = new URL(req.url)
+  const queueType = urlObj.searchParams.get("queue")
+
+  // Validate queueType
+  if (queueType !== "high" && queueType !== "low") {
+    return new Response(JSON.stringify({ error: `Invalid queue parameter: "${queueType || ""}". Use 'high' or 'low'.` }), {
+      status: 400,
+      headers: { ...corsHeaders, "Content-Type": "application/json" },
+    })
+  }
+
+  // Resolve Lease Lock ID and priority range
+  let leaseId: string
+  let minPriority: number
+  let maxPriority: number
+
+  if (queueType === "high") {
+    leaseId = "high_priority"
+    minPriority = 1
+    maxPriority = 5
+  } else {
+    leaseId = "low_priority"
+    minPriority = 6
+    maxPriority = 99
+  }
+
   const instanceId = crypto.randomUUID()
   const startAt = new Date().toISOString()
 
@@ -483,29 +510,31 @@ Deno.serve(async (req) => {
   // 1. Acquire Database Lease Lock (PgBouncer compatible, crash resilient)
   const { data: leaseAcquired } = await supabase.rpc("acquire_worker_lease", {
     p_instance_id: instanceId,
-    p_lease_duration_sec: 120
+    p_lease_duration_sec: 120,
+    p_lease_id: leaseId
   })
 
   if (!leaseAcquired) {
-    console.log(`[Worker] Outro container ativo possui o Lease Lock ou lock ativo nao expirou. Encerrando instance_id=${instanceId}.`)
-    return new Response(JSON.stringify({ status: "busy", message: "Lease lock is active or held by another worker instance" }), {
+    console.log(`[Worker] Outro container ativo possui o Lease Lock ou lock ativo nao expirou. Encerrando instance_id=${instanceId} para lease=${leaseId}.`)
+    return new Response(JSON.stringify({ status: "busy", message: `Lease lock for '${leaseId}' is active or held by another worker instance` }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     })
   }
 
-  console.log(`[Worker] Lease Lock obtido. Iniciando processamento. Instance: ${instanceId}`)
+  console.log(`[Worker] Lease Lock obtido para lease=${leaseId}. Iniciando processamento. Instance: ${instanceId}`)
 
   const renewLease = async (): Promise<boolean> => {
     try {
       const { data: renewed, error } = await supabase.rpc("acquire_worker_lease", {
         p_instance_id: instanceId,
-        p_lease_duration_sec: 120
+        p_lease_duration_sec: 120,
+        p_lease_id: leaseId
       })
       if (error || !renewed) {
-        console.error(`[Lease] Falha ao renovar lease lock para instance=${instanceId}:`, error || "Lock expirou ou foi tomado por outra instancia.")
+        console.error(`[Lease] Falha ao renovar lease lock para instance=${instanceId} lease=${leaseId}:`, error || "Lock expirou ou foi tomado por outra instancia.")
         return false
       }
-      console.log(`[Lease] Lease lock renovado com sucesso para instance=${instanceId}`)
+      console.log(`[Lease] Lease lock renovado com sucesso para instance=${instanceId} lease=${leaseId}`)
       return true
     } catch (err) {
       console.error(`[Lease] Excecao ao renovar lease:`, err)
@@ -724,8 +753,11 @@ Deno.serve(async (req) => {
         }
       }
 
-      // 4c. Claim exactly ONE message
-      const { data: claimedArray, error: claimErr } = await supabase.rpc("claim_single_whatsapp_message")
+      // 4c. Claim exactly ONE message within priority group
+      const { data: claimedArray, error: claimErr } = await supabase.rpc("claim_single_whatsapp_message", {
+        p_min_priority: minPriority,
+        p_max_priority: maxPriority
+      })
       if (claimErr) {
         console.error("[Worker] Erro ao reivindicar mensagem:", claimErr)
         break
@@ -745,36 +777,32 @@ Deno.serve(async (req) => {
       // 4d. Resolve provider for this message
       decision = resolveProvider(providerRuntime as MessageProviderRuntime, metaCredentialsAvailable)
       
-      // Aplicar filtro de rollout do piloto se ativo no banco
-      if (msg.condominio_id && pilotMap.has(msg.condominio_id)) {
+      // 1. Regra Global Temporária: Encomendas vão sempre pela Meta Cloud API (se credenciais ok)
+      const msgType = msg.message_type || ""
+      const textBody = msg.message_content.value || ""
+      
+      if ((msgType === "PARCEL" || msgType === "PARCEL_DELIVERED" || msgType === "OTP") && metaCredentialsAvailable) {
+        decision = { provider: "META_CLOUD_API", reason: "Canal Oficial Meta para Encomendas e Autenticação (OTP)" }
+      }
+      // 2. Aplicar filtro de rollout do piloto se ativo no banco
+      else if (msg.condominio_id && pilotMap.has(msg.condominio_id)) {
         const stage = pilotMap.get(msg.condominio_id)
         let isMetaAllowed = false
-        const textBody = msg.message_content.value || ""
         
         if (stage === "completo") {
           isMetaAllowed = true
         } else if (stage === "reservas") {
           // Encomendas + Visitantes + Reservas/Documentos
-          const isEncomenda = textBody.includes("Chegou uma encomenda")
-          const isVisitante = textBody.includes("entrada") || textBody.includes("visitante") || textBody.includes("autorizar")
-          const isReserva = textBody.includes("reserva") || textBody.includes("vaga")
-          const isDocumento = textBody.includes("documento") || textBody.includes("contrato") || textBody.includes("vencerá")
-          if (isEncomenda || isVisitante || isReserva || isDocumento) {
-            isMetaAllowed = true
+          if (msgType === "VISITOR_INVITE" || msgType === "VISITOR_AUTHORIZED" || textBody.includes("reserva") || textBody.includes("documento")) {
+             isMetaAllowed = true
           }
         } else if (stage === "visitantes") {
           // Encomendas + Visitantes
-          const isEncomenda = textBody.includes("Chegou uma encomenda")
-          const isVisitante = textBody.includes("entrada") || textBody.includes("visitante") || textBody.includes("autorizar")
-          if (isEncomenda || isVisitante) {
-            isMetaAllowed = true
-          }
-        } else if (stage === "encomendas") {
-          // Apenas Encomendas
-          if (textBody.includes("Chegou uma encomenda")) {
-            isMetaAllowed = true
+          if (msgType === "VISITOR_INVITE" || msgType === "VISITOR_AUTHORIZED") {
+             isMetaAllowed = true
           }
         }
+        // Note: stage 'encomendas' removido daqui pois já está coberto pela Regra Global Temporária acima
         
         if (isMetaAllowed) {
           if (metaCredentialsAvailable) {
@@ -820,193 +848,298 @@ Deno.serve(async (req) => {
 
         const textBody = msg.message_content.value || ""
 
-        if (!isWindowOpen && msg.payload_type === "text") {
-          console.log("[Worker] Janela de 24h fechada ou inexistente. Mapeando para template...")
+        if (msg.payload_type === "text") {
+          // ── CAMINHO OFICIAL FASE 2: Contrato Estruturado (Zero Regex / Zero Lógica de Negócio) ──
+          if (msg.message_content?.template?.name && Array.isArray(msg.message_content.template.parameters)) {
+            const contractVersion = msg.message_content.template.contract_version || 1
+            console.log(`[Worker] Processando via contrato estruturado FASE 2 (contract_version=${contractVersion}, template=${msg.message_content.template.name})`)
 
-          // 1. Encomenda recebida (condomeet_encomenda_recebida_v2)
-          if (textBody.includes("Chegou uma encomenda para o seu apartamento")) {
-            finalTemplateName = "condomeet_encomenda_recebida_v2"
-            finalTemplateLanguage = "pt_BR"
-
-            const condoMatch = textBody.match(/📦 \*(.*?)\*/)
-            const typeMatch = textBody.match(/📨 \*Tipo de encomenda:\*\n(.*)/)
-            const unitMatch = textBody.match(/🏢 \*Unidade\*\n(.*?): (.*?) \/ (.*?): (.*)/)
-            const trackMatch = textBody.match(/🔍 \*Cod. rastreio:\* (.*)/)
-            const limitMatch = textBody.match(/⏱ \*Retirar até:\* (.*)/)
-            const obsMatch = textBody.match(/🗒️ \*Observação da encomenda:\*\n([\s\S]*?)\n\nCondomeet agradece!/)
-
-            const condo = condoMatch?.[1] || "Condomínio"
-            const type = typeMatch?.[1] || "Encomenda"
-            const blockLabel = unitMatch?.[1] || "Bloco"
-            const blockVal = unitMatch?.[2] || "—"
-            const aptLabel = unitMatch?.[3] || "Apto"
-            const aptVal = unitMatch?.[4] || "—"
-            const tracking = trackMatch?.[1] || "Não informado"
-            const limit = limitMatch?.[1] || "Imediato"
-            const obs = obsMatch?.[1] || "Sem observação"
-
+            finalTemplateName = msg.message_content.template.name
+            finalTemplateLanguage = msg.message_content.template.language || "pt_BR"
             finalTemplateComponents = [
               {
                 type: "body",
-                parameters: [
-                  { type: "text", text: condo },
-                  { type: "text", text: type },
-                  { type: "text", text: blockLabel },
-                  { type: "text", text: blockVal },
-                  { type: "text", text: aptLabel },
-                  { type: "text", text: aptVal },
-                  { type: "text", text: tracking },
-                  { type: "text", text: limit },
-                  { type: "text", text: obs }
-                ]
+                parameters: msg.message_content.template.parameters.map((p: any) => ({
+                  type: "text",
+                  text: String(p ?? "—").trim()
+                }))
               }
             ]
-          }
+          } else if (!isWindowOpen) {
+            // ── CAMINHO LEGADO DEPRECADO: Fallback por Regex (Para mensagens antigas sem contrato) ──
+            // Aplicado Apenas se a janela estiver FECHADA, pois se estiver ABERTA, pode ir como texto livre.
+            console.warn("[DEPRECATED_REGEX_FALLBACK] Executando fallback por regex para mensagem legada sem contrato estruturado.")
 
-          // 2. Visitante aguardando autorizacao (condomeet_visitante_aguardando_v3)
-          else if (
-            textBody.includes("registramos sua solicitação para entrada") ||
-            textBody.includes("avise seu/sua visitante") ||
-            textBody.includes("avise seu visitante") ||
-            textBody.includes("autorizar a sua entrada no condomínio")
-          ) {
-            finalTemplateName = "condomeet_visitante_aguardando_v3"
-            finalTemplateLanguage = "pt_BR"
+            // Buscar nome real do condomínio do banco para evitar fallbacks no template Meta
+            let dbCondoName: string | undefined = undefined
+            if (msg.condominio_id) {
+              try {
+                const { data: condoObj } = await supabase
+                  .from("condominios")
+                  .select("nome")
+                  .eq("id", msg.condominio_id)
+                  .single()
+                if (condoObj?.nome) dbCondoName = condoObj.nome
+              } catch (_) {}
+            }
 
-            const condoMatch = textBody.match(/🏙\s*(.*?)\n|🏢\s*(.*?)\n|🚪\n(.*?)\n/)
-            const visitorMatch = textBody.match(/visitante (.*?)\n|Visitante: (.*?)\n/)
-            const typeMatch = textBody.match(/Tipo: (.*?)\n|Tipo de visitante:\n(.*?)\n/)
-            const dateMatch = textBody.match(/Data da visita: (.*?)\n|data:\n(.*?)\n|dia:\n (.*?)\./)
-            const codeMatch = textBody.match(/🔑\s*(.*?)\n|Código:\s*(.*?)\n|Código de autorização:\s*(.*?)\n|Código:\n(.*?)\n|Código:\n\n(.*?)\n/)
+            // 1. Encomenda recebida (condomeet_encomenda_recebida_v2)
+            if (textBody.includes("Chegou uma encomenda para o seu apartamento")) {
+              finalTemplateName = "condomeet_encomenda_recebida_v2"
+              finalTemplateLanguage = "pt_BR"
 
-            const condo = condoMatch?.[1] || condoMatch?.[2] || condoMatch?.[3] || "Condomínio"
-            const resident = msg.message_content.firstName || "Morador"
-            const visitor = visitorMatch?.[1] || visitorMatch?.[2] || "Visitante"
-            const type = typeMatch?.[1] || typeMatch?.[2] || "Visitante"
-            const date = dateMatch?.[1] || dateMatch?.[2] || dateMatch?.[3] || "Hoje"
-            const code = codeMatch?.[1] || codeMatch?.[2] || codeMatch?.[3] || codeMatch?.[4] || codeMatch?.[5] || "—"
+              const condoMatch = textBody.match(/📦 \*(.*?)\*/)
+              const typeMatch = textBody.match(/📨 \*Tipo de encomenda:\*\n(.*)/)
+              const unitMatch = textBody.match(/🏢 \*Unidade\*\n(.*?): (.*?) \/ (.*?): (.*)/)
+              const trackMatch = textBody.match(/🔍 \*Cod. rastreio:\* (.*)/)
+              const limitMatch = textBody.match(/⏱ \*Retirar até:\* (.*)/)
+              const obsMatch = textBody.match(/🗒️ \*Observação da encomenda:\*\n([\s\S]*?)\n\nCondomeet agradece!/)
 
-            finalTemplateComponents = [
-              {
-                type: "body",
-                parameters: [
-                  { type: "text", text: condo.trim() },
-                  { type: "text", text: resident },
-                  { type: "text", text: visitor.trim() },
-                  { type: "text", text: type.trim() },
-                  { type: "text", text: date.trim() },
-                  { type: "text", text: code.trim() }
-                ]
-              }
-            ]
-          }
+              const condo = dbCondoName || condoMatch?.[1] || "Condomínio"
+              const type = typeMatch?.[1] || "Encomenda"
+              const blockLabel = unitMatch?.[1] || "Bloco"
+              const blockVal = unitMatch?.[2] || "—"
+              const aptLabel = unitMatch?.[3] || "Apto"
+              const aptVal = unitMatch?.[4] || "—"
+              const tracking = trackMatch?.[1] || "Não informado"
+              const limit = limitMatch?.[1] || "Imediato"
+              const obs = obsMatch?.[1] || "Sem observação"
 
-          // 3. Reserva confirmada (condomeet_reserva_confirmada_v2)
-          else if (textBody.includes("Sua reserva já está aprovada") || textBody.includes("reserva de vaga foi confirmada")) {
-            finalTemplateName = "condomeet_reserva_confirmada_v2"
-            finalTemplateLanguage = "pt_BR"
+              finalTemplateComponents = [
+                {
+                  type: "body",
+                  parameters: [
+                    { type: "text", text: condo },
+                    { type: "text", text: type },
+                    { type: "text", text: blockLabel },
+                    { type: "text", text: blockVal },
+                    { type: "text", text: aptLabel },
+                    { type: "text", text: aptVal },
+                    { type: "text", text: tracking },
+                    { type: "text", text: limit },
+                    { type: "text", text: obs }
+                  ]
+                }
+              ]
+            }
 
-            const condoMatch = textBody.match(/📆\s*Condomínio (.*?)\n|📆Condomínio (.*?)\n/)
-            const spaceMatch = textBody.match(/Espaço: (.*?)\n|Vaga: (.*?)\n/)
-            const dateMatch = textBody.match(/Data do evento:\n(.*?)\n|Período: (.*?)\n/)
+            // 1b. Encomenda retirada / baixa (condomeet_encomenda_retirada_v1)
+            else if (textBody.includes("entregue com sucesso") || textBody.includes("retirada com sucesso")) {
+              finalTemplateName = "condomeet_encomenda_retirada_v1"
+              finalTemplateLanguage = "pt_BR"
 
-            const condo = condoMatch?.[1] || condoMatch?.[2] || "Condomínio"
-            const resident = msg.message_content.firstName || "Morador"
-            const space = spaceMatch?.[1] || spaceMatch?.[2] || "Área comum"
-            const date = dateMatch?.[1] || dateMatch?.[2] || "Agendada"
+              const condoMatch = textBody.match(/📦 \*(.*?)\*/)
+              const residentMatch = textBody.match(/Olá, (.*?)!/)
+              const typeMatch = textBody.match(/📦 (.*?)\n\nRecebida em:/)
+              const arrMatch = textBody.match(/Recebida em:\n(.*?)\n\nRetirada em:/)
+              const delMatch = textBody.match(/Retirada em:\n(.*?)\n\nObrigado\./)
 
-            finalTemplateComponents = [
-              {
-                type: "body",
-                parameters: [
-                  { type: "text", text: condo.trim() },
-                  { type: "text", text: resident },
-                  { type: "text", text: space.trim() },
-                  { type: "text", text: date.trim() }
-                ]
-              }
-            ]
-          }
+              const condo = dbCondoName || condoMatch?.[1] || "Condomínio"
+              const resident = msg.message_content.firstName || residentMatch?.[1] || "Morador"
+              const type = typeMatch?.[1] || "Pacote"
+              const arrDate = arrMatch?.[1] || "—"
+              const delDate = delMatch?.[1] || "—"
 
-          // 4. Reserva cancelada (condomeet_reserva_cancelada_v2)
-          else if (textBody.includes("reserva foi recusada") || textBody.includes("Reserva cancelada")) {
-            finalTemplateName = "condomeet_reserva_cancelada_v2"
-            finalTemplateLanguage = "pt_BR"
+              finalTemplateComponents = [
+                {
+                  type: "body",
+                  parameters: [
+                    { type: "text", text: condo },
+                    { type: "text", text: resident },
+                    { type: "text", text: type },
+                    { type: "text", text: arrDate },
+                    { type: "text", text: delDate }
+                  ]
+                }
+              ]
+            }
 
-            const condoMatch = textBody.match(/📆\s*Condomínio (.*?)\n|📆Condomínio (.*?)\n/)
-            const spaceMatch = textBody.match(/Espaço: (.*?)\n|Vaga: (.*?)\n/)
-            const dateMatch = textBody.match(/Data: (.*?)\n|Período: (.*?)\n/)
+            // 2. Visitante aguardando autorizacao (condomeet_visitante_aguardando_v3)
+            else if (
+              textBody.includes("registramos sua solicitação para entrada") ||
+              textBody.includes("avise seu/sua visitante") ||
+              textBody.includes("avise seu visitante") ||
+              textBody.includes("autorizar a sua entrada no condomínio") ||
+              textBody.includes("Autorização confirmada!")
+            ) {
+              finalTemplateName = "condomeet_visitante_aguardando_v3"
+              finalTemplateLanguage = "pt_BR"
 
-            const condo = condoMatch?.[1] || condoMatch?.[2] || "Condomínio"
-            const resident = msg.message_content.firstName || "Morador"
-            const space = spaceMatch?.[1] || spaceMatch?.[2] || "Área comum"
-            const date = dateMatch?.[1] || dateMatch?.[2] || "Agendada"
+              const condoMatch = textBody.match(/🏙\s*(.*?)\n|🏢\s*(.*?)\n|🚪\n(.*?)\n/)
+              const visitorMatch = textBody.match(/visitante (.*?)\n|Visitante: (.*?)\n|Olá, (.*?)!|Ei (.*?),/i)
+              const typeMatch = textBody.match(/Tipo: (.*?)\n|Tipo de visitante:\n\s*(.*?)\n/i)
+              const dateMatch = textBody.match(/Visita para a Data:\s*(.*?)\n|Data da visita:\s*(.*?)\n|data:\n\s*(.*?)\n|dia:\n\s*(.*?)\.|para o dia:\s*\n?\s*(.*?)\./i)
+              const codeMatch = textBody.match(/(?:🔑|🔐)\s*([A-Za-z0-9]+)|código na portaria:\s*\n?\s*(?:🔑|🔐)?\s*([A-Za-z0-9]+)|Código de autorização:\s*([A-Za-z0-9]+)|Código:\s*\n?\s*([A-Za-z0-9]+)/i)
 
-            finalTemplateComponents = [
-              {
-                type: "body",
-                parameters: [
-                  { type: "text", text: condo.trim() },
-                  { type: "text", text: resident },
-                  { type: "text", text: space.trim() },
-                  { type: "text", text: date.trim() }
-                ]
-              }
-            ]
-          }
+              const condo = dbCondoName || condoMatch?.[1] || condoMatch?.[2] || condoMatch?.[3] || "Condomínio"
+              const resident = msg.message_content.firstName || "Morador"
+              let visitor = visitorMatch?.[1] || visitorMatch?.[2] || visitorMatch?.[3] || visitorMatch?.[4] || "Visitante"
+              if (visitor.includes("avise seu")) visitor = "Visitante"
+              const type = typeMatch?.[1] || typeMatch?.[2] || "Visitante"
+              const date = dateMatch?.[1] || dateMatch?.[2] || dateMatch?.[3] || dateMatch?.[4] || dateMatch?.[5] || "Hoje"
+              let code = codeMatch?.[1] || codeMatch?.[2] || codeMatch?.[3] || codeMatch?.[4] || "—"
+              code = code.trim().replace(/[\.\s]/g, "")
 
-          // 5. Documento disponível (condomeet_documento_disponivel_v2)
-          else if (
-            textBody.includes("documento de Título:") ||
-            textBody.includes("contrato de Título:") ||
-            textBody.includes("vencerá daqui a")
-          ) {
-            finalTemplateName = "condomeet_documento_disponivel_v2"
-            finalTemplateLanguage = "pt_BR"
+              finalTemplateComponents = [
+                {
+                  type: "body",
+                  parameters: [
+                    { type: "text", text: condo.trim() },
+                    { type: "text", text: resident.trim() },
+                    { type: "text", text: visitor.trim() },
+                    { type: "text", text: type.trim() },
+                    { type: "text", text: date.trim() },
+                    { type: "text", text: code }
+                  ]
+                }
+              ]
+            }
 
-            const condoMatch = textBody.match(/do condomínio (.*?)\n/)
-            const typeMatch = textBody.match(/O (documento|contrato) de Título:/)
-            const titleMatch = textBody.match(/Título:\n(.*?)\n/)
-            const catMatch = textBody.match(/Categoria do (?:documento|contrato):\n(.*?)\n/)
-            const expMatch = textBody.match(/Data de Expedição:\n(.*?)\n/)
-            const valMatch = textBody.match(/Data de Validade:\n(.*?)\n/)
+            // 3. Reserva confirmada (condomeet_reserva_confirmada_v2)
+            else if (textBody.includes("Sua reserva já está aprovada") || textBody.includes("reserva de vaga foi confirmada")) {
+              finalTemplateName = "condomeet_reserva_confirmada_v2"
+              finalTemplateLanguage = "pt_BR"
 
-            const condo = condoMatch?.[1] || "Condomínio"
-            const resident = msg.message_content.firstName || "Morador"
-            const type = typeMatch?.[1] || "documento"
-            const title = titleMatch?.[1] || "Novo documento"
-            const category = catMatch?.[1] || "Geral"
-            const expedicao = expMatch?.[1] || "—"
-            const validade = valMatch?.[1] || "—"
+              const condoMatch = textBody.match(/📆\s*Condomínio (.*?)\n|📆Condomínio (.*?)\n/)
+              const spaceMatch = textBody.match(/Espaço: (.*?)\n|Vaga: (.*?)\n/)
+              const dateMatch = textBody.match(/Data do evento:\n(.*?)\n|Período: (.*?)\n/)
 
-            finalTemplateComponents = [
-              {
-                type: "body",
-                parameters: [
-                  { type: "text", text: condo.trim() },
-                  { type: "text", text: resident },
-                  { type: "text", text: type },
-                  { type: "text", text: title.trim() },
-                  { type: "text", text: category.trim() },
-                  { type: "text", text: expedicao },
-                  { type: "text", text: validade }
-                ]
-              }
-            ]
+              const condo = condoMatch?.[1] || condoMatch?.[2] || "Condomínio"
+              const resident = msg.message_content.firstName || "Morador"
+              const space = spaceMatch?.[1] || spaceMatch?.[2] || "Área comum"
+              const date = dateMatch?.[1] || dateMatch?.[2] || "Agendada"
+
+              finalTemplateComponents = [
+                {
+                  type: "body",
+                  parameters: [
+                    { type: "text", text: condo.trim() },
+                    { type: "text", text: resident },
+                    { type: "text", text: space.trim() },
+                    { type: "text", text: date.trim() }
+                  ]
+                }
+              ]
+            }
+
+            // 4. Reserva cancelada (condomeet_reserva_cancelada_v2)
+            else if (textBody.includes("reserva foi recusada") || textBody.includes("Reserva cancelada")) {
+              finalTemplateName = "condomeet_reserva_cancelada_v2"
+              finalTemplateLanguage = "pt_BR"
+
+              const condoMatch = textBody.match(/📆\s*Condomínio (.*?)\n|📆Condomínio (.*?)\n/)
+              const spaceMatch = textBody.match(/Espaço: (.*?)\n|Vaga: (.*?)\n/)
+              const dateMatch = textBody.match(/Data: (.*?)\n|Período: (.*?)\n/)
+
+              const condo = condoMatch?.[1] || condoMatch?.[2] || "Condomínio"
+              const resident = msg.message_content.firstName || "Morador"
+              const space = spaceMatch?.[1] || spaceMatch?.[2] || "Área comum"
+              const date = dateMatch?.[1] || dateMatch?.[2] || "Agendada"
+
+              finalTemplateComponents = [
+                {
+                  type: "body",
+                  parameters: [
+                    { type: "text", text: condo.trim() },
+                    { type: "text", text: resident },
+                    { type: "text", text: space.trim() },
+                    { type: "text", text: date.trim() }
+                  ]
+                }
+              ]
+            }
+
+            // 5. Documento disponível (condomeet_documento_disponivel_v2)
+            else if (
+              textBody.includes("documento de Título:") ||
+              textBody.includes("contrato de Título:") ||
+              textBody.includes("vencerá daqui a")
+            ) {
+              finalTemplateName = "condomeet_documento_disponivel_v2"
+              finalTemplateLanguage = "pt_BR"
+
+              const condoMatch = textBody.match(/do condomínio (.*?)\n/)
+              const typeMatch = textBody.match(/O (documento|contrato) de Título:/)
+              const titleMatch = textBody.match(/Título:\n(.*?)\n/)
+              const catMatch = textBody.match(/Categoria do (?:documento|contrato):\n(.*?)\n/)
+              const expMatch = textBody.match(/Data de Expedição:\n(.*?)\n/)
+              const valMatch = textBody.match(/Data de Validade:\n(.*?)\n/)
+
+              const condo = condoMatch?.[1] || "Condomínio"
+              const resident = msg.message_content.firstName || "Morador"
+              const type = typeMatch?.[1] || "documento"
+              const title = titleMatch?.[1] || "Novo documento"
+              const category = catMatch?.[1] || "Geral"
+              const expedicao = expMatch?.[1] || "—"
+              const validade = valMatch?.[1] || "—"
+
+              finalTemplateComponents = [
+                {
+                  type: "body",
+                  parameters: [
+                    { type: "text", text: condo.trim() },
+                    { type: "text", text: resident },
+                    { type: "text", text: type },
+                    { type: "text", text: title.trim() },
+                    { type: "text", text: category.trim() },
+                    { type: "text", text: expedicao },
+                    { type: "text", text: validade }
+                  ]
+                }
+              ]
+            }
           }
         }
 
-        // C. Executar chamada de envio via Meta Cloud API (passando os parâmetros de template se definidos)
-        result = await sendViaMetaCloudAPI(
-          META_ACCESS_TOKEN!,
-          META_PHONE_NUMBER_ID!,
-          msg.recipient_phone,
-          msg.payload_type || "text",
-          msg.message_content.value,
-          finalTemplateName,
-          finalTemplateLanguage,
-          finalTemplateComponents
-        )
+        // C. Validar obrigatoriamente se o template possui status APPROVED no MetaTemplateService
+        let isTemplateApproved = true
+        let unapprovedReason = ""
+
+        if (finalTemplateName) {
+          try {
+            const { data: tplCheck } = await supabase
+              .from("whatsapp_meta_templates")
+              .select("status")
+              .eq("name", finalTemplateName)
+              .eq("language", finalTemplateLanguage || "pt_BR")
+              .maybeSingle()
+
+            if (!tplCheck || tplCheck.status !== "APPROVED") {
+              isTemplateApproved = false
+              unapprovedReason = `Template '${finalTemplateName}' não está APPROVED na WABA Meta (status local: ${tplCheck?.status || 'NÃO CADASTRADO'}). Envio bloqueado preventivamente.`
+              console.warn(`[Worker PREVENTIVE BLOCK] ${unapprovedReason}`)
+            }
+          } catch (checkErr: any) {
+            console.error("[Worker] Erro ao checar status do template:", checkErr.message)
+          }
+        }
+
+        if (!isTemplateApproved) {
+          // NÃO CHAMAR GRAPH API — Bloqueio Preventivo (evita HTTP 404 #132001)
+          result = {
+            success: false,
+            skipped: false,
+            resolvedNow: false,
+            subscriberId: "",
+            phoneNormalized: msg.recipient_phone,
+            httpStatus: 400,
+            reason: unapprovedReason,
+            error: unapprovedReason,
+            deliveryStatus: "TEMPLATE_NOT_APPROVED" as any
+          }
+        } else {
+          // Executar chamada de envio via Meta Cloud API apenas se aprovado
+          result = await sendViaMetaCloudAPI(
+            META_ACCESS_TOKEN!,
+            META_PHONE_NUMBER_ID!,
+            msg.recipient_phone,
+            msg.payload_type || "text",
+            msg.message_content.value,
+            finalTemplateName,
+            finalTemplateLanguage,
+            finalTemplateComponents
+          )
+        }
 
         // D. Registrar template_name e template_language no outbox para auditoria
         if (finalTemplateName) {
@@ -1024,7 +1157,7 @@ Deno.serve(async (req) => {
           }
         }
       } else {
-        // BotConversa — original flow maintained integrally
+        // BotConversa — uses same contract as Meta, adapted for text transport
         if (!resolvedSubscriberId) {
           console.log(`[Worker] Resolvendo subscriber ID para telefone=${msg.recipient_phone}`)
           const resolveRes = await resolveSubscriber(
@@ -1049,11 +1182,38 @@ Deno.serve(async (req) => {
         }
 
         if (resolvedSubscriberId) {
+          // Resolve final text: structured contract (FASE 2) or legacy value
+          let finalTextValue = msg.message_content.value
+          const tpl = msg.message_content?.template
+
+          if (tpl?.name && Array.isArray(tpl.parameters) && tpl.parameters.length > 0) {
+            // ── Contrato Estruturado: Renderizar texto via módulo dedicado template_renderer.ts ──
+            try {
+              const { data: templateRow } = await supabase
+                .from("whatsapp_meta_templates")
+                .select("definition_payload")
+                .eq("name", tpl.name)
+                .eq("language", tpl.language || "pt_BR")
+                .maybeSingle()
+
+              if (templateRow?.definition_payload) {
+                const renderRes = renderTemplateText(templateRow.definition_payload, tpl.parameters)
+                if (renderRes.success && renderRes.text) {
+                  finalTextValue = renderRes.text
+                  console.log(`[Worker] BotConversa: texto renderizado via template_renderer (template=${tpl.name})`)
+                }
+              }
+            } catch (renderErr: any) {
+              console.error(`[Worker] Erro ao renderizar template para BotConversa (fallback para value):`, renderErr.message)
+              // finalTextValue já contém msg.message_content.value como fallback seguro
+            }
+          }
+
           result = await sendMessage(
             BOTCONVERSA_API_KEY,
             resolvedSubscriberId,
             msg.payload_type || "text",
-            msg.message_content.value
+            finalTextValue
           )
         }
       }
@@ -1152,19 +1312,31 @@ Deno.serve(async (req) => {
       let baseCooldown = 3 // default
       let jitter = 0
 
-      if (runtime.operational_mode === "SAFE_MODE") {
-        baseCooldown = 20 // standard safe mode cooldown
-      } else {
-        if (msg.priority <= 5) {
-          baseCooldown = 3 // critical (SOS, Visitor)
+      if (queueType === "high") {
+        if (runtime.operational_mode === "SAFE_MODE") {
+          baseCooldown = 3
         } else {
-          baseCooldown = 12 // informational (Parcels)
-          jitter = Math.floor(Math.random() * 5) + 1 // +1 to 5s jitter
+          baseCooldown = 1
+        }
+      } else {
+        if (runtime.operational_mode === "SAFE_MODE") {
+          baseCooldown = 20 // standard safe mode cooldown
+        } else {
+          if (msg.priority <= 5) {
+            baseCooldown = 2 // critical (SOS, Visitor)
+            jitter = Math.floor(Math.random() * 2) // +0 to 1s jitter
+          } else if (msg.priority <= 10) {
+            baseCooldown = 2 // Encomendas (Prioridade 10): 2s base + 0-2s jitter (Total 2s a 4s)
+            jitter = Math.floor(Math.random() * 3) // +0 to 2s jitter
+          } else {
+            baseCooldown = 12 // informational (Avisos, Boletos)
+            jitter = Math.floor(Math.random() * 5) + 1 // +1 to 5s jitter
+          }
         }
       }
 
       const totalSleepSec = baseCooldown + jitter
-      console.log(`[Worker] Cooldown de ${totalSleepSec}s iniciado antes do proximo claim.`)
+      console.log(`[Worker] Cooldown de ${totalSleepSec}s iniciado antes do proximo claim para lease=${leaseId}.`)
       await new Promise((r) => setTimeout(r, totalSleepSec * 1000))
 
       // 4h-2. Renew Lease Lock after cooldown
@@ -1179,8 +1351,8 @@ Deno.serve(async (req) => {
   } finally {
     // Release Lease Lock
     try {
-      const { data: released } = await supabase.rpc("release_worker_lease", { p_instance_id: instanceId })
-      console.log(`[Worker] Execucao finalizada. Lease lock liberado? ${released}. Instance: ${instanceId}`)
+      const { data: released } = await supabase.rpc("release_worker_lease", { p_instance_id: instanceId, p_lease_id: leaseId })
+      console.log(`[Worker] Execucao finalizada. Lease lock liberado para lease=${leaseId}? ${released}. Instance: ${instanceId}`)
     } catch (err) {
       console.error("[Worker] Erro ao liberar lease lock no finally:", err)
     }
