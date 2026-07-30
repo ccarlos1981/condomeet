@@ -779,6 +779,32 @@ Após o template atingir status `APPROVED`, qualquer falha de envio, entrega ou 
 
 ---
 
+## 🛡️ EXECUTIVE SUMMARY & ENGINEERING SIGN-OFF (LOCKED)
+
+**Date:** 29/07/2026  
+**Status:** 🟢 **ENGINEERING SIGN-OFF | HOMOLOGADO | CONGELADO | DOCUMENTAÇÃO OFICIAL**
+
+---
+
+### Summary of Work
+
+- **Engineered & Homologated OTP Authentication Module:** Integrated structured contracts, `MessageType.OTP`, `template_renderer.ts`, and `MetaTemplateService` for WhatsApp password reset workflows.
+- **Preventive Governance & Audit:** Implemented pre-Graph API template validation to prevent Meta error #132001 (HTTP 404), deterministic `message_hash` deduplication, and strict template status governance.
+- **Global OTP Meta Routing Rule:** Updated `whatsapp-outbox-worker` so that `MessageType.OTP` is globally prioritized for `META_CLOUD_API` whenever Meta credentials are available and the template governance conditions are satisfied, removing pilot-stage dependency from the routing decision.
+- **Documentation & Locked Baselines:** Registered all architectural decisions, routing rules, transport boundaries, rate limiting audits, and governance procedures in `.agents/AGENTS.md`.
+
+---
+
+### Outstanding Operational Dependency
+
+The remaining work is operational rather than engineering:
+- Confirm or create the template `condomeet_recuperacao_senha_v1` in the Meta WABA (`2264548117365601`);
+- Obtain/confirm the required `whatsapp_business_management` permission when applicable;
+- Synchronize the template metadata via `whatsapp-template-manager`;
+- Perform the final production validation after the template becomes available.
+
+---
+
 ## ✅ STATUS OFICIAL
 
 **Situação:** BASELINE HOMOLOGADA E CONGELADA.
