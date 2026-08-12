@@ -805,22 +805,144 @@ The remaining work is operational rather than engineering:
 
 ---
 
-## ✅ STATUS OFICIAL
 
-**Situação:** BASELINE HOMOLOGADA E CONGELADA.
+---
 
-Esta diretriz passa a integrar a governança permanente da plataforma Condomeet.
+## 📊 Baseline Oficial — Governança e Contrato de Templates Meta de Encomendas (FASE 3C.3)
 
-Qualquer alteração nesta política deverá ocorrer exclusivamente mediante uma nova RFC (Request for Change), acompanhada de evidências técnicas, auditoria do código-fonte e homologação formal antes de sua incorporação à arquitetura oficial.
+A FASE 3C.3 homologou o contrato técnico oficial dos dois templates operacionais de encomendas que devem ser submetidos e aprovados no Meta WhatsApp Business Manager.
 
+### Diretrizes e Regras de Governança dos Templates de Encomendas:
 
+1. **Template de Encomenda Recebida (`condomeet_encomenda_recebida_v2`):**
+   - **Nome:** `condomeet_encomenda_recebida_v2`
+   - **Categoria:** `UTILITY`
+   - **Idioma:** `pt_BR`
+   - **Quantidade de Parâmetros:** 9 parâmetros
+   - **Botões:** Sem botões
+   - **MessageType:** `MessageType.PARCEL`
+   - **Versão do Contrato:** `contract_version = 1`
 
+2. **Template de Retirada de Encomenda (`retirada_de_encomenda`):**
+   - **Nome:** `retirada_de_encomenda`
+   - **Categoria:** `UTILITY`
+   - **Idioma:** `pt_BR`
+   - **Quantidade de Parâmetros:** 7 parâmetros
+   - **Botões:** Sem botões
+   - **MessageType:** `MessageType.PARCEL_DELIVERED`
+   - **Versão do Contrato:** `contract_version = 2`
 
+3. **Invariabilidade de Contrato:** Os textos e a ordem exata dos parâmetros definidos na FASE 3C.3 constituem o **CONTRATO OFICIAL OBRIGATÓRIO** para o cadastro no Meta WhatsApp Manager. É expressamente proibido alterar o `TEMPLATE_REGISTRY`, `whatsapp-parcel-notify` ou `whatsapp-outbox-worker` para adaptar o código aos templates criados fora da especificação.
+4. **Proibição de Forçar Status no Banco:** É expressamente proibido alterar ou inserir manualmente o status `APPROVED` na tabela `public.whatsapp_meta_templates`. O status deve ser proveniente unicamente do retorno oficial da Meta Graph API.
+5. **Sequenciamento Operacional de Liberação:**
+   - **Etapa Atual (FASE 3C.3):** Depende exclusivamente do cadastro manual e aprovação dos dois templates no painel Meta WhatsApp Business Manager.
+   - **Etapa Seguinte (FASE 3C.4):** Após ambos os templates apresentarem status `APPROVED` na Meta, será executada a action `sync` da Edge Function `whatsapp-template-manager` no Projeto A (`avypyaxthvgaybplnwxu`) para sincronizar os dados reais para a tabela `whatsapp_meta_templates` do Projeto B (`ivdgvpvifhfiktolmbvy`).
 
+### Status de Governança da FASE 3C.3:
+```text
+FASE 3C.3
+[X] CONTRATO HOMOLOGADO
+[X] PRONTO PARA CADASTRO NA META
+[X] AGUARDANDO APROVAÇÃO META
+[X] SYNC
+[X] FASE 3D
+```
 
+---
 
+## 📊 Baseline Oficial — Homologação Definitiva da Meta Cloud API para Encomendas (FASE 3D.13)
 
+**Data de Registro:** 12/08/2026  
+**Status:** 🟢 **ENGINEERING SIGN-OFF | HOMOLOGADO | CONGELADO | DOCUMENTAÇÃO OFICIAL**
 
+A FASE 3D (WhatsApp de Encomendas / Meta Cloud API) encontra-se totalmente concluída, auditada e homologada em ambiente de produção para o piloto Real Park.
 
+### Status Final da Homologação:
+- [x] **FASE 3C — Templates Meta Homologados:** Templates operacionais sincronizados na tabela `public.whatsapp_meta_templates`.
+- [x] **FASE 3D.11 — Canary Chegada de Encomenda:** Fluxo `condomeet_encomenda_recebida_v2` aprovado (`PROVIDER_ACCEPTED` + `SENT` + `DELIVERED`).
+- [x] **FASE 3D.12 — Canary Retirada de Encomenda:** Fluxo `retirada_de_encomenda` aprovado (`PROVIDER_ACCEPTED` + `SENT` + `DELIVERED`).
+- [x] **Entregabilidade em Produção:** 100% de entregabilidade confirmada via webhook Meta (`delivered`).
 
+---
 
+### Templates Homologados e Versionados:
+
+1. **Template de Chegada de Encomenda (`condomeet_encomenda_recebida_v2`):**
+   - **MessageType:** `MessageType.PARCEL`
+   - **Versão do Contrato:** `contract_version = 1`
+   - **Categoria:** `UTILITY`
+   - **Idioma:** `pt_BR`
+   - **Quantidade de Parâmetros:** 9 parâmetros
+   - **Meta Status:** `APPROVED`
+   - **Meta Template ID:** `37488708074107869`
+
+2. **Template de Retirada de Encomenda (`retirada_de_encomenda`):**
+   - **MessageType:** `MessageType.PARCEL_DELIVERED`
+   - **Versão do Contrato:** `contract_version = 2`
+   - **Categoria:** `UTILITY`
+   - **Idioma:** `pt_BR`
+   - **Quantidade de Parâmetros:** 7 parâmetros
+   - **Meta Status:** `APPROVED`
+   - **Meta Template ID:** `2051452675456698`
+
+---
+
+### Infraestrutura e Arquitetura de Produção:
+
+- **WABA Oficial:** `2264548117365601`
+- **Phone Number ID de Produção:** `983786528153564` (`+55 61 8232-5516`, Status `CONNECTED`, Quality `GREEN`)
+- **Versão da Graph API:** `v21.0`
+- **Aplicativo Meta:** `Condomeet` (App ID `2320194451814580`)
+- **System User:** `Employee` (ASID `122100934695392451`) com vínculo explícito do ativo WABA
+- **Secret Access Token:** `WHATSAPP_ACCESS_TOKEN`
+- **Secret Phone ID:** `WHATSAPP_PHONE_NUMBER_ID`
+- **Worker de Mensageria:** `whatsapp-outbox-worker` (`queue=low`, faixa `[6, 99]`)
+- **Webhook oficial:** `whatsapp-webhook` (`https://avypyaxthvgaybplnwxu.supabase.co/functions/v1/whatsapp-webhook`)
+
+---
+
+### Evidências Empíricas de Produção:
+
+- **FASE 3D.11 (Chegada de Encomenda):**
+  - Template: `condomeet_encomenda_recebida_v2`
+  - Meta HTTP Response: `200 OK`
+  - `PROVIDER_ACCEPTED`: SIM
+  - `SENT`: SIM
+  - `DELIVERED`: SIM (5/5 mensagens entregues aos moradores)
+  - Retries efetuados: 0
+  - Reprocessamento de backlog: 0
+
+- **FASE 3D.12 (Retirada de Encomenda):**
+  - Template: `retirada_de_encomenda`
+  - Meta HTTP Response: `200 OK`
+  - `PROVIDER_ACCEPTED`: SIM
+  - `SENT`: SIM
+  - `DELIVERED`: SIM (5/5 mensagens entregues aos moradores)
+  - Retries efetuados: 0
+  - Reprocessamento de backlog: 0
+
+---
+
+### Saneamento e Registro da Outbox Histórica:
+
+- **Backlog Histórico:** O backlog de 8.928 mensagens represadas entre 29/07/2026 e 12/08/2026 foi permanentemente eliminado do banco de dados conforme autorização operacional prévia.
+- **Estado Final da Outbox Histórica:**
+  - Backlog antigo represado: 0
+  - Mensagens históricas reenviadas: 0
+  - Backfill executado: 0
+  - Retry histórico: 0
+
+---
+
+### Diretrizes e Regras Permanentes de Governança do Módulo de Encomendas:
+
+1. **Exclusividade de Templates Homologados:** O envio de mensagens do módulo de encomendas deve utilizar exclusivamente os templates homologados no `TEMPLATE_REGISTRY`.
+2. **Imutabilidade de Contratos:** É expressamente proibido alterar o nome, idioma, versão do contrato ou a ordem/quantidade de parâmetros dos templates sem a abertura de uma nova RFC e nova homologação técnica.
+3. **Proibição de Mutation Manual no Banco:** É expressamente proibido inserir ou atualizar manualmente o status `APPROVED` na tabela `public.whatsapp_meta_templates`.
+4. **Sincronização Canônica com Meta Graph API:** O status dos templates no banco de dados deve ser mantido unicamente via sincronização oficial a partir da Meta Graph API (`whatsapp-template-manager`).
+5. **Alinhamento WABA × Phone Number ID:** O Phone Number ID de produção (`983786528153564`) deve permanecer estritamente alinhado com a WABA oficial (`2264548117365601`) onde residem os templates homologados.
+6. **Proteção da Secret `WHATSAPP_PHONE_NUMBER_ID`:** É proibido alterar o Phone Number ID de produção sem validação prévia do vínculo de ativos na Meta.
+7. **Governança do Token do System User (`WHATSAPP_ACCESS_TOKEN`):** Qualquer rotação do `WHATSAPP_ACCESS_TOKEN` exige a validação do System User, a verificação dos escopos (`whatsapp_business_messaging`, `whatsapp_business_management`) e a confirmação do vínculo explícito dos ativos WABA/Telefone no diálogo de permissões.
+8. **Proibição de Disparo em Massa Sem Auditoria:** Mensagens represadas ou pendentes na `whatsapp_outbox` não devem ser liberadas ou reprocessadas em massa sem auditoria prévia.
+9. **Trava de Segurança Anti-Retry (Erros Meta 4xx/5xx):** Erros HTTP 4xx/5xx ou Meta Error Codes (ex: 200, 132001) devem acionar imediatamente a trava de segurança, impedindo retries automáticos indiscriminados.
+10. **Isolamento Multicondomínio e Opt-in:** O módulo de encomendas deve preservar rigorosamente o isolamento multicondomínio e respeitar as preferências de opt-in dos moradores.
