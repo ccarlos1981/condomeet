@@ -3,7 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:condomeet/core/design_system/design_system.dart';
 import 'package:condomeet/core/di/injection_container.dart';
-
+import 'package:condomeet/features/community/domain/models/common_area.dart';
 import 'package:condomeet/features/community/presentation/screens/booking_form_screen.dart';
 
 
@@ -341,7 +341,10 @@ class _AreaPickerScreenState extends State<AreaPickerScreen>
 
   Widget _buildCard(Map<String, dynamic> area) {
     final tipo = area['tipo_agenda'] as String? ?? '—';
-    final local = area['local'] as String? ?? '';
+    final local = CommonArea.formatLocalDisplay(
+      local: area['local'] as String?,
+      outroLocal: area['outro_local'] as String?,
+    );
     final cap = area['capacidade']?.toString() ?? '0';
     final hrs = area['hrs_cancelar']?.toString() ?? '0';
     final tipoReserva = area['tipo_reserva'] as String? ?? 'por_dia';

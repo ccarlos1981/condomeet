@@ -248,9 +248,17 @@ export default function ResidentSearchClient({ condoId, tipoEstrutura }: Props) 
                     </p>
                     <div className="flex items-center gap-2 mt-0.5">
                       <span className="text-xs text-gray-500 flex items-center gap-1">
-                        <Home size={11} className="text-gray-400" />
-                        {r.bloco_txt ? `${blocoLabel} ${r.bloco_txt}` : '–'}
-                        {r.apto_txt ? ` · ${aptoLabel} ${r.apto_txt}` : ''}
+                        {r.papel_sistema === 'Admin' || r.bloco_txt === 'Admin' ? (
+                          <span className="text-amber-700 font-medium flex items-center gap-1">
+                            <Shield size={11} className="text-amber-500" /> Identidade Administrativa
+                          </span>
+                        ) : (
+                          <>
+                            <Home size={11} className="text-gray-400" />
+                            {r.bloco_txt ? `${blocoLabel} ${r.bloco_txt}` : '–'}
+                            {r.apto_txt ? ` · ${aptoLabel} ${r.apto_txt}` : ''}
+                          </>
+                        )}
                       </span>
                       {r.papel_sistema && (
                         <span className={`text-[10px] px-1.5 py-0.5 rounded-full font-semibold border ${role.bg} ${role.text} ${role.border}`}>
@@ -278,26 +286,38 @@ export default function ResidentSearchClient({ condoId, tipoEstrutura }: Props) 
           onClick={() => setSelectedResident(null)}
         >
           <div
-            className="bg-white rounded-t-2xl sm:rounded-2xl w-full max-w-md shadow-2xl animate-in slide-in-from-bottom-4 duration-300"
-            onClick={e => e.stopPropagation()}
+            className="bg-white w-full max-w-md rounded-t-2xl sm:rounded-2xl p-6 shadow-2xl relative max-h-[85vh] overflow-y-auto"
+            onClick={(e) => e.stopPropagation()}
           >
-            {/* Close handle (mobile) */}
-            <div className="flex justify-center pt-3 pb-1 sm:hidden">
-              <div className="w-10 h-1 rounded-full bg-gray-300" />
-            </div>
+            {/* Close button */}
+            <button
+              onClick={() => setSelectedResident(null)}
+              className="absolute top-4 right-4 p-1.5 text-gray-400 hover:text-gray-600 rounded-lg hover:bg-gray-100 transition-colors"
+            >
+              <X size={18} />
+            </button>
 
-            <div className="px-6 pb-6 pt-4">
+            {/* Content */}
+            <div>
               {/* Avatar + Name */}
               <div className="text-center mb-5">
                 <div className={`w-16 h-16 rounded-full mx-auto mb-3 flex items-center justify-center shadow-md bg-linear-to-br ${getAvatarColor(selectedResident.id)}`}>
                   <span className="text-white text-xl font-bold">{getInitials(selectedResident.nome_completo)}</span>
                 </div>
                 <h2 className="text-lg font-bold text-gray-900">{selectedResident.nome_completo || '—'}</h2>
-                <p className="text-sm text-gray-500 mt-0.5 flex items-center justify-center gap-1">
-                  <Building2 size={13} />
-                  {selectedResident.bloco_txt ? `${blocoLabel} ${selectedResident.bloco_txt}` : '–'}
-                  {selectedResident.apto_txt ? ` · ${aptoLabel} ${selectedResident.apto_txt}` : ''}
-                </p>
+                <div className="text-sm text-gray-500 mt-0.5 flex items-center justify-center gap-1">
+                  {selectedResident.papel_sistema === 'Admin' || selectedResident.bloco_txt === 'Admin' ? (
+                    <span className="text-amber-700 font-medium flex items-center gap-1">
+                      <Shield size={13} className="text-amber-500" /> Identidade Administrativa
+                    </span>
+                  ) : (
+                    <>
+                      <Building2 size={13} />
+                      {selectedResident.bloco_txt ? `${blocoLabel} ${selectedResident.bloco_txt}` : '–'}
+                      {selectedResident.apto_txt ? ` · ${aptoLabel} ${selectedResident.apto_txt}` : ''}
+                    </>
+                  )}
+                </div>
                 {selectedResident.tipo_morador && (
                   <p className="text-xs text-gray-400 mt-0.5">{selectedResident.tipo_morador}</p>
                 )}

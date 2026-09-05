@@ -2,11 +2,14 @@
 
 import { useState } from 'react'
 import DocumentosClient, { Pasta, Documento } from './documentos-client'
+import { DocumentoTipo, DocumentoTipoPrioridade } from './types'
 import RegrasClient, { Regra } from './regras-client'
 
 export default function DocumentosWrapper({
   initialPastas,
   initialDocs,
+  initialTipos = [],
+  initialPrioridades = [],
   initialRegras,
   condoId,
   tabelaPastas,
@@ -17,6 +20,8 @@ export default function DocumentosWrapper({
 }: {
   initialPastas: Pasta[]
   initialDocs: Documento[]
+  initialTipos?: DocumentoTipo[]
+  initialPrioridades?: DocumentoTipoPrioridade[]
   initialRegras: Regra[]
   condoId: string
   tabelaPastas: string
@@ -58,6 +63,8 @@ export default function DocumentosWrapper({
         <DocumentosClient
           initialPastas={initialPastas}
           initialDocs={initialDocs}
+          initialTipos={initialTipos}
+          initialPrioridades={initialPrioridades}
           condoId={condoId}
           tabelaPastas={tabelaPastas}
           tabelaDocs={tabelaDocs}

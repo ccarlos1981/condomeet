@@ -3,7 +3,7 @@
 // Uses BotConversa for WhatsApp messaging.
 
 import { createClient } from "npm:@supabase/supabase-js@2"
-import { sendToRecipients, smartSend } from "../_shared/botconversa.ts"
+import { sendToRecipients, smartSend, MessageType } from "../_shared/botconversa.ts"
 
 // ── Dynamic structure labels ────────────────────────────────────────────────
 function getBlocoLabel(tipo?: string): string {
@@ -96,9 +96,12 @@ Deno.serve(async (req) => {
         const codInterno = Math.random().toString(36).substring(2, 7).toUpperCase()
 
         let txtMsg: string
+        let msgTypeToSend: string
+        let templateParamsToSend: string[]
 
         if (event === 'arrived') {
           // ── Arrival message ──
+          msgTypeToSend = MessageType.PARCEL
           const createdDate = parcelData?.created_at ? new Date(parcelData.created_at as string) : new Date()
           createdDate.setDate(createdDate.getDate() + 7)
           const withdrawUntil = createdDate.toLocaleDateString('pt-BR', {
@@ -110,8 +113,28 @@ Deno.serve(async (req) => {
           const trackingCode = (parcelData?.tracking_code as string)?.trim() || 'Nenhum'
 
           txtMsg = `📦 ${condoNome}\n\nChegou uma encomenda para o seu apartamento.\n\n📨 Tipo de encomenda:\n${tipo || 'Pacote'}\n\n🏢 Unidade\n${blocoLabel}: ${bloco} / ${aptoLabel}: ${apto}\n\n🔍 Cod. rastreio: ${trackingCode}\n\n⏱ Retirar até: ${withdrawUntil}\n\n🗒️ Observação da encomenda:\n${observationText}\n\nCondomeet agradece!\nCod. interno: ${codInterno}`
+
+          templateParamsToSend = [
+            condoNome,
+            tipo || "Pacote",
+            blocoLabel || "Bloco",
+            bloco || "—",
+            aptoLabel || "Apto",
+            apto || "—",
+            trackingCode || "Não informado",
+            withdrawUntil || "Imediato",
+            observationText || "Sem observação"
+          ]
         } else {
-          // ── Delivery message ──
+          // ── Delivery / Pickup message ──
+          msgTypeToSend = MessageType.PARCEL_DELIVERED
+          const arrivalDate = parcelData?.created_at ? new Date(parcelData.created_at as string) : new Date()
+          const arrivalDateStr = arrivalDate.toLocaleString('pt-BR', {
+            timeZone: 'America/Sao_Paulo',
+            day: '2-digit', month: '2-digit', year: 'numeric',
+            hour: '2-digit', minute: '2-digit',
+          })
+
           const deliveryTime = parcelData?.delivery_time
             ? new Date(parcelData.delivery_time as string)
             : new Date()
@@ -121,12 +144,22 @@ Deno.serve(async (req) => {
             hour: '2-digit', minute: '2-digit',
           })
 
-          const whoPickedUp = (picked_up_by_name as string)?.trim() || 'Morador'
+          const whoPickedUp = (picked_up_by_name as string)?.trim() || profile.nome_completo || 'Morador'
 
-          txtMsg = `✅ ${condoNome}\n\nEncomenda retirada com sucesso!\n\n📨 Tipo: ${tipo || 'Pacote'}\n\n🏢 Unidade\n${blocoLabel}: ${bloco} / ${aptoLabel}: ${apto}\n\n👤 Retirada por: ${whoPickedUp}\n📅 Data/Hora: ${deliveryStr}\n\nCondomeet agradece!\nCod. interno: ${codInterno}`
+          txtMsg = `📦 ${condoNome}\n\nOlá, ${profile.nome_completo || 'Morador'}! 👋\n\nInformamos que a encomenda abaixo foi entregue com sucesso.\n\n📦 ${tipo || 'Pacote'}\n\nRecebida em:\n${arrivalDateStr}\n\nRetirada em:\n${deliveryStr}\n\nObrigado.\n\nCondomeet.`
+
+          templateParamsToSend = [
+            condoNome,
+            tipo || "caixa",
+            bloco || "—",
+            apto || "—",
+            whoPickedUp,
+            deliveryStr,
+            parcel_id.substring(0, 5).toUpperCase()
+          ]
         }
 
-                const result = await smartSend(
+        const result = await smartSend(
           BOTCONVERSA_API_KEY,
           profile.botconversa_id,
           profile.whatsapp,
@@ -134,29 +167,39 @@ Deno.serve(async (req) => {
           txtMsg,
           profile.nome_completo?.split(" ")[0],
           supabaseAdmin,
-          profile.id
+          profile.id,
+          msgTypeToSend,
+          "whatsapp-parcel-notify",
+          templateParamsToSend
         )
         console.log(`WhatsApp to ${profile.nome_completo}: ${result.success ? "✅" : "❌"}`)
 
-        // Send photo on 'arrived' if available
+        // Send photo on 'arrived' if available (non-blocking to prevent pg_net timeout)
         console.log(`Photo URL for parcel: ${parcelData?.photo_url ? 'PRESENT' : 'MISSING'}`)
         if (event === 'arrived' && result.success && parcelData?.photo_url) {
-          // Delay randomico (10 a 20s) before sending photo (anti-spam + ensure upload complete)
-          const delayObj = Math.floor(Math.random() * (20000 - 10000 + 1) + 10000)
-          console.log(`Waiting ${delayObj}ms before sending photo to bypass anti-spam...`)
-          await new Promise(res => setTimeout(res, delayObj))
-          
-          const photoResult = await smartSend(
-            BOTCONVERSA_API_KEY,
-            profile.botconversa_id,
-            profile.whatsapp,
-            "file",
-            parcelData.photo_url as string,
-            profile.nome_completo?.split(" ")[0],
-            supabaseAdmin,
-            profile.id
-          )
-          console.log(`Photo to ${profile.nome_completo}: ${photoResult.success ? "✅" : "❌"} ${photoResult.error || ''}`)
+          (async () => {
+            try {
+              const delayObj = Math.floor(Math.random() * (5000 - 2000 + 1) + 2000)
+              console.log(`Waiting ${delayObj}ms before sending photo to bypass anti-spam...`)
+              await new Promise(res => setTimeout(res, delayObj))
+              
+              const photoResult = await smartSend(
+                BOTCONVERSA_API_KEY,
+                profile.botconversa_id,
+                profile.whatsapp,
+                "file",
+                parcelData.photo_url as string,
+                profile.nome_completo?.split(" ")[0],
+                supabaseAdmin,
+                profile.id,
+                MessageType.PARCEL,
+                "whatsapp-parcel-notify"
+              )
+              console.log(`Photo to ${profile.nome_completo}: ${photoResult.success ? "✅" : "❌"} ${photoResult.error || ''}`)
+            } catch (pErr) {
+              console.error(`Async photo error:`, pErr)
+            }
+          })()
         }
 
         results.push({ success: result.success, nome: profile.nome_completo, error: result.error })

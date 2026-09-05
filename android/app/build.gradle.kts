@@ -17,8 +17,8 @@ plugins {
 
 android {
     namespace = "br.app.condomeet.home"
-    compileSdk = flutter.compileSdkVersion
-    ndkVersion = "27.0.12077973"
+    compileSdk = 36
+    ndkVersion = "28.2.13676358"
 
     compileOptions {
         isCoreLibraryDesugaringEnabled = true
@@ -48,7 +48,7 @@ android {
     defaultConfig {
         applicationId = "br.com.condod.wwwc"
         minSdk = flutter.minSdkVersion
-        targetSdk = flutter.targetSdkVersion
+        targetSdk = 35
         versionCode = flutter.versionCode
         versionName = flutter.versionName
     }

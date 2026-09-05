@@ -84,11 +84,15 @@ function DeliveryModal({ parcel, condoId, tipoEstrutura, onClose, onConfirm }: D
   const [isThirdParty, setIsThirdParty] = useState(false)
   const [confirming, setConfirming] = useState(false)
 
+  const isThirdPartyRef = useRef(isThirdParty)
+  isThirdPartyRef.current = isThirdParty
+
   const bloco = parcel.bloco ?? parcel.perfil?.bloco_txt ?? null
   const apto  = parcel.apto ?? parcel.perfil?.apto_txt  ?? null
 
-  // Fetch residents of this unit
+  // Fetch residents of this unit with race condition guard
   useEffect(() => {
+    let cancelled = false
     async function load() {
       setLoadingResidents(true)
       if (!bloco || !apto) {
@@ -104,11 +108,18 @@ function DeliveryModal({ parcel, condoId, tipoEstrutura, onClose, onConfirm }: D
         .not('nome_completo', 'is', null)
         .eq('status_aprovacao', 'aprovado')
         .neq('bloqueado', true)
+
+      if (cancelled) return
       setResidents(data ?? [])
-      if (data && data.length === 1) setPickedById(data[0].id)
+      if (data && data.length === 1 && !isThirdPartyRef.current) {
+        setPickedById(data[0].id)
+      }
       setLoadingResidents(false)
     }
     load()
+    return () => {
+      cancelled = true
+    }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [bloco, apto, condoId])
 
@@ -117,12 +128,14 @@ function DeliveryModal({ parcel, condoId, tipoEstrutura, onClose, onConfirm }: D
 
   async function handleConfirm() {
     if (!isThirdParty && !pickedById) return
-    if (isThirdParty && !thirdPartyName.trim()) return
+    const cleanThirdParty = thirdPartyName.trim()
+    if (isThirdParty && !cleanThirdParty) return
+
     setConfirming(true)
     await onConfirm(
       parcel,
       isThirdParty ? null : pickedById,
-      isThirdParty ? thirdPartyName.trim() : (residents.find(r => r.id === pickedById)?.nome_completo ?? '')
+      isThirdParty ? cleanThirdParty : (residents.find(r => r.id === pickedById)?.nome_completo ?? '')
     )
   }
 
@@ -178,6 +191,7 @@ function DeliveryModal({ parcel, condoId, tipoEstrutura, onClose, onConfirm }: D
                   onChange={e => {
                     setPickedById(e.target.value || null)
                     setIsThirdParty(false)
+                    setThirdPartyName('')
                   }}
                   disabled={isThirdParty}
                   className="w-full px-4 py-3 pr-10 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-[#FC5931] appearance-none bg-white disabled:opacity-50"
@@ -199,8 +213,14 @@ function DeliveryModal({ parcel, condoId, tipoEstrutura, onClose, onConfirm }: D
                 type="checkbox"
                 checked={isThirdParty}
                 onChange={e => {
-                  setIsThirdParty(e.target.checked)
-                  if (e.target.checked) setPickedById(null)
+                  const checked = e.target.checked
+                  setIsThirdParty(checked)
+                  if (checked) {
+                    setPickedById(null)
+                  } else {
+                    setThirdPartyName('')
+                    if (residents.length === 1) setPickedById(residents[0].id)
+                  }
                 }}
                 className="rounded border-gray-300 text-[#FC5931] focus:ring-[#FC5931]"
               />
@@ -357,10 +377,10 @@ export default function ParcelList({ initialParcels, isPorter, userId, condoId, 
   const numSort = (a: string, b: string) => a.localeCompare(b, 'pt', { numeric: true })
 
   // Use server-provided blocos/aptos when available, fallback to parcel-derived
-  const uniqueBlocos = allBlocos ?? [...new Set(
+  const uniqueBlocos = (allBlocos && allBlocos.length > 0) ? allBlocos : [...new Set(
     parcels.map(p => p.bloco ?? p.perfil?.bloco_txt).filter(Boolean) as string[]
   )].sort(numSort)
-  const uniqueAptos = blocoFilter && allAptosMap?.[blocoFilter]
+  const uniqueAptos = (blocoFilter && allAptosMap?.[blocoFilter] && allAptosMap[blocoFilter].length > 0)
     ? allAptosMap[blocoFilter]
     : [...new Set(
         parcels
@@ -429,24 +449,29 @@ export default function ParcelList({ initialParcels, isPorter, userId, condoId, 
 
       // Resolve resident names
       const parcelsData = (data ?? []) as Record<string, unknown>[]
-      const residentIds = [...new Set(parcelsData.map(p => p.resident_id as string).filter(Boolean))]
+      const isUUID = (str: string) => /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(str)
+      const validResidentUUIDs = [...new Set(parcelsData.map(p => p.resident_id as string).filter(id => id && isUUID(id)))]
       const perfilMap: Record<string, Perfil> = {}
 
-      if (residentIds.length > 0) {
+      if (validResidentUUIDs.length > 0) {
         const { data: perfis } = await supabase
           .from('perfil')
           .select('id, nome_completo, bloco_txt, apto_txt')
-          .in('id', residentIds)
+          .in('id', validResidentUUIDs)
         ;(perfis ?? []).forEach((p: Perfil) => { perfilMap[p.id] = p })
       }
 
       // Race condition guard
       if (fetchId !== fetchIdRef.current) return
 
-      const parcelsWithResident = parcelsData.map(p => ({
-        ...p,
-        perfil: perfilMap[(p.resident_id as string)] ?? null,
-      })) as Parcel[]
+      const parcelsWithResident = parcelsData.map(p => {
+        const resId = p.resident_id as string | undefined
+        const perfil = resId && perfilMap[resId] ? perfilMap[resId] : null
+        return {
+          ...p,
+          perfil: perfil ?? (resId && !isUUID(resId) ? { id: resId, nome_completo: resId, bloco_txt: (p.bloco as string) || null, apto_txt: (p.apto as string) || null } : null),
+        }
+      }) as Parcel[]
 
       setParcels(parcelsWithResident)
       setTotalFiltered(count ?? 0)
@@ -783,10 +808,14 @@ export default function ParcelList({ initialParcels, isPorter, userId, condoId, 
                             <CheckCircle2 size={15} />
                             <span suppressHydrationWarning>Retirado {mounted && p.delivery_time ? fmt(p.delivery_time) : ''}</span>
                           </div>
-                          {(p.picked_up_by_name) && (
+                          {(p.picked_up_by_name || p.picked_up_by_id) && (
                             <div className="inline-flex items-center gap-1.5 bg-green-50 border border-green-200 rounded-lg px-2.5 py-1">
                               <UserCheck size={13} className="text-green-600 shrink-0" />
-                              <span className="text-xs font-semibold text-green-700">{p.picked_up_by_name}</span>
+                              <span className="text-xs font-semibold text-green-700">
+                                {p.picked_up_by_id
+                                  ? (p.picked_up_by_name ? `Morador: ${p.picked_up_by_name}` : 'Morador')
+                                  : `Terceiro: ${p.picked_up_by_name}`}
+                              </span>
                             </div>
                           )}
                         </div>

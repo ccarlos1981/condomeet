@@ -146,8 +146,7 @@ class ParcelRepositoryImpl implements ParcelRepository {
           .select('*, perfil!encomendas_resident_id_fkey(nome_completo,apto_txt,bloco_txt)')
           .eq('condominio_id', condominiumId)
           .eq('status', 'pending')
-          .order('created_at', ascending: false)
-          .limit(10);
+          .order('created_at', ascending: false);
       return Success((rows as List).map((r) => _mapToParcel(r as Map<String, dynamic>)).toList());
     } catch (e) {
       return Failure('Erro ao buscar encomendas pendentes: $e');
@@ -182,8 +181,7 @@ class ParcelRepositoryImpl implements ParcelRepository {
         .select('*, perfil!encomendas_resident_id_fkey(nome_completo,apto_txt,bloco_txt)')
         .eq('condominio_id', condominiumId)
         .eq('status', 'pending')
-        .order('created_at', ascending: false)
-        .limit(10);
+        .order('created_at', ascending: false);
     return (rows as List).map((r) => _mapToParcel(r as Map<String, dynamic>)).toList();
   }
 

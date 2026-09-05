@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState, useRef } from 'react'
+import { useEffect, useState, useRef, useMemo } from 'react'
 import { getConversations, getChatHistory, sendManualMessage, getSuperUserInfo } from '../actions'
 import { 
   Search, Filter, Send, MessageSquare, ShieldCheck, 
@@ -14,7 +14,7 @@ const TEMPLATES = [
   { name: 'condomeet_visitante_aguardando_v3', category: 'utility', vars: ['Morador', 'Visitante', 'Condomínio'] },
   { name: 'condomeet_reserva_confirmada_v2', category: 'utility', vars: ['Morador', 'Área', 'Data/Hora'] },
   { name: 'condomeet_reserva_cancelada_v2', category: 'utility', vars: ['Morador', 'Área', 'Data/Hora'] },
-  { name: 'condomeet_documento_disponivel_v2', category: 'marketing', vars: ['Morador', 'Documento'] },
+  { name: 'condomeet_documento_disponivel_v2', category: 'utility', vars: ['Morador', 'Documento'] },
 ]
 
 export default function ChatPage() {
@@ -26,9 +26,10 @@ export default function ChatPage() {
   const [selectedConv, setSelectedConv] = useState<any>(null)
   const [messages, setMessages] = useState<any[]>([])
   
-  // Search & Filters
+  // Search & Filters (2 Níveis: Canal + Filtro Operacional Contextual)
   const [searchQuery, setSearchQuery] = useState('')
-  const [filterType, setFilterType] = useState('all')
+  const [channelFilter, setChannelFilter] = useState('all') // 'all' | 'meta' | 'botconversa' | 'evolution'
+  const [subFilter, setSubFilter] = useState('all') // 'all' | 'janela_aberta' | 'janela_fechada' | 'nao_lidas'
 
   // Send message states
   const [textInput, setTextInput] = useState('')
@@ -52,7 +53,7 @@ export default function ChatPage() {
         }
 
         setAuthorized(true)
-        const list = await getConversations(searchQuery, filterType)
+        const list = await getConversations(searchQuery, channelFilter)
         setConversations(list)
       } catch (err) {
         console.error(err)
@@ -62,14 +63,14 @@ export default function ChatPage() {
       }
     }
     init()
-  }, [router, supabase, searchQuery, filterType])
+  }, [router, supabase, searchQuery, channelFilter])
 
   // Polling for new messages and list refreshes
   useEffect(() => {
     if (!authorized) return
     const interval = setInterval(async () => {
       // Refresh list
-      const list = await getConversations(searchQuery, filterType)
+      const list = await getConversations(searchQuery, channelFilter)
       setConversations(list)
       
       // Refresh history if selected
@@ -80,7 +81,23 @@ export default function ChatPage() {
     }, 5000)
 
     return () => clearInterval(interval)
-  }, [authorized, selectedConv, searchQuery, filterType])
+  }, [authorized, selectedConv, searchQuery, channelFilter])
+
+  // Filtro operacional contextual (Nível 2) aplicado sobre as conversas carregadas (Regra de Hooks: Top-level incondicional)
+  const displayedConversations = useMemo(() => {
+    return conversations.filter(c => {
+      if (subFilter === 'janela_aberta') {
+        return c.window_open_until && new Date(c.window_open_until) >= new Date()
+      }
+      if (subFilter === 'janela_fechada') {
+        return !c.window_open_until || new Date(c.window_open_until) < new Date()
+      }
+      if (subFilter === 'nao_lidas') {
+        return (c.unread_count || 0) > 0
+      }
+      return true
+    })
+  }, [conversations, subFilter])
 
   // Load chat history on conversation select
   const selectConversation = async (conv: any) => {
@@ -111,18 +128,36 @@ export default function ChatPage() {
     e.preventDefault()
     if (!selectedConv) return
     
+    const isMeta = selectedConv.current_provider === 'META_CLOUD_API' || !selectedConv.current_provider
+    const isBotConversa = selectedConv.current_provider === 'BOTCONVERSA'
+    const isEvolution = selectedConv.current_provider === 'EVOLUTION'
+
+    // Bloqueio estrito de envio manual Evolution
+    if (isEvolution) {
+      setErrorMsg('Envio manual via Evolution desabilitado nesta fase.')
+      return
+    }
+
     const isWindowOpen = selectedConv.window_open_until && new Date(selectedConv.window_open_until) >= new Date()
     
-    // Validations
-    if (!isWindowOpen && !selectedTemplate) {
-      setErrorMsg('Janela de 24h fechada. Selecione um template homologado.')
-      return
+    // Validações específicas para Meta Cloud API (Regra 24h)
+    if (isMeta) {
+      if (!isWindowOpen && !selectedTemplate) {
+        setErrorMsg('Janela de 24h fechada. Selecione um template homologado.')
+        return
+      }
+      if (!isWindowOpen && !manualReason.trim()) {
+        setErrorMsg('Motivo do envio manual fora da janela é obrigatório para auditoria.')
+        return
+      }
+      if (isWindowOpen && !textInput.trim()) {
+        setErrorMsg('Digite a mensagem para enviar.')
+        return
+      }
     }
-    if (!isWindowOpen && !manualReason.trim()) {
-      setErrorMsg('Motivo do envio manual fora da janela é obrigatório para auditoria.')
-      return
-    }
-    if (isWindowOpen && !textInput.trim()) {
+
+    // Validação para BotConversa
+    if (isBotConversa && !textInput.trim()) {
       setErrorMsg('Digite a mensagem para enviar.')
       return
     }
@@ -132,7 +167,7 @@ export default function ChatPage() {
 
     try {
       let finalMsg = textInput
-      if (selectedTemplate) {
+      if (isMeta && selectedTemplate) {
         // Preencher mensagem visual para histórico simulando o template
         finalMsg = `[TEMPLATE: ${selectedTemplate.name}]\n` + selectedTemplate.vars.map((v: string, i: number) => `*${v}:* ${templateVars[i]}`).join('\n')
       }
@@ -140,9 +175,9 @@ export default function ChatPage() {
       await sendManualMessage(
         selectedConv.telefone,
         finalMsg,
-        selectedTemplate?.name,
-        templateVars,
-        manualReason
+        isMeta ? selectedTemplate?.name : undefined,
+        isMeta ? templateVars : undefined,
+        isMeta ? manualReason : 'Envio manual BotConversa'
       )
 
       // Reset
@@ -176,15 +211,25 @@ export default function ChatPage() {
   if (!authorized) return null
 
   return (
-    <div className="bg-[#f3f4f8] h-[calc(100vh-120px)] flex rounded-2xl overflow-hidden border border-gray-200">
+    <div className="flex h-[calc(100vh-theme(spacing.16))] bg-gray-50 overflow-hidden font-sans border-t border-gray-200">
       
-      {/* Lado Esquerdo: Lista de Conversas */}
-      <div className="w-80 md:w-96 bg-white border-r border-gray-200 flex flex-col flex-shrink-0">
+      {/* Lado Esquerdo: Lista de Conversas e Filtros */}
+      <div className="w-full md:w-96 bg-white border-r border-gray-200 flex flex-col flex-shrink-0">
         
-        {/* Busca */}
+        {/* Header / Barra de Busca / Filtros Contextuais */}
         <div className="p-4 border-b border-gray-100 space-y-3">
+          <div className="flex justify-between items-center">
+            <h2 className="text-lg font-black tracking-tight text-gray-900 flex items-center gap-2">
+              <MessageSquare className="text-[#FC5931]" size={20} />
+              WhatsApp Atendimento
+            </h2>
+            <span className="text-xs text-gray-400 font-medium">
+              {displayedConversations.length} {displayedConversations.length === 1 ? 'conversa' : 'conversas'}
+            </span>
+          </div>
+
           <div className="relative">
-            <span className="absolute inset-y-0 left-0 pl-3 flex items-center text-gray-400">
+            <span className="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none text-gray-400">
               <Search size={16} />
             </span>
             <input
@@ -196,34 +241,74 @@ export default function ChatPage() {
             />
           </div>
           
-          {/* Filtros Rápidos */}
-          <div className="flex flex-wrap gap-1.5">
-            {[
-              { id: 'all', label: 'Todas' },
-              { id: 'janela_aberta', label: 'Janela Aberta' },
-              { id: 'janela_fechada', label: 'Janela Fechada' },
-              { id: 'nao_lidas', label: 'Não Lidas' },
-              { id: 'meta', label: 'Meta' },
-              { id: 'botconversa', label: 'BotConversa' }
-            ].map(f => (
-              <button
-                key={f.id}
-                onClick={() => setFilterType(f.id)}
-                className={`text-[10px] font-bold uppercase tracking-wider px-2 py-1 rounded-full transition-all border ${
-                  filterType === f.id
-                    ? 'bg-[#FC5931] border-[#FC5931] text-white'
-                    : 'bg-gray-50 border-gray-200 text-gray-500 hover:bg-gray-100'
-                }`}
-              >
-                {f.label}
-              </button>
-            ))}
+          {/* NÍVEL 1 — Seletor de Canal / Provedor */}
+          <div className="space-y-2">
+            <div className="flex items-center justify-between pb-1.5 border-b border-gray-100">
+              <span className="text-[10px] font-bold uppercase tracking-wider text-gray-400">Canal:</span>
+              <div className="flex flex-wrap gap-1">
+                {[
+                  { id: 'all', label: 'Todas' },
+                  { id: 'meta', label: 'Meta' },
+                  { id: 'botconversa', label: 'BotConversa' },
+                  { id: 'evolution', label: 'Evolution' }
+                ].map(ch => (
+                  <button
+                    key={ch.id}
+                    type="button"
+                    onClick={() => {
+                      setChannelFilter(ch.id)
+                      if (ch.id === 'botconversa' || ch.id === 'evolution') {
+                        if (subFilter === 'janela_aberta' || subFilter === 'janela_fechada') {
+                          setSubFilter('all')
+                        }
+                      }
+                    }}
+                    className={`text-[10px] font-bold uppercase tracking-wider px-2.5 py-1 rounded-lg transition-all border ${
+                      channelFilter === ch.id
+                        ? 'bg-gray-900 border-gray-900 text-white shadow-xs'
+                        : 'bg-white border-gray-200 text-gray-600 hover:bg-gray-50'
+                    }`}
+                  >
+                    {ch.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* NÍVEL 2 — Filtros Operacionais Contextuais */}
+            <div className="flex flex-wrap items-center gap-1.5">
+              {(channelFilter === 'all' || channelFilter === 'meta'
+                ? [
+                    { id: 'all', label: 'Todas' },
+                    { id: 'janela_aberta', label: 'Janela Aberta' },
+                    { id: 'janela_fechada', label: 'Janela Fechada' },
+                    { id: 'nao_lidas', label: 'Não Lidas' }
+                  ]
+                : [
+                    { id: 'all', label: 'Todas' },
+                    { id: 'nao_lidas', label: 'Não Lidas' }
+                  ]
+              ).map(f => (
+                <button
+                  key={f.id}
+                  type="button"
+                  onClick={() => setSubFilter(f.id)}
+                  className={`text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full transition-all border ${
+                    subFilter === f.id
+                      ? 'bg-[#FC5931] border-[#FC5931] text-white'
+                      : 'bg-gray-50 border-gray-200 text-gray-500 hover:bg-gray-100'
+                  }`}
+                >
+                  {f.label}
+                </button>
+              ))}
+            </div>
           </div>
         </div>
 
         {/* Lista */}
         <div className="flex-1 overflow-y-auto divide-y divide-gray-50">
-          {conversations.map(c => {
+          {displayedConversations.map(c => {
             const isSelected = selectedConv?.id === c.id
             const isWindowOpen = c.window_open_until && new Date(c.window_open_until) >= new Date()
             return (
@@ -255,13 +340,23 @@ export default function ChatPage() {
                   
                   {/* Badges e Status */}
                   <div className="flex justify-between items-center mt-2">
-                    <span className={`text-[10px] px-2 py-0.5 rounded-full font-bold uppercase tracking-wider ${
-                      isWindowOpen 
-                        ? 'bg-emerald-100 text-emerald-700' 
-                        : 'bg-gray-100 text-gray-500'
-                    }`}>
-                      {isWindowOpen ? 'Janela Aberta' : 'Janela Fechada'}
-                    </span>
+                    {c.current_provider === 'META_CLOUD_API' || !c.current_provider ? (
+                      <span className={`text-[10px] px-2 py-0.5 rounded-full font-bold uppercase tracking-wider ${
+                        isWindowOpen 
+                          ? 'bg-emerald-100 text-emerald-700' 
+                          : 'bg-gray-100 text-gray-500'
+                      }`}>
+                        {isWindowOpen ? 'Janela Aberta' : 'Janela Fechada'}
+                      </span>
+                    ) : c.current_provider === 'BOTCONVERSA' ? (
+                      <span className="text-[10px] px-2 py-0.5 rounded-full font-bold uppercase tracking-wider bg-slate-100 text-slate-700 border border-slate-200">
+                        BotConversa
+                      </span>
+                    ) : (
+                      <span className="text-[10px] px-2 py-0.5 rounded-full font-bold uppercase tracking-wider bg-sky-100 text-sky-800 border border-sky-200">
+                        Evolution
+                      </span>
+                    )}
                     
                     {c.unread_count > 0 && (
                       <span className="h-5 w-5 bg-[#FC5931] text-white text-[10px] font-black rounded-full flex items-center justify-center">
@@ -273,7 +368,7 @@ export default function ChatPage() {
               </div>
             )
           })}
-          {conversations.length === 0 && (
+          {displayedConversations.length === 0 && (
             <div className="text-center py-10 text-xs text-gray-400">Nenhuma conversa encontrada.</div>
           )}
         </div>
@@ -313,7 +408,19 @@ export default function ChatPage() {
             <div className="flex-1 overflow-y-auto p-4 space-y-3 bg-[#efeae2]/40">
               {messages.map(m => {
                 const isSystem = m.status !== 'received'
-                const statusColor = m.status === 'read' ? 'text-blue-500' : m.status === 'failed' ? 'text-red-500' : 'text-gray-400'
+                const provider = m.delivery_result?.provider || m.provider_attempt || 'META'
+                const statusColor = m.status === 'read' 
+                  ? 'text-blue-500' 
+                  : m.status === 'delivered' 
+                    ? 'text-emerald-600' 
+                    : m.status === 'failed' 
+                      ? 'text-red-500' 
+                      : 'text-gray-400'
+                const badgeStyle = provider === 'EVOLUTION'
+                  ? 'bg-sky-100 text-sky-800 border border-sky-200'
+                  : provider === 'BOTCONVERSA'
+                    ? 'bg-gray-100 text-gray-700'
+                    : 'bg-emerald-100 text-emerald-800'
                 return (
                   <div key={m.id} className={`flex ${isSystem ? 'justify-end' : 'justify-start'}`}>
                     <div className={`max-w-xs md:max-w-md rounded-2xl px-4 py-2.5 shadow-sm space-y-1 relative ${
@@ -323,7 +430,7 @@ export default function ChatPage() {
                     }`}>
                       <p className="text-xs leading-relaxed whitespace-pre-wrap">{m.message_content?.value || ''}</p>
                       
-                      {/* Meta Footer Info */}
+                      {/* Footer Info */}
                       <div className="flex justify-between items-center gap-4 text-[9px] text-gray-400 pt-1 border-t border-gray-100">
                         <span className="font-mono">
                           {new Date(m.created_at).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}
@@ -331,8 +438,8 @@ export default function ChatPage() {
                         
                         {isSystem && (
                           <div className="flex items-center gap-1.5">
-                            <span className="font-bold uppercase text-[8px] bg-gray-100 px-1 rounded">
-                              {m.delivery_result?.provider || 'META'}
+                            <span className={`font-bold uppercase text-[8px] px-1.5 py-0.5 rounded ${badgeStyle}`}>
+                              {provider}
                             </span>
                             <span className={`font-semibold capitalize ${statusColor}`}>
                               {m.status}
@@ -350,96 +457,109 @@ export default function ChatPage() {
             {/* Form de Envio */}
             <form onSubmit={handleSend} className="bg-white p-4 border-t border-gray-200 space-y-3 flex-shrink-0">
               
-              {/* Se a janela estiver FECHADA, obriga o preenchimento do template */}
-              {!(selectedConv.window_open_until && new Date(selectedConv.window_open_until) >= new Date()) ? (
-                <div className="bg-orange-50 border border-orange-100 rounded-xl p-3 space-y-3">
-                  <div className="flex items-center gap-2 text-xs text-orange-700 font-semibold">
-                    <AlertTriangle size={16} />
-                    <span>Janela de 24h fechada. O envio manual exige template aprovado e justificativa.</span>
-                  </div>
-                  
-                  {/* Seleção de Template */}
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                    <div>
-                      <label className="block text-[10px] uppercase font-bold text-gray-500 mb-1">Selecione o Template</label>
-                      <select
-                        onChange={(e) => selectTemplate(e.target.value)}
-                        value={selectedTemplate?.name || ''}
-                        className="w-full bg-white border border-gray-200 rounded-lg p-1.5 text-xs focus:outline-none focus:ring-1 focus:ring-[#FC5931]"
-                      >
-                        <option value="">-- Selecionar --</option>
-                        {TEMPLATES.map(t => (
-                          <option key={t.name} value={t.name}>{t.name}</option>
-                        ))}
-                      </select>
+              {/* Se for EVOLUTION, bloqueia explicitamente o envio manual */}
+              {selectedConv.current_provider === 'EVOLUTION' ? (
+                <div className="bg-sky-50 border border-sky-200 rounded-xl p-3 text-xs text-sky-800 font-semibold flex items-center gap-2">
+                  <Info size={16} />
+                  <span>Canal Evolution: Envio manual desabilitado nesta fase de observação assistida.</span>
+                </div>
+              ) : selectedConv.current_provider === 'META_CLOUD_API' || !selectedConv.current_provider ? (
+                /* Se for META e a janela estiver FECHADA, obriga o preenchimento do template */
+                !(selectedConv.window_open_until && new Date(selectedConv.window_open_until) >= new Date()) ? (
+                  <div className="bg-orange-50 border border-orange-100 rounded-xl p-3 space-y-3">
+                    <div className="flex items-center gap-2 text-xs text-orange-700 font-semibold">
+                      <AlertTriangle size={16} />
+                      <span>Janela de 24h fechada (Meta Cloud API). O envio manual exige template aprovado e justificativa.</span>
                     </div>
                     
-                    <div>
-                      <label className="block text-[10px] uppercase font-bold text-gray-500 mb-1">Justificativa do Envio</label>
-                      <input
-                        type="text"
-                        placeholder="Ex: Confirmação manual de encomenda urgente"
-                        value={manualReason}
-                        onChange={(e) => setManualReason(e.target.value)}
-                        className="w-full bg-white border border-gray-200 rounded-lg p-1.5 text-xs focus:outline-none focus:ring-1 focus:ring-[#FC5931]"
-                      />
-                    </div>
-                  </div>
-
-                  {/* Variáveis do Template */}
-                  {selectedTemplate && (
-                    <div className="space-y-2 pt-2 border-t border-orange-100/50">
-                      <p className="text-[10px] uppercase font-bold text-gray-500">Parâmetros do Template</p>
-                      <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
-                        {selectedTemplate.vars.map((v: string, i: number) => (
-                          <div key={v}>
-                            <label className="block text-[9px] text-gray-400 mb-0.5">{v}</label>
-                            <input
-                              type="text"
-                              value={templateVars[i] || ''}
-                              onChange={(e) => {
-                                const newVars = [...templateVars]
-                                newVars[i] = e.target.value
-                                setTemplateVars(newVars)
-                              }}
-                              className="w-full bg-white border border-gray-200 rounded-md p-1 text-xs focus:outline-none focus:ring-1 focus:ring-[#FC5931]"
-                              placeholder={`Valor para ${v}`}
-                            />
-                          </div>
-                        ))}
+                    {/* Seleção de Template */}
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                      <div>
+                        <label className="block text-[10px] uppercase font-bold text-gray-500 mb-1">Selecione o Template</label>
+                        <select
+                          onChange={(e) => selectTemplate(e.target.value)}
+                          value={selectedTemplate?.name || ''}
+                          className="w-full bg-white border border-gray-200 rounded-lg p-1.5 text-xs focus:outline-none focus:ring-1 focus:ring-[#FC5931]"
+                        >
+                          <option value="">-- Selecionar --</option>
+                          {TEMPLATES.map(t => (
+                            <option key={t.name} value={t.name}>{t.name}</option>
+                          ))}
+                        </select>
+                      </div>
+                      
+                      <div>
+                        <label className="block text-[10px] uppercase font-bold text-gray-500 mb-1">Justificativa do Envio</label>
+                        <input
+                          type="text"
+                          placeholder="Ex: Confirmação manual de encomenda urgente"
+                          value={manualReason}
+                          onChange={(e) => setManualReason(e.target.value)}
+                          className="w-full bg-white border border-gray-200 rounded-lg p-1.5 text-xs focus:outline-none focus:ring-1 focus:ring-[#FC5931]"
+                        />
                       </div>
                     </div>
-                  )}
-                </div>
+
+                    {/* Variáveis do Template */}
+                    {selectedTemplate && (
+                      <div className="space-y-2 pt-2 border-t border-orange-100/50">
+                        <p className="text-[10px] uppercase font-bold text-gray-500">Parâmetros do Template</p>
+                        <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
+                          {selectedTemplate.vars.map((v: string, i: number) => (
+                            <div key={v}>
+                              <label className="block text-[9px] text-gray-400 mb-0.5">{v}</label>
+                              <input
+                                type="text"
+                                value={templateVars[i] || ''}
+                                onChange={(e) => {
+                                  const newVars = [...templateVars]
+                                  newVars[i] = e.target.value
+                                  setTemplateVars(newVars)
+                                }}
+                                className="w-full bg-white border border-gray-200 rounded-md p-1 text-xs focus:outline-none focus:ring-1 focus:ring-[#FC5931]"
+                                placeholder={`Valor para ${v}`}
+                              />
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                ) : null
               ) : null}
 
-              {/* Input texto livre ou botão de disparo de template */}
+              {/* Erros */}
               {errorMsg && (
                 <p className="text-xs text-red-500 font-semibold">{errorMsg}</p>
               )}
 
-              <div className="flex gap-2">
-                <input
-                  type="text"
-                  placeholder={
-                    selectedConv.window_open_until && new Date(selectedConv.window_open_until) >= new Date()
-                      ? "Digite a mensagem para enviar..."
-                      : "Mensagem será enviada estruturada via template selecionado acima..."
-                  }
-                  value={textInput}
-                  onChange={(e) => setTextInput(e.target.value)}
-                  disabled={!(selectedConv.window_open_until && new Date(selectedConv.window_open_until) >= new Date())}
-                  className="flex-1 bg-gray-50 border border-gray-200 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-1 focus:ring-[#FC5931] disabled:bg-gray-100 disabled:cursor-not-allowed"
-                />
-                <button
-                  type="submit"
-                  disabled={sending}
-                  className="bg-[#FC5931] hover:bg-[#e04e28] text-white px-5 py-2.5 rounded-xl font-bold flex items-center justify-center gap-1.5 transition-colors disabled:opacity-50"
-                >
-                  <Send size={16} />
-                  <span>{sending ? 'Enviando...' : 'Enviar'}</span>
-                </button>
-              </div>
+              {/* Barra de input e botão */}
+              {selectedConv.current_provider !== 'EVOLUTION' ? (
+                <div className="flex gap-2">
+                  <input
+                    type="text"
+                    placeholder={
+                      selectedConv.current_provider === 'BOTCONVERSA'
+                        ? "Digite a mensagem para enviar via BotConversa..."
+                        : (selectedConv.window_open_until && new Date(selectedConv.window_open_until) >= new Date()
+                          ? "Digite a mensagem para enviar..."
+                          : "Mensagem será enviada estruturada via template selecionado acima...")
+                    }
+                    value={textInput}
+                    onChange={(e) => setTextInput(e.target.value)}
+                    disabled={selectedConv.current_provider === 'META_CLOUD_API' && !(selectedConv.window_open_until && new Date(selectedConv.window_open_until) >= new Date())}
+                    className="flex-1 bg-gray-50 border border-gray-200 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-1 focus:ring-[#FC5931] disabled:bg-gray-100 disabled:cursor-not-allowed"
+                  />
+                  <button
+                    type="submit"
+                    disabled={sending}
+                    className="bg-[#FC5931] hover:bg-[#e04e28] text-white px-5 py-2.5 rounded-xl font-bold flex items-center justify-center gap-1.5 transition-colors disabled:opacity-50"
+                  >
+                    <Send size={16} />
+                    <span>{sending ? 'Enviando...' : 'Enviar'}</span>
+                  </button>
+                </div>
+              ) : null}
 
             </form>
           </>

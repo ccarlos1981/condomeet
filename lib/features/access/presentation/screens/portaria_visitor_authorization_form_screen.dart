@@ -163,7 +163,8 @@ class _PortariaVisitorAuthorizationFormScreenState
           .eq('condominio_id', condoId)
           .eq('bloco_txt', _bloco)
           .eq('apto_txt', _apto)
-          .neq('papel_sistema', 'portaria');
+          .neq('papel_sistema', 'portaria')
+          .neq('papel_sistema', 'Admin');
       if (mounted) {
         setState(() {
           _unitResidents = List<Map<String, dynamic>>.from(data);

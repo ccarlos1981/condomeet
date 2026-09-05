@@ -1,7 +1,7 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2"
 import { create } from "https://deno.land/x/djwt@v2.9.1/mod.ts"
-import { smartSend, DELAY_TEXT_MS } from "../_shared/botconversa.ts"
+import { smartSend, MessageType, DELAY_TEXT_MS } from "../_shared/botconversa.ts"
 
 // ── Dynamic structure labels ────────────────────────────────────────────────
 function getBlocoLabel(tipo?: string): string {
@@ -151,14 +151,14 @@ serve(async (req) => {
 
       const { data: g } = await supabase
         .from("garages")
-        .select("spot_identifier, spot_type, owner_id")
+        .select("numero_vaga, tipo_vaga, owner_id")
         .eq("id", reservation.garage_id)
         .single()
       garage = g;
     } else if (garage_id) {
       const { data: g } = await supabase
         .from("garages")
-        .select("spot_identifier, spot_type, owner_id")
+        .select("numero_vaga, tipo_vaga, owner_id")
         .eq("id", garage_id)
         .single()
       garage = g;
@@ -166,11 +166,12 @@ serve(async (req) => {
 
     // 4. Fetch profiles (with botconversa_id)
     let renter = null;
-    if (reservation?.renter_id) {
+    const renterId = reservation?.user_id || reservation?.renter_id;
+    if (renterId) {
       const { data: r } = await supabase
         .from("perfil")
         .select("id, nome_completo, bloco_txt, apto_txt, whatsapp, botconversa_id, fcm_token")
-        .eq("id", reservation.renter_id)
+        .eq("id", renterId)
         .single()
       renter = r;
     }
@@ -202,9 +203,9 @@ serve(async (req) => {
     const pushResults: any[] = []
     const whatsappResults: any[] = []
 
-    const startDate = reservation ? new Date(reservation.start_date).toLocaleDateString("pt-BR") : ""
-    const endDate = reservation ? new Date(reservation.end_date).toLocaleDateString("pt-BR") : ""
-    const vagaId = garage?.spot_identifier ?? "?"
+    const startDate = reservation?.inicio ? new Date(reservation.inicio).toLocaleDateString("pt-BR") : (reservation?.start_date ? new Date(reservation.start_date).toLocaleDateString("pt-BR") : "")
+    const endDate = reservation?.fim ? new Date(reservation.fim).toLocaleDateString("pt-BR") : (reservation?.end_date ? new Date(reservation.end_date).toLocaleDateString("pt-BR") : "")
+    const vagaId = (garage as any)?.numero_vaga ?? "?"
 
     // ══════════════════════════════════════════════════════════
     // ACTION: nova_vaga — Notify all residents
@@ -251,8 +252,11 @@ serve(async (req) => {
 
       // WhatsApp to owner via BotConversa
       if (BOTCONVERSA_API_KEY && (owner?.botconversa_id || owner?.whatsapp)) {
-        const waMsg = `🅿️ Condomeet - ${condoNome}\n\nNova solicitação de aluguel de vaga!\n\nVaga: ${vagaId}\nSolicitante: ${renter?.nome_completo ?? "Morador"}\n${blocoLabel}: ${renter?.bloco_txt ?? "?"}\n${aptoLabel}: ${renter?.apto_txt ?? "?"}\n\nPeríodo: ${startDate} a ${endDate}\nVeículo: ${reservation.vehicle_model ?? ""} - Placa: ${reservation.vehicle_plate ?? ""}\nValor: R$ ${Number(reservation.total_price || 0).toFixed(2)}\n\nAcesse o app para confirmar ou recusar.\n\nCondomeet agradece!`
-        const waResult = await smartSend(BOTCONVERSA_API_KEY, owner.botconversa_id, owner.whatsapp, "text", waMsg, owner.nome_completo as string, supabase, owner.id)
+        const vehicleModel = reservation?.modelo || reservation?.vehicle_model || ""
+        const vehiclePlate = reservation?.placa || reservation?.vehicle_plate || ""
+        const totalPrice = Number(reservation?.valor_total || reservation?.total_price || 0).toFixed(2)
+        const waMsg = `🅿️ Condomeet - ${condoNome}\n\nNova solicitação de aluguel de vaga!\n\nVaga: ${vagaId}\nSolicitante: ${renter?.nome_completo ?? "Morador"}\n${blocoLabel}: ${renter?.bloco_txt ?? "?"}\n${aptoLabel}: ${renter?.apto_txt ?? "?"}\n\nPeríodo: ${startDate} a ${endDate}\nVeículo: ${vehicleModel} - Placa: ${vehiclePlate}\nValor: R$ ${totalPrice}\n\nAcesse o app para confirmar ou recusar.\n\nCondomeet agradece!`
+        const waResult = await smartSend(BOTCONVERSA_API_KEY, owner.botconversa_id, owner.whatsapp, "text", waMsg, owner.nome_completo as string, supabase, owner.id, MessageType.NOTICE, "garagem-notify")
         whatsappResults.push({ success: waResult.success, subscriberId: waResult.subscriberId || owner.botconversa_id, error: waResult.error })
       }
 
@@ -295,8 +299,9 @@ serve(async (req) => {
 
       // WhatsApp to renter via BotConversa
       if (BOTCONVERSA_API_KEY && (renter?.botconversa_id || renter?.whatsapp)) {
-        const waMsg = `✅ Condomeet - ${condoNome}\n\nSua reserva de vaga foi confirmada!\n\nVaga: ${vagaId}\nProprietário: ${owner?.nome_completo ?? "?"}\nPeríodo: ${startDate} a ${endDate}\nValor: R$ ${Number(reservation.total_price || 0).toFixed(2)}\n\nLembre-se de combinar a entrega da chave/controle com o proprietário.\n\nCondomeet agradece!`
-        const waResult = await smartSend(BOTCONVERSA_API_KEY, renter.botconversa_id, renter.whatsapp, "text", waMsg, renter.nome_completo as string, supabase, renter.id)
+        const totalPrice = Number(reservation?.valor_total || reservation?.total_price || 0).toFixed(2)
+        const waMsg = `✅ Condomeet - ${condoNome}\n\nSua reserva de vaga foi confirmada!\n\nVaga: ${vagaId}\nProprietário: ${owner?.nome_completo ?? "?"}\nPeríodo: ${startDate} a ${endDate}\nValor: R$ ${totalPrice}\n\nLembre-se de combinar a entrega da chave/controle com o proprietário.\n\nCondomeet agradece!`
+        const waResult = await smartSend(BOTCONVERSA_API_KEY, renter.botconversa_id, renter.whatsapp, "text", waMsg, renter.nome_completo as string, supabase, renter.id, MessageType.NOTICE, "garagem-notify")
         whatsappResults.push({ success: waResult.success, subscriberId: waResult.subscriberId || renter.botconversa_id, error: waResult.error })
       }
 

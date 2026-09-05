@@ -1,6 +1,7 @@
 import { createClient } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
 import FuncionariosClient from './funcionarios-client'
+import { isAdminRole } from '@/lib/roles'
 
 export const metadata = {
   title: 'Funcionários - Condomeet',
@@ -25,12 +26,7 @@ export default async function FuncionariosPage() {
     redirect('/condo')
   }
 
-  const r = profile.papel_sistema?.toLowerCase() || ''
-  // Apenas admins/sindicos num primeiro momento, 
-  // embora o acesso seja também controlado no menu
-  const isAdmin = r.includes('síndico') || r.includes('sindico') || r.includes('admin') || r.includes('sub_sindico')
-
-  if (!isAdmin) {
+  if (!isAdminRole(profile.papel_sistema)) {
     redirect('/condo')
   }
 

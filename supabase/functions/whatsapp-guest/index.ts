@@ -1,7 +1,7 @@
 // supabase/functions/whatsapp-guest/index.ts
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.39.3";
-import { sendInteractiveButtons, parseWebhook, smartSend, normalizePhone, isValidPhone } from "../_shared/botconversa.ts";
+import { sendInteractiveButtons, parseWebhook, smartSend, normalizePhone, isValidPhone, MessageType } from "../_shared/botconversa.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -77,11 +77,14 @@ serve(async (req) => {
         { id: `reject_${visitor_id}`, title: "Recusar Entrada" },
       ];
 
+      let anyDispatched = false;
+      let lastError: string | null = null;
+
       for (const resident of activeResidents) {
         const subId = resident.botconversa_id || null;
         const phone = resident.whatsapp || null;
         
-        await sendInteractiveButtons(
+        const sendRes = await sendInteractiveButtons(
           BOTCONVERSA_API_KEY,
           subId,
           msgText,
@@ -90,11 +93,30 @@ serve(async (req) => {
           "Powered by Condomeet",
           supabaseServiceRole,
           resident.id,
-          phone
+          phone,
+          MessageType.VISITOR_AUTHORIZED,
+          "whatsapp-guest"
         );
+
+        if (sendRes.success) {
+          anyDispatched = true;
+        } else {
+          lastError = sendRes.error || sendRes.reason || "Falha no enfileiramento";
+          console.error(`[whatsapp-guest] Failed to send interactive buttons to resident ${resident.id}:`, lastError);
+        }
       }
 
-      return new Response("Approval requests dispatched", { status: 200 });
+      if (!anyDispatched) {
+        return new Response(JSON.stringify({ error: lastError || "Failed to dispatch approval requests" }), {
+          status: 500,
+          headers: { ...corsHeaders, "Content-Type": "application/json" }
+        });
+      }
+
+      return new Response(JSON.stringify({ message: "Approval requests dispatched", count: activeResidents.length }), {
+        status: 200,
+        headers: { ...corsHeaders, "Content-Type": "application/json" }
+      });
     }
 
     // SCENARIO 2: Callback/Webhook response from WhatsApp user reply
@@ -112,15 +134,75 @@ serve(async (req) => {
       console.error("[HealthCheck] Failed to update last_message_received_at:", err);
     }
 
-    // Identify if the text/value contains approve_ or reject_
-    const rawText = incoming.text || "";
-    // BotConversa button click sends the payload ID as the message text/value
+    // Identify if the text/value contains approve_ or reject_ or textual choice (1, 2, aprovar, recusar, etc.)
+    const rawText = (incoming.text || "").trim();
     const match = rawText.match(/(approve|reject)_([a-f0-9\-]{36})/i);
 
-    if (match) {
-      const decision = match[1].toLowerCase(); // 'approve' or 'reject'
-      const visitorId = match[2];
+    let decision: string | null = null;
+    let visitorId: string | null = null;
+    let perfil: any = null;
 
+    // Resolve profile of the sender by phone
+    const phoneVariants = [
+      incoming.phone,
+      incoming.phone.startsWith("55") ? incoming.phone.substring(2) : `55${incoming.phone}`,
+    ];
+
+    for (const variant of phoneVariants) {
+      const { data } = await supabaseServiceRole
+        .from("perfil")
+        .select("id, nome_completo, condominio_id, bloco_txt, apto_txt")
+        .eq("whatsapp", variant)
+        .eq("status_aprovacao", "aprovado")
+        .limit(1);
+      if (data && data.length > 0) {
+        perfil = data[0];
+        break;
+      }
+    }
+
+    if (match) {
+      decision = match[1].toLowerCase(); // 'approve' or 'reject'
+      visitorId = match[2];
+    } else {
+      // Check for textual responses
+      const clean = rawText.toLowerCase();
+      let candidateDecision: string | null = null;
+
+      if (["1", "aprovar", "aprovado", "sim", "autorizar", "liberar"].includes(clean)) {
+        candidateDecision = "approve";
+      } else if (["2", "recusar", "recusado", "nao", "não", "rejeitar", "bloquear"].includes(clean)) {
+        candidateDecision = "reject";
+      }
+
+      if (candidateDecision && perfil) {
+        // Query pending visitors for this unit
+        const { data: pendingVisitors, error: pendErr } = await supabaseServiceRole
+          .from("visitante_registros")
+          .select("id, condominio_id, nome, bloco, apto")
+          .eq("condominio_id", perfil.condominio_id)
+          .eq("bloco", perfil.bloco_txt)
+          .eq("apto", perfil.apto_txt)
+          .eq("status", "aguardando_aprovacao")
+          .order("entrada_at", { ascending: false });
+
+        if (pendErr) {
+          console.error("[whatsapp-guest] Error fetching pending visitors:", pendErr);
+        } else if (pendingVisitors && pendingVisitors.length === 1) {
+          decision = candidateDecision;
+          visitorId = pendingVisitors[0].id;
+          console.log(`[whatsapp-guest] Text reply '${rawText}' mapped to visitor ${visitorId} (unit ${perfil.bloco_txt}/${perfil.apto_txt}) with decision ${decision}`);
+        } else if (pendingVisitors && pendingVisitors.length > 1) {
+          console.warn(`[whatsapp-guest] Multiple pending visitors (${pendingVisitors.length}) for unit ${perfil.bloco_txt}/${perfil.apto_txt}. Ambiguous text reply ignored.`);
+          return new Response("Ambiguous text reply: multiple pending visitors", { status: 200 });
+        } else {
+          console.log(`[whatsapp-guest] No pending visitors found for unit ${perfil.bloco_txt}/${perfil.apto_txt}`);
+          return new Response("No pending visitors for text reply", { status: 200 });
+        }
+      }
+    }
+
+    if (decision && visitorId) {
       console.log(`Action reply decoded: ${decision} for visitor ${visitorId} from ${incoming.phone}`);
 
       // First fetch the visitor record to get its condominio_id
@@ -133,43 +215,6 @@ serve(async (req) => {
       if (visErr || !visitor) {
         console.error(`Visitor not found: ${visitorId}`, visErr);
         return new Response("Visitor not found", { status: 200 });
-      }
-
-      // Get profile of the sender to log approved_por
-      const phoneVariants = [
-        incoming.phone,
-        incoming.phone.startsWith("55") ? incoming.phone.substring(2) : `55${incoming.phone}`,
-      ];
-
-      let perfil = null;
-      for (const variant of phoneVariants) {
-        const { data } = await supabaseServiceRole
-          .from("perfil")
-          .select("id, nome_completo")
-          .eq("whatsapp", variant)
-          .eq("condominio_id", visitor.condominio_id)
-          .eq("status_aprovacao", "aprovado")
-          .limit(1);
-        if (data && data.length > 0) {
-          perfil = data[0];
-          break;
-        }
-      }
-
-      // Fallback in case of no match with condominio_id
-      if (!perfil) {
-        for (const variant of phoneVariants) {
-          const { data } = await supabaseServiceRole
-            .from("perfil")
-            .select("id, nome_completo")
-            .eq("whatsapp", variant)
-            .eq("status_aprovacao", "aprovado")
-            .limit(1);
-          if (data && data.length > 0) {
-            perfil = data[0];
-            break;
-          }
-        }
       }
 
       if (!perfil) {
@@ -200,7 +245,7 @@ serve(async (req) => {
         ? `✅ Entrada autorizada com sucesso! A liberação foi sincronizada com a portaria.`
         : `❌ Entrada recusada. A portaria foi notificada.`;
 
-      await smartSend(
+      const sendFeedbackRes = await smartSend(
         BOTCONVERSA_API_KEY,
         incoming.botconversa_id,
         incoming.phone,
@@ -208,10 +253,23 @@ serve(async (req) => {
         feedbackMsg,
         perfil.nome_completo?.split(" ")[0],
         supabaseServiceRole,
-        perfil.id
+        perfil.id,
+        MessageType.VISITOR_AUTHORIZED,
+        "whatsapp-guest"
       );
 
-      return new Response("Response processed", { status: 200 });
+      if (!sendFeedbackRes.success) {
+        console.error(`[whatsapp-guest] Failed to enqueue decision feedback:`, sendFeedbackRes.error || sendFeedbackRes.reason);
+        return new Response(JSON.stringify({ error: sendFeedbackRes.error || sendFeedbackRes.reason || "Failed to enqueue feedback" }), {
+          status: 500,
+          headers: { ...corsHeaders, "Content-Type": "application/json" }
+        });
+      }
+
+      return new Response(JSON.stringify({ message: "Response processed", decision, visitor_id: visitorId }), {
+        status: 200,
+        headers: { ...corsHeaders, "Content-Type": "application/json" }
+      });
     }
 
     return new Response("Ignored: no match for action buttons", { status: 200 });

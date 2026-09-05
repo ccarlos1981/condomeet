@@ -4,7 +4,7 @@
 // In production mode (cron), picks 2 random residents per day.
 
 import { createClient } from "npm:@supabase/supabase-js@2"
-import { smartSend, normalizePhone } from "../_shared/botconversa.ts"
+import { smartSend, normalizePhone, MessageType } from "../_shared/botconversa.ts"
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -142,7 +142,9 @@ Deno.serve(async (req) => {
         msg,
         firstName,
         supabase,
-        resident.id
+        resident.id,
+        MessageType.NOTICE,
+        "optin-whatsapp-cron"
       )
 
       // Log the send

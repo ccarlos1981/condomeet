@@ -15,13 +15,9 @@ interface SendRequest {
   apto?: string
   modo_envio:
     | "por_apto"
-    | "por_bloco"
-    | "por_condominio"
-    | "por_perfil"
     | "por_morador"
     | "por_botconversa"
   tipo_notificacao?: string
-  perfil?: string
   user_id?: string
   botconversa_id?: string
   flow_id?: number
@@ -41,9 +37,6 @@ const UUID_REGEX =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 const VALID_MODOS = [
   "por_apto",
-  "por_bloco",
-  "por_condominio",
-  "por_perfil",
   "por_morador",
   "por_botconversa",
 ] as const
@@ -68,6 +61,12 @@ function validateRequest(
     return { valid: false, error: "condominio_id é obrigatório e deve ser UUID válido" }
   }
   if (!params.modo_envio || !VALID_MODOS.includes(params.modo_envio as any)) {
+    if (["por_condominio", "por_bloco", "por_perfil"].includes(params.modo_envio as any)) {
+      return {
+        valid: false,
+        error: `modo_envio '${params.modo_envio}' foi permanentemente descontinuado pela governança anti-broadcast (FASE 4.16A). Comunicações coletivas devem utilizar Push Notification (FCM). Valores aceitos: ${VALID_MODOS.join(", ")}`
+      }
+    }
     return { valid: false, error: `modo_envio inválido. Valores aceitos: ${VALID_MODOS.join(", ")}` }
   }
   if (params.user_id && !isValidUUID(params.user_id)) {
@@ -90,7 +89,7 @@ async function resolveRecipients(
   supabase: any,
   params: SendRequest
 ): Promise<Recipient[]> {
-  const { modo_envio, condominio_id, bloco, apto, perfil, user_id, botconversa_id } = params
+  const { modo_envio, condominio_id, bloco, apto, user_id, botconversa_id } = params
 
   const baseFilters = (query: any) =>
     query
@@ -107,24 +106,6 @@ async function resolveRecipients(
       query = supabase.from("perfil").select("id, nome_completo, whatsapp, botconversa_id").eq("condominio_id", condominio_id)
       if (bloco) query = query.eq("bloco_txt", bloco)
       if (apto) query = query.eq("apto_txt", apto)
-      query = baseFilters(query)
-      break
-    }
-    case "por_bloco": {
-      query = supabase.from("perfil").select("id, nome_completo, whatsapp, botconversa_id").eq("condominio_id", condominio_id)
-      if (bloco) query = query.eq("bloco_txt", bloco)
-      query = baseFilters(query)
-      break
-    }
-    case "por_condominio": {
-      query = baseFilters(
-        supabase.from("perfil").select("id, nome_completo, whatsapp, botconversa_id").eq("condominio_id", condominio_id)
-      )
-      break
-    }
-    case "por_perfil": {
-      query = supabase.from("perfil").select("id, nome_completo, whatsapp, botconversa_id").eq("condominio_id", condominio_id)
-      if (perfil) query = query.eq("papel_sistema", perfil)
       query = baseFilters(query)
       break
     }

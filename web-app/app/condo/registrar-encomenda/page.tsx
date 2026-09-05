@@ -62,8 +62,8 @@ export default async function RegistrarEncomendaPage() {
       .order('numero')
   )
 
-  const allBlocosDesc = (blocos as any[]) ? (blocos as any[]).map((b: any) => b.nome_ou_numero) : []
-  const allAptosDesc = (rawAptos as any[]) ? (rawAptos as any[]).map((a: any) => a.numero) : []
+  const allBlocosDesc = (blocos as any[]) ? (blocos as any[]).map((b: any) => b.nome_ou_numero).filter((b: string) => b !== 'Admin' && b !== '0') : []
+  const allAptosDesc = (rawAptos as any[]) ? (rawAptos as any[]).map((a: any) => a.numero).filter((a: string) => a !== 'Admin' && a !== '0') : []
 
   if (blocos && blocos.length > 0) {
     const blocoMap: Record<string, string> = {}
@@ -86,12 +86,14 @@ export default async function RegistrarEncomendaPage() {
       const aptoMap: Record<string, string> = {}
       ;(aptos as any[] ?? []).forEach((a: any) => { aptoMap[a.id] = a.numero })
 
-      // Fetch residents to map bloco_txt+apto_txt → profile
+      // Fetch residents to map bloco_txt+apto_txt → profile (excluding technical Admin)
       const perfis = await fetchAll(
         supabase
           .from('perfil')
-          .select('id, nome_completo, bloco_txt, apto_txt')
+          .select('id, nome_completo, bloco_txt, apto_txt, papel_sistema')
           .eq('condominio_id', condoId)
+          .neq('papel_sistema', 'Admin')
+          .neq('bloco_txt', 'Admin')
           .not('apto_txt', 'is', null)
       )
 
@@ -101,19 +103,22 @@ export default async function RegistrarEncomendaPage() {
         residentMap[key] = { id: p.id, nome: p.nome_completo }
       })
 
-      units = (unidades as any[]).map((u: any) => {
-        const blocoNome = blocoMap[u.bloco_id] ?? '?'
-        const aptoNumero = aptoMap[u.apartamento_id] ?? '?'
-        const resident = residentMap[`${blocoNome}|${aptoNumero}`]
-        return {
-          blocoNome,
-          aptoNumero,
-          residentId: resident?.id ?? null,
-          residentName: resident?.nome ?? null,
-        }
-      }).sort((a, b) =>
-        a.blocoNome.localeCompare(b.blocoNome, 'pt', { numeric: true }) || a.aptoNumero.localeCompare(b.aptoNumero, 'pt', { numeric: true })
-      )
+      units = (unidades as any[])
+        .map((u: any) => {
+          const blocoNome = blocoMap[u.bloco_id] ?? '?'
+          const aptoNumero = aptoMap[u.apartamento_id] ?? '?'
+          const resident = residentMap[`${blocoNome}|${aptoNumero}`]
+          return {
+            blocoNome,
+            aptoNumero,
+            residentId: resident?.id ?? null,
+            residentName: resident?.nome ?? null,
+          }
+        })
+        .filter(u => u.blocoNome !== 'Admin' && u.aptoNumero !== 'Admin' && u.blocoNome !== '0' && u.aptoNumero !== '0')
+        .sort((a, b) =>
+          a.blocoNome.localeCompare(b.blocoNome, 'pt', { numeric: true }) || a.aptoNumero.localeCompare(b.aptoNumero, 'pt', { numeric: true })
+        )
     }
   }
 
@@ -122,19 +127,23 @@ export default async function RegistrarEncomendaPage() {
     const perfis = await fetchAll(
       supabase
         .from('perfil')
-        .select('id, nome_completo, bloco_txt, apto_txt')
+        .select('id, nome_completo, bloco_txt, apto_txt, papel_sistema')
         .eq('condominio_id', condoId)
+        .neq('papel_sistema', 'Admin')
+        .neq('bloco_txt', 'Admin')
         .not('apto_txt', 'is', null)
         .order('bloco_txt')
         .order('apto_txt')
     )
 
-    units = (perfis as any[] ?? []).map((p: any) => ({
-      blocoNome: p.bloco_txt ?? '?',
-      aptoNumero: p.apto_txt ?? '?',
-      residentId: p.id,
-      residentName: p.nome_completo,
-    }))
+    units = (perfis as any[] ?? [])
+      .filter((p: any) => p.bloco_txt !== 'Admin' && p.apto_txt !== 'Admin')
+      .map((p: any) => ({
+        blocoNome: p.bloco_txt ?? '?',
+        aptoNumero: p.apto_txt ?? '?',
+        residentId: p.id,
+        residentName: p.nome_completo,
+      }))
   }
 
   return (

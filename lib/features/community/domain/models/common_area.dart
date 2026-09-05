@@ -8,6 +8,8 @@ class CommonArea {
   final String iconPath;
   final int capacity;
   final String rules;
+  final String local;
+  final String? outroLocal;
 
   CommonArea({
     required this.id,
@@ -17,7 +19,34 @@ class CommonArea {
     required this.iconPath,
     required this.capacity,
     required this.rules,
+    this.local = '',
+    this.outroLocal,
   });
+
+  String get displayLocal => formatLocalDisplay(local: local, outroLocal: outroLocal);
+
+  static String formatLocalDisplay({String? local, String? outroLocal}) {
+    final loc = local?.trim() ?? '';
+    final outro = outroLocal?.trim() ?? '';
+
+    if (loc.toLowerCase() == 'outro' && outro.isNotEmpty) {
+      return outro;
+    }
+
+    if (loc.isNotEmpty && loc.toLowerCase() != 'outro') {
+      return loc;
+    }
+
+    if (outro.isNotEmpty) {
+      return outro;
+    }
+
+    if (loc.isNotEmpty) {
+      return loc;
+    }
+
+    return '—';
+  }
 
   factory CommonArea.fromMap(Map<String, dynamic> map) {
     final tipoAgenda = map['tipo_agenda'] as String? ?? map['name'] as String? ?? '';
@@ -29,6 +58,8 @@ class CommonArea {
       iconPath: _iconForTipo(tipoAgenda),
       capacity: (map['capacidade'] as int?) ?? (map['capacity'] as int?) ?? 0,
       rules: map['instrucao_uso'] as String? ?? map['rules'] as String? ?? '',
+      local: map['local'] as String? ?? '',
+      outroLocal: map['outro_local'] as String?,
     );
   }
 

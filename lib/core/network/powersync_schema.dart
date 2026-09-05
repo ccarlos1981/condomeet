@@ -82,7 +82,7 @@ const psSchema = Schema([
     Column.text('qr_data'),
     Column.text('visitor_type'),
     Column.text('visitor_phone'),
-    Column.text('observation'),
+    Column.text('observacao'),
     Column.text('status'),
     Column.text('created_at'),
     Column.text('updated_at'),

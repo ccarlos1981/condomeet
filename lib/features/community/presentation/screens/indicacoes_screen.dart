@@ -235,8 +235,10 @@ class _IndicacoesScreenState extends State<IndicacoesScreen> {
   List<Map<String, dynamic>> get _filtered {
     return _indicacoes.where((i) {
       final matchEsp = _filterEsp.isEmpty || i['especialidade'] == _filterEsp;
-      final matchSearch = _filterSearch.isEmpty ||
-          (i['nome'] as String).toLowerCase().contains(_filterSearch.toLowerCase());
+      final search = _filterSearch.trim().toLowerCase();
+      final matchSearch = search.isEmpty ||
+          ((i['nome'] as String?)?.toLowerCase().contains(search) ?? false) ||
+          ((i['especialidade'] as String?)?.toLowerCase().contains(search) ?? false);
       return matchEsp && matchSearch;
     }).toList();
   }
@@ -997,7 +999,7 @@ class _IndicacoesScreenState extends State<IndicacoesScreen> {
             child: TextField(
               onChanged: (v) => setState(() => _filterSearch = v),
               decoration: InputDecoration(
-                hintText: 'Buscar por nome...',
+                hintText: 'Buscar por nome ou especialidade...',
                 hintStyle: TextStyle(color: Colors.grey.shade400, fontSize: 14),
                 prefixIcon: const Icon(Icons.search, size: 18),
                 border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
@@ -1156,21 +1158,26 @@ class _IndicacoesScreenState extends State<IndicacoesScreen> {
                 ),
                 // WhatsApp button
                 if (whatsapp != null && whatsapp.isNotEmpty)
-                  GestureDetector(
-                    onTap: () => _openWhatsApp(whatsapp),
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                      decoration: BoxDecoration(
-                        color: const Color(0xFF25D366),
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                      child: const Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Icon(Icons.chat_rounded, color: Colors.white, size: 14),
-                          SizedBox(width: 4),
-                          Text('WA', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 11)),
-                        ],
+                  Semantics(
+                    label: 'WhatsApp',
+                    button: true,
+                    child: Tooltip(
+                      message: 'WhatsApp',
+                      child: GestureDetector(
+                        onTap: () => _openWhatsApp(whatsapp),
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFF25D366),
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          child: Image.asset(
+                            'assets/images/whatsapp_logo.png',
+                            width: 20,
+                            height: 20,
+                            fit: BoxFit.contain,
+                          ),
+                        ),
                       ),
                     ),
                   ),

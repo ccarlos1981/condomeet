@@ -5,6 +5,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:condomeet/core/design_system/app_colors.dart';
 import 'package:condomeet/core/di/injection_container.dart';
 import 'package:condomeet/features/auth/presentation/bloc/auth_bloc.dart';
+import 'package:condomeet/features/community/domain/models/common_area.dart';
 
 
 /// Screen for syndic/admin to approve or reject pending space reservations.
@@ -52,7 +53,7 @@ class _ReservaApprovalScreenState extends State<ReservaApprovalScreen>
           .from('reservas')
           .select(
               'id, data_reserva, nome_evento, status, created_at, user_id, '
-              'areas_comuns(id, tipo_agenda, local), '
+              'areas_comuns(id, tipo_agenda, local, outro_local), '
               'perfil!reservas_user_id_fkey(nome_completo, bloco_txt, apto_txt), '
               'areas_comuns_horarios(hora_inicio)')
           .eq('condominio_id', condoId)
@@ -65,7 +66,7 @@ class _ReservaApprovalScreenState extends State<ReservaApprovalScreen>
           .from('reservas')
           .select(
               'id, data_reserva, nome_evento, status, created_at, updated_at, user_id, '
-              'areas_comuns(id, tipo_agenda, local), '
+              'areas_comuns(id, tipo_agenda, local, outro_local), '
               'perfil!reservas_user_id_fkey(nome_completo, bloco_txt, apto_txt), '
               'areas_comuns_horarios(hora_inicio)')
           .eq('condominio_id', condoId)
@@ -332,7 +333,10 @@ class _ReservaApprovalScreenState extends State<ReservaApprovalScreen>
     final horario = r['areas_comuns_horarios'] as Map<String, dynamic>?;
 
     final areaNome = area?['tipo_agenda'] as String? ?? '—';
-    final areaLocal = area?['local'] as String? ?? '';
+    final areaLocal = CommonArea.formatLocalDisplay(
+      local: area?['local'] as String?,
+      outroLocal: area?['outro_local'] as String?,
+    );
     final moradorNome = perfil?['nome_completo'] as String? ?? 'Morador';
     final bloco = perfil?['bloco_txt'] as String? ?? '';
     final apto = perfil?['apto_txt'] as String? ?? '';

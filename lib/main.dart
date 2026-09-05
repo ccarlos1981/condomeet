@@ -21,6 +21,8 @@ import 'package:condomeet/core/di/injection_container.dart';
 import 'package:condomeet/core/services/powersync_service.dart';
 import 'package:condomeet/core/services/security_service.dart';
 import 'package:condomeet/core/errors/global_error_handler.dart';
+import 'package:condomeet/core/services/version_check_service.dart';
+import 'package:condomeet/core/design_system/widgets/force_update_screen.dart';
 import 'package:condomeet/core/design_system/widgets/condo_error_screen.dart';
 import 'package:condomeet/core/design_system/widgets/connectivity_banner.dart';
 
@@ -188,13 +190,68 @@ class CondomeetApp extends StatelessWidget {
   }
 }
 
-class AuthRootGate extends StatelessWidget {
+class AuthRootGate extends StatefulWidget {
   const AuthRootGate({super.key});
 
   @override
+  State<AuthRootGate> createState() => _AuthRootGateState();
+}
+
+class _AuthRootGateState extends State<AuthRootGate> {
+  VersionGateResult? _gateResult;
+
+  @override
+  void initState() {
+    super.initState();
+    _checkVersion();
+  }
+
+  Future<void> _checkVersion() async {
+    try {
+      final result = await sl<VersionCheckService>().checkVersionGate();
+      if (mounted) {
+        setState(() {
+          _gateResult = result;
+        });
+      }
+    } catch (e) {
+      debugPrint('⚠️ [AuthRootGate] Erro inesperado ao checar versão (Fail-Open): $e');
+      if (mounted) {
+        setState(() {
+          _gateResult = const VersionGateResult(
+            status: VersionGateStatus.allow,
+            installedBuild: VersionCheckService.defaultBuildNumber,
+            installedVersion: VersionCheckService.defaultAppVersion,
+            requiredBuild: VersionCheckService.defaultBuildNumber,
+            requiredVersion: VersionCheckService.defaultAppVersion,
+            storeUrl: '',
+            title: '',
+            message: '',
+          );
+        });
+      }
+    }
+  }
+
+  @override
   Widget build(BuildContext context) {
+    // 1. Enquanto a checagem inicial de versão estiver em andamento, exibe SplashScreen
+    if (_gateResult == null) {
+      return const SplashScreen();
+    }
+
+    // 2. Se a build instalada for menor que a versão mínima, intercepta e bloqueia
+    if (_gateResult!.isBlocked) {
+      return ForceUpdateScreen(
+        gateResult: _gateResult!,
+        onRetry: _checkVersion,
+      );
+    }
+
+    // 3. Versão permitida (ou offline/bypass): prossegue para o fluxo de autenticação normal
     return BlocConsumer<AuthBloc, AuthState>(
-      listenWhen: (previous, current) => previous.status != current.status || previous.isUnitBlocked != current.isUnitBlocked,
+      listenWhen: (previous, current) =>
+          previous.status != current.status || previous.isUnitBlocked != current.isUnitBlocked,
       listener: (context, state) {
         debugPrint('🔄 AuthRootGate: Status = ${state.status} | Profile = ${state.profileStatus}');
       },

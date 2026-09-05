@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:condomeet/core/design_system/app_colors.dart';
 import 'package:condomeet/core/di/injection_container.dart';
+import 'package:condomeet/features/community/domain/models/common_area.dart';
 import 'package:condomeet/features/community/presentation/screens/booking_form_screen.dart';
 
 /// Portaria booking screen — shows available areas immediately,
@@ -135,8 +136,10 @@ class _PortariaBookingScreenState extends State<PortariaBookingScreen> {
 
   Widget _buildAreaCard(Map<String, dynamic> area) {
     final tipo = area['tipo_agenda'] as String? ?? '—';
-    final local = area['local'] as String? ?? '';
-    final displayLocal = local == 'Outro' ? (area['outro_local'] as String? ?? 'Outro') : local;
+    final displayLocal = CommonArea.formatLocalDisplay(
+      local: area['local'] as String?,
+      outroLocal: area['outro_local'] as String?,
+    );
     final cap = area['capacidade']?.toString() ?? '0';
     final tipoReserva = area['tipo_reserva'] as String? ?? 'por_dia';
     final isPorHora = tipoReserva == 'por_hora';

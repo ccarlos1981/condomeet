@@ -82,8 +82,8 @@ class _LoginScreenState extends State<LoginScreen> {
         children: [
           BlocListener<AuthBloc, AuthState>(
         listener: (context, state) {
-          if (state.status == AuthStatus.needsPasswordSetup && state.phoneNumber != null) {
-            PasswordSetupSheet.show(context, state.phoneNumber!);
+          if (state.status == AuthStatus.needsPasswordSetup && state.email != null) {
+            PasswordSetupSheet.show(context, state.email!);
           } else if (state.status == AuthStatus.unauthenticated && state.errorMessage != null) {
             ScaffoldMessenger.of(context).showSnackBar(
               SnackBar(content: Text(state.errorMessage!), backgroundColor: AppColors.error),

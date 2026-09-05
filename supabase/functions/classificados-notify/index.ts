@@ -1,7 +1,7 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2"
 import { create } from "https://deno.land/x/djwt@v2.9.1/mod.ts"
-import { sendMessage, smartSend } from "../_shared/botconversa.ts"
+import { smartSend, MessageType } from "../_shared/botconversa.ts"
 
 // ── Dynamic structure labels ────────────────────────────────────────────────
 function getBlocoLabel(tipo?: string): string {
@@ -206,7 +206,7 @@ serve(async (req) => {
         }
         if (BOTCONVERSA_API_KEY && (criador.botconversa_id || criador.whatsapp)) {
           const waMsg = `📰 *Condomeet informa:*\n\nSeu anúncio "${classificado.titulo}" foi recebido com sucesso e está em análise pela administração do condomínio.\n\nAvisaremos você por aqui assim que for aprovado!`
-          const waResult = await smartSend(BOTCONVERSA_API_KEY, criador.botconversa_id as string, criador.whatsapp as string, "text", waMsg, criador.nome_completo as string, supabase, criador.id)
+          const waResult = await smartSend(BOTCONVERSA_API_KEY, criador.botconversa_id as string, criador.whatsapp as string, "text", waMsg, criador.nome_completo as string, supabase, criador.id, MessageType.NOTICE, "classificados-notify")
           whatsappResults.push({ success: waResult.success, subscriberId: waResult.subscriberId || criador.botconversa_id, error: waResult.error })
         }
       }
@@ -229,7 +229,9 @@ serve(async (req) => {
             whatsappMsg,
             recipient.nome_completo?.split(" ")[0],
             supabase,
-            recipient.id
+            recipient.id,
+            MessageType.NOTICE,
+            "classificados-notify"
           )
           console.log(`[classificados-notify] WA result: ${result.success ? '✅' : '❌'} ${result.error || ''}`)
           whatsappResults.push({ success: result.success, subscriberId: result.subscriberId || recipient.botconversa_id, error: result.error })
@@ -301,7 +303,7 @@ serve(async (req) => {
         const codInterno = classificado.cod_interno || Math.random().toString(36).substring(2, 7).toUpperCase()
         const waMsg = `📰 ${condoNome}\n\nSeu anúncio foi aprovado pelo Condomínio!\n\nAnúncio: ${classificado.titulo}\n\nLembre-se que o anúncio terá validade de 60 dias.\nData: ${dataFormatada}\n\nCondomeet agradece!\nCod. interno: ${codInterno}`
         console.log(`[classificados-notify] Sending approval WA to creator ${criador.nome_completo}`)
-        const waResult = await smartSend(BOTCONVERSA_API_KEY, criador.botconversa_id as string, criador.whatsapp as string, "text", waMsg, criador.nome_completo as string, supabase, criador.id)
+        const waResult = await smartSend(BOTCONVERSA_API_KEY, criador.botconversa_id as string, criador.whatsapp as string, "text", waMsg, criador.nome_completo as string, supabase, criador.id, MessageType.NOTICE, "classificados-notify")
         console.log(`[classificados-notify] WA approval result: ${waResult.success ? '✅' : '❌'} ${waResult.error || ''}`)
         whatsappResults.push({ success: waResult.success, subscriberId: waResult.subscriberId || criador.botconversa_id, error: waResult.error })
       }

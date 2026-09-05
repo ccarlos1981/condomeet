@@ -100,7 +100,7 @@ serve(async (req) => {
           },
           android: {
             priority: 'high',
-            notification: { channel_id: 'album_fotos', sound: 'condomeet' },
+            notification: { channel_id: 'avisos_v2', sound: 'condomeet' },
           },
           apns: {
             payload: { aps: { sound: 'condomeet.aiff', badge: 1 } },

@@ -182,7 +182,7 @@ serve(async (req) => {
 
     if (indicacao.whatsapp && botconversaApiKey) {
       console.log(`[indicacoes-notify] Sending WhatsApp to professional: ${indicacao.whatsapp}`)
-      const whatsMessage = `Olá, ${indicacao.nome}\n\nTemos uma ótima notícia!\n\nO(a) morador(a) ${indicadorNome}, do Condomínio ${condoNome}, indicou seus serviços no App Condomeet, o aplicativo que conecta moradores a profissionais de confiança. 🏡\n\nSua indicação agora está visível para todos os moradores do Condomínio.\n\nSe desejar destacar seu perfil e atrair mais clientes, entre em contato com nosso suporte:\n📞 (62) 99918-8555\n\nAgradecemos pela confiança e desejamos muito sucesso!\n\nAtenciosamente,\nEquipe Condomeet\n🌐 Conectando pessoas, serviços e bons negócios.`
+      const whatsMessage = `Olá, ${indicacao.nome}\n\nTemos uma ótima notícia!\n\nO(a) morador(a) ${indicadorNome}, do Condomínio ${condoNome}, indicou seus serviços no App Condomeet, o aplicativo que conecta moradores a profissionais de confiança. 🏡\n\nSua indicação agora está visível para todos os moradores do Condomínio.\n\nAgradecemos pela confiança e desejamos muito sucesso!\n\nAtenciosamente,\nEquipe Condomeet`
 
       try {
         const whatsResult = await smartSend(
@@ -192,7 +192,10 @@ serve(async (req) => {
           "text",
           whatsMessage,
           indicacao.nome.split(" ")[0],
-          supabase
+          supabase,
+          undefined,
+          "NOTICE",
+          "indicacoes-notify"
         )
         whatsappSent = whatsResult.success
         whatsappError = whatsResult.error

@@ -283,13 +283,17 @@ class ResidentRepositoryImpl implements ResidentRepository {
       final session = _authRepository.currentSession;
       if (session == null) return Failure('Sem autorização');
 
+      final isTargetAdmin = papelSistema == 'Admin';
+      final finalBlock = isTargetAdmin ? 'Admin' : block.trim();
+      final finalUnit = isTargetAdmin ? 'Admin' : unit.trim();
+
       // 1. Update Perfil
       await _supabase.from('perfil').update({
         'nome_completo': fullName,
         'email': email,
         'whatsapp': phone,
-        'bloco_txt': block,
-        'apto_txt': unit,
+        'bloco_txt': finalBlock,
+        'apto_txt': finalUnit,
         'tipo_morador': tipoMorador,
         'papel_sistema': papelSistema,
       }).eq('id', residentId);
@@ -302,66 +306,85 @@ class ResidentRepositoryImpl implements ResidentRepository {
             nome_completo = ?, email = ?, whatsapp = ?, bloco_txt = ?, apto_txt = ?, tipo_morador = ?, papel_sistema = ?, updated_at = ?
           WHERE id = ?
           ''',
-          [fullName, email, phone, block, unit, tipoMorador, papelSistema, DateTime.now().toIso8601String(), residentId]
+          [fullName, email, phone, finalBlock, finalUnit, tipoMorador, papelSistema, DateTime.now().toIso8601String(), residentId]
         );
       } catch (_) {}
 
-      // 2. Handle unit bindings directly on Supabase (like web app)
-      if (block.isNotEmpty && unit.isNotEmpty) {
+      // 2. Handle unit bindings directly on Supabase (preserving history)
+      if (!isTargetAdmin && finalBlock.isNotEmpty && finalUnit.isNotEmpty && finalBlock != 'Admin') {
         // Find or create block
         String? blocoId;
         final blocoArr = await _supabase.from('blocos')
-            .select('id').eq('condominio_id', condominiumId).eq('nome_ou_numero', block);
+            .select('id').eq('condominio_id', condominiumId).eq('nome_ou_numero', finalBlock);
         if (blocoArr.isNotEmpty) {
-          blocoId = blocoArr[0]['id'];
+          blocoId = blocoArr[0]['id'] as String;
         } else {
           final newBloco = await _supabase.from('blocos').insert({
             'condominio_id': condominiumId,
-            'nome_ou_numero': block
-          }).select().single();
-          blocoId = newBloco['id'];
+            'nome_ou_numero': finalBlock,
+          }).select('id').single();
+          blocoId = newBloco['id'] as String;
         }
 
         // Find or create apto
         String? aptoId;
         final aptoArr = await _supabase.from('apartamentos')
-            .select('id').eq('condominio_id', condominiumId).eq('numero', unit);
+            .select('id').eq('condominio_id', condominiumId).eq('numero', finalUnit);
         if (aptoArr.isNotEmpty) {
-          aptoId = aptoArr[0]['id'];
+          aptoId = aptoArr[0]['id'] as String;
         } else {
           final newApto = await _supabase.from('apartamentos').insert({
             'condominio_id': condominiumId,
-            'numero': unit
-          }).select().single();
-          aptoId = newApto['id'];
+            'numero': finalUnit,
+          }).select('id').single();
+          aptoId = newApto['id'] as String;
         }
 
-        // Find or create unidade
+        // Find or create physical unit (strictly schema columns)
         String? unidadeId;
         final unitArr = await _supabase.from('unidades')
-            .select('id').eq('condominio_id', condominiumId)
-            .eq('bloco_id', blocoId!).eq('apartamento_id', aptoId!);
+            .select('id')
+            .eq('condominio_id', condominiumId)
+            .eq('bloco_id', blocoId)
+            .eq('apartamento_id', aptoId);
         if (unitArr.isNotEmpty) {
-          unidadeId = unitArr[0]['id'];
+          unidadeId = unitArr[0]['id'] as String;
         } else {
           final newUnit = await _supabase.from('unidades').insert({
             'condominio_id': condominiumId,
             'bloco_id': blocoId,
             'apartamento_id': aptoId,
-            'bloco_txt': block,
-            'apto_txt': unit,
-          }).select().single();
-          unidadeId = newUnit['id'];
+          }).select('id').single();
+          unidadeId = newUnit['id'] as String;
         }
 
-        // Unbind any previous units
-        await _supabase.from('unidade_perfil').delete().eq('perfil_id', residentId);
-        
-        // Insert new binding
-        await _supabase.from('unidade_perfil').insert({
-          'perfil_id': residentId,
-          'unidade_id': unidadeId
-        });
+        if (unidadeId.isNotEmpty) {
+          final existingLinks = await _supabase.from('unidade_perfil')
+              .select('id, unidade_id, status')
+              .eq('perfil_id', residentId);
+          
+          final alreadyActive = (existingLinks as List).any((l) => l['unidade_id'] == unidadeId && l['status'] == 'ativo');
+          
+          if (!alreadyActive) {
+            // Inactivate old active links to preserve history
+            await _supabase.from('unidade_perfil')
+                .update({
+                  'status': 'inativo',
+                  'data_saida': DateTime.now().toUtc().toIso8601String(),
+                })
+                .eq('perfil_id', residentId)
+                .eq('status', 'ativo');
+            
+            // Insert or reactivate link with onConflict handling
+            await _supabase.from('unidade_perfil').upsert({
+              'perfil_id': residentId,
+              'unidade_id': unidadeId,
+              'status': 'ativo',
+              'data_entrada': DateTime.now().toUtc().toIso8601String(),
+              'data_saida': null,
+            }, onConflict: 'perfil_id, unidade_id');
+          }
+        }
       }
 
       return const Success(null);

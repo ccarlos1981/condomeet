@@ -554,13 +554,39 @@ class _PendingDeliveriesScreenState extends State<PendingDeliveriesScreen> {
                 ],
                 const SizedBox(height: 8),
                 // Status line
-                if (!isPending && parcel.deliveryTime != null)
+                if (!isPending && parcel.deliveryTime != null) ...[
                   Row(children: [
                     const Icon(Icons.check_circle_outline, size: 14, color: Colors.green),
                     const SizedBox(width: 4),
                     Text('Retirado ${_fmt(parcel.deliveryTime!)}',
                         style: const TextStyle(fontSize: 12, color: Colors.green, fontWeight: FontWeight.w600)),
                   ]),
+                  if (parcel.pickedUpByName != null || parcel.pickedUpById != null) ...[
+                    const SizedBox(height: 6),
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                      decoration: BoxDecoration(
+                        color: Colors.green.shade50,
+                        borderRadius: BorderRadius.circular(20),
+                        border: Border.all(color: Colors.green.shade200),
+                      ),
+                      child: Row(mainAxisSize: MainAxisSize.min, children: [
+                        Icon(
+                          parcel.pickedUpById == null ? Icons.person_outline : Icons.how_to_reg_outlined,
+                          size: 14,
+                          color: Colors.green.shade700,
+                        ),
+                        const SizedBox(width: 4),
+                        Text(
+                          parcel.pickedUpById == null
+                              ? 'Terceiro: ${parcel.pickedUpByName}'
+                              : (parcel.pickedUpByName != null ? 'Morador: ${parcel.pickedUpByName}' : 'Morador'),
+                          style: TextStyle(color: Colors.green.shade700, fontSize: 12, fontWeight: FontWeight.w600),
+                        ),
+                      ]),
+                    ),
+                  ],
+                ],
                 if (isPending) ...[
                   // Buttons side by side
                   Row(children: [
@@ -821,6 +847,9 @@ class _DarBaixaSheetState extends State<_DarBaixaSheet> {
     _sigCtrl.addListener(() {
       if (_sigCtrl.isNotEmpty && !_hasSigned) setState(() => _hasSigned = true);
     });
+    _thirdPartyCtrl.addListener(() {
+      if (mounted) setState(() {});
+    });
     _loadResidents();
   }
 
@@ -839,6 +868,7 @@ class _DarBaixaSheetState extends State<_DarBaixaSheet> {
           .eq('bloco_txt', widget.parcel.block)
           .eq('apto_txt', widget.parcel.unitNumber)
           .neq('papel_sistema', 'portaria')
+          .neq('papel_sistema', 'Admin')
           .eq('status_aprovacao', 'aprovado')
           .neq('bloqueado', true);
       setState(() {
@@ -850,9 +880,13 @@ class _DarBaixaSheetState extends State<_DarBaixaSheet> {
     }
   }
 
-  // Recipient selection is optional — condominium decides if it's required.
-  // The confirm button is always enabled; empty recipient is stored as null.
-  bool get _canConfirm => true;
+  bool get _canConfirm {
+    if (_isThirdParty) {
+      return _thirdPartyCtrl.text.trim().isNotEmpty;
+    } else {
+      return _selectedResidentId != null && _selectedResidentId!.isNotEmpty;
+    }
+  }
 
   /// Uploads the signature PNG to Supabase Storage and returns its public URL.
   Future<String?> _uploadSignature() async {
@@ -958,6 +992,8 @@ class _DarBaixaSheetState extends State<_DarBaixaSheet> {
                       setState(() {
                         _selectedResidentId = v;
                         _selectedResidentName = _residents.firstWhere((r) => r['id'] == v)['nome_completo'] as String?;
+                        _isThirdParty = false;
+                        _thirdPartyCtrl.clear();
                       });
                     },
                   ),
@@ -965,7 +1001,19 @@ class _DarBaixaSheetState extends State<_DarBaixaSheet> {
               ),
             const SizedBox(height: 12),
             Row(children: [
-              Checkbox(value: _isThirdParty, onChanged: (v) => setState(() { _isThirdParty = v ?? false; if (_isThirdParty) _selectedResidentId = null; }), activeColor: AppColors.primary),
+              Checkbox(
+                value: _isThirdParty,
+                onChanged: (v) => setState(() {
+                  _isThirdParty = v ?? false;
+                  if (_isThirdParty) {
+                    _selectedResidentId = null;
+                    _selectedResidentName = null;
+                  } else {
+                    _thirdPartyCtrl.clear();
+                  }
+                }),
+                activeColor: AppColors.primary,
+              ),
               const SizedBox(width: 4),
               const Text('Terceiro(a)'),
             ]),

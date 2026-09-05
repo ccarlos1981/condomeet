@@ -88,19 +88,19 @@ export default async function AdminDashboard() {
       .eq('condominio_id', condoId).gte('created_at', startOfMonth),
     // Reservas hoje
     supabase.from('reservas').select('*', { count: 'exact', head: true })
-      .eq('condominio_id', condoId).eq('data', todayStr),
+      .eq('condominio_id', condoId).eq('data_reserva', todayStr),
     // Reservas no mês
     supabase.from('reservas').select('*', { count: 'exact', head: true })
-      .eq('condominio_id', condoId).gte('data', todayStr.substring(0, 7) + '-01'),
+      .eq('condominio_id', condoId).gte('data_reserva', todayStr.substring(0, 7) + '-01'),
     // Encomendas pendentes
     supabase.from('encomendas').select('*', { count: 'exact', head: true })
       .eq('condominio_id', condoId).eq('status', 'pending'),
     // Encomendas mês
     supabase.from('encomendas').select('*', { count: 'exact', head: true })
       .eq('condominio_id', condoId).gte('created_at', startOfMonth),
-    // Avisos ativos
+    // Avisos
     supabase.from('avisos').select('*', { count: 'exact', head: true })
-      .eq('condominio_id', condoId).eq('ativo', true),
+      .eq('condominio_id', condoId),
     // Manutenções abertas
     supabase.from('manutencoes').select('*', { count: 'exact', head: true })
       .eq('condominio_id', condoId).neq('status', 'concluida'),
@@ -112,9 +112,9 @@ export default async function AdminDashboard() {
       .eq('condominio_id', condoId).eq('status', 'aberto'),
     // Classificados ativos
     supabase.from('classificados').select('*', { count: 'exact', head: true })
-      .eq('condominio_id', condoId).eq('ativo', true),
+      .eq('condominio_id', condoId).eq('status', 'aprovado'),
     // Atividade recente — últimas 5 ocorrências
-    supabase.from('ocorrencias').select('id, titulo, status, created_at')
+    supabase.from('ocorrencias').select('id, assunto, status, created_at')
       .eq('condominio_id', condoId).order('created_at', { ascending: false }).limit(5),
     // Atividade recente — últimas 5 visitas
     supabase.from('visita_proprietario').select('id, nome_morador, tipo, bloco, apto, created_at')
@@ -134,9 +134,9 @@ export default async function AdminDashboard() {
   // Monthly reservas
   const { data: reservasMensal } = await supabase
     .from('reservas')
-    .select('data, status')
+    .select('data_reserva, status')
     .eq('condominio_id', condoId)
-    .gte('data', sixMonthsAgo.toISOString().substring(0, 10))
+    .gte('data_reserva', sixMonthsAgo.toISOString().substring(0, 10))
 
   // Monthly fale conosco
   const { data: faleConoscoMensal } = await supabase
@@ -252,7 +252,7 @@ export default async function AdminDashboard() {
                   <AlertCircle size={15} className="text-red-500" />
                 </div>
                 <div className="flex-1 min-w-0">
-                  <p className="text-sm font-medium text-gray-800 truncate">{o.titulo}</p>
+                  <p className="text-sm font-medium text-gray-800 truncate">{o.assunto || 'Ocorrência'}</p>
                   <p className="text-[11px] text-gray-400 capitalize">{o.status}</p>
                 </div>
                 <span className="text-[11px] text-gray-400 shrink-0">{fmtDate(o.created_at)}</span>

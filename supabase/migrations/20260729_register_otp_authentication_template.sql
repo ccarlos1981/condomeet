@@ -37,9 +37,9 @@ INSERT INTO public.whatsapp_meta_templates (
         "components": [
             {
                 "type": "body",
-                "text": "Olá {{1}}, seu código de verificação do Condomeet é {{2}}. Ele expira em 5 minutos. Por sua segurança, não compartilhe este código com ninguém.",
+                "text": "Seu código de verificação do Condomeet é {{1}}. Ele expira em 5 minutos. Por sua segurança, não compartilhe este código com ninguém.",
                 "example": {
-                    "body_text": [["Morador", "123456"]]
+                    "body_text": [["123456"]]
                 }
             }
         ]

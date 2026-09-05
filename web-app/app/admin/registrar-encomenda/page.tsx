@@ -3,6 +3,7 @@ import { redirect } from 'next/navigation'
 import ParcelRegisterForm from '@/app/condo/registrar-encomenda/parcel-register-form'
 import { fetchAll } from '@/lib/supabase/utils'
 import type { UnitOption } from '@/app/condo/registrar-encomenda/page'
+import { isAdminRole } from '@/lib/roles'
 
 export const metadata = { title: 'Registrar Encomenda — Painel Admin' }
 
@@ -17,8 +18,7 @@ export default async function AdminRegistrarEncomendaPage() {
     .eq('id', user.id)
     .single()
 
-  const role = (profile?.papel_sistema ?? '').toLowerCase()
-  const isAdmin = role.includes('síndico') || role.includes('sindico') || role.includes('sub') || role === 'admin'
+  const isAdmin = isAdminRole(profile?.papel_sistema)
   if (!isAdmin) redirect('/condo')
 
   const condoId = profile?.condominio_id ?? ''

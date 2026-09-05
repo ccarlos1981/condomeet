@@ -1,51 +1,26 @@
 'use client'
 
-import { useState, useRef, useEffect } from 'react'
+import { useState, useRef, useEffect, useMemo } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import {
   FolderOpen, FolderPlus, FilePlus, Download, Pencil, Trash2,
   Eye, Search, ChevronDown, ChevronRight, X, Upload, Loader2, FileText, Plus,
-  ChevronLeft, Calendar
+  ChevronLeft, Calendar, ShieldAlert, CheckCircle2, Clock, Check
 } from 'lucide-react'
+import { Pasta, Documento } from './types'
+import {
+  MOTIVOS_OBRIGATORIOS,
+  MOTIVOS_MANUTENCAO,
+  TipoDocumentoCanonica,
+  normalizeTipoDocumento,
+  getCategoriaBadge,
+} from './constants'
 
-// ─── Types ───────────────────────────────────────────────────────────────────
-
-export type Pasta = {
-  id: string
-  nome: string
-  observacao: string | null
-  created_at: string
-}
-
-export type Documento = {
-  id: string
-  pasta_id: string | null
-  titulo: string
-  categoria: string | null
-  tipo: string
-  arquivo_url: string | null
-  arquivo_nome: string | null
-  data_expedicao: string | null
-  data_validade: string | null
-  lembrar_30: boolean
-  lembrar_60: boolean
-  lembrar_90: boolean
-  avisar_moradores: boolean
-  mostrar_moradores: boolean
-  descricao: string | null
-  updated_at: string
-}
-
-const CATEGORIAS_PADRAO = ['Atas', 'Gerador', 'Bombeiro', 'Elevador', 'Financeiro', 'Jurídico', 'Outros']
-const TIPOS = [
-  { value: 'obrigatorio', label: 'Obrigatório' },
-  { value: 'manutencao',  label: 'Manutenção' },
-  { value: 'outros',      label: 'Outros' },
-]
+export type { Pasta, Documento }
 
 function formatDate(d: string | null) {
   if (!d) return '—'
-  return new Date(d).toLocaleDateString('pt-BR')
+  return new Date(d + 'T12:00:00').toLocaleDateString('pt-BR')
 }
 
 const DIAS_SEMANA = ['dom', 'seg', 'ter', 'qua', 'qui', 'sex', 'sáb']
@@ -57,10 +32,12 @@ function CalendarPicker({
   value,
   onChange,
   label,
+  disabled = false,
 }: {
   value: string
   onChange: (v: string) => void
   label: string
+  disabled?: boolean
 }) {
   const [open, setOpen] = useState(false)
   const ref = useRef<HTMLDivElement>(null)
@@ -69,18 +46,14 @@ function CalendarPicker({
   const [viewYear, setViewYear] = useState(parsed.getFullYear())
   const [viewMonth, setViewMonth] = useState(parsed.getMonth())
 
-  // When value changes externally, sync the view
-  // Sync calendar view when value prop changes externally (legitimate derived state sync)
   useEffect(() => {
     if (value) {
       const d = new Date(value + 'T12:00:00')
-      // eslint-disable-next-line react-hooks/set-state-in-effect
       setViewYear(d.getFullYear())
       setViewMonth(d.getMonth())
     }
   }, [value])
 
-  // Close on outside click
   useEffect(() => {
     function handleClick(e: MouseEvent) {
       if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false)
@@ -109,14 +82,12 @@ function CalendarPicker({
     else setViewMonth(m => m + 1)
   }
 
-  // Build calendar grid rows
   const cells: { day: number; current: boolean }[] = []
   for (let i = firstDay - 1; i >= 0; i--) cells.push({ day: daysInPrev - i, current: false })
   for (let d = 1; d <= daysInMonth; d++) cells.push({ day: d, current: true })
   const remaining = 7 - (cells.length % 7)
   if (remaining < 7) for (let d = 1; d <= remaining; d++) cells.push({ day: d, current: false })
 
-  // Format display value
   const displayValue = value
     ? new Date(value + 'T12:00:00').toLocaleDateString('pt-BR')
     : 'DD/MM/AAAA'
@@ -126,16 +97,20 @@ function CalendarPicker({
       <label className="text-xs font-semibold text-gray-500 uppercase tracking-wide block mb-1.5">{label}</label>
       <button
         type="button"
-        onClick={() => setOpen(!open)}
-        className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm text-left flex items-center justify-between focus:outline-none focus:ring-2 focus:ring-[#FC5931]/30 focus:border-[#FC5931] bg-white hover:border-gray-300 transition"
+        disabled={disabled}
+        onClick={() => !disabled && setOpen(!open)}
+        className={`w-full border rounded-xl px-3 py-2.5 text-sm text-left flex items-center justify-between transition ${
+          disabled
+            ? 'bg-gray-100 border-gray-200 text-gray-400 cursor-not-allowed'
+            : 'border-gray-200 bg-white hover:border-gray-300 focus:outline-none focus:ring-2 focus:ring-[#FC5931]/30 focus:border-[#FC5931]'
+        }`}
       >
-        <span className={value ? 'text-gray-800' : 'text-gray-400'}>{displayValue}</span>
+        <span className={value && !disabled ? 'text-gray-800' : 'text-gray-400'}>{displayValue}</span>
         <Calendar size={16} className="text-gray-400" />
       </button>
 
-      {open && (
+      {open && !disabled && (
         <div className="absolute z-50 mt-1 bg-white rounded-xl shadow-2xl border border-gray-200 p-3 w-[280px]" style={{ left: '50%', transform: 'translateX(-50%)' }}>
-          {/* Month nav */}
           <div className="flex items-center justify-between mb-2">
             <button type="button" onClick={prevMonth} className="p-1 rounded-lg hover:bg-gray-100 text-gray-500 transition">
               <ChevronLeft size={18} />
@@ -148,12 +123,10 @@ function CalendarPicker({
             </button>
           </div>
 
-          {/* Day headers */}
           <div className="grid grid-cols-7 text-center text-xs font-semibold text-gray-400 mb-1">
             {DIAS_SEMANA.map(d => <div key={d} className="py-1">{d}</div>)}
           </div>
 
-          {/* Day cells */}
           <div className="grid grid-cols-7 text-center text-sm">
             {cells.map((cell, i) => {
               const isSelected = cell.current && dayStr(cell.day) === value
@@ -180,7 +153,6 @@ function CalendarPicker({
             })}
           </div>
 
-          {/* Actions */}
           <div className="flex items-center justify-center gap-4 mt-3 pt-2 border-t border-gray-100">
             <button type="button" onClick={() => { onChange(todayStr); setOpen(false) }}
               className="text-xs font-semibold text-blue-600 hover:text-blue-800 flex items-center gap-1 transition">
@@ -283,16 +255,28 @@ function PastaModal({
 
 // ─── RadioGroup helper ────────────────────────────────────────────────────────
 
-function RadioGroup({ label, value, onChange }: { label: string; value: boolean; onChange: (v: boolean) => void }) {
+function RadioGroup({ label, value, onChange, disabled = false }: { label: string; value: boolean; onChange: (v: boolean) => void; disabled?: boolean }) {
   return (
-    <div className="flex items-center justify-between py-1.5 border-b border-gray-50">
+    <div className={`flex items-center justify-between py-1.5 border-b border-gray-50 ${disabled ? 'opacity-40' : ''}`}>
       <span className="text-sm text-gray-700">{label}</span>
       <div className="flex gap-4">
-        <label className="flex items-center gap-1.5 cursor-pointer text-sm">
-          <input type="radio" checked={value} onChange={() => onChange(true)} className="accent-[#FC5931]" /> sim
+        <label className={`flex items-center gap-1.5 text-sm ${disabled ? 'cursor-not-allowed' : 'cursor-pointer'}`}>
+          <input
+            type="radio"
+            checked={value}
+            disabled={disabled}
+            onChange={() => !disabled && onChange(true)}
+            className="accent-[#FC5931]"
+          /> sim
         </label>
-        <label className="flex items-center gap-1.5 cursor-pointer text-sm">
-          <input type="radio" checked={!value} onChange={() => onChange(false)} className="accent-[#FC5931]" /> não
+        <label className={`flex items-center gap-1.5 text-sm ${disabled ? 'cursor-not-allowed' : 'cursor-pointer'}`}>
+          <input
+            type="radio"
+            checked={!value}
+            disabled={disabled}
+            onChange={() => !disabled && onChange(false)}
+            className="accent-[#FC5931]"
+          /> não
         </label>
       </div>
     </div>
@@ -303,7 +287,6 @@ function RadioGroup({ label, value, onChange }: { label: string; value: boolean;
 
 function DocumentoForm({
   tabelaDocs,
-// tabelaPastas,
   storageBucket,
   condoId,
   pastas,
@@ -311,11 +294,8 @@ function DocumentoForm({
   onClose,
   onSaved,
   tituloLabel = 'Documento',
-  categorias,
-  onAddCategoria,
 }: {
   tabelaDocs: string
-// tabelaPastas: string
   storageBucket: string
   condoId: string
   pastas: Pasta[]
@@ -323,31 +303,90 @@ function DocumentoForm({
   onClose: () => void
   onSaved: (d: Documento) => void
   tituloLabel?: string
-  categorias: string[]
-  onAddCategoria: (c: string) => void
 }) {
-  const [showAddCat, setShowAddCat] = useState(false)
-  const [newCat, setNewCat] = useState('')
-  const [tipo, setTipo] = useState(doc?.tipo ?? 'obrigatorio')
+  // 1. Categoria (Radio Button)
+  const [tipo, setTipo] = useState<TipoDocumentoCanonica>(() => normalizeTipoDocumento(doc?.tipo))
+
+  // 2. Motivo (armazenado na coluna categoria)
+  const [motivo, setMotivo] = useState(doc?.categoria ?? '')
+  const [customMotivoInput, setCustomMotivoInput] = useState(
+    doc?.tipo === 'outros' || doc?.tipo === 'outros_documentos' ? (doc?.categoria ?? '') : ''
+  )
+
+  // 3. Título & Pasta
   const [titulo, setTitulo] = useState(doc?.titulo ?? '')
-  const [categoria, setCategoria] = useState(doc?.categoria ?? '')
   const [pastaId, setPastaId] = useState(doc?.pasta_id ?? '')
   const [dataExp, setDataExp] = useState(doc?.data_expedicao ?? new Date().toISOString().slice(0, 10))
-  const [dataVal, setDataVal] = useState(() => doc?.data_validade ?? (() => { const d = new Date(); d.setFullYear(d.getFullYear() + 1); return d.toISOString().slice(0, 10) })())
-  const [lembrar30, setLembrar30] = useState(doc?.lembrar_30 ?? false)
-  const [lembrar60, setLembrar60] = useState(doc?.lembrar_60 ?? false)
-  const [lembrar90, setLembrar90] = useState(doc?.lembrar_90 ?? false)
+
+  // 4. Validade & Sem Validade
+  const [semValidade, setSemValidade] = useState(doc?.sem_validade ?? false)
+  const [dataVal, setDataVal] = useState<string>(() => {
+    if (doc?.sem_validade) return ''
+    if (doc?.data_validade) return doc.data_validade
+    const d = new Date()
+    d.setFullYear(d.getFullYear() + 1)
+    return d.toISOString().slice(0, 10)
+  })
+
+  // 5. Lembretes e Notificações
+  const [lembrar30, setLembrar30] = useState(doc?.sem_validade ? false : (doc?.lembrar_30 ?? false))
+  const [lembrar60, setLembrar60] = useState(doc?.sem_validade ? false : (doc?.lembrar_60 ?? false))
+  const [lembrar90, setLembrar90] = useState(doc?.sem_validade ? false : (doc?.lembrar_90 ?? false))
   const [avisarMoradores, setAvisarMoradores] = useState(doc?.avisar_moradores ?? false)
   const [mostrarMoradores, setMostrarMoradores] = useState(doc?.mostrar_moradores ?? false)
   const [descricao, setDescricao] = useState(doc?.descricao ?? '')
+
+  // 6. Arquivo
   const [arquivo, setArquivo] = useState<File | null>(null)
   const [arquivoNomeAtual] = useState(doc?.arquivo_nome ?? '')
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
   const fileRef = useRef<HTMLInputElement>(null)
 
+  // Handler de troca de Categoria
+  function handleSelectCategoria(newTipo: TipoDocumentoCanonica) {
+    if (newTipo === tipo) return
+    setTipo(newTipo)
+
+    // Regra: "Ao alterar a Categoria durante a edição, limpar o Motivo anterior caso ele não pertença à nova categoria."
+    if (newTipo === 'obrigatorio') {
+      const match = (MOTIVOS_OBRIGATORIOS as readonly string[]).includes(motivo)
+      if (!match) setMotivo('')
+    } else if (newTipo === 'manutencao') {
+      const match = (MOTIVOS_MANUTENCAO as readonly string[]).includes(motivo)
+      if (!match) setMotivo('')
+    } else if (newTipo === 'outros') {
+      setMotivo(customMotivoInput)
+    }
+  }
+
+  // Handler de alteração do toggle sem_validade
+  function handleToggleSemValidade(checked: boolean) {
+    setSemValidade(checked)
+    if (checked) {
+      setDataVal('')
+      setLembrar30(false)
+      setLembrar60(false)
+      setLembrar90(false)
+    } else {
+      const d = new Date()
+      d.setFullYear(d.getFullYear() + 1)
+      setDataVal(d.toISOString().slice(0, 10))
+    }
+  }
+
   async function handleSave() {
-    if (!titulo.trim()) { setError(`Informe o título do ${tituloLabel.toLowerCase()}.`); return }
+    if (!titulo.trim()) {
+      setError(`Informe o título do ${tituloLabel.toLowerCase()}.`)
+      return
+    }
+
+    const finalMotivo = tipo === 'outros' ? customMotivoInput.trim() : motivo.trim()
+    if (!finalMotivo) {
+      setError('Informe o motivo do documento.')
+      return
+    }
+
     setSaving(true)
     setError('')
     const supabase = createClient()
@@ -358,25 +397,32 @@ function DocumentoForm({
       const ext = arquivo.name.split('.').pop()
       const path = `${condoId}/${Date.now()}.${ext}`
       const { error: upErr } = await supabase.storage.from(storageBucket).upload(path, arquivo, { upsert: true })
-      if (upErr) { setError(`Erro ao fazer upload: ${upErr.message}`); setSaving(false); return }
+      if (upErr) {
+        setError(`Erro ao fazer upload: ${upErr.message}`)
+        setSaving(false)
+        return
+      }
       const { data: urlData } = supabase.storage.from(storageBucket).getPublicUrl(path)
       arquivo_url = urlData.publicUrl
       arquivo_nome = arquivo.name
     }
 
-    const payload = {
+    const payload: Record<string, unknown> = {
       condominio_id: condoId,
       pasta_id: pastaId || null,
       titulo: titulo.trim(),
-      categoria: categoria || null,
-      tipo,
+      categoria: finalMotivo || null,
+      tipo: tipo,
+      // Para novos documentos: tipo_id = null. Para documentos existentes: preservar o existente.
+      tipo_id: doc?.tipo_id ?? null,
       arquivo_url,
       arquivo_nome,
       data_expedicao: dataExp || null,
-      data_validade: dataVal || null,
-      lembrar_30: lembrar30,
-      lembrar_60: lembrar60,
-      lembrar_90: lembrar90,
+      data_validade: semValidade ? null : (dataVal || null),
+      sem_validade: semValidade,
+      lembrar_30: semValidade ? false : lembrar30,
+      lembrar_60: semValidade ? false : lembrar60,
+      lembrar_90: semValidade ? false : lembrar90,
       avisar_moradores: avisarMoradores,
       mostrar_moradores: mostrarMoradores,
       descricao: descricao.trim() || null,
@@ -385,11 +431,19 @@ function DocumentoForm({
 
     if (doc) {
       const { data: d, error: e } = await supabase.from(tabelaDocs).update(payload).eq('id', doc.id).select().single()
-      if (e || !d) { setError(`Erro ao salvar: ${e?.message ?? 'resposta vazia'}`); setSaving(false); return }
+      if (e || !d) {
+        setError(`Erro ao salvar: ${e?.message ?? 'resposta vazia'}`)
+        setSaving(false)
+        return
+      }
       onSaved(d as Documento)
     } else {
       const { data: d, error: e } = await supabase.from(tabelaDocs).insert(payload).select().single()
-      if (e || !d) { setError(`Erro ao inserir: ${e?.message ?? 'resposta vazia'}`); setSaving(false); return }
+      if (e || !d) {
+        setError(`Erro ao inserir: ${e?.message ?? 'resposta vazia'}`)
+        setSaving(false)
+        return
+      }
       onSaved(d as Documento)
     }
 
@@ -401,148 +455,238 @@ function DocumentoForm({
     <div className="bg-white rounded-2xl shadow-sm border border-gray-100 max-w-2xl mx-auto">
       <div className="flex items-center justify-between px-6 py-5 border-b border-gray-100">
         <h2 className="text-lg font-bold text-gray-900">
-          {doc ? `Editar ${tituloLabel}` : `Inserir ${tituloLabel}`}
+          {doc ? `Editar ${tituloLabel}` : `Novo ${tituloLabel}`}
         </h2>
         <button onClick={onClose} className="p-1.5 rounded-xl hover:bg-gray-100 text-gray-400"><X size={18} /></button>
       </div>
 
-      <div className="px-6 py-5 space-y-4">
-        {/* Tipo */}
+      <div className="px-6 py-5 space-y-5">
+        {/* ── 1. Categoria (Radio Button) ── */}
         <div>
-          <label className="text-sm font-semibold text-gray-700 block mb-2">Tipo de {tituloLabel}:</label>
-          <div className="flex gap-4">
-            {TIPOS.map(t => (
-              <label key={t.value} className="flex items-center gap-1.5 cursor-pointer text-sm">
-                <input type="radio" value={t.value} checked={tipo === t.value} onChange={() => setTipo(t.value)} className="accent-[#FC5931]" />
-                {t.label}
-              </label>
-            ))}
+          <label className="text-xs font-semibold text-gray-500 uppercase tracking-wide block mb-2">
+            Categoria do Documento *
+          </label>
+          <div className="grid grid-cols-3 gap-3">
+            {[
+              { id: 'obrigatorio' as const, label: 'Obrigatório', badge: 'bg-blue-50 text-blue-700 border-blue-200' },
+              { id: 'manutencao' as const, label: 'Manutenção', badge: 'bg-amber-50 text-amber-700 border-amber-200' },
+              { id: 'outros' as const, label: 'Outros', badge: 'bg-purple-50 text-purple-700 border-purple-200' },
+            ].map(cat => {
+              const isSelected = tipo === cat.id
+              return (
+                <button
+                  key={cat.id}
+                  type="button"
+                  onClick={() => handleSelectCategoria(cat.id)}
+                  className={`flex items-center justify-between p-3.5 rounded-xl border-2 text-left transition ${
+                    isSelected
+                      ? 'border-[#FC5931] bg-orange-50/50 shadow-xs'
+                      : 'border-gray-200 bg-white hover:border-gray-300'
+                  }`}
+                >
+                  <div className="flex items-center gap-2.5">
+                    <div className={`w-4 h-4 rounded-full border flex items-center justify-center ${
+                      isSelected ? 'border-[#FC5931] bg-[#FC5931]' : 'border-gray-300 bg-white'
+                    }`}>
+                      {isSelected && <div className="w-1.5 h-1.5 rounded-full bg-white" />}
+                    </div>
+                    <span className={`text-sm font-semibold ${isSelected ? 'text-[#FC5931]' : 'text-gray-700'}`}>
+                      {cat.label}
+                    </span>
+                  </div>
+                </button>
+              )
+            })}
           </div>
         </div>
 
-        {/* Título + Categoria */}
-        <div className="grid grid-cols-2 gap-4">
-          <div>
-            <label className="text-xs font-semibold text-gray-500 uppercase tracking-wide block mb-1.5">Título do {tituloLabel.toLowerCase()}</label>
-            <input value={titulo} onChange={e => setTitulo(e.target.value)} placeholder="Opcional"
-              className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#FC5931]/30 focus:border-[#FC5931]" />
-          </div>
-          <div>
-            <label className="text-xs font-semibold text-gray-500 uppercase tracking-wide block mb-1.5">Categoria do {tituloLabel.toLowerCase()}</label>
-            <div className="flex gap-2">
-              <select value={categoria} onChange={e => setCategoria(e.target.value)}
-                className="flex-1 border border-gray-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#FC5931]/30 focus:border-[#FC5931] bg-white">
-                <option value="">Selecione</option>
-                {categorias.map(c => <option key={c} value={c}>{c}</option>)}
-              </select>
-              <button type="button" onClick={() => setShowAddCat(true)}
-                title="Adicionar categoria"
-                className="flex items-center justify-center w-10 h-10 border border-gray-200 rounded-xl hover:border-[#FC5931] hover:text-[#FC5931] text-gray-400 transition">
-                <Plus size={18} />
-              </button>
+        {/* ── 2. Motivo do Documento (Dinâmico) ── */}
+        <div>
+          <label className="text-xs font-semibold text-gray-500 uppercase tracking-wide block mb-1.5">
+            Motivo do Documento *
+          </label>
+
+          {tipo === 'obrigatorio' && (
+            <select
+              value={motivo}
+              onChange={e => setMotivo(e.target.value)}
+              className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#FC5931]/30 focus:border-[#FC5931] bg-white"
+            >
+              <option value="">Selecione o motivo obrigatório</option>
+              {MOTIVOS_OBRIGATORIOS.map(m => (
+                <option key={m} value={m}>{m}</option>
+              ))}
+            </select>
+          )}
+
+          {tipo === 'manutencao' && (
+            <select
+              value={motivo}
+              onChange={e => setMotivo(e.target.value)}
+              className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#FC5931]/30 focus:border-[#FC5931] bg-white"
+            >
+              <option value="">Selecione o motivo de manutenção</option>
+              {MOTIVOS_MANUTENCAO.map(m => (
+                <option key={m} value={m}>{m}</option>
+              ))}
+            </select>
+          )}
+
+          {tipo === 'outros' && (
+            <div>
+              <input
+                type="text"
+                value={customMotivoInput}
+                onChange={e => {
+                  setCustomMotivoInput(e.target.value)
+                  setMotivo(e.target.value)
+                }}
+                placeholder="Informe o motivo livremente (ex: Seguro da academia, Comunicado piscina...)"
+                className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#FC5931]/30 focus:border-[#FC5931] bg-white"
+              />
             </div>
-            {showAddCat && (
-              <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
-                <div className="bg-white rounded-2xl shadow-2xl w-full max-w-sm p-6">
-                  <div className="flex items-center justify-between mb-4">
-                    <h3 className="text-lg font-bold text-gray-900">Nova Categoria</h3>
-                    <button onClick={() => { setShowAddCat(false); setNewCat('') }} className="p-1 rounded-lg hover:bg-gray-100 text-gray-400"><X size={18} /></button>
-                  </div>
-                  <input
-                    value={newCat}
-                    onChange={e => setNewCat(e.target.value)}
-                    placeholder="Nome da nova categoria"
-                    className="w-full border border-gray-200 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#FC5931]/30 focus:border-[#FC5931] mb-4"
-                    autoFocus
-                    onKeyDown={e => {
-                      if (e.key === 'Enter' && newCat.trim()) {
-                        onAddCategoria(newCat.trim())
-                        setCategoria(newCat.trim())
-                        setShowAddCat(false)
-                        setNewCat('')
-                      }
-                    }}
-                  />
-                  <div className="flex gap-3">
-                    <button
-                      onClick={() => {
-                        if (newCat.trim()) {
-                          onAddCategoria(newCat.trim())
-                          setCategoria(newCat.trim())
-                          setShowAddCat(false)
-                          setNewCat('')
-                        }
-                      }}
-                      disabled={!newCat.trim()}
-                      className="flex-1 bg-[#FC5931] text-white rounded-xl py-2.5 text-sm font-semibold hover:bg-[#D42F1D] transition disabled:opacity-40">
-                      Adicionar
-                    </button>
-                    <button onClick={() => { setShowAddCat(false); setNewCat('') }}
-                      className="flex-1 border border-[#FC5931] text-[#FC5931] rounded-xl py-2.5 text-sm font-semibold hover:bg-orange-50 transition">
-                      Cancelar
-                    </button>
-                  </div>
-                </div>
-              </div>
-            )}
-          </div>
+          )}
         </div>
 
-        {/* Arquivo */}
+        {/* ── 3. Título ── */}
         <div>
-          <label className="text-xs font-semibold text-gray-500 uppercase tracking-wide block mb-1.5">Arquivo do {tituloLabel}</label>
-          <input ref={fileRef} type="file" accept=".pdf,.doc,.docx,.xls,.xlsx,.jpg,.png" className="hidden"
-            onChange={e => setArquivo(e.target.files?.[0] ?? null)} />
-          <button onClick={() => fileRef.current?.click()}
-            className="w-full border-2 border-dashed border-gray-200 rounded-xl px-4 py-3 text-sm text-gray-400 hover:border-[#FC5931] hover:text-[#FC5931] transition flex items-center gap-2 justify-center">
-            <Upload size={16} />
-            {arquivo ? arquivo.name : arquivoNomeAtual || `Clique para importar o ${tituloLabel}`}
-          </button>
+          <label className="text-xs font-semibold text-gray-500 uppercase tracking-wide block mb-1.5">
+            Título do {tituloLabel.toLowerCase()} <span className="text-red-500">*</span>
+          </label>
+          <input
+            value={titulo}
+            onChange={e => setTitulo(e.target.value)}
+            placeholder="Ex: Balancete de Março, AVCB 2026, Laudo Bombeiros..."
+            className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#FC5931]/30 focus:border-[#FC5931]"
+          />
         </div>
 
-        {/* Pasta */}
+        {/* ── 4. Pasta de Armazenamento ── */}
         <div>
-          <label className="text-xs font-semibold text-gray-500 uppercase tracking-wide block mb-1.5">Pasta de {tituloLabel.toLowerCase()}</label>
-          <select value={pastaId} onChange={e => setPastaId(e.target.value)}
-            className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#FC5931]/30 focus:border-[#FC5931] bg-white">
-            <option value="">Escolha Pasta</option>
+          <label className="text-xs font-semibold text-gray-500 uppercase tracking-wide block mb-1.5">
+            Pasta de {tituloLabel.toLowerCase()} (Opcional)
+          </label>
+          <select
+            value={pastaId}
+            onChange={e => setPastaId(e.target.value)}
+            className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#FC5931]/30 focus:border-[#FC5931] bg-white"
+          >
+            <option value="">Escolha Pasta (Opcional)</option>
             {pastas.map(p => <option key={p.id} value={p.id}>{p.nome}</option>)}
           </select>
         </div>
 
-        {/* Datas */}
-        <div className="grid grid-cols-2 gap-4">
-          <CalendarPicker label="Data Emissão" value={dataExp} onChange={setDataExp} />
-          <CalendarPicker label="Data Validade" value={dataVal} onChange={setDataVal} />
-        </div>
-
-        {/* Flags */}
-        <div className="bg-gray-50 rounded-xl p-4 space-y-0.5">
-          <RadioGroup label="Lembrar com 30 dias de vencer:" value={lembrar30} onChange={setLembrar30} />
-          <RadioGroup label="Lembrar com 60 dias de vencer:" value={lembrar60} onChange={setLembrar60} />
-          <RadioGroup label="Lembrar com 90 dias de vencer:" value={lembrar90} onChange={setLembrar90} />
-          <RadioGroup label="Avisar todos moradores?" value={avisarMoradores} onChange={setAvisarMoradores} />
-          <RadioGroup label="Mostrar aos moradores?" value={mostrarMoradores} onChange={setMostrarMoradores} />
-        </div>
-
-        {/* Descrição */}
+        {/* ── 5. Arquivo / Anexo ── */}
         <div>
-          <label className="text-xs font-semibold text-gray-500 uppercase tracking-wide block mb-1.5">Descrição</label>
-          <textarea value={descricao} onChange={e => setDescricao(e.target.value)}
-            placeholder="Escreva aqui uma descrição" rows={3}
-            className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm resize-none focus:outline-none focus:ring-2 focus:ring-[#FC5931]/30 focus:border-[#FC5931]" />
+          <label className="text-xs font-semibold text-gray-500 uppercase tracking-wide block mb-1.5">
+            Arquivo do {tituloLabel}
+          </label>
+          <input
+            ref={fileRef}
+            type="file"
+            accept=".pdf,.doc,.docx,.xls,.xlsx,.jpg,.jpeg,.png"
+            className="hidden"
+            onChange={e => setArquivo(e.target.files?.[0] ?? null)}
+          />
+          <button
+            type="button"
+            onClick={() => fileRef.current?.click()}
+            className="w-full border-2 border-dashed border-gray-200 rounded-xl px-4 py-3 text-sm text-gray-400 hover:border-[#FC5931] hover:text-[#FC5931] transition flex items-center gap-2 justify-center"
+          >
+            <Upload size={16} />
+            {arquivo ? arquivo.name : arquivoNomeAtual || `Clique para importar o arquivo de ${tituloLabel.toLowerCase()}`}
+          </button>
+        </div>
+
+        {/* ── 6. Datas e Sem Validade ── */}
+        <div className="space-y-2">
+          <div className="grid grid-cols-2 gap-4">
+            <CalendarPicker label="Data Emissão" value={dataExp} onChange={setDataExp} />
+            <div>
+              <CalendarPicker
+                label="Data Validade"
+                value={dataVal}
+                onChange={setDataVal}
+                disabled={semValidade}
+              />
+            </div>
+          </div>
+
+          <div className="flex items-center gap-2 pt-1">
+            <label className="flex items-center gap-2 text-xs font-medium text-gray-700 cursor-pointer select-none">
+              <input
+                type="checkbox"
+                checked={semValidade}
+                onChange={e => handleToggleSemValidade(e.target.checked)}
+                className="w-4 h-4 rounded border-gray-300 text-[#FC5931] focus:ring-[#FC5931] accent-[#FC5931]"
+              />
+              <span>Documento sem validade (permanente / indeterminado)</span>
+            </label>
+          </div>
+        </div>
+
+        {/* ── 7. Lembretes e Notificações ── */}
+        <div className="bg-gray-50 rounded-xl p-4 space-y-0.5 border border-gray-100">
+          <div className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-2">
+            Configurações de Notificação e Lembretes
+          </div>
+          <RadioGroup
+            label="Lembrar com 30 dias de vencer:"
+            value={lembrar30}
+            onChange={setLembrar30}
+            disabled={semValidade}
+          />
+          <RadioGroup
+            label="Lembrar com 60 dias de vencer:"
+            value={lembrar60}
+            onChange={setLembrar60}
+            disabled={semValidade}
+          />
+          <RadioGroup
+            label="Lembrar com 90 dias de vencer:"
+            value={lembrar90}
+            onChange={setLembrar90}
+            disabled={semValidade}
+          />
+          <RadioGroup
+            label="Avisar todos moradores (Push na publicação)?"
+            value={avisarMoradores}
+            onChange={setAvisarMoradores}
+          />
+          <RadioGroup
+            label="Mostrar aos moradores (Portal/App)?"
+            value={mostrarMoradores}
+            onChange={setMostrarMoradores}
+          />
+        </div>
+
+        {/* ── 8. Descrição ── */}
+        <div>
+          <label className="text-xs font-semibold text-gray-500 uppercase tracking-wide block mb-1.5">Descrição (Opcional)</label>
+          <textarea
+            value={descricao}
+            onChange={e => setDescricao(e.target.value)}
+            placeholder="Escreva aqui observações, notas ou detalhes sobre este documento"
+            rows={3}
+            className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm resize-none focus:outline-none focus:ring-2 focus:ring-[#FC5931]/30 focus:border-[#FC5931]"
+          />
         </div>
 
         {error && <p className="text-red-500 text-sm bg-red-50 px-4 py-2 rounded-xl">{error}</p>}
 
         <div className="flex gap-3 pt-2">
-          <button onClick={handleSave} disabled={saving}
-            className="flex items-center gap-2 bg-[#FC5931] text-white px-6 py-2.5 rounded-xl text-sm font-semibold hover:bg-[#D42F1D] transition disabled:opacity-40">
+          <button
+            onClick={handleSave}
+            disabled={saving}
+            className="flex items-center gap-2 bg-[#FC5931] text-white px-6 py-2.5 rounded-xl text-sm font-semibold hover:bg-[#D42F1D] transition disabled:opacity-40"
+          >
             {saving ? <Loader2 size={16} className="animate-spin" /> : null}
-            {saving ? 'Salvando...' : doc ? 'Salvar' : `Inserir ${tituloLabel}`}
+            {saving ? 'Salvando...' : doc ? 'Salvar Alterações' : `Inserir ${tituloLabel}`}
           </button>
-          <button onClick={onClose}
-            className="border border-[#FC5931] text-[#FC5931] px-6 py-2.5 rounded-xl text-sm font-semibold hover:bg-orange-50 transition">
+          <button
+            onClick={onClose}
+            className="border border-[#FC5931] text-[#FC5931] px-6 py-2.5 rounded-xl text-sm font-semibold hover:bg-orange-50 transition"
+          >
             Voltar
           </button>
         </div>
@@ -561,7 +705,6 @@ export default function DocumentosClient({
   tabelaDocs,
   storageBucket,
   titulo,
-  initialCategorias = [],
 }: {
   initialPastas: Pasta[]
   initialDocs: Documento[]
@@ -571,28 +714,39 @@ export default function DocumentosClient({
   storageBucket: string
   titulo: string
   initialCategorias?: string[]
+  initialTipos?: unknown[]
+  initialPrioridades?: unknown[]
 }) {
   const [pastas, setPastas] = useState<Pasta[]>(initialPastas)
   const [docs, setDocs] = useState<Documento[]>(initialDocs)
+
   const [expandedPasta, setExpandedPasta] = useState<string | null>(null)
   const [search, setSearch] = useState('')
-  const [filterCat, setFilterCat] = useState('')
+  const [filterTipo, setFilterTipo] = useState<string>('')
+  const [filterValidade, setFilterValidade] = useState<'todas' | 'vigente' | 'vencer' | 'vencido' | 'sem_validade'>('todas')
+
   const [showPastaModal, setShowPastaModal] = useState(false)
   const [editPasta, setEditPasta] = useState<Pasta | undefined>()
   const [showDocForm, setShowDocForm] = useState(false)
   const [editDoc, setEditDoc] = useState<Documento | undefined>()
+
   const [deletingPasta, setDeletingPasta] = useState<string | null>(null)
   const [deletingDoc, setDeletingDoc] = useState<string | null>(null)
-  const [customCategorias, setCustomCategorias] = useState<string[]>(initialCategorias)
-
-  // Merge default + custom + categories from existing docs
-  const allCategorias = Array.from(new Set([
-    ...CATEGORIAS_PADRAO,
-    ...customCategorias,
-    ...docs.map(d => d.categoria).filter((c): c is string => !!c),
-  ])).sort()
 
   const supabase = createClient()
+
+  // Helper para verificar status de validade
+  function getValidadeStatus(doc: Documento) {
+    if (doc.sem_validade || !doc.data_validade) return 'sem_validade'
+    const today = new Date()
+    today.setHours(0, 0, 0, 0)
+    const val = new Date(doc.data_validade + 'T12:00:00')
+    const diffDays = Math.ceil((val.getTime() - today.getTime()) / (1000 * 60 * 60 * 24))
+
+    if (diffDays < 0) return 'vencido'
+    if (diffDays <= 30) return 'vencer'
+    return 'vigente'
+  }
 
   function docsInPasta(pastaId: string) {
     return docs.filter(d => d.pasta_id === pastaId)
@@ -600,9 +754,24 @@ export default function DocumentosClient({
 
   function filteredDocs(pastaId: string) {
     return docsInPasta(pastaId).filter(d => {
-      const matchSearch = !search || d.titulo.toLowerCase().includes(search.toLowerCase())
-      const matchCat = !filterCat || d.categoria === filterCat
-      return matchSearch && matchCat
+      const matchSearch = !search ||
+        d.titulo.toLowerCase().includes(search.toLowerCase()) ||
+        (d.categoria && d.categoria.toLowerCase().includes(search.toLowerCase())) ||
+        (d.descricao && d.descricao.toLowerCase().includes(search.toLowerCase())) ||
+        (d.arquivo_nome && d.arquivo_nome.toLowerCase().includes(search.toLowerCase()))
+
+      const docTipoNorm = normalizeTipoDocumento(d.tipo)
+      const matchTipo = !filterTipo || docTipoNorm === filterTipo
+
+      const status = getValidadeStatus(d)
+      const matchValidade =
+        filterValidade === 'todas' ||
+        (filterValidade === 'vigente' && status === 'vigente') ||
+        (filterValidade === 'vencer' && status === 'vencer') ||
+        (filterValidade === 'vencido' && status === 'vencido') ||
+        (filterValidade === 'sem_validade' && status === 'sem_validade')
+
+      return matchSearch && matchTipo && matchValidade
     })
   }
 
@@ -611,7 +780,7 @@ export default function DocumentosClient({
     setDeletingPasta(id)
     await supabase.from(tabelaPastas).delete().eq('id', id)
     setPastas(prev => prev.filter(p => p.id !== id))
-    setDeletingDoc(null)
+    setDeletingPasta(null)
   }
 
   async function deleteDoc(id: string) {
@@ -627,25 +796,14 @@ export default function DocumentosClient({
       <div className="p-6 max-w-3xl mx-auto">
         <DocumentoForm
           tabelaDocs={tabelaDocs}
-          // tabelaPastas removed
           storageBucket={storageBucket}
           condoId={condoId}
           pastas={pastas}
           doc={editDoc}
           tituloLabel={titulo}
-          categorias={allCategorias}
-          onAddCategoria={async (c) => {
-            setCustomCategorias(prev => prev.includes(c) ? prev : [...prev, c])
-            // Persist to DB
-            await supabase.from('documentos_categorias').upsert(
-              { condominio_id: condoId, nome: c },
-              { onConflict: 'condominio_id,nome' }
-            )
-          }}
           onClose={() => { setShowDocForm(false); setEditDoc(undefined) }}
           onSaved={d => {
             setDocs(prev => editDoc ? prev.map(x => x.id === d.id ? d : x) : [d, ...prev])
-            // Expande automaticamente a pasta do documento salvo
             if (d.pasta_id) setExpandedPasta(d.pasta_id)
           }}
         />
@@ -654,51 +812,84 @@ export default function DocumentosClient({
   }
 
   return (
-    <div className="p-6">
-      {/* Header actions */}
-      <div className="flex items-center gap-3 mb-6 flex-wrap">
-        <button
-          onClick={() => { setEditDoc(undefined); setShowDocForm(true) }}
-          className="flex items-center gap-2 bg-white border border-gray-200 hover:border-[#FC5931] text-gray-700 hover:text-[#FC5931] px-4 py-2.5 rounded-xl text-sm font-semibold shadow-sm transition"
-        >
-          <FilePlus size={16} className="text-[#FC5931]" />
-          Inserir {titulo}
-        </button>
-        <button
-          onClick={() => { setEditPasta(undefined); setShowPastaModal(true) }}
-          className="flex items-center gap-2 bg-white border border-gray-200 hover:border-[#FC5931] text-gray-700 hover:text-[#FC5931] px-4 py-2.5 rounded-xl text-sm font-semibold shadow-sm transition"
-        >
-          <FolderPlus size={16} className="text-[#FC5931]" />
-          Criar pasta
-        </button>
-        <div className="relative ml-auto">
-          <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
-          <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Buscar..."
-            className="pl-8 pr-3 py-2 text-sm border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#FC5931]/30 focus:border-[#FC5931] bg-white" />
+    <div className="p-6 space-y-6">
+      {/* Header Actions & Filters */}
+      <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-3">
+        <div className="flex items-center gap-2.5 flex-wrap">
+          <button
+            onClick={() => { setEditDoc(undefined); setShowDocForm(true) }}
+            className="flex items-center gap-2 bg-[#FC5931] hover:bg-[#D42F1D] text-white px-4 py-2.5 rounded-xl text-sm font-semibold shadow-xs transition"
+          >
+            <FilePlus size={16} />
+            Novo {titulo}
+          </button>
+          <button
+            onClick={() => { setEditPasta(undefined); setShowPastaModal(true) }}
+            className="flex items-center gap-2 bg-white border border-gray-200 hover:border-[#FC5931] text-gray-700 hover:text-[#FC5931] px-4 py-2.5 rounded-xl text-sm font-semibold shadow-xs transition"
+          >
+            <FolderPlus size={16} className="text-[#FC5931]" />
+            Criar pasta
+          </button>
         </div>
-        <select value={filterCat} onChange={e => setFilterCat(e.target.value)}
-          className="border border-gray-200 rounded-xl px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-[#FC5931]/30 focus:border-[#FC5931]">
-          <option value="">Categoria</option>
-          {allCategorias.map(c => <option key={c} value={c}>{c}</option>)}
-        </select>
+
+        {/* Search & Filters */}
+        <div className="flex items-center gap-2 flex-wrap w-full md:w-auto">
+          <div className="relative flex-1 md:w-56">
+            <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+            <input
+              value={search}
+              onChange={e => setSearch(e.target.value)}
+              placeholder="Buscar por título ou motivo..."
+              className="w-full pl-8 pr-3 py-2 text-sm border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#FC5931]/30 focus:border-[#FC5931] bg-white"
+            />
+          </div>
+
+          <select
+            value={filterTipo}
+            onChange={e => setFilterTipo(e.target.value)}
+            className="border border-gray-200 rounded-xl px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-[#FC5931]/30 focus:border-[#FC5931]"
+          >
+            <option value="">Todas as Categorias</option>
+            <option value="obrigatorio">Obrigatórios</option>
+            <option value="manutencao">Manutenções</option>
+            <option value="outros">Outros</option>
+          </select>
+
+          <select
+            value={filterValidade}
+            onChange={e => setFilterValidade(e.target.value as typeof filterValidade)}
+            className="border border-gray-200 rounded-xl px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-[#FC5931]/30 focus:border-[#FC5931]"
+          >
+            <option value="todas">Todas Validades</option>
+            <option value="vigente">Vigentes</option>
+            <option value="vencer">A Vencer (≤30d)</option>
+            <option value="vencido">Vencidos</option>
+            <option value="sem_validade">Sem Validade</option>
+          </select>
+        </div>
       </div>
 
-      {/* Pastas */}
+      {/* Pastas Grid */}
       {pastas.length === 0 ? (
-        <div className="text-center py-20 text-gray-400">
-          <FolderPlus size={40} className="mx-auto mb-3 opacity-30" />
-          <p className="font-medium text-gray-500">Nenhuma pasta criada</p>
-          <p className="text-sm">{`Clique em "Criar pasta" para organizar seus ${titulo.toLowerCase()}s`}</p>
+        <div className="text-center py-20 text-gray-400 bg-white rounded-2xl border border-gray-100 p-8">
+          <FolderPlus size={40} className="mx-auto mb-3 opacity-30 text-[#FC5931]" />
+          <p className="font-medium text-gray-700">Nenhuma pasta criada</p>
+          <p className="text-sm text-gray-400 mt-1">{`Clique em "Criar pasta" para organizar seus ${titulo.toLowerCase()}s`}</p>
         </div>
       ) : (
-        <div className="grid grid-cols-2 gap-3">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           {pastas.map(pasta => {
             const expanded = expandedPasta === pasta.id
             const docsDaPasta = filteredDocs(pasta.id)
             const totalDaPasta = docsInPasta(pasta.id).length
 
             return (
-              <div key={pasta.id} className={`bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden ${expanded ? 'col-span-2' : ''}`}>
+              <div
+                key={pasta.id}
+                className={`bg-white rounded-2xl shadow-xs border border-gray-100 overflow-hidden transition ${
+                  expanded ? 'col-span-1 md:col-span-2' : ''
+                }`}
+              >
                 {/* Pasta header */}
                 <div className="flex items-center gap-3 px-5 py-4">
                   <button
@@ -714,14 +905,18 @@ export default function DocumentosClient({
                       </span>
                     )}
                   </button>
-                  <div className="flex items-center gap-2 text-gray-400">
-                    <button onClick={() => { setEditPasta(pasta); setShowPastaModal(true) }}
-                      className="p-1.5 rounded-lg hover:bg-orange-50 hover:text-[#FC5931] transition">
+                  <div className="flex items-center gap-1.5 text-gray-400">
+                    <button
+                      onClick={() => { setEditPasta(pasta); setShowPastaModal(true) }}
+                      className="p-1.5 rounded-lg hover:bg-orange-50 hover:text-[#FC5931] transition"
+                    >
                       <Pencil size={14} />
                     </button>
-                    <button onClick={() => deletePasta(pasta.id)}
+                    <button
+                      onClick={() => deletePasta(pasta.id)}
                       disabled={deletingPasta === pasta.id}
-                      className="p-1.5 rounded-lg hover:bg-red-50 hover:text-red-500 transition">
+                      className="p-1.5 rounded-lg hover:bg-red-50 hover:text-red-500 transition"
+                    >
                       <Trash2 size={14} />
                     </button>
                   </div>
@@ -729,74 +924,141 @@ export default function DocumentosClient({
 
                 {/* Expanded: table */}
                 {expanded && (
-                  <div className="border-t border-gray-50">
+                  <div className="border-t border-gray-100 overflow-x-auto">
                     {docsDaPasta.length === 0 ? (
-                      <p className="text-center py-8 text-sm text-gray-400">{`Nenhum ${titulo.toLowerCase()} nesta pasta`}</p>
+                      <p className="text-center py-8 text-sm text-gray-400">
+                        {`Nenhum ${titulo.toLowerCase()} encontrado nesta pasta com os filtros selecionados`}
+                      </p>
                     ) : (
                       <table className="w-full text-sm">
                         <thead>
                           <tr className="bg-gray-50 text-xs font-semibold text-gray-500 uppercase tracking-wide">
                             <th className="px-5 py-3 text-left">{`Nome do ${titulo.toLowerCase()}`}</th>
-                            <th className="px-3 py-3 text-left">Pasta</th>
                             <th className="px-3 py-3 text-left">Categoria</th>
-                            <th className="px-3 py-3 text-left">Vencimento</th>
+                            <th className="px-3 py-3 text-left">Motivo</th>
+                            <th className="px-3 py-3 text-left">Vigência</th>
                             <th className="px-3 py-3 text-left">Última modificação</th>
                             <th className="px-3 py-3"></th>
                           </tr>
                         </thead>
                         <tbody>
-                          {docsDaPasta.map(doc => (
-                            <tr key={doc.id} className="border-t border-gray-50 hover:bg-gray-50/50 transition">
-                              <td className="px-5 py-3 font-medium text-gray-800 flex items-center gap-2">
-                                <FileText size={14} className="text-[#FC5931] flex-shrink-0" />
-                                {doc.titulo}
-                              </td>
-                              <td className="px-3 py-3 text-gray-500">{pasta.nome}</td>
-                              <td className="px-3 py-3 text-gray-500">{doc.categoria ?? '—'}</td>
-                              <td className="px-3 py-3 text-gray-500">{formatDate(doc.data_validade)}</td>
-                              <td className="px-3 py-3 text-gray-500">{formatDate(doc.updated_at)}</td>
-                              <td className="px-3 py-3">
-                                <div className="flex items-center gap-1">
-                                  {/* Download */}
-                                  {doc.arquivo_url ? (
-                                    <a href={doc.arquivo_url} download={doc.arquivo_nome ?? doc.titulo}
-                                      title="Baixar arquivo"
-                                      className="p-1.5 rounded-lg text-gray-400 hover:text-[#FC5931] hover:bg-orange-50 transition">
-                                      <Download size={14} />
-                                    </a>
-                                  ) : (
-                                    <span title="Sem arquivo" className="p-1.5 rounded-lg text-gray-200 cursor-not-allowed">
-                                      <Download size={14} />
+                          {docsDaPasta.map(doc => {
+                            const badge = getCategoriaBadge(doc.tipo)
+                            const valStatus = getValidadeStatus(doc)
+
+                            return (
+                              <tr key={doc.id} className="border-t border-gray-50 hover:bg-gray-50/50 transition">
+                                <td className="px-5 py-3 font-medium text-gray-800 flex items-center gap-2">
+                                  <FileText size={15} className="text-[#FC5931] flex-shrink-0" />
+                                  <div className="min-w-0">
+                                    <div className="truncate font-semibold">{doc.titulo}</div>
+                                    {doc.arquivo_nome && (
+                                      <div className="text-[11px] text-gray-400 truncate">{doc.arquivo_nome}</div>
+                                    )}
+                                  </div>
+                                </td>
+
+                                {/* Coluna Categoria (Badge) */}
+                                <td className="px-3 py-3">
+                                  <span className={`inline-flex items-center px-2.5 py-1 rounded-lg text-xs font-semibold border ${badge.bg} ${badge.text} ${badge.border}`}>
+                                    {badge.label}
+                                  </span>
+                                </td>
+
+                                {/* Coluna Motivo */}
+                                <td className="px-3 py-3 text-gray-700 font-medium">
+                                  {doc.categoria ?? '—'}
+                                </td>
+
+                                {/* Validade com Badge */}
+                                <td className="px-3 py-3">
+                                  {doc.sem_validade ? (
+                                    <span className="inline-flex items-center gap-1 text-xs text-gray-500 bg-gray-100 px-2 py-0.5 rounded">
+                                      <CheckCircle2 size={12} className="text-gray-400" />
+                                      Sem validade
                                     </span>
-                                  )}
-                                  {/* Editar */}
-                                  <button onClick={() => { setEditDoc(doc); setShowDocForm(true) }}
-                                    title="Editar"
-                                    className="p-1.5 rounded-lg text-gray-400 hover:text-[#FC5931] hover:bg-orange-50 transition">
-                                    <Pencil size={14} />
-                                  </button>
-                                  {/* Deletar */}
-                                  <button onClick={() => deleteDoc(doc.id)} disabled={deletingDoc === doc.id}
-                                    title="Excluir"
-                                    className="p-1.5 rounded-lg text-gray-400 hover:text-red-500 hover:bg-red-50 transition">
-                                    <Trash2 size={14} />
-                                  </button>
-                                  {/* Visualizar */}
-                                  {doc.arquivo_url ? (
-                                    <a href={doc.arquivo_url} target="_blank" rel="noreferrer"
-                                      title="Visualizar arquivo"
-                                      className="p-1.5 rounded-lg text-gray-400 hover:text-blue-500 hover:bg-blue-50 transition">
-                                      <Eye size={14} />
-                                    </a>
+                                  ) : doc.data_validade ? (
+                                    <div className="flex items-center gap-1.5">
+                                      {valStatus === 'vencido' && (
+                                        <span className="inline-flex items-center gap-1 text-xs text-red-700 bg-red-50 px-2 py-0.5 rounded font-medium">
+                                          <ShieldAlert size={12} />
+                                          Venceu ({formatDate(doc.data_validade)})
+                                        </span>
+                                      )}
+                                      {valStatus === 'vencer' && (
+                                        <span className="inline-flex items-center gap-1 text-xs text-amber-700 bg-amber-50 px-2 py-0.5 rounded font-medium">
+                                          <Clock size={12} />
+                                          Vence em breve ({formatDate(doc.data_validade)})
+                                        </span>
+                                      )}
+                                      {valStatus === 'vigente' && (
+                                        <span className="text-xs text-gray-600">
+                                          {formatDate(doc.data_validade)}
+                                        </span>
+                                      )}
+                                    </div>
                                   ) : (
-                                    <span title="Sem arquivo" className="p-1.5 rounded-lg text-gray-200 cursor-not-allowed">
-                                      <Eye size={14} />
-                                    </span>
+                                    <span className="text-xs text-gray-400">Não informada</span>
                                   )}
-                                </div>
-                              </td>
-                            </tr>
-                          ))}
+                                </td>
+
+                                <td className="px-3 py-3 text-gray-500 text-xs">{formatDate(doc.updated_at)}</td>
+
+                                <td className="px-3 py-3 text-right">
+                                  <div className="flex items-center justify-end gap-1">
+                                    {/* Download */}
+                                    {doc.arquivo_url ? (
+                                      <a
+                                        href={doc.arquivo_url}
+                                        download={doc.arquivo_nome ?? doc.titulo}
+                                        title="Baixar arquivo"
+                                        className="p-1.5 rounded-lg text-gray-400 hover:text-[#FC5931] hover:bg-orange-50 transition"
+                                      >
+                                        <Download size={14} />
+                                      </a>
+                                    ) : (
+                                      <span title="Sem arquivo" className="p-1.5 rounded-lg text-gray-200 cursor-not-allowed">
+                                        <Download size={14} />
+                                      </span>
+                                    )}
+                                    {/* Editar */}
+                                    <button
+                                      onClick={() => { setEditDoc(doc); setShowDocForm(true) }}
+                                      title="Editar"
+                                      className="p-1.5 rounded-lg text-gray-400 hover:text-[#FC5931] hover:bg-orange-50 transition"
+                                    >
+                                      <Pencil size={14} />
+                                    </button>
+                                    {/* Deletar */}
+                                    <button
+                                      onClick={() => deleteDoc(doc.id)}
+                                      disabled={deletingDoc === doc.id}
+                                      title="Excluir"
+                                      className="p-1.5 rounded-lg text-gray-400 hover:text-red-500 hover:bg-red-50 transition"
+                                    >
+                                      <Trash2 size={14} />
+                                    </button>
+                                    {/* Visualizar */}
+                                    {doc.arquivo_url ? (
+                                      <a
+                                        href={doc.arquivo_url}
+                                        target="_blank"
+                                        rel="noreferrer"
+                                        title="Visualizar arquivo"
+                                        className="p-1.5 rounded-lg text-gray-400 hover:text-blue-500 hover:bg-blue-50 transition"
+                                      >
+                                        <Eye size={14} />
+                                      </a>
+                                    ) : (
+                                      <span title="Sem arquivo" className="p-1.5 rounded-lg text-gray-200 cursor-not-allowed">
+                                        <Eye size={14} />
+                                      </span>
+                                    )}
+                                  </div>
+                                </td>
+                              </tr>
+                            )
+                          })}
                         </tbody>
                       </table>
                     )}
@@ -806,20 +1068,6 @@ export default function DocumentosClient({
             )
           })}
         </div>
-      )}
-
-      {/* Modals */}
-      {showPastaModal && (
-        <PastaModal
-          tabelaPastas={tabelaPastas}
-          condoId={condoId}
-          pasta={editPasta}
-          titulo={titulo}
-          onClose={() => { setShowPastaModal(false); setEditPasta(undefined) }}
-          onSaved={p => {
-            setPastas(prev => editPasta ? prev.map(x => x.id === p.id ? p : x) : [...prev, p])
-          }}
-        />
       )}
     </div>
   )

@@ -49,30 +49,8 @@ const FN_TO_NAV: Record<string, { label: string; href: string; icon: React.React
   previsao_orcamento:  { label: 'Previsão Orçamentária',      href: '/condo/previsao-orcamentaria', icon: <BarChart3 size={18} /> },
 }
 
-function normalizeRoleKey(role: string): string {
-  const key = role
-    .toLowerCase()
-    .replace(/\s*\(.*?\)/g, '')  // strip (a)/(o)
-    .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
-    .replace(/[^a-z0-9]/g, '_')
-    .replace(/_+/g, '_')
-    .replace(/^_|_$/g, '')
-    .trim()
-  const aliases: Record<string, string> = {
-    porteiro: 'portaria',
-    sindico: 'sindico',
-    sub_sindico: 'sub_sindico',
-    admin: 'admin',
-    zelador: 'zelador',
-    funcionario: 'funcionario',
-    morador: 'morador',
-    proprietario: 'proprietario',
-    proprietario_nao_morador: 'proprietario_nao_morador',
-    inquilino: 'inquilino',
-    locatario: 'locatario',
-  }
-  return aliases[key] ?? key
-}
+import { isAdminRole, isPorterRole, formatRoleName, normalizeRoleKey } from '@/lib/roles'
+
 
 // ── Legacy hardcoded menus (fallback when no features_config) ──
 const RESIDENT_NAV: NavItem[] = [
@@ -137,9 +115,8 @@ const ADMIN_NAV: NavItem[] = [
 ]
 
 function getLegacyNavForRole(role: string): NavItem[] {
-  const r = role.toLowerCase()
-  if (r.includes('portaria') || r.includes('porteiro')) return PORTER_NAV
-  if (r.includes('síndico') || r.includes('sindico') || r === 'admin') return ADMIN_NAV
+  if (isPorterRole(role)) return PORTER_NAV
+  if (isAdminRole(role)) return ADMIN_NAV
   return RESIDENT_NAV
 }
 
@@ -171,8 +148,7 @@ function buildNavFromConfig(role: string, config: any): NavItem[] | null {
   items.push({ label: 'Passo a Passo', href: '/condo/passo-a-passo', icon: <BookOpen size={18} /> })
 
   // Always add Painel Admin for admin roles
-  const r = role.toLowerCase()
-  if (r.includes('síndico') || r.includes('sindico') || r === 'admin') {
+  if (isAdminRole(role)) {
     items.push({ label: 'Painel Admin', href: '/admin', icon: <Shield size={18} /> })
   }
 
@@ -227,7 +203,7 @@ export default function Sidebar({ role, userName, condoName, unidade, featuresCo
       {!collapsed && (
         <div className="px-4 py-2 flex flex-col gap-1.5">
           <div className="flex items-center gap-2">
-            <span className="text-xs bg-[#FC5931]/20 text-[#FC5931] px-2 py-1 rounded-full font-medium">{role}</span>
+            <span className="text-xs bg-[#FC5931]/20 text-[#FC5931] px-2 py-1 rounded-full font-medium">{formatRoleName(role)}</span>
             <a
               href="/condo/passo-a-passo"
               title="Passo a Passo"
@@ -237,14 +213,14 @@ export default function Sidebar({ role, userName, condoName, unidade, featuresCo
               <span className="text-[10px] font-medium">Passo a Passo</span>
             </a>
           </div>
-          {(role.toLowerCase().includes('síndico') || role.toLowerCase().includes('sindico') || role === 'admin' || role === 'ADMIN') && (
-            <a
+          {isAdminRole(role) && (
+            <Link
               href="/admin"
               className="flex items-center gap-2 bg-[#FC5931] hover:bg-[#D42F1D] transition-colors text-white text-xs font-bold px-3 py-1.5 rounded-xl shadow-sm shadow-[#FC5931]/40"
             >
               <Shield size={12} />
               Painel Admin
-            </a>
+            </Link>
           )}
         </div>
       )}

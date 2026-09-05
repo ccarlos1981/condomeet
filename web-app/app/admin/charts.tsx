@@ -17,7 +17,8 @@ interface Ocorrencia {
 }
 
 interface Reserva {
-  data: string
+  data?: string
+  data_reserva?: string
   status: string
 }
 
@@ -98,7 +99,9 @@ function groupReservasByMonth(reservas: Reserva[]) {
   months.forEach(m => { groups[m] = { confirmadas: 0, canceladas: 0, pendentes: 0 } })
 
   reservas.forEach(r => {
-    const month = getMonthLabel(new Date(r.data))
+    const rawDate = r.data_reserva || r.data
+    if (!rawDate) return
+    const month = getMonthLabel(new Date(rawDate))
     if (groups[month]) {
       if (r.status === 'cancelada') groups[month].canceladas++
       else if (r.status === 'aprovada' || r.status === 'confirmada') groups[month].confirmadas++

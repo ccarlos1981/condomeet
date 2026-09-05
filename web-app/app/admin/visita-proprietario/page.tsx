@@ -1,6 +1,7 @@
 import { createClient } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
 import VisitaProprietarioAdminClient from './visita-proprietario-admin-client'
+import { isAdminRole } from '@/lib/roles'
 
 export const metadata = {
   title: 'Visita Proprietário — Admin — Condomeet',
@@ -19,9 +20,7 @@ export default async function VisitaProprietarioAdminPage() {
 
   if (!profile?.condominio_id) redirect('/condo')
 
-  const r = profile.papel_sistema?.toLowerCase() || ''
-  const isAdmin = r.includes('síndico') || r.includes('sindico') || r.includes('admin') || r.includes('sub_sindico')
-  if (!isAdmin) redirect('/condo')
+  if (!isAdminRole(profile.papel_sistema)) redirect('/condo')
 
   const condoId = profile.condominio_id
 

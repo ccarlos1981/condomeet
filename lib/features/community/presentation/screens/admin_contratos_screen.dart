@@ -4,74 +4,37 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:condomeet/core/design_system/design_system.dart';
 import 'package:condomeet/features/auth/presentation/bloc/auth_bloc.dart';
+import '../../domain/models/contract.dart';
+import '../widgets/fornecedor_bottom_sheet.dart';
 
-// ─── Models ──────────────────────────────────────────────────────────────────
+// ─── Model Pasta ─────────────────────────────────────────────────────────────
 
 class _Pasta {
   final String id;
   final String nome;
   _Pasta({required this.id, required this.nome});
-  factory _Pasta.fromMap(Map m) => _Pasta(id: m['id'] as String, nome: m['nome'] as String? ?? '');
+  factory _Pasta.fromMap(Map<String, dynamic> m) =>
+      _Pasta(id: m['id'] as String, nome: m['nome'] as String? ?? '');
 }
 
-class _Contrato {
-  final String id;
-  final String titulo;
-  final String? pastaId;
-  final String? categoria;
-  final String tipo;
-  final String? arquivoUrl;
-  final String? arquivoNome;
-  final String? dataExpedicao;
-  final String? dataValidade;
-  final bool mostrarMoradores;
-  final bool avisarMoradores;
-  final bool lembrar30;
-  final bool lembrar60;
-  final bool lembrar90;
+// ─── Helpers de Formatação ───────────────────────────────────────────────────
 
-  _Contrato({
-    required this.id,
-    required this.titulo,
-    this.pastaId,
-    this.categoria,
-    this.tipo = 'obrigatorio',
-    this.arquivoUrl,
-    this.arquivoNome,
-    this.dataExpedicao,
-    this.dataValidade,
-    this.mostrarMoradores = false,
-    this.avisarMoradores = false,
-    this.lembrar30 = false,
-    this.lembrar60 = false,
-    this.lembrar90 = false,
-  });
-
-  factory _Contrato.fromMap(Map m) => _Contrato(
-        id: m['id'] as String,
-        titulo: m['titulo'] as String? ?? '',
-        pastaId: m['pasta_id'] as String?,
-        categoria: m['categoria'] as String?,
-        tipo: m['tipo'] as String? ?? 'obrigatorio',
-        arquivoUrl: m['arquivo_url'] as String?,
-        arquivoNome: m['arquivo_nome'] as String?,
-        dataExpedicao: m['data_expedicao'] as String?,
-        dataValidade: m['data_validade'] as String?,
-        mostrarMoradores: m['mostrar_moradores'] == true,
-        avisarMoradores: m['avisar_moradores'] == true,
-        lembrar30: m['lembrar_30'] == true,
-        lembrar60: m['lembrar_60'] == true,
-        lembrar90: m['lembrar_90'] == true,
-      );
+String _formatCurrency(double? val) {
+  if (val == null) return 'Não informado';
+  final parts = val.toStringAsFixed(2).split('.');
+  final integerPart = parts[0].replaceAllMapped(
+    RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'),
+    (Match m) => '${m[1]}.',
+  );
+  return 'R\$ $integerPart,${parts[1]}';
 }
 
-// ─── Constantes ──────────────────────────────────────────────────────────────
+String _formatDateBR(DateTime? d) {
+  if (d == null) return '—';
+  return '${d.day.toString().padLeft(2, '0')}/${d.month.toString().padLeft(2, '0')}/${d.year}';
+}
 
-const _tabelaPastas  = 'contrato_pastas';
-const _tabelaDocs    = 'contratos';
-const _storageBucket = 'contratos';
-
-// ─── Tela principal ──────────────────────────────────────────────────────────
+// ─── Tela Principal de Administração de Contratos ────────────────────────────
 
 class AdminContratosScreen extends StatefulWidget {
   const AdminContratosScreen({super.key});
@@ -82,10 +45,12 @@ class AdminContratosScreen extends StatefulWidget {
 
 class _AdminContratosScreenState extends State<AdminContratosScreen> {
   List<_Pasta> _pastas = [];
-  List<_Contrato> _contratos = [];
+  List<CondoContract> _contratos = [];
   bool _loading = true;
-  String? _expandedPastaId;
   String? _condoId;
+  String _search = '';
+  String _statusFilter = 'TODOS';
+  String? _pastaFilter;
 
   @override
   void initState() {
@@ -99,12 +64,26 @@ class _AdminContratosScreenState extends State<AdminContratosScreen> {
     setState(() => _loading = true);
     try {
       final sb = Supabase.instance.client;
-      final pastasRes = await sb.from(_tabelaPastas).select().eq('condominio_id', _condoId!).order('nome');
-      final contratosRes = await sb.from(_tabelaDocs).select().eq('condominio_id', _condoId!).order('titulo');
+      final pastasRes = await sb
+          .from('contrato_pastas')
+          .select()
+          .eq('condominio_id', _condoId!)
+          .order('nome');
+
+      final contratosRes = await sb
+          .from('contratos')
+          .select('*, fornecedores(id, nome, telefone, documento, tipo), contrato_pastas(id, nome)')
+          .eq('condominio_id', _condoId!)
+          .order('created_at', ascending: false);
+
       if (mounted) {
         setState(() {
-          _pastas   = (pastasRes   as List).map((m) => _Pasta.fromMap(m as Map)).toList();
-          _contratos = (contratosRes as List).map((m) => _Contrato.fromMap(m as Map)).toList();
+          _pastas = (pastasRes as List)
+              .map((m) => _Pasta.fromMap(m as Map<String, dynamic>))
+              .toList();
+          _contratos = (contratosRes as List)
+              .map((m) => CondoContract.fromMap(m as Map<String, dynamic>))
+              .toList();
           _loading = false;
         });
       }
@@ -113,10 +92,129 @@ class _AdminContratosScreenState extends State<AdminContratosScreen> {
     }
   }
 
-  List<_Contrato> _contratosNaPasta(String pastaId) =>
-      _contratos.where((c) => c.pastaId == pastaId).toList();
+  // ─── Métricas Executivas ───────────────────────────────────────────────────
 
-  // ─── Pasta CRUD ────────────────────────────────────────────────────────────
+  int get _ativosCount => _contratos.where((c) {
+        final st = c.statusInfo.type;
+        return st == StatusContratoType.permanente ||
+            st == StatusContratoType.vigente ||
+            st == StatusContratoType.vencendo ||
+            st == StatusContratoType.venceHoje;
+      }).length;
+
+  int get _vencendoCount => _contratos.where((c) {
+        final st = c.statusInfo.type;
+        return st == StatusContratoType.vencendo || st == StatusContratoType.venceHoje;
+      }).length;
+
+  int get _vencidosCount => _contratos.where((c) {
+        return c.statusInfo.type == StatusContratoType.vencido;
+      }).length;
+
+  double get _custoMensalAtivo {
+    return _contratos.where((c) {
+      final st = c.statusInfo.type;
+      return st == StatusContratoType.permanente ||
+          st == StatusContratoType.vigente ||
+          st == StatusContratoType.vencendo ||
+          st == StatusContratoType.venceHoje;
+    }).fold(0.0, (sum, c) => sum + (c.valorMensal ?? 0.0));
+  }
+
+  // ─── Filtragem e Ordenação de Contratos ────────────────────────────────────
+
+  List<CondoContract> get _filteredContratos {
+    return _contratos.where((c) {
+      final q = _search.trim().toLowerCase();
+      final fNome = (c.fornecedorNome ?? '').toLowerCase();
+      final matchSearch = q.isEmpty ||
+          c.titulo.toLowerCase().contains(q) ||
+          fNome.contains(q) ||
+          (c.categoria?.toLowerCase().contains(q) ?? false) ||
+          (c.pastaNome?.toLowerCase().contains(q) ?? false);
+
+      if (!matchSearch) return false;
+
+      if (_pastaFilter != null && c.pastaId != _pastaFilter) return false;
+
+      final st = c.statusInfo.type;
+      if (_statusFilter == 'VIGENTES') {
+        return st == StatusContratoType.vigente;
+      } else if (_statusFilter == 'VENCENDO') {
+        return st == StatusContratoType.vencendo || st == StatusContratoType.venceHoje;
+      } else if (_statusFilter == 'VENCIDOS') {
+        return st == StatusContratoType.vencido;
+      } else if (_statusFilter == 'PERMANENTES') {
+        return st == StatusContratoType.permanente;
+      }
+
+      return true;
+    }).toList()
+      ..sort((a, b) {
+        const priority = {
+          StatusContratoType.vencido: 1,
+          StatusContratoType.venceHoje: 2,
+          StatusContratoType.vencendo: 3,
+          StatusContratoType.vigente: 4,
+          StatusContratoType.permanente: 5,
+          StatusContratoType.indeterminado: 6,
+        };
+
+        final pA = priority[a.statusInfo.type] ?? 99;
+        final pB = priority[b.statusInfo.type] ?? 99;
+        if (pA != pB) return pA.compareTo(pB);
+
+        final dateA = a.dataValidade ?? DateTime(2099);
+        final dateB = b.dataValidade ?? DateTime(2099);
+        return dateA.compareTo(dateB);
+      });
+  }
+
+  // ─── Ações CRUD ────────────────────────────────────────────────────────────
+
+  Future<void> _showContratoForm({CondoContract? contrato}) async {
+    final result = await Navigator.push<bool>(
+      context,
+      MaterialPageRoute(
+        builder: (_) => _ContratoFormScreen(
+          condoId: _condoId!,
+          pastas: _pastas,
+          contrato: contrato,
+        ),
+      ),
+    );
+    if (result == true) _load();
+  }
+
+  Future<void> _deleteContrato(CondoContract contrato) async {
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: const Text('Excluir contrato?'),
+        content: Text('Deseja realmente remover o contrato "${contrato.titulo}"?'),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancelar')),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('Excluir', style: TextStyle(color: Colors.white)),
+          ),
+        ],
+      ),
+    );
+    if (ok != true) return;
+    try {
+      await Supabase.instance.client.from('contratos').delete().eq('id', contrato.id);
+      _load();
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Erro ao excluir: $e'), backgroundColor: Colors.red),
+        );
+      }
+    }
+  }
 
   Future<void> _showPastaDialog({_Pasta? pasta}) async {
     final ctrl = TextEditingController(text: pasta?.nome ?? '');
@@ -124,7 +222,7 @@ class _AdminContratosScreenState extends State<AdminContratosScreen> {
       context: context,
       builder: (ctx) => AlertDialog(
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        title: Text(pasta == null ? 'Criar pasta' : 'Editar pasta'),
+        title: Text(pasta == null ? 'Criar Pasta' : 'Editar Pasta'),
         content: TextField(
           controller: ctrl,
           autofocus: true,
@@ -143,211 +241,228 @@ class _AdminContratosScreenState extends State<AdminContratosScreen> {
     if (result == null || result.isEmpty) return;
     final sb = Supabase.instance.client;
     if (pasta == null) {
-      await sb.from(_tabelaPastas).insert({'condominio_id': _condoId, 'nome': result});
+      await sb.from('contrato_pastas').insert({'condominio_id': _condoId, 'nome': result});
     } else {
-      await sb.from(_tabelaPastas).update({'nome': result}).eq('id', pasta.id);
+      await sb.from('contrato_pastas').update({'nome': result}).eq('id', pasta.id);
     }
     _load();
   }
 
-  Future<void> _deletePasta(_Pasta pasta) async {
-    final ok = await showDialog<bool>(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        title: const Text('Remover pasta?'),
-        content: const Text('Os contratos dentro serão desvinculados da pasta.'),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancelar')),
-          ElevatedButton(
-            style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
-            onPressed: () => Navigator.pop(ctx, true),
-            child: const Text('Remover', style: TextStyle(color: Colors.white)),
-          ),
-        ],
-      ),
-    );
-    if (ok != true) return;
-    await Supabase.instance.client.from(_tabelaPastas).delete().eq('id', pasta.id);
-    _load();
-  }
-
-  // ─── Contrato CRUD ─────────────────────────────────────────────────────────
-
-  Future<void> _showContratoForm({_Contrato? contrato}) async {
-    final result = await Navigator.push<bool>(
-      context,
-      MaterialPageRoute(
-        builder: (_) => _ContratoFormScreen(
-          condoId: _condoId!,
-          pastas: _pastas,
-          contrato: contrato,
-        ),
-      ),
-    );
-    if (result == true) _load();
-  }
-
-  Future<void> _deleteContrato(_Contrato contrato) async {
-    final ok = await showDialog<bool>(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        title: const Text('Remover contrato?'),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancelar')),
-          ElevatedButton(
-            style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
-            onPressed: () => Navigator.pop(ctx, true),
-            child: const Text('Remover', style: TextStyle(color: Colors.white)),
-          ),
-        ],
-      ),
-    );
-    if (ok != true) return;
-    await Supabase.instance.client.from(_tabelaDocs).delete().eq('id', contrato.id);
-    _load();
-  }
-
-  // ─── Build ─────────────────────────────────────────────────────────────────
+  // ─── Build Principal ───────────────────────────────────────────────────────
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      backgroundColor: const Color(0xFFF9FAFB),
       appBar: AppBar(
-        title: const Text('Contratos'),
+        title: const Text('Contratos', style: TextStyle(fontWeight: FontWeight.bold)),
         backgroundColor: AppColors.primary,
         foregroundColor: Colors.white,
-        actions: [IconButton(icon: const Icon(Icons.refresh), onPressed: _load)],
+        elevation: 0,
+        actions: [
+          IconButton(icon: const Icon(Icons.folder_outlined), onPressed: () => _showPastaDialog(), tooltip: 'Pastas'),
+          IconButton(icon: const Icon(Icons.refresh), onPressed: _load, tooltip: 'Atualizar'),
+        ],
+      ),
+      floatingActionButton: FloatingActionButton.extended(
+        onPressed: () => _showContratoForm(),
+        backgroundColor: AppColors.primary,
+        foregroundColor: Colors.white,
+        icon: const Icon(Icons.add),
+        label: const Text('Novo Contrato', style: TextStyle(fontWeight: FontWeight.bold)),
       ),
       body: _loading
-          ? const Center(child: CircularProgressIndicator())
+          ? const Center(child: CircularProgressIndicator(color: AppColors.primary))
           : RefreshIndicator(
               onRefresh: _load,
               child: ListView(
-                padding: const EdgeInsets.all(16),
+                padding: const EdgeInsets.fromLTRB(16, 16, 16, 80),
                 children: [
-                  Row(
-                    children: [
-                      _ActionBtn(
-                        icon: Icons.note_add_outlined,
-                        label: 'Inserir contrato',
-                        onTap: () => _showContratoForm(),
-                      ),
-                      const SizedBox(width: 12),
-                      _ActionBtn(
-                        icon: Icons.create_new_folder_outlined,
-                        label: 'Criar pasta',
-                        onTap: () => _showPastaDialog(),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 20),
-                  if (_pastas.isEmpty)
+                  // ── 1. Cards de Métricas Executivas ──
+                  _buildMetricCards(),
+                  const SizedBox(height: 16),
+
+                  // ── 2. Busca e Filtros ──
+                  _buildSearchAndFilters(),
+                  const SizedBox(height: 16),
+
+                  // ── 3. Lista de Contratos ──
+                  if (_filteredContratos.isEmpty)
                     Center(
                       child: Padding(
                         padding: const EdgeInsets.only(top: 40),
                         child: Column(
                           children: [
-                            Icon(Icons.folder_open, size: 56, color: Colors.grey.shade300),
-                            const SizedBox(height: 8),
-                            const Text('Nenhuma pasta criada', style: TextStyle(color: Colors.grey)),
-                            const Text('Crie uma pasta para organizar os contratos',
-                                style: TextStyle(color: Colors.grey, fontSize: 12)),
+                            Icon(Icons.description_outlined, size: 56, color: Colors.grey.shade300),
+                            const SizedBox(height: 12),
+                            const Text(
+                              'Nenhum contrato encontrado',
+                              style: TextStyle(color: Colors.grey, fontWeight: FontWeight.bold, fontSize: 16),
+                            ),
+                            const SizedBox(height: 4),
+                            const Text(
+                              'Cadastre ou ajuste os filtros de busca.',
+                              style: TextStyle(color: Colors.grey, fontSize: 13),
+                            ),
                           ],
                         ),
                       ),
                     )
                   else
-                    Wrap(
-                      spacing: 12,
-                      runSpacing: 12,
-                      children: _pastas.map((pasta) {
-                        final expanded = _expandedPastaId == pasta.id;
-                        final contratos = _contratosNaPasta(pasta.id);
-                        return SizedBox(
-                          width: expanded
-                              ? double.infinity
-                              : (MediaQuery.of(context).size.width - 44) / 2,
-                          child: _buildPastaCard(pasta, contratos, expanded),
-                        );
-                      }).toList(),
-                    ),
+                    ..._filteredContratos.map((c) => _buildContractCard(c)),
                 ],
               ),
             ),
     );
   }
 
-  Widget _buildPastaCard(_Pasta pasta, List<_Contrato> contratos, bool expanded) {
+  // ─── Widgets dos Cards Executivos ───
+
+  Widget _buildMetricCards() {
+    return Column(
+      children: [
+        Row(
+          children: [
+            Expanded(
+              child: _buildMetricTile(
+                title: 'Ativos',
+                value: '$_ativosCount',
+                icon: Icons.check_circle_outline,
+                color: const Color(0xFF059669),
+                bgColor: const Color(0xFFECFDF5),
+              ),
+            ),
+            const SizedBox(width: 10),
+            Expanded(
+              child: _buildMetricTile(
+                title: 'Vencendo ≤ 30d',
+                value: '$_vencendoCount',
+                icon: Icons.access_time_rounded,
+                color: const Color(0xFFD97706),
+                bgColor: const Color(0xFFFFFBEB),
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 10),
+        Row(
+          children: [
+            Expanded(
+              child: _buildMetricTile(
+                title: 'Vencidos',
+                value: '$_vencidosCount',
+                icon: Icons.error_outline,
+                color: const Color(0xFFDC2626),
+                bgColor: const Color(0xFFFEF2F2),
+              ),
+            ),
+            const SizedBox(width: 10),
+            Expanded(
+              child: _buildMetricTile(
+                title: 'Custo Mensal Ativo',
+                value: _formatCurrency(_custoMensalAtivo),
+                icon: Icons.monetization_on_outlined,
+                color: const Color(0xFFFC5931),
+                bgColor: const Color(0xFFFFF2EE),
+                isCurrency: true,
+              ),
+            ),
+          ],
+        ),
+      ],
+    );
+  }
+
+  Widget _buildMetricTile({
+    required String title,
+    required String value,
+    required IconData icon,
+    required Color color,
+    required Color bgColor,
+    bool isCurrency = false,
+  }) {
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: Colors.grey.shade200),
+        boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.02), blurRadius: 4)],
+      ),
+      child: Row(
+        children: [
+          Container(
+            padding: const EdgeInsets.all(8),
+            decoration: BoxDecoration(color: bgColor, borderRadius: BorderRadius.circular(12)),
+            child: Icon(icon, color: color, size: 20),
+          ),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  title,
+                  style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: Colors.grey.shade600),
+                  overflow: TextOverflow.ellipsis,
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  value,
+                  style: TextStyle(
+                    fontSize: isCurrency ? 13 : 18,
+                    fontWeight: FontWeight.bold,
+                    color: const Color(0xFF1F2937),
+                  ),
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // ─── Busca e Pílulas de Filtro ───
+
+  Widget _buildSearchAndFilters() {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Padding(
-          padding: const EdgeInsets.only(left: 4, bottom: 6),
-          child: Text(
-            pasta.nome,
-            style: TextStyle(
-              fontSize: 12,
-              fontWeight: FontWeight.w700,
-              color: Colors.grey.shade600,
-              letterSpacing: 0.3,
+        TextField(
+          onChanged: (v) => setState(() => _search = v),
+          decoration: InputDecoration(
+            hintText: 'Buscar por fornecedor, serviço...',
+            hintStyle: const TextStyle(fontSize: 13, color: Colors.grey),
+            prefixIcon: const Icon(Icons.search, size: 20, color: Colors.grey),
+            filled: true,
+            fillColor: Colors.white,
+            contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+            border: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(14),
+              borderSide: BorderSide(color: Colors.grey.shade200),
             ),
-            overflow: TextOverflow.ellipsis,
+            enabledBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(14),
+              borderSide: BorderSide(color: Colors.grey.shade200),
+            ),
           ),
         ),
-        Container(
-          decoration: BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.circular(14),
-            border: Border.all(color: Colors.grey.shade200),
-            boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.04), blurRadius: 4)],
-          ),
-          child: Column(
+        const SizedBox(height: 10),
+        SingleChildScrollView(
+          scrollDirection: Axis.horizontal,
+          child: Row(
             children: [
-              InkWell(
-                onTap: () => setState(() => _expandedPastaId = expanded ? null : pasta.id),
-                borderRadius: const BorderRadius.vertical(top: Radius.circular(14)),
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-                  child: Row(
-                    children: [
-                      const Icon(Icons.folder_rounded, color: AppColors.primary, size: 20),
-                      const SizedBox(width: 8),
-                      Expanded(
-                        child: Text('${contratos.length}',
-                            style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600,
-                                color: Colors.grey.shade500)),
-                      ),
-                      IconButton(
-                        icon: const Icon(Icons.edit_outlined, size: 16),
-                        padding: EdgeInsets.zero,
-                        constraints: const BoxConstraints(minWidth: 28, minHeight: 28),
-                        onPressed: () => _showPastaDialog(pasta: pasta),
-                      ),
-                      IconButton(
-                        icon: const Icon(Icons.delete_outline, size: 16, color: Colors.red),
-                        padding: EdgeInsets.zero,
-                        constraints: const BoxConstraints(minWidth: 28, minHeight: 28),
-                        onPressed: () => _deletePasta(pasta),
-                      ),
-                      Icon(expanded ? Icons.expand_less : Icons.expand_more,
-                          size: 18, color: Colors.grey),
-                    ],
-                  ),
-                ),
-              ),
-              if (expanded) ...[
-                const Divider(height: 1),
-                if (contratos.isEmpty)
-                  const Padding(
-                    padding: EdgeInsets.all(16),
-                    child: Text('Nenhum contrato nesta pasta',
-                        style: TextStyle(color: Colors.grey, fontSize: 12)),
-                  )
-                else
-                  ...contratos.map((c) => _buildContratoTile(c)),
-              ],
+              _buildFilterChip('TODOS', 'Todos'),
+              const SizedBox(width: 6),
+              _buildFilterChip('VIGENTES', 'Vigentes'),
+              const SizedBox(width: 6),
+              _buildFilterChip('VENCENDO', 'Vencendo ≤30d'),
+              const SizedBox(width: 6),
+              _buildFilterChip('VENCIDOS', 'Vencidos'),
+              const SizedBox(width: 6),
+              _buildFilterChip('PERMANENTES', 'Permanentes'),
             ],
           ),
         ),
@@ -355,116 +470,212 @@ class _AdminContratosScreenState extends State<AdminContratosScreen> {
     );
   }
 
-  Widget _buildContratoTile(_Contrato c) {
-    return ListTile(
-      dense: true,
-      leading: Container(
-        width: 32, height: 32,
-        decoration: BoxDecoration(
-          color: AppColors.primary.withValues(alpha: 0.1),
-          borderRadius: BorderRadius.circular(8),
-        ),
-        child: const Icon(Icons.description_outlined, size: 16, color: AppColors.primary),
+  Widget _buildFilterChip(String key, String label) {
+    final isSelected = _statusFilter == key;
+    return ChoiceChip(
+      label: Text(label, style: TextStyle(fontSize: 12, fontWeight: isSelected ? FontWeight.bold : FontWeight.w500)),
+      selected: isSelected,
+      selectedColor: const Color(0xFF1F2937),
+      backgroundColor: Colors.white,
+      labelStyle: TextStyle(color: isSelected ? Colors.white : Colors.grey.shade700),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      side: BorderSide(color: isSelected ? const Color(0xFF1F2937) : Colors.grey.shade300),
+      onSelected: (_) => setState(() => _statusFilter = key),
+    );
+  }
+
+  // ─── Card Individual do Contrato ───
+
+  Widget _buildContractCard(CondoContract c) {
+    final status = c.statusInfo;
+    final fornecedorNome = c.nomeFornecedorExibicao;
+
+    return Container(
+      margin: const EdgeInsets.only(bottom: 12),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: Colors.grey.shade200),
+        boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.02), blurRadius: 4)],
       ),
-      title: Text(c.titulo, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
-      subtitle: c.categoria != null
-          ? Text(c.categoria!, style: const TextStyle(fontSize: 11)) : null,
-      trailing: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          IconButton(
-            icon: const Icon(Icons.edit_outlined, size: 16),
-            onPressed: () => _showContratoForm(contrato: c),
-            padding: EdgeInsets.zero,
-            constraints: const BoxConstraints(minWidth: 28, minHeight: 28),
-          ),
-          IconButton(
-            icon: const Icon(Icons.delete_outline, size: 16, color: Colors.red),
-            onPressed: () => _deleteContrato(c),
-            padding: EdgeInsets.zero,
-            constraints: const BoxConstraints(minWidth: 28, minHeight: 28),
-          ),
-        ],
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // Linha Superior: Fornecedor e Status Badge
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                CircleAvatar(
+                  radius: 18,
+                  backgroundColor: const Color(0xFFFFF2EE),
+                  child: Icon(
+                    c.fornecedorTipo == 'Pessoa Jurídica' ? Icons.business_rounded : Icons.person_rounded,
+                    color: const Color(0xFFFC5931),
+                    size: 20,
+                  ),
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        fornecedorNome,
+                        style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: Color(0xFF111827)),
+                      ),
+                      if (c.fornecedorTelefone != null || c.fornecedorDoc != null)
+                        Text(
+                          [
+                            if (c.fornecedorTelefone != null) '📞 ${c.fornecedorTelefone}',
+                            if (c.fornecedorDoc != null) 'Doc: ${c.fornecedorDoc}',
+                          ].join(' • '),
+                          style: const TextStyle(fontSize: 11, color: Colors.grey),
+                        ),
+                    ],
+                  ),
+                ),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                  decoration: BoxDecoration(
+                    color: status.backgroundColor,
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(status.icon, size: 12, color: status.color),
+                      const SizedBox(width: 4),
+                      Text(
+                        status.label,
+                        style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: status.color),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+
+            const SizedBox(height: 12),
+            const Divider(height: 1),
+            const SizedBox(height: 12),
+
+            // Serviço / Objeto
+            Text(
+              c.titulo,
+              style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14, color: Color(0xFF1F2937)),
+            ),
+
+            const SizedBox(height: 8),
+
+            // Linha: Valor Mensal e Vigência
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text('Valor Mensal', style: TextStyle(fontSize: 10, color: Colors.grey, fontWeight: FontWeight.w600)),
+                    Text(
+                      _formatCurrency(c.valorMensal),
+                      style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: Color(0xFF111827)),
+                    ),
+                  ],
+                ),
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.end,
+                  children: [
+                    const Text('Vencimento', style: TextStyle(fontSize: 10, color: Colors.grey, fontWeight: FontWeight.w600)),
+                    Text(
+                      c.semValidade ? 'Permanente' : _formatDateBR(c.dataValidade),
+                      style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: Color(0xFF111827)),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+
+            const SizedBox(height: 12),
+
+            // Rodapé: Categoria, Pasta e Botões de Ação
+            Row(
+              children: [
+                if (c.categoria != null)
+                  Container(
+                    margin: const EdgeInsets.only(right: 6),
+                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFFFF2EE),
+                      borderRadius: BorderRadius.circular(6),
+                    ),
+                    child: Text(
+                      c.categoria!,
+                      style: const TextStyle(fontSize: 10, color: Color(0xFFFC5931), fontWeight: FontWeight.w600),
+                    ),
+                  ),
+                if (c.pastaNome != null)
+                  Text(
+                    '📁 ${c.pastaNome}',
+                    style: const TextStyle(fontSize: 11, color: Colors.grey),
+                  ),
+                const Spacer(),
+                IconButton(
+                  icon: const Icon(Icons.edit_outlined, size: 18, color: Colors.grey),
+                  onPressed: () => _showContratoForm(contrato: c),
+                  constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
+                  padding: EdgeInsets.zero,
+                ),
+                IconButton(
+                  icon: const Icon(Icons.delete_outline, size: 18, color: Colors.redAccent),
+                  onPressed: () => _deleteContrato(c),
+                  constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
+                  padding: EdgeInsets.zero,
+                ),
+              ],
+            ),
+          ],
+        ),
       ),
     );
   }
 }
 
-// ─── Botão de ação ────────────────────────────────────────────────────────────
-
-class _ActionBtn extends StatelessWidget {
-  final IconData icon;
-  final String label;
-  final VoidCallback onTap;
-  const _ActionBtn({required this.icon, required this.label, required this.onTap});
-
-  @override
-  Widget build(BuildContext context) {
-    return Expanded(
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(12),
-        child: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-          decoration: BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.circular(12),
-            border: Border.all(color: Colors.grey.shade200),
-            boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.04), blurRadius: 4)],
-          ),
-          child: Row(
-            children: [
-              Icon(icon, color: AppColors.primary, size: 18),
-              const SizedBox(width: 8),
-              Expanded(
-                child: Text(label,
-                    style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600,
-                        color: AppColors.primary),
-                    overflow: TextOverflow.ellipsis),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-// ─── Categorias padrão ───────────────────────────────────────────────────────
-
-const _defaultCategorias = [
-  'Obrigatório',
-  'Manutenção',
-  'Prestador',
-  'Seguro',
-  'Outros',
-];
-
-// ─── Formulário ──────────────────────────────────────────────────────────────
+// ─── Formulário Mobile-First de Inclusão e Edição ───────────────────────────
 
 class _ContratoFormScreen extends StatefulWidget {
   final String condoId;
   final List<_Pasta> pastas;
-  final _Contrato? contrato;
-  const _ContratoFormScreen({required this.condoId, required this.pastas, this.contrato});
+  final CondoContract? contrato;
+
+  const _ContratoFormScreen({
+    required this.condoId,
+    required this.pastas,
+    this.contrato,
+  });
 
   @override
   State<_ContratoFormScreen> createState() => _ContratoFormScreenState();
 }
 
 class _ContratoFormScreenState extends State<_ContratoFormScreen> {
-  late final TextEditingController _tituloCtrl;
-  String _tipo = 'obrigatorio';
+  String? _fornecedorId;
+  String? _fornecedorNome;
+  late final TextEditingController _servicoCtrl;
+  late final TextEditingController _valorMensalCtrl;
+  late final TextEditingController _descricaoCtrl;
+
+  DateTime? _dataInicio;
+  DateTime? _dataTermino;
+  bool _semValidade = false;
+
   String? _pastaId;
   String? _categoria;
-  List<String> _categorias = [];
-  DateTime? _dataEmissao;
-  DateTime? _dataValidade;
   bool _mostrarMoradores = false;
-  bool _avisarMoradores = false;
   bool _lembrar30 = false;
   bool _lembrar60 = false;
   bool _lembrar90 = false;
+
   PlatformFile? _arquivo;
   bool _saving = false;
   String? _error;
@@ -473,32 +684,52 @@ class _ContratoFormScreenState extends State<_ContratoFormScreen> {
   void initState() {
     super.initState();
     final c = widget.contrato;
-    _tituloCtrl       = TextEditingController(text: c?.titulo ?? '');
-    _tipo             = c?.tipo ?? 'obrigatorio';
-    _pastaId          = c?.pastaId;
-    _categoria        = c?.categoria;
-    _dataEmissao      = _tryParseDate(c?.dataExpedicao) ?? DateTime.now();
-    _dataValidade     = _tryParseDate(c?.dataValidade);
+    _fornecedorId = c?.fornecedorId;
+    _fornecedorNome = c?.fornecedorNome;
+    _servicoCtrl = TextEditingController(text: c?.titulo ?? '');
+    _valorMensalCtrl = TextEditingController(
+      text: c?.valorMensal != null ? c!.valorMensal!.toStringAsFixed(2) : '',
+    );
+    _descricaoCtrl = TextEditingController(text: c?.descricao ?? '');
+
+    _dataInicio = c?.dataExpedicao ?? DateTime.now();
+    _dataTermino = c?.dataValidade;
+    _semValidade = c?.semValidade ?? false;
+
+    _pastaId = c?.pastaId;
+    _categoria = c?.categoria ?? 'Manutenção';
     _mostrarMoradores = c?.mostrarMoradores ?? false;
-    _avisarMoradores  = c?.avisarMoradores  ?? false;
     _lembrar30 = c?.lembrar30 ?? false;
     _lembrar60 = c?.lembrar60 ?? false;
     _lembrar90 = c?.lembrar90 ?? false;
-    _loadCategorias();
   }
 
-  DateTime? _tryParseDate(String? s) {
-    if (s == null || s.isEmpty) return null;
-    return DateTime.tryParse(s);
+  @override
+  void dispose() {
+    _servicoCtrl.dispose();
+    _valorMensalCtrl.dispose();
+    _descricaoCtrl.dispose();
+    super.dispose();
   }
 
-  String _formatDateBR(DateTime? d) {
-    if (d == null) return '';
-    return '${d.day.toString().padLeft(2, '0')}/${d.month.toString().padLeft(2, '0')}/${d.year}';
+  Future<void> _selectFornecedor() async {
+    final res = await FornecedorBottomSheet.show(
+      context: context,
+      condominioId: widget.condoId,
+      selectedFornecedorId: _fornecedorId,
+      initialFornecedorNomeAvulso: _fornecedorNome,
+    );
+
+    if (res != null) {
+      setState(() {
+        _fornecedorId = res.fornecedorId;
+        _fornecedorNome = res.fornecedorNome;
+      });
+    }
   }
 
-  Future<void> _pickDate({required bool isEmissao}) async {
-    final initial = isEmissao ? (_dataEmissao ?? DateTime.now()) : (_dataValidade ?? DateTime.now());
+  Future<void> _pickDate({required bool isInicio}) async {
+    final initial = isInicio ? (_dataInicio ?? DateTime.now()) : (_dataTermino ?? DateTime.now());
     final picked = await showDatePicker(
       context: context,
       initialDate: initial,
@@ -518,82 +749,19 @@ class _ContratoFormScreenState extends State<_ContratoFormScreen> {
     );
     if (picked != null) {
       setState(() {
-        if (isEmissao) {
-          _dataEmissao = picked;
+        if (isInicio) {
+          _dataInicio = picked;
         } else {
-          _dataValidade = picked;
+          _dataTermino = picked;
         }
       });
     }
   }
 
-  Future<void> _loadCategorias() async {
-    try {
-      final sb = Supabase.instance.client;
-      final res = await sb
-          .from('documentos_categorias')
-          .select('nome')
-          .eq('condominio_id', widget.condoId);
-      final custom = (res as List).map((r) => r['nome'] as String).toList();
-      final all = <String>{..._defaultCategorias, ...custom};
-      if (mounted) {
-        setState(() => _categorias = all.toList()..sort());
-      }
-    } catch (_) {
-      setState(() => _categorias = List.from(_defaultCategorias));
-    }
-  }
-
-  Future<void> _addCategoria() async {
-    final ctrl = TextEditingController();
-    final result = await showDialog<String>(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        title: const Text('Nova Categoria'),
-        content: TextField(
-          controller: ctrl,
-          autofocus: true,
-          decoration: const InputDecoration(hintText: 'Nome da nova categoria'),
-        ),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancelar')),
-          ElevatedButton(
-            style: ElevatedButton.styleFrom(backgroundColor: AppColors.primary),
-            onPressed: () => Navigator.pop(ctx, ctrl.text.trim()),
-            child: const Text('Adicionar', style: TextStyle(color: Colors.white)),
-          ),
-        ],
-      ),
-    );
-    if (result == null || result.isEmpty) return;
-    // Persist to database
-    try {
-      final sb = Supabase.instance.client;
-      await sb.from('documentos_categorias').upsert(
-        {'condominio_id': widget.condoId, 'nome': result},
-        onConflict: 'condominio_id,nome',
-      );
-    } catch (_) {}
-    setState(() {
-      if (!_categorias.contains(result)) {
-        _categorias.add(result);
-        _categorias.sort();
-      }
-      _categoria = result;
-    });
-  }
-
-  @override
-  void dispose() {
-    _tituloCtrl.dispose();
-    super.dispose();
-  }
-
   Future<void> _pickFile() async {
     final result = await FilePicker.platform.pickFiles(
       type: FileType.custom,
-      allowedExtensions: ['pdf', 'doc', 'docx', 'xls', 'xlsx', 'png', 'jpg'],
+      allowedExtensions: ['pdf', 'doc', 'docx', 'png', 'jpg', 'jpeg'],
     );
     if (result != null && result.files.isNotEmpty) {
       setState(() => _arquivo = result.files.first);
@@ -601,309 +769,419 @@ class _ContratoFormScreenState extends State<_ContratoFormScreen> {
   }
 
   Future<void> _save() async {
-    if (_tituloCtrl.text.trim().isEmpty) {
-      setState(() => _error = 'Informe o título do contrato.');
+    final servico = _servicoCtrl.text.trim();
+    if (servico.isEmpty) {
+      setState(() => _error = 'Informe o serviço ou objeto do contrato.');
       return;
     }
-    setState(() { _saving = true; _error = null; });
 
-    String? arquivoUrl  = widget.contrato?.arquivoUrl;
-    String? arquivoNome = widget.contrato?.arquivoNome;
+    if (!_semValidade && _dataTermino == null && widget.contrato == null) {
+      setState(() => _error = 'Informe a data de término ou selecione "Contrato sem validade".');
+      return;
+    }
 
-    if (_arquivo != null && _arquivo!.bytes != null) {
-      final ext  = _arquivo!.extension ?? 'pdf';
-      final path = '${widget.condoId}/${DateTime.now().millisecondsSinceEpoch}.$ext';
-      try {
-        final sb = Supabase.instance.client;
-        await sb.storage.from(_storageBucket).uploadBinary(path, _arquivo!.bytes!);
-        arquivoUrl  = sb.storage.from(_storageBucket).getPublicUrl(path);
-        arquivoNome = _arquivo!.name;
-      } catch (e) {
-        setState(() { _error = 'Erro no upload: $e'; _saving = false; });
+    setState(() {
+      _saving = true;
+      _error = null;
+    });
+
+    double? valorMensal;
+    if (_valorMensalCtrl.text.trim().isNotEmpty) {
+      valorMensal = double.tryParse(_valorMensalCtrl.text.replaceAll(',', '.'));
+      if (valorMensal == null || valorMensal < 0) {
+        setState(() {
+          _error = 'Informe um valor mensal válido.';
+          _saving = false;
+        });
         return;
       }
     }
 
+    String? arquivoUrl = widget.contrato?.arquivoUrl;
+    String? arquivoNome = widget.contrato?.arquivoNome;
+
+    if (_arquivo != null && _arquivo!.bytes != null) {
+      final ext = _arquivo!.extension ?? 'pdf';
+      final path = '${widget.condoId}/${DateTime.now().millisecondsSinceEpoch}.$ext';
+      try {
+        final sb = Supabase.instance.client;
+        await sb.storage.from('contratos').uploadBinary(path, _arquivo!.bytes!);
+        arquivoUrl = sb.storage.from('contratos').getPublicUrl(path);
+        arquivoNome = _arquivo!.name;
+      } catch (e) {
+        setState(() {
+          _error = 'Erro no upload: $e';
+          _saving = false;
+        });
+        return;
+      }
+    }
+
+    // Regra canônica de precedência
+    final fId = _fornecedorId;
+    final fNome = fId != null ? null : (_fornecedorNome?.trim().isEmpty == true ? null : _fornecedorNome?.trim());
+
     final payload = {
-      'condominio_id':    widget.condoId,
-      'pasta_id':         _pastaId,
-      'titulo':           _tituloCtrl.text.trim(),
-      'categoria':        _categoria,
-      'tipo':             _tipo,
-      'data_expedicao':   _dataEmissao != null ? '${_dataEmissao!.year}-${_dataEmissao!.month.toString().padLeft(2, '0')}-${_dataEmissao!.day.toString().padLeft(2, '0')}' : null,
-      'data_validade':    _dataValidade != null ? '${_dataValidade!.year}-${_dataValidade!.month.toString().padLeft(2, '0')}-${_dataValidade!.day.toString().padLeft(2, '0')}' : null,
-      'arquivo_url':      arquivoUrl,
-      'arquivo_nome':     arquivoNome,
+      'condominio_id': widget.condoId,
+      'fornecedor_id': fId,
+      'fornecedor_nome': fNome,
+      'titulo': servico,
+      'categoria': _categoria,
+      'pasta_id': _pastaId,
+      'valor_mensal': valorMensal,
+      'data_expedicao': _dataInicio != null ? '${_dataInicio!.year}-${_dataInicio!.month.toString().padLeft(2, '0')}-${_dataInicio!.day.toString().padLeft(2, '0')}' : null,
+      'data_validade': _semValidade ? null : (_dataTermino != null ? '${_dataTermino!.year}-${_dataTermino!.month.toString().padLeft(2, '0')}-${_dataTermino!.day.toString().padLeft(2, '0')}' : null),
+      'sem_validade': _semValidade,
+      'lembrar_30': _semValidade ? false : _lembrar30,
+      'lembrar_60': _semValidade ? false : _lembrar60,
+      'lembrar_90': _semValidade ? false : _lembrar90,
+      'arquivo_url': arquivoUrl,
+      'arquivo_nome': arquivoNome,
       'mostrar_moradores': _mostrarMoradores,
-      'avisar_moradores':  _avisarMoradores,
-      'lembrar_30': _lembrar30,
-      'lembrar_60': _lembrar60,
-      'lembrar_90': _lembrar90,
+      'descricao': _descricaoCtrl.text.trim().isEmpty ? null : _descricaoCtrl.text.trim(),
+      'tipo': 'obrigatorio',
       'updated_at': DateTime.now().toIso8601String(),
     };
 
     try {
       final sb = Supabase.instance.client;
       if (widget.contrato == null) {
-        await sb.from(_tabelaDocs).insert(payload);
+        await sb.from('contratos').insert(payload);
       } else {
-        await sb.from(_tabelaDocs).update(payload).eq('id', widget.contrato!.id);
+        await sb.from('contratos').update(payload).eq('id', widget.contrato!.id);
       }
       if (mounted) Navigator.pop(context, true);
     } catch (e) {
-      setState(() { _error = 'Erro ao salvar: $e'; _saving = false; });
+      setState(() {
+        _error = 'Erro ao salvar: $e';
+        _saving = false;
+      });
     }
   }
 
   @override
   Widget build(BuildContext context) {
     final isEdit = widget.contrato != null;
+
     return Scaffold(
+      backgroundColor: Colors.white,
       appBar: AppBar(
-        title: Text(isEdit ? 'Editar Contrato' : 'Novo Contrato'),
+        title: Text(isEdit ? 'Editar Contrato' : 'Novo Contrato', style: const TextStyle(fontWeight: FontWeight.bold)),
         backgroundColor: AppColors.primary,
         foregroundColor: Colors.white,
+        elevation: 0,
       ),
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(20),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // ── Tipo de Contrato ──
-            const Text('Tipo de Contrato', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13)),
-            const SizedBox(height: 8),
-            _buildTipoRadios(),
-            const SizedBox(height: 20),
-
-            _field('Título *', _tituloCtrl, hint: 'Ex: Contrato de Manutenção'),
-            const SizedBox(height: 16),
-
-            // ── Categoria dropdown + botão "+" ──
-            const Text('Categoria', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13)),
-            const SizedBox(height: 6),
-            Row(
-              children: [
-                Expanded(
-                  child: DropdownButtonFormField<String>(
-                    initialValue: _categoria,
-                    decoration: InputDecoration(
-                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
-                      contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
-                    ),
-                    hint: const Text('Selecione'),
-                    items: _categorias.map((c) => DropdownMenuItem(value: c, child: Text(c))).toList(),
-                    onChanged: (v) => setState(() => _categoria = v),
-                  ),
-                ),
-                const SizedBox(width: 8),
-                Container(
-                  decoration: BoxDecoration(
-                    border: Border.all(color: Colors.grey.shade300),
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  child: IconButton(
-                    icon: const Icon(Icons.add, color: AppColors.primary),
-                    onPressed: _addCategoria,
-                    tooltip: 'Adicionar categoria',
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 16),
-
-            const Text('Pasta', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13)),
-            const SizedBox(height: 6),
-            DropdownButtonFormField<String>(
-              initialValue: _pastaId,
-              decoration: InputDecoration(
-                border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
-                contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
-              ),
-              hint: const Text('Selecionar pasta'),
-              items: [
-                const DropdownMenuItem(value: null, child: Text('Sem pasta')),
-                ...widget.pastas.map((p) => DropdownMenuItem(value: p.id, child: Text(p.nome))),
-              ],
-              onChanged: (v) => setState(() => _pastaId = v),
-            ),
-            const SizedBox(height: 16),
-
-            // ── Datas com calendário ──
-            Row(
-              children: [
-                Expanded(child: _datePickerField('Data Emissão', _dataEmissao, isEmissao: true)),
-                const SizedBox(width: 12),
-                Expanded(child: _datePickerField('Data Validade', _dataValidade, isEmissao: false)),
-              ],
-            ),
-            const SizedBox(height: 16),
-            const Text('Arquivo', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13)),
+            // ── 1. Fornecedor ──
+            const Text('FORNECEDOR / PRESTADOR', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11, color: Colors.grey)),
             const SizedBox(height: 6),
             InkWell(
-              onTap: _pickFile,
-              borderRadius: BorderRadius.circular(12),
+              onTap: _selectFornecedor,
+              borderRadius: BorderRadius.circular(14),
               child: Container(
-                width: double.infinity,
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
                 decoration: BoxDecoration(
                   border: Border.all(color: Colors.grey.shade300),
-                  borderRadius: BorderRadius.circular(12),
-                  color: Colors.grey.shade50,
+                  borderRadius: BorderRadius.circular(14),
+                  color: const Color(0xFFF9FAFB),
                 ),
                 child: Row(
                   children: [
-                    const Icon(Icons.attach_file, color: AppColors.primary),
+                    const Icon(Icons.handshake_outlined, color: Color(0xFFFC5931), size: 20),
                     const SizedBox(width: 10),
                     Expanded(
                       child: Text(
-                        _arquivo?.name ?? widget.contrato?.arquivoNome ?? 'Clique para selecionar arquivo',
+                        _fornecedorNome ?? 'Toque para selecionar fornecedor...',
                         style: TextStyle(
-                          fontSize: 13,
-                          color: _arquivo != null || widget.contrato?.arquivoNome != null
-                              ? Colors.black87 : Colors.grey,
+                          fontSize: 14,
+                          fontWeight: _fornecedorNome != null ? FontWeight.bold : FontWeight.normal,
+                          color: _fornecedorNome != null ? const Color(0xFF111827) : Colors.grey,
                         ),
-                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                    const Icon(Icons.chevron_right, color: Colors.grey, size: 20),
+                  ],
+                ),
+              ),
+            ),
+            const SizedBox(height: 18),
+
+            // ── 2. Serviço / Objeto ──
+            const Text('SERVIÇO / OBJETO DO CONTRATO *', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11, color: Colors.grey)),
+            const SizedBox(height: 6),
+            TextField(
+              controller: _servicoCtrl,
+              decoration: InputDecoration(
+                hintText: 'Ex: Manutenção Preventiva dos Elevadores',
+                hintStyle: const TextStyle(fontSize: 13, color: Colors.grey),
+                border: OutlineInputBorder(borderRadius: BorderRadius.circular(14)),
+                focusedBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(14),
+                  borderSide: const BorderSide(color: Color(0xFFFC5931), width: 2),
+                ),
+              ),
+            ),
+            const SizedBox(height: 18),
+
+            // ── 3. Valor Mensal ──
+            const Text('VALOR MENSAL RECORRENTE (R\$)', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11, color: Colors.grey)),
+            const SizedBox(height: 6),
+            TextField(
+              controller: _valorMensalCtrl,
+              keyboardType: const TextInputType.numberWithOptions(decimal: true),
+              decoration: InputDecoration(
+                prefixText: 'R\$ ',
+                hintText: '0,00',
+                hintStyle: const TextStyle(fontSize: 13, color: Colors.grey),
+                border: OutlineInputBorder(borderRadius: BorderRadius.circular(14)),
+                focusedBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(14),
+                  borderSide: const BorderSide(color: Color(0xFFFC5931), width: 2),
+                ),
+              ),
+            ),
+            const SizedBox(height: 18),
+
+            // ── 4. Vigência e Validade ──
+            Container(
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: const Color(0xFFF9FAFB),
+                borderRadius: BorderRadius.circular(16),
+                border: Border.all(color: Colors.grey.shade200),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      const Text('VIGÊNCIA E PRAZOS', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11, color: Colors.grey)),
+                      Row(
+                        children: [
+                          Checkbox(
+                            value: _semValidade,
+                            activeColor: const Color(0xFFFC5931),
+                            onChanged: (val) {
+                              setState(() {
+                                _semValidade = val == true;
+                                if (_semValidade) {
+                                  _dataTermino = null;
+                                  _lembrar30 = false;
+                                  _lembrar60 = false;
+                                  _lembrar90 = false;
+                                }
+                              });
+                            },
+                          ),
+                          const Text('Sem validade', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600)),
+                        ],
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 8),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: InkWell(
+                          onTap: () => _pickDate(isInicio: true),
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                            decoration: BoxDecoration(
+                              color: Colors.white,
+                              borderRadius: BorderRadius.circular(10),
+                              border: Border.all(color: Colors.grey.shade300),
+                            ),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                const Text('Data Início', style: TextStyle(fontSize: 10, color: Colors.grey)),
+                                Text(_formatDateBR(_dataInicio), style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold)),
+                              ],
+                            ),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: InkWell(
+                          onTap: _semValidade ? null : () => _pickDate(isInicio: false),
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                            decoration: BoxDecoration(
+                              color: _semValidade ? Colors.grey.shade100 : Colors.white,
+                              borderRadius: BorderRadius.circular(10),
+                              border: Border.all(color: Colors.grey.shade300),
+                            ),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                const Text('Data Término', style: TextStyle(fontSize: 10, color: Colors.grey)),
+                                Text(
+                                  _semValidade ? 'Permanente' : _formatDateBR(_dataTermino),
+                                  style: TextStyle(
+                                    fontSize: 13,
+                                    fontWeight: FontWeight.bold,
+                                    color: _semValidade ? Colors.grey : Colors.black87,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 18),
+
+            // ── 5. Arquivo do Contrato ──
+            const Text('ARQUIVO DO CONTRATO', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11, color: Colors.grey)),
+            const SizedBox(height: 6),
+            InkWell(
+              onTap: _pickFile,
+              borderRadius: BorderRadius.circular(14),
+              child: Container(
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  border: Border.all(color: Colors.grey.shade300, style: BorderStyle.solid),
+                  borderRadius: BorderRadius.circular(14),
+                  color: const Color(0xFFF9FAFB),
+                ),
+                child: Row(
+                  children: [
+                    const Icon(Icons.attach_file_rounded, color: Color(0xFFFC5931), size: 22),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            _arquivo?.name ?? widget.contrato?.arquivoNome ?? 'Toque para selecionar PDF ou imagem',
+                            style: TextStyle(
+                              fontSize: 13,
+                              fontWeight: _arquivo != null || widget.contrato?.arquivoNome != null ? FontWeight.bold : FontWeight.normal,
+                              color: const Color(0xFF1F2937),
+                            ),
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                          const Text('PDF, DOC, PNG ou JPG até 10MB', style: TextStyle(fontSize: 10, color: Colors.grey)),
+                        ],
                       ),
                     ),
                   ],
                 ),
               ),
             ),
-            const SizedBox(height: 20),
-            _switch('Mostrar para moradores?', _mostrarMoradores, (v) => setState(() => _mostrarMoradores = v)),
-            _switch('Avisar todos os moradores (push)?', _avisarMoradores, (v) => setState(() => _avisarMoradores = v)),
-            const Divider(),
-            const Padding(
-              padding: EdgeInsets.symmetric(vertical: 6),
-              child: Text('Lembretes de vencimento', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13)),
+            const SizedBox(height: 18),
+
+            // ── 6. Opções Adicionais (ExpansionTile) ──
+            ExpansionTile(
+              title: const Text('Opções Adicionais', style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold)),
+              subtitle: const Text('Pasta, Categoria, Lembretes...', style: TextStyle(fontSize: 11, color: Colors.grey)),
+              childrenPadding: const EdgeInsets.symmetric(horizontal: 4, vertical: 8),
+              children: [
+                DropdownButtonFormField<String>(
+                  initialValue: _pastaId,
+                  decoration: InputDecoration(
+                    labelText: 'Pasta',
+                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                  ),
+                  items: [
+                    const DropdownMenuItem(value: null, child: Text('Sem pasta')),
+                    ...widget.pastas.map((p) => DropdownMenuItem(value: p.id, child: Text(p.nome))),
+                  ],
+                  onChanged: (v) => setState(() => _pastaId = v),
+                ),
+                const SizedBox(height: 12),
+                if (!_semValidade) ...[
+                  const Text('Lembretes de Vencimento', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+                  CheckboxListTile(
+                    dense: true,
+                    contentPadding: EdgeInsets.zero,
+                    title: const Text('Lembrar 30 dias antes', style: TextStyle(fontSize: 13)),
+                    value: _lembrar30,
+                    activeColor: const Color(0xFFFC5931),
+                    onChanged: (v) => setState(() => _lembrar30 = v == true),
+                  ),
+                  CheckboxListTile(
+                    dense: true,
+                    contentPadding: EdgeInsets.zero,
+                    title: const Text('Lembrar 60 dias antes', style: TextStyle(fontSize: 13)),
+                    value: _lembrar60,
+                    activeColor: const Color(0xFFFC5931),
+                    onChanged: (v) => setState(() => _lembrar60 = v == true),
+                  ),
+                  CheckboxListTile(
+                    dense: true,
+                    contentPadding: EdgeInsets.zero,
+                    title: const Text('Lembrar 90 dias antes', style: TextStyle(fontSize: 13)),
+                    value: _lembrar90,
+                    activeColor: const Color(0xFFFC5931),
+                    onChanged: (v) => setState(() => _lembrar90 = v == true),
+                  ),
+                ],
+                SwitchListTile(
+                  dense: true,
+                  contentPadding: EdgeInsets.zero,
+                  title: const Text('Disponibilizar aos moradores', style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold)),
+                  subtitle: const Text('Portal da transparência (default desativado)', style: TextStyle(fontSize: 11, color: Colors.grey)),
+                  value: _mostrarMoradores,
+                  activeTrackColor: const Color(0xFFFC5931),
+                  onChanged: (v) => setState(() => _mostrarMoradores = v),
+                ),
+                const SizedBox(height: 8),
+                TextField(
+                  controller: _descricaoCtrl,
+                  maxLines: 3,
+                  decoration: InputDecoration(
+                    labelText: 'Observações / Detalhes de Cláusulas',
+                    alignLabelWithHint: true,
+                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                  ),
+                ),
+              ],
             ),
-            _switch('Lembrar 30 dias antes', _lembrar30, (v) => setState(() => _lembrar30 = v)),
-            _switch('Lembrar 60 dias antes', _lembrar60, (v) => setState(() => _lembrar60 = v)),
-            _switch('Lembrar 90 dias antes', _lembrar90, (v) => setState(() => _lembrar90 = v)),
+
             if (_error != null) ...[
               const SizedBox(height: 12),
-              Text(_error!, style: const TextStyle(color: Colors.red, fontSize: 13)),
+              Container(
+                padding: const EdgeInsets.all(10),
+                decoration: BoxDecoration(color: Colors.red.shade50, borderRadius: BorderRadius.circular(10)),
+                child: Text(_error!, style: TextStyle(color: Colors.red.shade700, fontSize: 12)),
+              ),
             ],
+
             const SizedBox(height: 24),
+
+            // ── 7. Botão Salvar ──
             SizedBox(
               width: double.infinity,
+              height: 50,
               child: ElevatedButton(
                 onPressed: _saving ? null : _save,
                 style: ElevatedButton.styleFrom(
                   backgroundColor: AppColors.primary,
-                  padding: const EdgeInsets.symmetric(vertical: 14),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                  foregroundColor: Colors.white,
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
                 ),
                 child: _saving
-                    ? const SizedBox(width: 20, height: 20,
-                        child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
-                    : Text(isEdit ? 'Salvar' : 'Inserir Contrato',
-                        style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+                    ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
+                    : Text(
+                        isEdit ? 'Salvar Alterações' : 'Cadastrar Contrato',
+                        style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
+                      ),
               ),
             ),
           ],
         ),
       ),
-    );
-  }
-
-  Widget _buildTipoRadios() {
-    return RadioGroup<String>(
-      groupValue: _tipo,
-      onChanged: (v) { if (v != null) setState(() => _tipo = v); },
-      child: Row(
-        children: [
-          _radioOption('obrigatorio', 'Obrigatórios'),
-          const SizedBox(width: 12),
-          _radioOption('manutencao', 'Manutenção'),
-          const SizedBox(width: 12),
-          _radioOption('outros', 'Outros...'),
-        ],
-      ),
-    );
-  }
-
-  Widget _radioOption(String value, String label) {
-    return GestureDetector(
-      onTap: () => setState(() => _tipo = value),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Radio<String>(
-            value: value,
-            activeColor: AppColors.primary,
-            materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
-            visualDensity: VisualDensity.compact,
-          ),
-          Text(label, style: const TextStyle(fontSize: 13)),
-        ],
-      ),
-    );
-  }
-
-  Widget _datePickerField(String label, DateTime? date, {required bool isEmissao}) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(label, style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13)),
-        const SizedBox(height: 6),
-        InkWell(
-          onTap: () => _pickDate(isEmissao: isEmissao),
-          borderRadius: BorderRadius.circular(12),
-          child: Container(
-            width: double.infinity,
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
-            decoration: BoxDecoration(
-              border: Border.all(color: Colors.grey.shade300),
-              borderRadius: BorderRadius.circular(12),
-            ),
-            child: Row(
-              children: [
-                Expanded(
-                  child: Text(
-                    date != null ? _formatDateBR(date) : 'DD/MM/AAAA',
-                    style: TextStyle(
-                      fontSize: 14,
-                      color: date != null ? Colors.black87 : Colors.grey,
-                    ),
-                  ),
-                ),
-                Icon(Icons.calendar_today, size: 18, color: Colors.grey.shade500),
-              ],
-            ),
-          ),
-        ),
-      ],
-    );
-  }
-
-  Widget _field(String label, TextEditingController ctrl, {String? hint, TextInputType? keyboardType}) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(label, style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13)),
-        const SizedBox(height: 6),
-        TextField(
-          controller: ctrl,
-          keyboardType: keyboardType,
-          decoration: InputDecoration(
-            hintText: hint,
-            border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
-            contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
-          ),
-        ),
-      ],
-    );
-  }
-
-  Widget _switch(String label, bool value, ValueChanged<bool> onChange) {
-    return SwitchListTile(
-      dense: true,
-      contentPadding: EdgeInsets.zero,
-      title: Text(label, style: const TextStyle(fontSize: 13)),
-      value: value,
-      activeThumbColor: AppColors.primary,
-      onChanged: onChange,
     );
   }
 }

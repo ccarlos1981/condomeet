@@ -1,6 +1,7 @@
 import { createClient } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
-import DocumentosClient from '../documentos/documentos-client'
+import ContratosClient from './contratos-client'
+import { Contrato, ContratoPasta, Fornecedor } from './types'
 
 export const metadata = { title: 'Contratos — Admin Condomeet' }
 
@@ -17,27 +18,50 @@ export default async function ContratosPage() {
 
   const condoId = profile?.condominio_id ?? ''
 
-  const [{ data: pastas }, { data: docs }, { data: categorias }] = await Promise.all([
-    supabase.from('contrato_pastas').select('*').eq('condominio_id', condoId).order('nome'),
-    supabase.from('contratos').select('*').eq('condominio_id', condoId).order('titulo'),
-    supabase.from('documentos_categorias').select('nome').eq('condominio_id', condoId).order('nome'),
+  const [
+    { data: contratosRes },
+    { data: pastasRes },
+    { data: fornecedoresRes },
+    { data: categoriasRes }
+  ] = await Promise.all([
+    supabase
+      .from('contratos')
+      .select('*, fornecedores(id, nome, telefone, documento, tipo), contrato_pastas(id, nome)')
+      .eq('condominio_id', condoId)
+      .order('created_at', { ascending: false }),
+    supabase
+      .from('contrato_pastas')
+      .select('*')
+      .eq('condominio_id', condoId)
+      .order('nome'),
+    supabase
+      .from('fornecedores')
+      .select('*')
+      .eq('condominio_id', condoId)
+      .eq('ativo', true)
+      .order('nome'),
+    supabase
+      .from('documentos_categorias')
+      .select('nome')
+      .eq('condominio_id', condoId)
+      .order('nome'),
   ])
 
   return (
-    <div className="p-6">
-      <div className="mb-6">
-        <h1 className="text-2xl font-bold text-gray-900">Contratos</h1>
-        <p className="text-sm text-gray-500 mt-1">Gerencie os contratos do condomínio por pasta</p>
+    <div className="p-6 max-w-7xl mx-auto space-y-6">
+      <div>
+        <h1 className="text-2xl font-bold text-gray-900 tracking-tight">Contratos</h1>
+        <p className="text-sm text-gray-500 mt-1">
+          Gerencie fornecedores, vigências e custos operacionais recorrentes do condomínio
+        </p>
       </div>
-      <DocumentosClient
-        initialPastas={pastas ?? []}
-        initialDocs={docs ?? []}
+
+      <ContratosClient
+        initialContratos={(contratosRes as unknown as Contrato[]) ?? []}
+        initialPastas={(pastasRes as unknown as ContratoPasta[]) ?? []}
+        initialFornecedores={(fornecedoresRes as unknown as Fornecedor[]) ?? []}
+        initialCategorias={(categoriasRes ?? []).map((c: { nome: string }) => c.nome)}
         condoId={condoId}
-        tabelaPastas="contrato_pastas"
-        tabelaDocs="contratos"
-        storageBucket="contratos"
-        titulo="Contrato"
-        initialCategorias={(categorias ?? []).map((c: { nome: string }) => c.nome)}
       />
     </div>
   )

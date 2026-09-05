@@ -306,7 +306,7 @@ class InvitationRepositoryImpl implements InvitationRepository {
         'qr_data': qrData,
         'visitor_type': visitorType,
         'visitor_phone': visitorPhone,
-        'observation': observation,
+        'observacao': observation,
         'documento': documento,
         'placa': placa,
         'cracha_referencia': crachaReferencia,
@@ -335,7 +335,7 @@ class InvitationRepositoryImpl implements InvitationRepository {
             'qr_data': qrData,
             'visitor_type': visitorType,
             'visitor_phone': visitorPhone,
-            'observation': observation,
+            'observacao': observation,
             'documento': documento,
             'placa': placa,
             'cracha_referencia': crachaReferencia,
@@ -344,9 +344,29 @@ class InvitationRepositoryImpl implements InvitationRepository {
             'created_at': now.toIso8601String(),
             'updated_at': now.toIso8601String(),
             'parent_id': id,
-            'valid_until': validUntil.toIso8601String(),
           });
         }
+      }
+
+      // Enfileirar notificação via convite-whatsapp-notify Edge Function
+      try {
+        await _supabase.functions.invoke(
+          'convite-whatsapp-notify',
+          body: {
+            'action': 'created',
+            'convite_id': id,
+            'resident_id': residentId,
+            'condominio_id': condominiumId,
+            'guest_name': guestName,
+            'visitor_phone': visitorPhone,
+            'visitor_type': visitorType,
+            'validity_date': validityDate.toIso8601String(),
+            'valid_until': validUntil?.toIso8601String(),
+            'qr_data': qrData,
+          },
+        );
+      } catch (e) {
+        print('Erro ao disparar convite-whatsapp-notify: $e');
       }
 
       return Success(invitation);

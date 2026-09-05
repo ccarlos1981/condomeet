@@ -1,6 +1,7 @@
 import { createClient } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
 import FaleConoscoAdminClient from './fale-conosco-admin-client'
+import { isAdminRole } from '@/lib/roles'
 
 export const metadata = { title: 'Fale Conosco — Admin Condomeet' }
 
@@ -30,12 +31,7 @@ export default async function FaleConoscoAdminPage() {
     .eq('id', user.id)
     .single()
 
-  const role = profile?.papel_sistema ?? ''
-  const isAdmin =
-    role === 'ADMIN' ||
-    role.toLowerCase().includes('síndico') ||
-    role.toLowerCase().includes('sindico')
-
+  const isAdmin = isAdminRole(profile?.papel_sistema)
   if (!isAdmin) redirect('/condo')
 
   const condoId = profile?.condominio_id ?? ''

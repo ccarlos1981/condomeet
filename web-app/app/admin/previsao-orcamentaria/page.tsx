@@ -1,6 +1,7 @@
 import { createClient } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
 import PrevisaoOrcamentariaClient from './previsao-orcamentaria-client'
+import { isAdminRole } from '@/lib/roles'
 
 export default async function PrevisaoOrcamentariaPage({
   searchParams,
@@ -19,9 +20,7 @@ export default async function PrevisaoOrcamentariaPage({
     .eq('id', user.id)
     .single()
 
-  const role = profile?.papel_sistema?.toLowerCase() || ''
-  const isAdmin = ['síndico', 'sindico', 'sindico (a)', 'síndico (a)', 'admin'].some(r => role.includes(r))
-  if (!isAdmin) {
+  if (!isAdminRole(profile?.papel_sistema)) {
     redirect('/condo')
   }
 

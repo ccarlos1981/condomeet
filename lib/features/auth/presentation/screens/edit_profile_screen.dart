@@ -569,33 +569,66 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
       onTap: () {
         showModalBottomSheet(
           context: context,
+          isScrollControlled: true,
           shape: const RoundedRectangleBorder(
             borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
           ),
           builder: (ctx) => SafeArea(
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Padding(
-                  padding: const EdgeInsets.all(16),
-                  child: Text(label, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
-                ),
-                const Divider(height: 1),
-                Flexible(
-                  child: ListView(
-                    shrinkWrap: true,
-                    children: options.map((opt) => ListTile(
-                      title: Text(opt),
-                      trailing: opt == value ? const Icon(Icons.check, color: AppColors.primary) : null,
-                      onTap: () {
-                        Navigator.pop(ctx);
-                        onChanged(opt);
-                      },
-                    )).toList(),
+            top: false,
+            child: ConstrainedBox(
+              constraints: BoxConstraints(
+                maxHeight: MediaQuery.of(ctx).size.height * 0.85,
+              ),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const SizedBox(height: 12),
+                  Container(
+                    width: 40,
+                    height: 4,
+                    decoration: BoxDecoration(
+                      color: Colors.grey.shade300,
+                      borderRadius: BorderRadius.circular(2),
+                    ),
                   ),
-                ),
-                const SizedBox(height: 16),
-              ],
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                    child: Text(
+                      label,
+                      style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+                      textAlign: TextAlign.center,
+                    ),
+                  ),
+                  const Divider(height: 1),
+                  Flexible(
+                    child: ListView.builder(
+                      shrinkWrap: true,
+                      itemCount: options.length,
+                      itemBuilder: (ctx, index) {
+                        final opt = options[index];
+                        final isSelected = opt == value;
+                        return ListTile(
+                          title: Text(
+                            opt,
+                            style: TextStyle(
+                              fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+                              color: isSelected ? AppColors.primary : Colors.black87,
+                            ),
+                          ),
+                          trailing: isSelected
+                              ? const Icon(Icons.check, color: AppColors.primary)
+                              : null,
+                          onTap: () {
+                            Navigator.pop(ctx);
+                            onChanged(opt);
+                          },
+                        );
+                      },
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                ],
+              ),
             ),
           ),
         );
@@ -629,28 +662,66 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
       onTap: options.isEmpty ? null : () {
         showModalBottomSheet(
           context: context,
+          isScrollControlled: true,
           shape: const RoundedRectangleBorder(
             borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
           ),
           builder: (ctx) => SafeArea(
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Padding(
-                  padding: const EdgeInsets.all(16),
-                  child: Text(label, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
-                ),
-                const Divider(height: 1),
-                ...options.map((opt) => ListTile(
-                  title: Text(labelBuilder(opt)),
-                  trailing: opt[idKey] == value ? const Icon(Icons.check, color: AppColors.primary) : null,
-                  onTap: () {
-                    Navigator.pop(ctx);
-                    onChanged(opt[idKey] as String);
-                  },
-                )),
-                const SizedBox(height: 16),
-              ],
+            top: false,
+            child: ConstrainedBox(
+              constraints: BoxConstraints(
+                maxHeight: MediaQuery.of(ctx).size.height * 0.85,
+              ),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const SizedBox(height: 12),
+                  Container(
+                    width: 40,
+                    height: 4,
+                    decoration: BoxDecoration(
+                      color: Colors.grey.shade300,
+                      borderRadius: BorderRadius.circular(2),
+                    ),
+                  ),
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                    child: Text(
+                      label,
+                      style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+                      textAlign: TextAlign.center,
+                    ),
+                  ),
+                  const Divider(height: 1),
+                  Flexible(
+                    child: ListView.builder(
+                      shrinkWrap: true,
+                      itemCount: options.length,
+                      itemBuilder: (ctx, index) {
+                        final opt = options[index];
+                        final isSelected = opt[idKey] == value;
+                        return ListTile(
+                          title: Text(
+                            labelBuilder(opt),
+                            style: TextStyle(
+                              fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+                              color: isSelected ? AppColors.primary : Colors.black87,
+                            ),
+                          ),
+                          trailing: isSelected
+                              ? const Icon(Icons.check, color: AppColors.primary)
+                              : null,
+                          onTap: () {
+                            Navigator.pop(ctx);
+                            onChanged(opt[idKey] as String);
+                          },
+                        );
+                      },
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                ],
+              ),
             ),
           ),
         );

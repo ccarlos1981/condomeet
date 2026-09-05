@@ -30,31 +30,31 @@ const _kAllFunctions = [
   _FunctionDef(id: 'parcels',            icon: 'inventory_2',   label: 'Minhas Encomendas',       route: '/parcel-dashboard',           defaultRoles: {'morador'}),
   _FunctionDef(id: 'guest_checkin',      icon: 'qr_code',       label: 'Visitante c/ Autorização',route: '/guest-checkin',              defaultRoles: {'morador', 'portaria'}),
   _FunctionDef(id: 'occurrences',        icon: 'warning',       label: 'Ocorrências',             route: '/report-occurrence',          defaultRoles: {'morador', 'proprietario', 'inquilino', 'locatario', 'portaria', 'zelador', 'funcionario'}),
-  _FunctionDef(id: 'occurrence_admin',   icon: 'book',          label: 'Livro de Ocorrências',    route: '/occurrence-admin',           defaultRoles: {'sindico', 'sub_sindico'}),
+  _FunctionDef(id: 'occurrence_admin',   icon: 'book',          label: 'Livro de Ocorrências',    route: '/occurrence-admin',           defaultRoles: {'sindico', 'sub_sindico', 'admin'}),
   _FunctionDef(id: 'bookings',           icon: 'calendar_month',label: 'Reservas',                route: '/area-booking',               defaultRoles: {'morador'}),
   _FunctionDef(id: 'documents',          icon: 'file_copy',     label: 'Documentos',              route: '/document-center',            defaultRoles: {'morador'}),
   _FunctionDef(id: 'parcel_history',     icon: 'history',       label: 'Histórico Encomendas',    route: '/parcel-history',             defaultRoles: {'morador'}),
   _FunctionDef(id: 'visitor_approval',   icon: 'how_to_reg',    label: 'Liberar Visitante Cadastrado',route: '/liberar-visitante-cadastrado',  defaultRoles: {'portaria'}),
   _FunctionDef(id: 'parcel_reg',         icon: 'add_box',       label: 'Registrar Encomenda',     route: '/parcel-registration',        defaultRoles: {'portaria'}),
-  _FunctionDef(id: 'pending_del',        icon: 'local_shipping',label: 'Encomendas do Condomínio', route: '/pending-deliveries',         defaultRoles: {'portaria', 'sindico', 'sub_sindico'}),
+  _FunctionDef(id: 'pending_del',        icon: 'local_shipping',label: 'Encomendas do Condomínio', route: '/pending-deliveries',         defaultRoles: {'portaria', 'sindico', 'sub_sindico', 'admin'}),
   _FunctionDef(id: 'visitor_reg',        icon: 'person_add',    label: 'Registrar Visitante',     route: '/visitor-registration',       defaultRoles: {'portaria'}),
-  _FunctionDef(id: 'approvals',          icon: 'check_circle',  label: 'Aprovações',              route: '/manager-approval',           defaultRoles: {'sindico'}),
-  _FunctionDef(id: 'resident_search',    icon: 'person_search', label: 'Busca Moradores',         route: '/resident-search',            defaultRoles: {'sindico'}),
-  _FunctionDef(id: 'condo_structure',    icon: 'apartment',     label: 'Estrutura do Condomínio', route: '/condo-structure',            defaultRoles: {'sindico'}),
-  _FunctionDef(id: 'assemblies',         icon: 'groups',        label: 'Assembleias',             route: '/assemblies',                 defaultRoles: {'sindico'}),
+  _FunctionDef(id: 'approvals',          icon: 'check_circle',  label: 'Aprovações',              route: '/manager-approval',           defaultRoles: {'sindico', 'admin'}),
+  _FunctionDef(id: 'resident_search',    icon: 'person_search', label: 'Busca Moradores',         route: '/resident-search',            defaultRoles: {'sindico', 'admin'}),
+  _FunctionDef(id: 'condo_structure',    icon: 'apartment',     label: 'Estrutura do Condomínio', route: '/condo-structure',            defaultRoles: {'sindico', 'admin'}),
+  _FunctionDef(id: 'assemblies',         icon: 'groups',        label: 'Assembleias',             route: '/assemblies',                 defaultRoles: {'sindico', 'admin'}),
   _FunctionDef(id: 'assembleias_morador', icon: 'groups',        label: 'Assembleias',             route: '/assembleias-morador',        defaultRoles: {'morador', 'proprietario', 'inquilino', 'locatario'}),
-  _FunctionDef(id: 'avisos',             icon: 'campaign',      label: 'Avisos',                  route: '/avisos',                     defaultRoles: {'morador', 'sindico'}),
+  _FunctionDef(id: 'avisos',             icon: 'campaign',      label: 'Avisos',                  route: '/avisos',                     defaultRoles: {'morador', 'sindico', 'admin'}),
   _FunctionDef(id: 'fale_sindico',       icon: 'forum',         label: 'Fale com o Síndico',      route: '/fale-sindico',               defaultRoles: {'morador'}),
   _FunctionDef(id: 'enquetes',           icon: 'bar_chart',     label: 'Enquetes',                route: '/enquetes',                   defaultRoles: {'morador'}),
-  _FunctionDef(id: 'enquete_admin',      icon: 'bar_chart',     label: 'Enquetes',                route: '/enquete-admin',              defaultRoles: {'sindico'}),
-  _FunctionDef(id: 'reservas_portaria',   icon: 'calendar_month',label: 'Reservas (Portaria)',      route: '/reservas-portaria',          defaultRoles: {'portaria', 'sindico', 'sub_sindico'}),
+  _FunctionDef(id: 'enquete_admin',      icon: 'bar_chart',     label: 'Enquetes',                route: '/enquete-admin',              defaultRoles: {'sindico', 'admin'}),
+  _FunctionDef(id: 'reservas_portaria',   icon: 'calendar_month',label: 'Reservas (Portaria)',      route: '/reservas-portaria',          defaultRoles: {'portaria', 'sindico', 'sub_sindico', 'admin'}),
   _FunctionDef(id: 'visitor_register',    icon: 'badge',         label: 'Registrar Visitante',     route: '/registrar-visitante',        defaultRoles: {'portaria'}),
   _FunctionDef(id: 'portaria_authorize',  icon: 'how_to_reg',    label: 'Autorização Visitante (Portaria)', route: '/autorizar-visitante-portaria', defaultRoles: {'portaria'}),
   _FunctionDef(id: 'registro_turno',      icon: 'assignment',    label: 'Registro de Turno',       route: '/registro-turno',             defaultRoles: {'portaria'}),
   _FunctionDef(id: 'album_fotos',      icon: 'photo',         label: 'Álbum de Fotos',         route: '/album-fotos',                defaultRoles: {'morador'}),
   _FunctionDef(id: 'classificados',    icon: 'sell',          label: 'Classificados',           route: '/classificados',              defaultRoles: {'morador'}),
   _FunctionDef(id: 'indicacoes',       icon: 'favorite',      label: 'Indicações de Serviço', route: '/indicacoes',                 defaultRoles: {'morador'}),
-  _FunctionDef(id: 'contracts',        icon: 'description',   label: 'Contratos',               route: '/contratos',                  defaultRoles: {'sindico', 'sub_sindico'}),
+  _FunctionDef(id: 'contracts',        icon: 'description',   label: 'Contratos',               route: '/contratos',                  defaultRoles: {'sindico', 'sub_sindico', 'admin'}),
   _FunctionDef(id: 'visita_proprietario', icon: 'door_front', label: 'Visita Proprietário',     route: '/visita-proprietario',        defaultRoles: {'portaria'}),
   _FunctionDef(id: 'aluguel_vaga',       icon: 'local_parking', label: 'Garagem Inteligente',     route: '/garagem',                    defaultRoles: {'morador'}),
 ];
@@ -73,8 +73,9 @@ String _normalizeRole(String raw) {
     'síndico': 'sindico',
     'sub_sindico': 'sub_sindico',
     'sub_síndico': 'sub_sindico',
-    'admin': 'sindico',
-    'administrador': 'sindico',
+    'admin': 'admin',
+    'administrador': 'admin',
+    'administradora': 'admin',
     'zelador': 'zelador',
     'funcionario': 'funcionario',
     'funcionário': 'funcionario',
@@ -140,7 +141,7 @@ class _ConfigureMenuScreenState extends State<ConfigureMenuScreen>
 
   List<_FuncConfig> _functions = [];
   // Complete list of all possible profiles — always shown
-  List<_RoleDef> _roles = [
+  List<_RoleDef> _getBaseRoles() => [
     _RoleDef('morador',                'Morador (a)'),
     _RoleDef('proprietario',           'Proprietário (a)'),
     _RoleDef('proprietario_nao_morador','Proprietário não morador'),
@@ -151,7 +152,10 @@ class _ConfigureMenuScreenState extends State<ConfigureMenuScreen>
     _RoleDef('zelador',                'Zelador (a)'),
     _RoleDef('sindico',                'Síndico (a)'),
     _RoleDef('sub_sindico',            'Sub Síndico (a)'),
+    _RoleDef('admin',                  'Administrador (a)'),
   ];
+
+  late List<_RoleDef> _roles = _getBaseRoles();
   int _selectedFnIndex = 0;
 
   bool _isLoading = true;
@@ -197,7 +201,8 @@ class _ConfigureMenuScreenState extends State<ConfigureMenuScreen>
       }
 
       // 2. Load distinct roles from perfil — add any extra found in DB
-      final baseRoleKeys = _roles.map((r) => r.key).toSet();
+      final newRoles = _getBaseRoles();
+      final baseRoleKeys = newRoles.map((r) => r.key).toSet();
       try {
         final perfilData = await Supabase.instance.client
             .from('perfil')
@@ -210,7 +215,7 @@ class _ConfigureMenuScreenState extends State<ConfigureMenuScreen>
           final key = _normalizeRole(raw);
           if (!baseRoleKeys.contains(key)) {
             baseRoleKeys.add(key);
-            _roles.add(_RoleDef(key, raw));
+            newRoles.add(_RoleDef(key, raw));
           }
         }
       } catch (_) {
@@ -221,8 +226,6 @@ class _ConfigureMenuScreenState extends State<ConfigureMenuScreen>
       // 3. Build function list merging saved config
       final saved = existing['functions'] as List? ?? [];
       final savedMap = { for (final f in saved) (f as Map)['id'] as String: f };
-
-      final newRoles = _roles;
 
       final newFunctions = _kAllFunctions.map((def) {
         final savedFn = savedMap[def.id];
@@ -236,7 +239,7 @@ class _ConfigureMenuScreenState extends State<ConfigureMenuScreen>
             final savedRole = (savedFn['roles'] as Map?)?[rk];
             roles[rk] = savedRole != null
                 ? {'visible': savedRole['visible'] as bool? ?? false}
-                : {'visible': false};
+                : _resolveFromLegacy(existing, def.id, rk, def.defaultRoles);
           } else {
             roles[rk] = _resolveFromLegacy(existing, def.id, rk, def.defaultRoles);
           }
@@ -252,9 +255,11 @@ class _ConfigureMenuScreenState extends State<ConfigureMenuScreen>
       });
     } catch (e) {
       // Even on error, build functions from defaults so UI still works
+      final fallbackRoles = _getBaseRoles();
       if (mounted) setState(() {
+        _roles = fallbackRoles;
         _functions = _kAllFunctions.map((def) {
-          final roles = { for (final r in _roles) r.key: _resolveFromLegacy({}, def.id, r.key, def.defaultRoles) };
+          final roles = { for (final r in fallbackRoles) r.key: _resolveFromLegacy({}, def.id, r.key, def.defaultRoles) };
           return _FuncConfig(id: def.id, label: def.label, icon: def.icon, roles: roles);
         }).toList();
         _isLoading = false;
@@ -264,13 +269,12 @@ class _ConfigureMenuScreenState extends State<ConfigureMenuScreen>
 
   Map<String, dynamic> _resolveFromLegacy(
       Map<String, dynamic> cfg, String fnId, String roleKey, Set<String> defaultRoles) {
-    // Only the original 3 role keys should map to legacy menus.
-    // New profiles (proprietario, inquilino, locatario, funcionario, zelador, sub_sindico)
-    // default to false — admin must explicitly enable them.
+    // Only the original role keys map to legacy menus.
+    // New profiles default to false — admin must explicitly enable them.
     String? menuKey;
     if (roleKey == 'portaria') {
       menuKey = 'porter';
-    } else if (roleKey == 'sindico') {
+    } else if (roleKey == 'sindico' || roleKey == 'admin') {
       menuKey = 'admin';
     } else if (roleKey == 'morador') {
       menuKey = 'resident';
@@ -317,7 +321,7 @@ class _ConfigureMenuScreenState extends State<ConfigureMenuScreen>
         'functions': functionsJson,
         'resident_menu': _buildLegacyMenu(['morador', 'proprietario', 'proprietario_nao_morador', 'inquilino', 'locatario']),
         'porter_menu': _buildLegacyMenu(['portaria', 'funcionario', 'zelador']),
-        'admin_menu': _buildLegacyMenu(['sindico', 'sub_sindico']),
+        'admin_menu': _buildLegacyMenu(['sindico', 'sub_sindico', 'admin']),
       };
 
       await Supabase.instance.client

@@ -18,6 +18,7 @@ enum AuthStatus {
 
 class AuthState extends Equatable {
   final AuthStatus status;
+  final String? email;
   final String? phoneNumber;
   final String? errorMessage;
   final String? userId;
@@ -33,6 +34,7 @@ class AuthState extends Equatable {
 
   const AuthState({
     this.status = AuthStatus.unknown,
+    this.email,
     this.phoneNumber,
     this.errorMessage,
     this.userId,
@@ -84,19 +86,20 @@ class AuthState extends Equatable {
   const AuthState.pendingApproval({String? userId, String? userName, String? condominiumId, String? role}) 
     : this(status: AuthStatus.pendingApproval, userId: userId, userName: userName, condominiumId: condominiumId, role: role);
 
-  /// Morador migrado — precisa definir senha. [phoneNumber] carrega o email temporariamente.
+  /// Morador migrado — precisa definir senha.
   const AuthState.needsPasswordSetup({required String email})
-    : this(status: AuthStatus.needsPasswordSetup, phoneNumber: email);
+    : this(status: AuthStatus.needsPasswordSetup, email: email);
 
   /// Código de reset de senha enviado via WhatsApp
   const AuthState.forgotPasswordCodeSent({required String email, String? maskedWhatsapp})
-    : this(status: AuthStatus.forgotPasswordCodeSent, phoneNumber: email, maskedWhatsapp: maskedWhatsapp);
+    : this(status: AuthStatus.forgotPasswordCodeSent, email: email, maskedWhatsapp: maskedWhatsapp);
 
   @override
-  List<Object?> get props => [status, phoneNumber, errorMessage, userId, condominiumId, role, userName, tipoEstrutura, unitId, isUnitBlocked, profileStatus, isUnlocked, maskedWhatsapp];
+  List<Object?> get props => [status, email, phoneNumber, errorMessage, userId, condominiumId, role, userName, tipoEstrutura, unitId, isUnitBlocked, profileStatus, isUnlocked, maskedWhatsapp];
 
   AuthState copyWith({
     AuthStatus? status,
+    String? email,
     String? phoneNumber,
     String? errorMessage,
     String? userId,
@@ -112,6 +115,7 @@ class AuthState extends Equatable {
   }) {
     return AuthState(
       status: status ?? this.status,
+      email: email ?? this.email,
       phoneNumber: phoneNumber ?? this.phoneNumber,
       errorMessage: errorMessage ?? this.errorMessage,
       userId: userId ?? this.userId,

@@ -1,6 +1,6 @@
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts'
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
-import { smartSend, DELAY_TEXT_MS } from '../_shared/botconversa.ts'
+import { smartSend, MessageType, DELAY_TEXT_MS } from '../_shared/botconversa.ts'
 
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
@@ -75,7 +75,7 @@ serve(async (_req) => {
                 const cod = genCodInterno()
                 const msg = `${labelCapital} do condomínio ${condoNome}\nEi, ${firstName}.\n\nO ${itemLabel} de Título:\n${doc.titulo || ''}\n\nCategoria do ${itemLabel}:\n${doc.categoria || ''}\n\nData de Expedição:\n${formatDate(doc.data_expedicao)}\n\nData de Validade:\n${formatDate(doc.data_validade)}\n\nVencerá daqui a ${label}.\n\nFique atento.\n\nCondomeet Agradece.\ncód interno: ${cod}`
 
-                const result = await smartSend(BOTCONVERSA_API_KEY, s.botconversa_id, s.whatsapp, 'text', msg, firstName, supabase, s.id)
+                const result = await smartSend(BOTCONVERSA_API_KEY, s.botconversa_id, s.whatsapp, 'text', msg, firstName, supabase, s.id, MessageType.NOTICE, 'documentos-vencimento-check')
                 log.push({ table, doc_id: doc.id, sindico: firstName, canal: result.success ? 'whatsapp_ok' : 'whatsapp_fail', dias })
                 if (result.success) totalDisparos++
                 await new Promise(r => setTimeout(r, DELAY_TEXT_MS))

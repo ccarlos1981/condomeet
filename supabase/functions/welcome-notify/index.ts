@@ -1,8 +1,8 @@
-// welcome-notify — Sends welcome WhatsApp msgs to new resident + notifies síndicos
+// welcome-notify — Sends welcome WhatsApp msgs to new resident + notifies responsibles (Admins, Síndicos, Subsíndicos)
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2"
 import { create, getNumericDate } from "https://deno.land/x/djwt@v2.9.1/mod.ts"
-import { smartSend, DELAY_TEXT_MS } from "../_shared/botconversa.ts"
+import { smartSend, MessageType, DELAY_TEXT_MS } from "../_shared/botconversa.ts"
 
 // ── FCM helpers ─────────────────────────────────────────────────────────────
 function pemToBinary(pem: string): ArrayBuffer {
@@ -44,12 +44,12 @@ async function getAccessToken(sa: Record<string, string>): Promise<string> {
   return data.access_token
 }
 
-function genCodInterno() {
-  return Array.from({ length: 4 }, () =>
-    "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789"[
-      Math.floor(Math.random() * 62)
-    ]
-  ).join("")
+// ── Deterministic Internal Code Generator for Idempotency ────────────────────
+export function genCodInterno(id: string, suffix: string = ""): string {
+  const cleanId = (id || "").replace(/[^a-zA-Z0-9]/g, "");
+  const cleanSuffix = (suffix || "").replace(/[^a-zA-Z0-9]/g, "");
+  const combined = (cleanId + cleanSuffix).padEnd(4, "X");
+  return combined.substring(0, 4).toUpperCase();
 }
 
 function getBlocoLabel(tipo?: string) {
@@ -85,10 +85,10 @@ serve(async (req) => {
     )
     const BOTCONVERSA_API_KEY = Deno.env.get("BOTCONVERSA_API_KEY") ?? ""
 
-    // Fetch perfil data
+    // Fetch perfil data (including papel_sistema)
     const { data: perfil, error: perfilErr } = await supabase
       .from("perfil")
-      .select("nome_completo, whatsapp, botconversa_id, bloco_txt, apto_txt, tipo_morador, notificacoes_whatsapp")
+      .select("nome_completo, whatsapp, botconversa_id, bloco_txt, apto_txt, tipo_morador, papel_sistema, notificacoes_whatsapp")
       .eq("id", perfil_id)
       .single()
 
@@ -117,103 +117,212 @@ serve(async (req) => {
     // PART 1: Welcome messages to the new resident (2 messages)
     // ═════════════════════════════════════════════════════════════════
     if (perfil.notificacoes_whatsapp !== false && BOTCONVERSA_API_KEY && (perfil.botconversa_id || perfil.whatsapp?.trim())) {
-      // Message 1: Welcome
-      const cod1 = genCodInterno()
-      const msg1 =
-        `😀 ${condoNome}\n` +
-        `\n` +
-        `Olá ${firstName}, seu cadastro foi feito com sucesso.\n` +
-        `\n` +
-        `Em breve o Adm/Síndico do ${condoNome} irá liberar seu acesso.\n` +
-        `\n` +
-        `Condomeet agradece!\n` +
-        `Cód interno: ${cod1}`
+      
+      // 1a. Checagem Atômica de Cap de Welcome
+      let welcomeAllowed = true
+      try {
+        const { data: capCheck, error: capErr } = await supabase.rpc(
+          "check_and_increment_welcome_warmup_cap",
+          { p_instance_id: "singleton" }
+        )
+        if (!capErr && capCheck) {
+          welcomeAllowed = !!capCheck.can_send_welcome
+          if (!welcomeAllowed) {
+            console.log(JSON.stringify({
+              event: "WELCOME_WARMUP_CAP_EXCEEDED",
+              perfil_id,
+              condominio_id,
+              sent_today: capCheck.sent_today,
+              daily_cap: capCheck.daily_cap,
+              reason: "WELCOME_WARMUP_CAP_EXCEEDED"
+            }))
+          }
+        }
+      } catch (capEx: unknown) {
+        console.error("[welcome-notify] Erro ao checar cap de welcome:", capEx)
+        welcomeAllowed = true // Fail-open para garantir entrega caso RPC indisponível
+      }
 
-      const result1 = await smartSend(BOTCONVERSA_API_KEY, perfil.botconversa_id, perfil.whatsapp, "text", msg1, firstName, supabase, perfil_id)
-      results.push(`WhatsApp msg1: ${result1.success ? "✅" : "❌"}`)
+      // Message 1: Boas-Vindas (Suprimida SOMENTE se cap excedido)
+      if (welcomeAllowed) {
+        const cod1 = genCodInterno(perfil_id, "1")
+        const msg1 =
+          `😀 ${condoNome}\n` +
+          `\n` +
+          `Olá ${firstName}, seu cadastro foi feito com sucesso.\n` +
+          `\n` +
+          `Em breve o Adm/Síndico do ${condoNome} irá liberar seu acesso.\n` +
+          `\n` +
+          `Condomeet agradece!\n` +
+          `Cód interno: ${cod1}`
 
-      // Wait 5 seconds before second message
+        const result1 = await smartSend(
+          BOTCONVERSA_API_KEY,
+          perfil.botconversa_id,
+          perfil.whatsapp,
+          "text",
+          msg1,
+          firstName,
+          supabase,
+          perfil_id,
+          MessageType.WELCOME,
+          "welcome-notify"
+        )
+        results.push(`WhatsApp msg1: ${result1.success ? "✅" : "❌"}`)
+      } else {
+        results.push("WhatsApp msg1: skipped (WELCOME_WARMUP_CAP_EXCEEDED)")
+      }
+
+      // 1b. Delay obrigatório de 5 segundos antes da segunda mensagem
       await delay(5000)
 
-      // Message 2: App info
-      const cod2 = genCodInterno()
+      // 1c. Message 2: Números Oficiais (Preservada integralmente — NUNCA bloqueada pelo cap da Msg 1)
       const msg2 =
-        `Ah, esse é número do aplicativo Condomeet.\n` +
-        `\n` +
-        `Cadastre nosso número no seu celular!\n` +
-        `\n` +
-        `Se precisar falar com o suporte do aplicativo Condomeet, cadastre no seu celular para não perder informação.\n` +
-        `\n` +
-        `Não temos informações internas do Condomínio.\n` +
-        `\n` +
-        `Se quiser saber das nossas novidades, siga a gente:\n` +
-        `\n` +
-        `www.instagram.com/condomeet.app\n` +
-        `\n` +
-        `Seja Bem vindo(a)!\n` +
-        `Cód interno: ${cod2}`
+        `📱 *Aviso importante do Condomeet*\n\n` +
+        `O Condomeet utiliza dois números de WhatsApp para enviar as notificações do seu condomínio.\n\n` +
+        `Para garantir que você receba todas as nossas comunicações, recomendamos cadastrar os dois números nos seus contatos.\n\n` +
+        `*Números oficiais de notificações:*\n\n` +
+        `+55 62 9918-8555\n` +
+        `+55 61 98251-6083\n\n` +
+        `Tudo bem para você?\n\n` +
+        `Responda *OK* para confirmar.`
 
-      const result2 = await smartSend(BOTCONVERSA_API_KEY, perfil.botconversa_id, perfil.whatsapp, "text", msg2, firstName, supabase, perfil_id)
+      const result2 = await smartSend(
+        BOTCONVERSA_API_KEY,
+        perfil.botconversa_id,
+        perfil.whatsapp,
+        "text",
+        msg2,
+        firstName,
+        supabase,
+        perfil_id,
+        MessageType.WELCOME,
+        "welcome-notify"
+      )
       results.push(`WhatsApp msg2: ${result2.success ? "✅" : "❌"}`)
     } else {
       results.push("WhatsApp resident: skipped (no whatsapp or opt-out)")
     }
 
     // ═════════════════════════════════════════════════════════════════
-    // PART 2: Notify all síndicos about new registration
+    // PART 2: Notify Responsibles (Admins, Síndico, Subsíndico)
     // ═════════════════════════════════════════════════════════════════
-    const { data: sindicos } = await supabase
+    const { data: responsiblesRaw, error: respErr } = await supabase
       .from("perfil")
-      .select("id, whatsapp, botconversa_id, fcm_token, notificacoes_whatsapp")
+      .select("id, nome_completo, whatsapp, botconversa_id, fcm_token, notificacoes_whatsapp, papel_sistema, tipo_morador")
       .eq("condominio_id", condominio_id)
-      .in("tipo_morador", ["Síndico"])
+      .or(
+        "papel_sistema.ilike.%admin%," +
+        "papel_sistema.ilike.%sindico%," +
+        "papel_sistema.ilike.%síndico%," +
+        "papel_sistema.ilike.%subsíndico%," +
+        "papel_sistema.ilike.%subsindico%," +
+        "tipo_morador.ilike.%admin%," +
+        "tipo_morador.ilike.%sindico%," +
+        "tipo_morador.ilike.%síndico%," +
+        "tipo_morador.ilike.%subsíndico%," +
+        "tipo_morador.ilike.%subsindico%"
+      )
 
-    const validSindicos = (sindicos ?? []).filter((s: Record<string, unknown>) => s.id !== perfil_id)
+    if (respErr) {
+      console.error("[welcome-notify] Erro ao consultar responsáveis:", respErr)
+    }
 
-    if (validSindicos.length > 0 && BOTCONVERSA_API_KEY) {
-      const codSindico = genCodInterno()
-      const msgSindico =
-        `📗 Novo cadastro no ${condoNome}\n` +
-        `\n` +
-        `📝 Nome:\n` +
-        `${firstName} \n` +
-        `\n` +
-        `📝 Sobrenome\n` +
-        `${lastName} \n` +
-        `\n` +
-        `👉 Tipo de Cadastro:\n` +
-        `${perfil.tipo_morador || "Morador"}\n` +
-        `\n` +
-        `🎞 Perfil:\n` +
-        `${perfil.tipo_morador || "Morador (a)"}\n` +
-        `\n` +
-        `📲 Celular\n` +
-        `${perfil.whatsapp || "Não informado"}\n` +
-        `\n` +
-        `🏙 Unidade:\n` +
-        `${blocoLabel}: ${perfil.bloco_txt || "-"}\n` +
-        `${aptoLabel}: ${perfil.apto_txt || "-"}\n` +
-        `\n` +
-        `Agora é só aprovar para deixar seu condomínio mais digital.\n` +
-        `\n` +
-        `Condomeet agradece.\n` +
-        `cód interno: ${codSindico}`
+    // Deduplicação estrita por perfil_id e exclusão do próprio morador recém-cadastrado
+    const uniqueResponsiblesMap = new Map<string, any>()
+    for (const r of (responsiblesRaw ?? [])) {
+      if (r.id !== perfil_id && !uniqueResponsiblesMap.has(r.id)) {
+        uniqueResponsiblesMap.set(r.id, r)
+      }
+    }
 
-      let sindicoWhatsappCount = 0
-      for (let i = 0; i < validSindicos.length; i++) {
-        const s = validSindicos[i] as Record<string, unknown>
-        if (s.notificacoes_whatsapp !== false && (s.botconversa_id || (s.whatsapp as string)?.trim())) {
-          if (i > 0) {
-            const d = Math.floor(Math.random() * 5000) + 3000
-            await delay(d)
+    const allResponsibles = Array.from(uniqueResponsiblesMap.values())
+    const totalFound = allResponsibles.length
+    const MAX_RESPONSIBLES = 5
+    let targetResponsibles = allResponsibles
+
+    // Governança Anti-Broadcast: Máximo de 5 destinatários por transação
+    if (totalFound > MAX_RESPONSIBLES) {
+      targetResponsibles = allResponsibles.slice(0, MAX_RESPONSIBLES)
+      const omitted = allResponsibles.slice(MAX_RESPONSIBLES).map((o: any) => ({
+        id: o.id,
+        nome: o.nome_completo,
+        papel: o.papel_sistema || o.tipo_morador
+      }))
+      console.warn(JSON.stringify({
+        event: "RESPONSIBLE_RECIPIENTS_TRUNCATED",
+        condominio_id,
+        total_found: totalFound,
+        sent_count: MAX_RESPONSIBLES,
+        exceeded_count: totalFound - MAX_RESPONSIBLES,
+        omitted_recipients: omitted,
+        reason: "ANTI_BROADCAST_LIMIT_ENFORCED"
+      }))
+    }
+
+    if (targetResponsibles.length > 0 && BOTCONVERSA_API_KEY) {
+      let respWhatsappCount = 0
+
+      for (let i = 0; i < targetResponsibles.length; i++) {
+        const resp = targetResponsibles[i]
+        const codResp = genCodInterno(perfil_id, (resp.id || "").replace(/-/g, "").substring(0, 2))
+
+        const msgResp =
+          `📗 Novo cadastro no ${condoNome}\n` +
+          `\n` +
+          `📝 Nome:\n` +
+          `${firstName} \n` +
+          `\n` +
+          `📝 Sobrenome\n` +
+          `${lastName} \n` +
+          `\n` +
+          `👉 Tipo de Cadastro:\n` +
+          `${perfil.tipo_morador || "Morador"}\n` +
+          `\n` +
+          `🎞 Perfil:\n` +
+          `${perfil.papel_sistema || perfil.tipo_morador || "Morador (a)"}\n` +
+          `\n` +
+          `📲 Celular\n` +
+          `${perfil.whatsapp || "Não informado"}\n` +
+          `\n` +
+          `🏙 Unidade:\n` +
+          `${blocoLabel}: ${perfil.bloco_txt || "-"}\n` +
+          `${aptoLabel}: ${perfil.apto_txt || "-"}\n` +
+          `\n` +
+          `Agora é só aprovar para deixar seu condomínio mais digital.\n` +
+          `\n` +
+          `Condomeet agradece.\n` +
+          `cód interno: ${codResp}`
+
+        // Isolamento de falhas por responsável no WhatsApp
+        if (resp.notificacoes_whatsapp !== false && (resp.botconversa_id || resp.whatsapp?.trim())) {
+          try {
+            if (i > 0) {
+              const d = Math.floor(Math.random() * 2000) + 1000
+              await delay(d)
+            }
+            const result = await smartSend(
+              BOTCONVERSA_API_KEY,
+              resp.botconversa_id,
+              resp.whatsapp,
+              "text",
+              msgResp,
+              resp.nome_completo?.split(" ")[0],
+              supabase,
+              resp.id,
+              MessageType.NOTICE,
+              "welcome-notify"
+            )
+            if (result.success) respWhatsappCount++
+          } catch (sendErr: any) {
+            console.error(`[welcome-notify] Falha ao enviar WhatsApp para responsável ${resp.id}:`, sendErr.message)
           }
-          const result = await smartSend(BOTCONVERSA_API_KEY, s.botconversa_id as string, s.whatsapp as string, "text", msgSindico, undefined, supabase, s.id as string)
-          if (result.success) sindicoWhatsappCount++
         }
       }
-      results.push(`WhatsApp síndicos: ${sindicoWhatsappCount}/${validSindicos.length}`)
 
-      // Push to síndicos
+      results.push(`WhatsApp responsáveis: ${respWhatsappCount}/${targetResponsibles.length}`)
+
+      // Push FCM para responsáveis
       try {
         const saJson = Deno.env.get("FIREBASE_SERVICE_ACCOUNT_JSON")
         if (saJson) {
@@ -222,38 +331,42 @@ serve(async (req) => {
           const fcmUrl = `https://fcm.googleapis.com/v1/projects/${sa.project_id}/messages:send`
 
           let pushCount = 0
-          for (const s of validSindicos) {
-            const sFcm = (s as Record<string, unknown>).fcm_token as string | undefined
+          for (const resp of targetResponsibles) {
+            const sFcm = resp.fcm_token as string | undefined
             if (sFcm && sFcm.length > 10 && !sFcm.startsWith("dummy")) {
-              const pushRes = await fetch(fcmUrl, {
-                method: "POST",
-                headers: {
-                  "Content-Type": "application/json",
-                  Authorization: `Bearer ${accessToken}`,
-                },
-                body: JSON.stringify({
-                  message: {
-                    token: sFcm,
-                    notification: {
-                      title: `📗 Novo cadastro - ${condoNome}`,
-                      body: `${firstName} ${lastName} solicitou acesso. Aprove no app!`,
-                    },
-                    data: { type: "new_registration", perfil_id, condominio_id },
-                    android: { priority: "high", notification: { channel_id: "avisos_v2", sound: "condomeet" } },
-                    apns: { payload: { aps: { sound: "condomeet.aiff", badge: 1 } } },
+              try {
+                const pushRes = await fetch(fcmUrl, {
+                  method: "POST",
+                  headers: {
+                    "Content-Type": "application/json",
+                    Authorization: `Bearer ${accessToken}`,
                   },
-                }),
-              })
-              if (pushRes.ok) pushCount++
+                  body: JSON.stringify({
+                    message: {
+                      token: sFcm,
+                      notification: {
+                        title: `📗 Novo cadastro - ${condoNome}`,
+                        body: `${firstName} ${lastName} solicitou acesso. Aprove no app!`,
+                      },
+                      data: { type: "new_registration", perfil_id, condominio_id },
+                      android: { priority: "high", notification: { channel_id: "avisos_v2", sound: "condomeet" } },
+                      apns: { payload: { aps: { sound: "condomeet.aiff", badge: 1 } } },
+                    },
+                  }),
+                })
+                if (pushRes.ok) pushCount++
+              } catch (fcmErr: any) {
+                console.error(`[welcome-notify] Falha ao enviar Push para responsável ${resp.id}:`, fcmErr.message)
+              }
             }
           }
-          results.push(`Push síndicos: ${pushCount}/${validSindicos.length}`)
+          results.push(`Push responsáveis: ${pushCount}/${targetResponsibles.length}`)
         }
       } catch (e: unknown) {
-        console.error("Push síndico error:", e instanceof Error ? e.message : String(e))
+        console.error("Push responsáveis error:", e instanceof Error ? e.message : String(e))
       }
     } else {
-      results.push("Síndicos: none found or BotConversa not configured")
+      results.push("Responsáveis: none found or BotConversa not configured")
     }
 
     console.log(`welcome-notify results:`, results)

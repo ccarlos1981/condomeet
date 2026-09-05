@@ -117,8 +117,8 @@ const OFFICIAL_TEMPLATES = [
     components: [
       {
         type: "BODY",
-        text: "Olá {{1}}, seu código de verificação do Condomeet é {{2}}. Ele expira em 5 minutos. Por sua segurança, não compartilhe este código com ninguém.",
-        example: { body_text: [["Cristiano", "123456"]] }
+        text: "Seu código de verificação do Condomeet é {{1}}. Ele expira em 5 minutos. Por sua segurança, não compartilhe este código com ninguém.",
+        example: { body_text: [["123456"]] }
       }
     ]
   }

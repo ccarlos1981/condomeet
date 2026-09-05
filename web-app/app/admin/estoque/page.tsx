@@ -1,6 +1,7 @@
 import { createClient } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
 import EstoqueClient from './estoque-client'
+import { isAdminRole } from '@/lib/roles'
 
 export const metadata = {
   title: 'Controle de Estoque - Condomeet',
@@ -21,9 +22,7 @@ export default async function EstoquePage() {
 
   if (!profile?.condominio_id) redirect('/condo')
 
-  const r = profile.papel_sistema?.toLowerCase() || ''
-  const isAdmin = r.includes('síndico') || r.includes('sindico') || r.includes('admin')
-  if (!isAdmin) redirect('/condo')
+  if (!isAdminRole(profile?.papel_sistema)) redirect('/condo')
 
   // Fetch all data in parallel
   const [

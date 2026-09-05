@@ -2,7 +2,7 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2"
 import { create, getNumericDate } from "https://deno.land/x/djwt@v2.9.1/mod.ts"
-import { smartSend, DELAY_TEXT_MS } from "../_shared/botconversa.ts"
+import { smartSend, MessageType, DELAY_TEXT_MS } from "../_shared/botconversa.ts"
 
 function pemToBinary(pem: string): ArrayBuffer {
   const b64 = pem.replace(/-----BEGIN PRIVATE KEY-----/, "").replace(/-----END PRIVATE KEY-----/, "").replace(/\n/g, "")
@@ -81,7 +81,7 @@ serve(async (req) => {
         for (const s of (sindicos ?? [])) {
           const sData = s as Record<string, unknown>
           if (sData.notificacoes_whatsapp !== false && (sData.botconversa_id || (sData.whatsapp as string)?.trim())) {
-            const result = await smartSend(BOTCONVERSA_API_KEY, sData.botconversa_id as string, sData.whatsapp as string, "text", msg, undefined, supabase, sData.id as string)
+            const result = await smartSend(BOTCONVERSA_API_KEY, sData.botconversa_id as string, sData.whatsapp as string, "text", msg, undefined, supabase, sData.id as string, MessageType.NOTICE, "fale-sindico-notify")
             results.push(`WhatsApp síndico: ${result.success ? "✅" : "❌"}`)
             await new Promise(r => setTimeout(r, DELAY_TEXT_MS))
           }
@@ -116,7 +116,7 @@ serve(async (req) => {
         const firstName = resident.nome_completo?.split(" ")[0] || "Morador"
         const cod = genCodInterno()
         const msg = `📬 ${condoNome}\n\nEi ${firstName}, o Síndico do seu condomínio acabou de responder no Fale Conosco.\n\nAbra o app e veja a resposta 😊\n\nCondomeet agradece.\nCód. interno: ${cod}`
-        const result = await smartSend(BOTCONVERSA_API_KEY, resident.botconversa_id, resident.whatsapp, "text", msg, firstName, supabase, resident.id)
+        const result = await smartSend(BOTCONVERSA_API_KEY, resident.botconversa_id, resident.whatsapp, "text", msg, firstName, supabase, resident.id, MessageType.NOTICE, "fale-sindico-notify")
         results.push(`WhatsApp morador: ${result.success ? "✅" : "❌"}`)
       }
 

@@ -1,6 +1,7 @@
 import { createClient } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
 import ParcelList from '@/app/condo/encomendas/parcel-list'
+import { isAdminRole, isPorterRole } from '@/lib/roles'
 
 export const metadata = { title: 'Encomendas do Condomínio — Painel Admin' }
 
@@ -15,8 +16,7 @@ export default async function AdminEncomendasPage() {
     .eq('id', user.id)
     .single()
 
-  const role = (profile?.papel_sistema ?? '').toLowerCase()
-  const isAdmin = role.includes('portaria') || role.includes('porteiro') || role.includes('síndico') || role.includes('sindico') || role.includes('sub') || role === 'admin'
+  const isAdmin = isAdminRole(profile?.papel_sistema) || isPorterRole(profile?.papel_sistema)
   if (!isAdmin) redirect('/condo')
 
   const condoId = profile?.condominio_id ?? ''

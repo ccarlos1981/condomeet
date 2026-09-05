@@ -6,7 +6,7 @@ import { useRouter } from 'next/navigation'
 import type { UnitOption } from './page'
 import {
   Camera, Package, CheckCircle2, ChevronLeft, Loader2,
-  Box, Mail, ShoppingBag, FileText, X, RefreshCw, Video
+  Box, Mail, ShoppingBag, FileText, X, RefreshCw, Video, Upload
 } from 'lucide-react'
 import { getBlocoLabel, getAptoLabel } from '@/lib/labels'
 
@@ -44,6 +44,12 @@ export default function ParcelRegisterForm({ condoId, registeredById, units, tip
   const [error, setError] = useState<string | null>(null)
   const [warning, setWarning] = useState<string | null>(null)
 
+  // AI OCR state
+  const [isAnalyzingPhoto, setIsAnalyzingPhoto] = useState(false)
+  const [aiFeedbackMessage, setAiFeedbackMessage] = useState<string | null>(null)
+  const [aiFeedbackSuccess, setAiFeedbackSuccess] = useState(false)
+  const analysisRequestId = useRef(0)
+
   // Camera state
   const [cameraOpen, setCameraOpen] = useState(false)
   const [photoBlob, setPhotoBlob] = useState<Blob | null>(null)
@@ -53,6 +59,7 @@ export default function ParcelRegisterForm({ condoId, registeredById, units, tip
   const videoRef = useRef<HTMLVideoElement>(null)
   const streamRef = useRef<MediaStream | null>(null)
   const canvasRef = useRef<HTMLCanvasElement>(null)
+  const fileInputRef = useRef<HTMLInputElement>(null)
 
   // Derived lists from units and structural tables
   const blocos = allBlocos && allBlocos.length > 0
@@ -67,8 +74,183 @@ export default function ParcelRegisterForm({ condoId, registeredById, units, tip
 
   const selectedUnit = units.find(u => u.blocoNome === blocoSel && u.aptoNumero === aptoSel)
 
-  // Reset apto when bloco changes
-  useEffect(() => { setAptoSel('') }, [blocoSel])
+  // ── AI Extraction ───────────────────────────────────────────────────────────
+
+  const blobToBase64 = (blob: Blob): Promise<string> => {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader()
+      reader.onloadend = () => {
+        const result = reader.result as string
+        const base64 = result.includes(',') ? result.split(',')[1] : result
+        resolve(base64)
+      }
+      reader.onerror = reject
+      reader.readAsDataURL(blob)
+    })
+  }
+
+  const analyzePhotoWithAi = async (blob: Blob) => {
+    const hasBloco = !!blocoSel.trim()
+    const hasApto = !!aptoSel.trim()
+
+    // CENÁRIO 1: Ambos já preenchidos manualmente -> NÃO chamar Edge Function / IA. Custo ZERO.
+    if (hasBloco && hasApto) {
+      return
+    }
+
+    const currentReqId = ++analysisRequestId.current
+    setIsAnalyzingPhoto(true)
+    setAiFeedbackMessage('Analisando a foto...')
+    setAiFeedbackSuccess(false)
+
+    try {
+      const base64Image = await blobToBase64(blob)
+
+      const { data, error: invokeError } = await supabase.functions.invoke('parcel-ai-extract', {
+        body: { image_base64: base64Image },
+      })
+
+      // Race condition check
+      if (currentReqId !== analysisRequestId.current) return
+
+      if (invokeError || !data) {
+        setIsAnalyzingPhoto(false)
+        setAiFeedbackMessage('⚠️ Não foi possível identificar a unidade pela foto. Preencha Bloco e Apartamento manualmente.')
+        setAiFeedbackSuccess(false)
+        return
+      }
+
+      const leituraOk = data.leitura_ok === true
+      const rawBloco = data.bloco ? String(data.bloco).trim() : null
+      const rawApto = data.apartamento ? String(data.apartamento).trim() : null
+
+      if (!leituraOk || (!rawBloco && !rawApto)) {
+        setIsAnalyzingPhoto(false)
+        setAiFeedbackMessage('⚠️ Não foi possível identificar a unidade pela foto. Preencha manualmente.')
+        setAiFeedbackSuccess(false)
+        return
+      }
+
+      // CENÁRIO 2: Bloco preenchido manualmente, Apto vazio
+      if (hasBloco && !hasApto) {
+        if (rawApto) {
+          const availableAptos = units
+            .filter(u => u.blocoNome.toLowerCase() === blocoSel.toLowerCase())
+            .map(u => u.aptoNumero)
+
+          const matchingApto = availableAptos.find(
+            a => a.trim().toLowerCase() === rawApto.toLowerCase()
+          )
+
+          if (matchingApto) {
+            setAptoSel(matchingApto)
+            setIsAnalyzingPhoto(false)
+            setAiFeedbackMessage('✓ Apartamento identificado automaticamente pela foto')
+            setAiFeedbackSuccess(true)
+          } else {
+            setIsAnalyzingPhoto(false)
+            setAiFeedbackMessage('⚠️ O apartamento identificado na foto não foi encontrado para o bloco selecionado. Confira os dados manualmente.')
+            setAiFeedbackSuccess(false)
+          }
+        } else {
+          setIsAnalyzingPhoto(false)
+          setAiFeedbackMessage('⚠️ Não foi possível identificar o apartamento pela foto. Selecione manualmente.')
+          setAiFeedbackSuccess(false)
+        }
+        return
+      }
+
+      // CENÁRIO 3: Bloco vazio, Apartamento preenchido manualmente
+      if (!hasBloco && hasApto) {
+        if (rawBloco) {
+          const matchingBloco = blocos.find(
+            b => b.trim().toLowerCase() === rawBloco.toLowerCase()
+          )
+
+          if (matchingBloco) {
+            const availableAptos = units
+              .filter(u => u.blocoNome.toLowerCase() === matchingBloco.toLowerCase())
+              .map(u => u.aptoNumero)
+
+            const aptoExistsInBloco = availableAptos.some(
+              a => a.trim().toLowerCase() === aptoSel.trim().toLowerCase()
+            )
+
+            if (aptoExistsInBloco) {
+              setBlocoSel(matchingBloco)
+              setIsAnalyzingPhoto(false)
+              setAiFeedbackMessage('✓ Bloco identificado automaticamente pela foto')
+              setAiFeedbackSuccess(true)
+            } else {
+              setIsAnalyzingPhoto(false)
+              setAiFeedbackMessage('⚠️ O bloco identificado na foto não foi encontrado para o apartamento selecionado. Confira os dados manualmente.')
+              setAiFeedbackSuccess(false)
+            }
+          } else {
+            setIsAnalyzingPhoto(false)
+            setAiFeedbackMessage('⚠️ O bloco identificado na foto não foi encontrado neste condomínio. Confira os dados manualmente.')
+            setAiFeedbackSuccess(false)
+          }
+        } else {
+          setIsAnalyzingPhoto(false)
+          setAiFeedbackMessage(`⚠️ Não foi possível identificar o ${getBlocoLabel(tipoEstrutura).toLowerCase()} pela foto. Selecione manualmente.`)
+          setAiFeedbackSuccess(false)
+        }
+        return
+      }
+
+      // CENÁRIO 4: Ambos vazios (!hasBloco && !hasApto)
+      if (!rawBloco && rawApto) {
+        setIsAnalyzingPhoto(false)
+        setAiFeedbackMessage(`⚠️ Apartamento ${rawApto} identificado, mas o ${getBlocoLabel(tipoEstrutura).toLowerCase()} não está visível na foto. Selecione o ${getBlocoLabel(tipoEstrutura).toLowerCase()} manualmente.`)
+        setAiFeedbackSuccess(false)
+        return
+      }
+
+      const matchingBloco = blocos.find(
+        b => b.trim().toLowerCase() === rawBloco!.toLowerCase()
+      )
+
+      if (!matchingBloco) {
+        setIsAnalyzingPhoto(false)
+        setAiFeedbackMessage('⚠️ A unidade identificada na foto não foi encontrada neste condomínio. Confira os dados manualmente.')
+        setAiFeedbackSuccess(false)
+        return
+      }
+
+      setBlocoSel(matchingBloco)
+
+      if (rawApto) {
+        const availableAptos = units
+          .filter(u => u.blocoNome.toLowerCase() === matchingBloco.toLowerCase())
+          .map(u => u.aptoNumero)
+
+        const matchingApto = availableAptos.find(
+          a => a.trim().toLowerCase() === rawApto.toLowerCase()
+        )
+
+        if (matchingApto) {
+          setAptoSel(matchingApto)
+          setIsAnalyzingPhoto(false)
+          setAiFeedbackMessage('✓ Unidade identificada automaticamente pela foto')
+          setAiFeedbackSuccess(true)
+        } else {
+          setIsAnalyzingPhoto(false)
+          setAiFeedbackMessage('⚠️ A unidade identificada na foto não foi encontrada neste condomínio. Confira os dados manualmente.')
+          setAiFeedbackSuccess(false)
+        }
+      } else {
+        setIsAnalyzingPhoto(false)
+        setAiFeedbackMessage(`✓ ${getBlocoLabel(tipoEstrutura)} identificado. Selecione o ${getAptoLabel(tipoEstrutura).toLowerCase()} manualmente.`)
+        setAiFeedbackSuccess(false)
+      }
+    } catch {
+      if (currentReqId !== analysisRequestId.current) return
+      setIsAnalyzingPhoto(false)
+      setAiFeedbackMessage('⚠️ Não foi possível identificar a unidade pela foto. Preencha Bloco e Apartamento manualmente.')
+      setAiFeedbackSuccess(false)
+    }
+  }
 
   // ── Camera helpers ──────────────────────────────────────────────────────────
 
@@ -118,12 +300,24 @@ export default function ParcelRegisterForm({ condoId, registeredById, units, tip
       setPhotoBlob(blob)
       setPhotoPreview(URL.createObjectURL(blob))
       setCameraOpen(false)
+      analyzePhotoWithAi(blob)
     }, 'image/jpeg', 0.92)
+  }
+
+  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+    setPhotoBlob(file)
+    setPhotoPreview(URL.createObjectURL(file))
+    analyzePhotoWithAi(file)
   }
 
   const clearPhoto = () => {
     setPhotoBlob(null)
     setPhotoPreview(null)
+    setAiFeedbackMessage(null)
+    setAiFeedbackSuccess(false)
+    analysisRequestId.current++
   }
 
   // ── Submit ──────────────────────────────────────────────────────────────────
@@ -313,12 +507,37 @@ export default function ParcelRegisterForm({ condoId, registeredById, units, tip
           <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-4">
             Destinatário
           </p>
+
+          {/* AI Extraction Feedback Banner */}
+          {isAnalyzingPhoto ? (
+            <div className="flex items-center gap-3 bg-[#FC5931]/10 border border-[#FC5931]/20 rounded-xl px-4 py-3 text-sm text-[#FC5931] font-medium mb-4">
+              <Loader2 size={16} className="animate-spin text-[#FC5931] flex-shrink-0" />
+              <span>Analisando a foto...</span>
+            </div>
+          ) : aiFeedbackMessage ? (
+            <div className={`flex items-center gap-3 rounded-xl px-4 py-3 text-sm font-medium border mb-4 ${
+              aiFeedbackSuccess
+                ? 'bg-emerald-50 border-emerald-200 text-emerald-800'
+                : 'bg-amber-50 border-amber-200 text-amber-900'
+            }`}>
+              {aiFeedbackSuccess ? (
+                <CheckCircle2 size={18} className="text-emerald-600 flex-shrink-0" />
+              ) : (
+                <span className="text-base flex-shrink-0">⚠️</span>
+              )}
+              <span>{aiFeedbackMessage}</span>
+            </div>
+          ) : null}
+
           <div className="grid grid-cols-2 gap-4 mb-3">
             <div>
               <label className="block text-xs font-medium text-gray-600 mb-1.5">{getBlocoLabel(tipoEstrutura)}</label>
               <select
                 value={blocoSel}
-                onChange={e => setBlocoSel(e.target.value)}
+                onChange={e => {
+                  setBlocoSel(e.target.value)
+                  setAptoSel('')
+                }}
                 required
                 className="w-full px-3 py-2.5 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-[#FC5931] bg-gray-50"
               >
@@ -365,11 +584,19 @@ export default function ParcelRegisterForm({ condoId, registeredById, units, tip
           ) : null}
         </div>
 
-        {/* Foto via Webcam */}
+        {/* Foto da Encomenda */}
         <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
           <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-3">
-            Foto da Encomenda <span className="normal-case text-gray-400 font-normal">(recomendada)</span>
+            Foto da Encomenda <span className="normal-case text-gray-400 font-normal">(recomendada para leitura de Bloco/Apto via IA)</span>
           </p>
+
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept="image/*"
+            className="hidden"
+            onChange={handleFileUpload}
+          />
 
           {photoPreview ? (
             <div className="relative">
@@ -383,26 +610,45 @@ export default function ParcelRegisterForm({ condoId, registeredById, units, tip
                 type="button"
                 onClick={clearPhoto}
                 className="absolute top-2 right-2 w-8 h-8 bg-black/60 hover:bg-black/80 rounded-full flex items-center justify-center transition-colors"
+                title="Remover foto"
               >
                 <X size={14} className="text-white" />
               </button>
             </div>
           ) : (
-            <button
-              type="button"
-              onClick={() => setCameraOpen(true)}
-              className="flex flex-col items-center justify-center gap-3 w-full h-40 border-2 border-dashed border-gray-200 rounded-xl cursor-pointer hover:border-[#FC5931] hover:bg-[#FC5931]/5 transition-all group"
-            >
-              <div className="w-14 h-14 bg-gray-100 group-hover:bg-[#FC5931]/10 rounded-2xl flex items-center justify-center transition-colors">
-                <Camera size={26} className="text-gray-400 group-hover:text-[#FC5931] transition-colors" />
-              </div>
-              <div className="text-center">
-                <p className="text-sm font-medium text-gray-600 group-hover:text-[#FC5931] transition-colors">
-                  Abrir câmera
-                </p>
-                <p className="text-xs text-gray-400 mt-0.5">Tire uma foto da encomenda</p>
-              </div>
-            </button>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <button
+                type="button"
+                onClick={() => setCameraOpen(true)}
+                className="flex flex-col items-center justify-center gap-2 p-5 border-2 border-dashed border-gray-200 rounded-xl cursor-pointer hover:border-[#FC5931] hover:bg-[#FC5931]/5 transition-all group"
+              >
+                <div className="w-12 h-12 bg-gray-100 group-hover:bg-[#FC5931]/10 rounded-xl flex items-center justify-center transition-colors">
+                  <Camera size={22} className="text-gray-400 group-hover:text-[#FC5931] transition-colors" />
+                </div>
+                <div className="text-center">
+                  <p className="text-sm font-medium text-gray-700 group-hover:text-[#FC5931] transition-colors">
+                    Tirar Foto (Câmera)
+                  </p>
+                  <p className="text-xs text-gray-400 mt-0.5">Leitura automática por IA</p>
+                </div>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => fileInputRef.current?.click()}
+                className="flex flex-col items-center justify-center gap-2 p-5 border-2 border-dashed border-gray-200 rounded-xl cursor-pointer hover:border-[#FC5931] hover:bg-[#FC5931]/5 transition-all group"
+              >
+                <div className="w-12 h-12 bg-gray-100 group-hover:bg-[#FC5931]/10 rounded-xl flex items-center justify-center transition-colors">
+                  <Upload size={22} className="text-gray-400 group-hover:text-[#FC5931] transition-colors" />
+                </div>
+                <div className="text-center">
+                  <p className="text-sm font-medium text-gray-700 group-hover:text-[#FC5931] transition-colors">
+                    Escolher Arquivo
+                  </p>
+                  <p className="text-xs text-gray-400 mt-0.5">JPG, PNG ou WebP</p>
+                </div>
+              </button>
+            </div>
           )}
         </div>
 

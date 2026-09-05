@@ -2,6 +2,7 @@
 // Manages the Notification Campaign Engine lifecycle & dashboard
 
 import { createClient } from "npm:@supabase/supabase-js@2"
+import { validateWhatsAppSendPolicy } from "../_shared/botconversa.ts"
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -188,9 +189,28 @@ Deno.serve(async (req) => {
     }
 
     if (action === "create") {
-      const { condominio_id, title, channel, message_type, message_value, filters, created_by } = body
+      const { condominio_id, title, channel, message_type, message_value, filters, created_by, template_name, template_params } = body
       if (!condominio_id || !title || !message_value) {
         return jsonResponse({ error: "Missing required fields (condominio_id, title, message_value)" }, 400)
+      }
+
+      // Hardening: Mandatory policy check for WhatsApp campaigns
+      if (!channel || channel === "whatsapp") {
+        const policyCheck = validateWhatsAppSendPolicy({
+          callerFunction: "notification-campaign-manager",
+          messageType: message_type || "NOTICE",
+          templateName: template_name || null,
+          textValue: message_value,
+          isCampaign: true,
+          templateParams: template_params || []
+        });
+
+        if (!policyCheck.allowed) {
+          return jsonResponse({
+            error: `Campanha de WhatsApp bloqueada por governança: ${policyCheck.reason}`,
+            errorCode: policyCheck.errorCode
+          }, 400);
+        }
       }
 
       // Fetch Condo Settings

@@ -3,6 +3,7 @@ import { redirect } from 'next/navigation'
 import Link from 'next/link'
 import { UserCheck, Package, QrCode, ArrowRight, Bell, Calendar, Clock, Wrench } from 'lucide-react'
 import { getBlocoLabel, getAptoLabel } from '@/lib/labels'
+import { isAdminRole, isPorterRole } from '@/lib/roles'
 
 export default async function CondoDashboard() {
   const supabase = await createClient()
@@ -24,8 +25,8 @@ export default async function CondoDashboard() {
 
   const role = profile?.papel_sistema ?? 'Morador'
   const firstName = profile?.nome_completo?.split(' ')[0] ?? 'Morador'
-  const isPorter = role.toLowerCase().includes('portaria') || role.toLowerCase().includes('porteiro')
-  const isAdmin = role.toLowerCase().includes('síndico') || role.toLowerCase().includes('sindico') || role === 'admin'
+  const isPorter = isPorterRole(role)
+  const isAdmin = isAdminRole(role)
 
   // Fetch recent invitations
   const { data: recentInvitations } = await supabase

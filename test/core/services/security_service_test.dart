@@ -5,13 +5,17 @@ import 'package:mocktail/mocktail.dart';
 import 'dart:convert';
 import 'package:crypto/crypto.dart';
 
+import 'package:shared_preferences/shared_preferences.dart';
+
 class MockFlutterSecureStorage extends Mock implements FlutterSecureStorage {}
 
 void main() {
+  TestWidgetsFlutterBinding.ensureInitialized();
   late SecurityService securityService;
   late MockFlutterSecureStorage mockStorage;
 
   setUp(() {
+    SharedPreferences.setMockInitialValues({});
     mockStorage = MockFlutterSecureStorage();
     securityService = SecurityService(storage: mockStorage);
   });

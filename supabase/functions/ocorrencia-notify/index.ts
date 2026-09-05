@@ -2,7 +2,7 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2"
 import { create, getNumericDate } from "https://deno.land/x/djwt@v2.9.1/mod.ts"
-import { smartSend, DELAY_TEXT_MS } from "../_shared/botconversa.ts"
+import { smartSend, MessageType, DELAY_TEXT_MS } from "../_shared/botconversa.ts"
 
 // ── FCM helpers ────────────────────────────────────────────────────────────
 function pemToBinary(pem: string): ArrayBuffer {
@@ -105,7 +105,7 @@ serve(async (req) => {
         for (const s of (sindicos ?? [])) {
           const sData = s as Record<string, unknown>
           if (sData.notificacoes_whatsapp !== false && (sData.botconversa_id || (sData.whatsapp as string)?.trim())) {
-            const result = await smartSend(BOTCONVERSA_API_KEY, sData.botconversa_id as string, sData.whatsapp as string, "text", msg, undefined, supabase, sData.id as string)
+            const result = await smartSend(BOTCONVERSA_API_KEY, sData.botconversa_id as string, sData.whatsapp as string, "text", msg, undefined, supabase, sData.id as string, MessageType.NOTICE, "ocorrencia-notify")
             results.push(`WhatsApp síndico: ${result.success ? "✅" : "❌"} ${result.error || ""}`)
             await new Promise(r => setTimeout(r, DELAY_TEXT_MS))
           }
@@ -155,7 +155,7 @@ serve(async (req) => {
           `Condomeet agradece.\n` +
           `Cód. interno: ${cod}`
 
-        const result = await smartSend(BOTCONVERSA_API_KEY, resident.botconversa_id, resident.whatsapp, "text", msg, firstName, supabase, resident.id)
+        const result = await smartSend(BOTCONVERSA_API_KEY, resident.botconversa_id, resident.whatsapp, "text", msg, firstName, supabase, resident.id, MessageType.NOTICE, "ocorrencia-notify")
         results.push(`WhatsApp morador: ${result.success ? "✅" : "❌"}`)
       }
 

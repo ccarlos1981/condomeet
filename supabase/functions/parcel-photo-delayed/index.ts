@@ -82,7 +82,7 @@ Deno.serve(async (req) => {
     console.log(`📸 Sending parcel photo to ${unique.length} recipient(s)`)
 
     // 3. Send photo as image to each recipient
-    const { smartSend } = await import("../_shared/botconversa.ts")
+    const { smartSend, MessageType } = await import("../_shared/botconversa.ts")
     const results = []
     for (let i = 0; i < unique.length; i++) {
       const r = unique[i] as Record<string, unknown>
@@ -94,7 +94,9 @@ Deno.serve(async (req) => {
         ensureJpegUrl(photo_url),
         (r.nome_completo as string)?.split(" ")[0],
         supabase,
-        r.id as string
+        r.id as string,
+        MessageType.PARCEL,
+        "parcel-photo-delayed"
       )
       results.push({ ...result, nome: r.nome_completo })
 

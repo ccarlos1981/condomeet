@@ -4,6 +4,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:condomeet/core/design_system/design_system.dart';
 import 'package:condomeet/features/community/domain/models/document.dart';
+import 'package:condomeet/features/community/domain/models/document_constants.dart';
 import 'package:condomeet/features/community/presentation/bloc/document_bloc.dart';
 import 'package:condomeet/features/community/presentation/bloc/document_bloc_components.dart';
 import 'package:condomeet/features/auth/presentation/bloc/auth_bloc.dart';
@@ -88,7 +89,7 @@ class _DocumentCenterScreenState extends State<DocumentCenterScreen> {
             padding: const EdgeInsets.fromLTRB(24, 8, 24, 8),
             child: CondoInput(
               label: '',
-              hint: 'Buscar documentos...',
+              hint: 'Buscar por título ou motivo...',
               controller: _searchController,
               prefix: const Icon(Icons.search, color: AppColors.textSecondary),
               onChanged: _onSearchChanged,
@@ -170,6 +171,8 @@ class _DocumentCenterScreenState extends State<DocumentCenterScreen> {
     final ext = doc.extensao;
     final color = _fileColor(ext);
     final icon = _fileIcon(ext);
+    final badgeStyle = getCategoriaBadgeStyle(doc.tipo);
+    final catLabel = getCategoriaLabel(doc.tipo);
     final temArquivo = doc.arquivoUrl != null && doc.arquivoUrl!.isNotEmpty;
 
     return ListTile(
@@ -187,9 +190,40 @@ class _DocumentCenterScreenState extends State<DocumentCenterScreen> {
       subtitle: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          if (doc.categoria != null && doc.categoria!.isNotEmpty)
-            Text(doc.categoria!, style: AppTypography.bodySmall.copyWith(color: AppColors.primary)),
-          if (doc.dataValidade != null)
+          const SizedBox(height: 3),
+          Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                decoration: BoxDecoration(
+                  color: badgeStyle.backgroundColor,
+                  borderRadius: BorderRadius.circular(4),
+                  border: Border.all(color: badgeStyle.borderColor),
+                ),
+                child: Text(
+                  catLabel,
+                  style: TextStyle(fontSize: 10, color: badgeStyle.textColor, fontWeight: FontWeight.bold),
+                ),
+              ),
+              if (doc.categoria != null && doc.categoria!.isNotEmpty) ...[
+                const SizedBox(width: 6),
+                Expanded(
+                  child: Text(
+                    doc.categoria!,
+                    style: AppTypography.bodySmall.copyWith(color: AppColors.textSecondary, fontWeight: FontWeight.w500),
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
+              ],
+            ],
+          ),
+          const SizedBox(height: 2),
+          if (doc.semValidade)
+            Text(
+              'Permanente (sem validade)',
+              style: AppTypography.bodySmall.copyWith(color: AppColors.textSecondary, fontSize: 10),
+            )
+          else if (doc.dataValidade != null)
             Text(
               'Validade: ${_formatDate(doc.dataValidade!)}',
               style: AppTypography.bodySmall.copyWith(color: AppColors.textSecondary, fontSize: 10),

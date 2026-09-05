@@ -1,11 +1,14 @@
+import 'package:flutter/foundation.dart' show debugPrint;
 import 'package:bloc_concurrency/bloc_concurrency.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:get_it/get_it.dart';
 import 'package:condomeet/core/services/notification_service.dart';
+import 'package:condomeet/core/services/telemetry_service.dart';
 import 'package:supabase_flutter/supabase_flutter.dart' hide AuthState;
 import 'package:condomeet/core/services/security_service.dart';
 import 'package:condomeet/core/utils/structure_helper.dart';
 import 'package:condomeet/core/errors/result.dart';
+import 'package:condomeet/core/network/supabase_resilience_service.dart';
 import '../../domain/repositories/auth_repository.dart';
 import '../../domain/repositories/consent_repository.dart';
 import 'auth_event.dart';
@@ -80,14 +83,7 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
 
     try {
       print('🔐 AuthCheckRequested: Fetching profile for ${session.user.id}...');
-      // Retry logic for profile fetching (handles backend transaction delays during registration)
-      Map<String, dynamic>? profile;
-      for (var i = 0; i < 3; i++) {
-        profile = await _authRepository.fetchProfile(session.user.id);
-        if (profile != null) break;
-        print('⏳ Profile not found yet, retrying in 1s... (${i + 1}/3)');
-        await Future.delayed(const Duration(seconds: 1));
-      }
+      final profile = await _authRepository.fetchProfile(session.user.id);
       
       if (profile == null) {
         print('❌ Profile NOT FOUND after retries.');
@@ -125,6 +121,7 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
 
       // Update FCM token on app start for active users
       _syncFcmToken(session.user.id);
+      _recordDeviceTelemetry(session.user.id, profile['condominio_id'] as String?, isLogin: false);
       
       // 1. Consent Check (Story 1.3)
       final consentResult = await _consentRepository.hasConsent(
@@ -210,7 +207,7 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
         // Not found
         emit(const AuthState.needsRegistration());
       } else {
-        emit(AuthState.unauthenticated(error: 'Erro ao buscar perfil: ${e.toString()}'));
+        emit(AuthState.unauthenticated(error: SupabaseResilienceService.getFriendlyErrorMessage(e)));
       }
     }
   }
@@ -218,10 +215,11 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
   Future<void> _onAuthLoginSubmitted(AuthLoginSubmitted event, Emitter<AuthState> emit) async {
     print('🔑 Manual Login submitted for ${event.email}');
     emit(state.copyWith(status: AuthStatus.authenticating));
+    
+    // Step 1: Autenticação de credencial (Auth endpoint - NON_IDEMPOTENT, sem retries)
     try {
       await _authRepository.signInWithEmail(event.email, event.password);
       print('✅ signInWithEmail successful');
-      // Save credentials if rememberMe is checked
       if (event.rememberMe) {
         await _securityService.saveCredentials(event.email, event.password);
         print('💾 Credentials saved for auto-login');
@@ -229,135 +227,12 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
         await _securityService.clearCredentials();
         print('🗑️ Credentials cleared (rememberMe unchecked)');
       }
-      final session = _authRepository.currentSession;
-      if (session != null) {
-        print('👤 Session found for user ${session.user.id}. Fetching profile...');
-        final profile = await _authRepository.fetchProfile(session.user.id);
-        
-        if (profile == null) {
-          print('⚠️ Profile not found in Supabase for user ${session.user.id}');
-          emit(const AuthState.needsRegistration());
-          return;
-        }
-        print('✅ Profile fetched: ${profile['nome_completo']}');
-
-        final String profileStatus = profile['status_aprovacao'] as String? ?? 'pendente';
-        final String userId = session.user.id;
-        final String? userName = profile['nome_completo'];
-        final String? condominiumId = profile['condominio_id'];
-        final String? role = profile['papel_sistema'];
-        
-        if (profileStatus == 'pendente' || profileStatus == 'bloqueado') {
-          print('🚫 Login bloqueado: $profileStatus → emitindo pendingApproval');
-          emit(AuthState.pendingApproval(
-            userId: userId,
-            userName: userName,
-            condominiumId: condominiumId,
-            role: role,
-          ));
-          return;
-        }
-
-        if (profileStatus == 'rejeitado') {
-          emit(AuthState(
-            status: AuthStatus.rejected,
-            userId: userId,
-            profileStatus: 'rejeitado',
-          ));
-          return;
-        }
-
-        // Check if there are linked units and if they're blocked
-        bool isBlocked = false;
-        String? unitDisplay;
-        
-        try {
-          if (profile['unidade_perfil'] != null && (profile['unidade_perfil'] as List).isNotEmpty) {
-               final firstLink = (profile['unidade_perfil'] as List).first;
-               final units = firstLink['unidades'];
-               if (units != null) {
-                 isBlocked = units['bloqueada'] == true;
-                 
-                 // Map safely handling potential List-type responses from old-style Supabase queries
-                 final blocoData = units['blocos'];
-                 final aptoData = units['apartamentos'];
-                 
-                 final bloco = (blocoData is List && blocoData.isNotEmpty) 
-                     ? blocoData[0]['nome_ou_numero'] 
-                     : (blocoData is Map ? blocoData['nome_ou_numero'] : '0');
-                     
-                 final apto = (aptoData is List && aptoData.isNotEmpty) 
-                     ? aptoData[0]['numero'] 
-                     : (aptoData is Map ? aptoData['numero'] : '0');
-                     
-                 final String? tipoEstruturaLocal = (profile['condominios'] as Map<String, dynamic>?)?['tipo_estrutura'] as String? ?? 'predio';
-                 // Bloco 0 / Apto 0 é a unidade placeholder do Síndico — não exibir
-                 if (bloco == '0' && apto == '0') {
-                   unitDisplay = null;
-                 } else {
-                   unitDisplay = StructureHelper.getFullUnitName(tipoEstruturaLocal, bloco, apto);
-                 }
-               }
-          }
-        } catch (e) {
-          print('Erro ao carregar dados da unidade no Login (AuthBloc): $e');
-          unitDisplay = '? / ?';
-        }
-
-        final String? tipoEstrutura = (profile['condominios'] as Map<String, dynamic>?)?['tipo_estrutura'] as String? ?? 'predio';
-
-        // 1. Consent Check (LGPD)
-        final consentResult = await _consentRepository.hasConsent(
-          userId: userId,
-          consentType: 'terms_of_service',
-        );
-        
-        final hasConsent = consentResult is Success<bool> && consentResult.data;
-        if (!hasConsent) {
-          print('⚖️ Consent required for user $userId');
-          emit(AuthState.pendingConsent(
-            userId: userId,
-            userName: userName,
-          ));
-          return;
-        }
-
-        // 2. PIN Check
-        final hasPin = await _securityService.getPin() != null;
-        print('🔐 User has PIN: $hasPin');
-
-        _syncFcmToken(session.user.id);
-
-        if (!hasPin) {
-          emit(AuthState.pendingPinSetup(
-            userId: userId,
-            userName: userName,
-            condominiumId: condominiumId,
-            role: role,
-          ));
-        } else {
-          // If already has PIN, go to home (manual login assumes user knows their own device)
-          // Or go to Locked if we want to be super secure.
-          _isSessionUnlocked = true; // Mark as unlocked since they just put in their full credentials
-          emit(AuthState.authenticated(
-            userId: userId,
-            userName: userName,
-            role: role,
-            condominiumId: condominiumId,
-            tipoEstrutura: tipoEstrutura,
-            unitId: unitDisplay,
-            isUnitBlocked: isBlocked,
-            profileStatus: profileStatus,
-          ));
-        }
-      }
     } catch (e) {
-      print('❌ Manual Login ERROR: ${e.toString()}');
+      print('❌ Manual Login Sign-In ERROR: ${e.toString()}');
       final errorMsg = e.toString();
       if (errorMsg.contains('email_not_confirmed') || errorMsg.contains('Email not confirmed')) {
         emit(const AuthState.unauthenticated(error: 'Seu e-mail ainda não foi confirmado. Verifique sua caixa de entrada.'));
       } else if (errorMsg.contains('Invalid login credentials') || errorMsg.contains('invalid_credentials')) {
-        // Verifica se é morador migrado que precisa configurar senha
         try {
           final needsSetup = await Supabase.instance.client
               .rpc('check_needs_password_setup', params: {'user_email': event.email});
@@ -369,8 +244,142 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
         } catch (_) {}
         emit(const AuthState.unauthenticated(error: 'E-mail ou senha incorretos.'));
       } else {
-        emit(AuthState.unauthenticated(error: 'Erro ao entrar: $errorMsg'));
+        emit(AuthState.unauthenticated(error: SupabaseResilienceService.getFriendlyErrorMessage(e)));
       }
+      return;
+    }
+
+    // Step 2: Busca de Perfil com sessão válida estabelecida
+    final session = _authRepository.currentSession;
+    if (session == null) {
+      emit(const AuthState.unauthenticated(error: 'Não foi possível obter a sessão de autenticação.'));
+      return;
+    }
+
+    try {
+      print('👤 Session found for user ${session.user.id}. Fetching profile...');
+      final profile = await _authRepository.fetchProfile(session.user.id);
+      
+      if (profile == null) {
+        print('⚠️ Profile not found in Supabase for user ${session.user.id}');
+        emit(const AuthState.needsRegistration());
+        return;
+      }
+      print('✅ Profile fetched: ${profile['nome_completo']}');
+
+      final String profileStatus = profile['status_aprovacao'] as String? ?? 'pendente';
+      final String userId = session.user.id;
+      final String? userName = profile['nome_completo'];
+      final String? condominiumId = profile['condominio_id'];
+      final String? role = profile['papel_sistema'];
+      
+      if (profileStatus == 'pendente' || profileStatus == 'bloqueado') {
+        print('🚫 Login bloqueado: $profileStatus → emitindo pendingApproval');
+        emit(AuthState.pendingApproval(
+          userId: userId,
+          userName: userName,
+          condominiumId: condominiumId,
+          role: role,
+        ));
+        return;
+      }
+
+      if (profileStatus == 'rejeitado') {
+        emit(AuthState(
+          status: AuthStatus.rejected,
+          userId: userId,
+          profileStatus: 'rejeitado',
+        ));
+        return;
+      }
+
+      // Check if there are linked units and if they're blocked
+      bool isBlocked = false;
+      String? unitDisplay;
+      
+      try {
+        if (profile['unidade_perfil'] != null && (profile['unidade_perfil'] as List).isNotEmpty) {
+             final firstLink = (profile['unidade_perfil'] as List).first;
+             final units = firstLink['unidades'];
+             if (units != null) {
+               isBlocked = units['bloqueada'] == true;
+               
+               // Map safely handling potential List-type responses from old-style Supabase queries
+               final blocoData = units['blocos'];
+               final aptoData = units['apartamentos'];
+               
+               final bloco = (blocoData is List && blocoData.isNotEmpty) 
+                   ? blocoData[0]['nome_ou_numero'] 
+                   : (blocoData is Map ? blocoData['nome_ou_numero'] : '0');
+                   
+               final apto = (aptoData is List && aptoData.isNotEmpty) 
+                   ? aptoData[0]['numero'] 
+                   : (aptoData is Map ? aptoData['numero'] : '0');
+                   
+               final String? tipoEstruturaLocal = (profile['condominios'] as Map<String, dynamic>?)?['tipo_estrutura'] as String? ?? 'predio';
+               // Bloco 0 / Apto 0 é a unidade placeholder do Síndico — não exibir
+               if (bloco == '0' && apto == '0') {
+                 unitDisplay = null;
+               } else {
+                 unitDisplay = StructureHelper.getFullUnitName(tipoEstruturaLocal, bloco, apto);
+               }
+             }
+        }
+      } catch (e) {
+        print('Erro ao carregar dados da unidade no Login (AuthBloc): $e');
+        unitDisplay = '? / ?';
+      }
+
+      final String? tipoEstrutura = (profile['condominios'] as Map<String, dynamic>?)?['tipo_estrutura'] as String? ?? 'predio';
+
+      // 1. Consent Check (LGPD)
+      final consentResult = await _consentRepository.hasConsent(
+        userId: userId,
+        consentType: 'terms_of_service',
+      );
+      
+      final hasConsent = consentResult is Success<bool> && consentResult.data;
+      if (!hasConsent) {
+        print('⚖️ Consent required for user $userId');
+        emit(AuthState.pendingConsent(
+          userId: userId,
+          userName: userName,
+        ));
+        return;
+      }
+
+      // 2. PIN Check
+      final hasPin = await _securityService.getPin() != null;
+      print('🔐 User has PIN: $hasPin');
+
+      _syncFcmToken(session.user.id);
+      _recordDeviceTelemetry(session.user.id, profile['condominio_id'] as String?, isLogin: true);
+
+      if (!hasPin) {
+        emit(AuthState.pendingPinSetup(
+          userId: userId,
+          userName: userName,
+          condominiumId: condominiumId,
+          role: role,
+        ));
+      } else {
+        _isSessionUnlocked = true;
+        emit(AuthState.authenticated(
+          userId: userId,
+          userName: userName,
+          role: role,
+          condominiumId: condominiumId,
+          tipoEstrutura: tipoEstrutura,
+          unitId: unitDisplay,
+          isUnitBlocked: isBlocked,
+          profileStatus: profileStatus,
+        ));
+      }
+    } catch (e) {
+      print('❌ Fetch Profile ERROR after signIn: ${e.toString()}');
+      // A autenticação de senha teve sucesso (sessão estabelecida).
+      // Emite o erro amigável sem acusar erro de senha e mantendo a sessão salva.
+      emit(AuthState.unauthenticated(error: SupabaseResilienceService.getFriendlyErrorMessage(e)));
     }
   }
 
@@ -446,7 +455,7 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
         await Future.delayed(const Duration(milliseconds: 50));
         emit(AuthState(
           status: AuthStatus.forgotPasswordCodeSent,
-          phoneNumber: event.email,
+          email: event.email,
           maskedWhatsapp: state.maskedWhatsapp,
           errorMessage: error,
         ));
@@ -590,6 +599,21 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
       }
     } catch (e) {
       print('❌ Failed to sync FCM token: $e');
+    }
+  }
+
+  void _recordDeviceTelemetry(String userId, String? condominiumId, {bool isLogin = false}) {
+    try {
+      if (GetIt.instance.isRegistered<TelemetryService>()) {
+        final telemetryService = GetIt.instance<TelemetryService>();
+        telemetryService.recordDeviceActivity(
+          userId: userId,
+          condominiumId: condominiumId,
+          isLogin: isLogin,
+        );
+      }
+    } catch (e) {
+      debugPrint('Telemetry fire-and-forget dispatch error: $e');
     }
   }
 }

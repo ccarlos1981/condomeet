@@ -8,6 +8,7 @@ import {
   normalizePhone,
   parseWebhook,
   smartSend,
+  MessageType,
 } from "../_shared/botconversa.ts";
 import { buildSystemPrompt, type MoradorContext } from "./system-prompt.ts";
 import { executeActions } from "./actions.ts";
@@ -383,7 +384,7 @@ Deno.serve(async (req) => {
         }).eq("id", 1);
         await smartSend(BOTCONVERSA_API_KEY_tmp, null, incoming.phone, "text",
           "🔴 Bot DESATIVADO. Atenda os moradores normalmente. Quando terminar, envie ATIVAR.",
-          undefined, supabase
+          undefined, supabase, undefined, MessageType.NOTICE, "whatsapp-chatbot"
         );
         return jsonResponse({ ok: true, action: "bot_desativado" });
       }
@@ -395,7 +396,7 @@ Deno.serve(async (req) => {
         }).eq("id", 1);
         await smartSend(BOTCONVERSA_API_KEY_tmp, null, incoming.phone, "text",
           "🟢 Bot ATIVADO. Voltei a atender os moradores automaticamente!",
-          undefined, supabase
+          undefined, supabase, undefined, MessageType.NOTICE, "whatsapp-chatbot"
         );
         return jsonResponse({ ok: true, action: "bot_ativado" });
       }
@@ -417,7 +418,7 @@ Deno.serve(async (req) => {
               ? ` Desde: ${new Date(cfg.desativado_em).toLocaleString("pt-BR")}`
               : ""
           }`;
-        await smartSend(BOTCONVERSA_API_KEY_tmp, null, incoming.phone, "text", statusMsg, undefined, supabase);
+        await smartSend(BOTCONVERSA_API_KEY_tmp, null, incoming.phone, "text", statusMsg, undefined, supabase, undefined, MessageType.NOTICE, "whatsapp-chatbot");
         return jsonResponse({ ok: true, action: "status_enviado" });
       }
 
@@ -439,15 +440,15 @@ Deno.serve(async (req) => {
       return jsonResponse({ error: "Gemini API not configured" }, 500);
     }
 
-    // ── Check if bot is active ────────────────────────────────────────────
-    const botForcedDisabled = false;
+
+    // ── Hardening de Desativação Definitiva da IA / Respostas Autônomas ───
+    const botForcedDisabled = true;
     if (botForcedDisabled) {
-      console.log(
-        "[Bot] Bot FORÇADAMENTE DESATIVADO pelo código — ignorando mensagens",
-      );
+      console.log(`[Bot] IA e Respostas Autônomas DESATIVADAS (Hardening Permanente). Webhook recebido silenciosamente para telefone=${incoming.phone}.`);
       return jsonResponse({
+        ok: true,
         skipped: true,
-        reason: "Bot desativado nos testes de estabilidade",
+        reason: "IA e Respostas Autônomas desativadas por governança (silêncio operacional)",
       });
     }
 
@@ -571,7 +572,7 @@ Deno.serve(async (req) => {
         "Olá! 👋 Não consegui identificar seu número no nosso sistema.\n\n" +
           "Se você é morador, verifique se seu celular está cadastrado corretamente no aplicativo *Condomeet*.\n\n" +
           "Caso precise de ajuda, procure o síndico do seu condomínio. 😊",
-        undefined, supabase
+        undefined, supabase, undefined, MessageType.NOTICE, "whatsapp-chatbot"
       );
       return jsonResponse({
         skipped: true,
@@ -629,7 +630,9 @@ Deno.serve(async (req) => {
               `Obrigado, *${firstName}*! ✅\n\nVocê continuará recebendo as notificações do seu condomínio pelo WhatsApp.\n\nQualquer dúvida, estou por aqui! 😊`,
               firstName,
               supabase,
-              perfil.id
+              perfil.id,
+              MessageType.NOTICE,
+              "whatsapp-chatbot"
             );
 
             console.log(`[OptIn] ${perfil.id} opted IN`);
@@ -649,7 +652,9 @@ Deno.serve(async (req) => {
               `Entendido, *${firstName}*. 🙏\n\nVocê não receberá mais notificações pelo WhatsApp.\n\nCaso mude de ideia, basta acessar o app Condomeet e reativar nas configurações.`,
               firstName,
               supabase,
-              perfil.id
+              perfil.id,
+              MessageType.NOTICE,
+              "whatsapp-chatbot"
             );
 
             console.log(`[OptIn] ${perfil.id} opted OUT`);
@@ -798,6 +803,11 @@ Deno.serve(async (req) => {
         incoming.phone,
         "text",
         fallbackMsg,
+        undefined,
+        supabase,
+        perfil.id,
+        MessageType.NOTICE,
+        "whatsapp-chatbot"
       );
 
       // Save the failed interaction for debugging
@@ -850,7 +860,9 @@ Deno.serve(async (req) => {
       geminiResponse.message,
       perfil.nome_completo?.split(" ")[0],
       supabase,
-      perfil.id
+      perfil.id,
+      MessageType.NOTICE,
+      "whatsapp-chatbot"
     );
 
     // 11. Save conversation to history

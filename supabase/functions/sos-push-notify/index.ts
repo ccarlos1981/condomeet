@@ -1,7 +1,7 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2"
 import { create, getNumericDate } from "https://deno.land/x/djwt@v2.9.1/mod.ts"
-import { smartSend, DELAY_TEXT_MS } from "../_shared/botconversa.ts"
+import { smartSend, MessageType, DELAY_TEXT_MS } from "../_shared/botconversa.ts"
 
 // ── Dynamic structure labels ────────────────────────────────────────────────
 function getBlocoLabel(tipo?: string): string {
@@ -243,7 +243,7 @@ serve(async (req) => {
         const sData = s as Record<string, unknown>
         if (sData.notificacoes_whatsapp !== false && (sData.botconversa_id || (sData.whatsapp as string)?.trim())) {
           const msg = buildSosMessage(sData.nome_completo as string)
-          const sentRes = await smartSend(BOTCONVERSA_API_KEY, sData.botconversa_id as string, sData.whatsapp as string, "text", msg, undefined, supabase, sData.id as string)
+          const sentRes = await smartSend(BOTCONVERSA_API_KEY, sData.botconversa_id as string, sData.whatsapp as string, "text", msg, undefined, supabase, sData.id as string, MessageType.SOS, "sos-push-notify")
           if (sentRes.success) staffWaCount++
           await new Promise(r => setTimeout(r, DELAY_TEXT_MS))
         }
@@ -265,7 +265,7 @@ serve(async (req) => {
 
         for (const c of contacts) {
           const contactMsg = buildSosMessage(c.nome || "Contato")
-          const sentRes = await smartSend(BOTCONVERSA_API_KEY, null, c.whatsapp!, "text", contactMsg, c.nome || "Contato")
+          const sentRes = await smartSend(BOTCONVERSA_API_KEY, null, c.whatsapp!, "text", contactMsg, c.nome || "Contato", undefined, undefined, MessageType.SOS, "sos-push-notify")
           allResults.push(`WhatsApp contato ${c.nome}: ${sentRes.success ? "✅" : "❌"}`)
           await new Promise(r => setTimeout(r, DELAY_TEXT_MS))
         }

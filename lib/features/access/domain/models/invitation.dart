@@ -58,7 +58,7 @@ class Invitation extends Equatable {
       qrData: map['qr_data'] as String? ?? '',
       visitorType: map['visitor_type'] as String?,
       visitorPhone: map['visitor_phone'] as String?,
-      observation: map['observation'] as String?,
+      observation: map['observacao'] as String?,
       status: map['status'] as String? ?? 'active',
       visitanteCompareceu: map['visitante_compareceu'] == 1 ||
           map['visitante_compareceu'] == true,

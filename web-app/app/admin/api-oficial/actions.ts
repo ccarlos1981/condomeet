@@ -1,11 +1,31 @@
-'use client'
+'use server'
 
-import { createClient } from '@/lib/supabase/client'
+import { createClient as createServerClient } from '@/lib/supabase/server'
+import { createClient as createSupabaseClient } from '@supabase/supabase-js'
+import { createHash } from 'node:crypto'
 
-// Helper to check authorization using system roles and the system_superadmins table (MASTER admins only)
-async function checkAuth(supabase: any) {
-  const { data: { user } } = await supabase.auth.getUser()
-  if (!user) {
+// Helper to obtain an administrative Supabase client exclusively on the server
+function getAdminClient() {
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL
+  const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY
+
+  if (!url || !serviceRoleKey) {
+    throw new Error('Supabase environment variables (NEXT_PUBLIC_SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY) are missing on the server.')
+  }
+
+  return createSupabaseClient(url, serviceRoleKey, {
+    auth: {
+      persistSession: false,
+      autoRefreshToken: false,
+    }
+  })
+}
+
+// Helper to check authorization using server session, system roles, and the system_superadmins table (MASTER admins only)
+async function checkAuth() {
+  const supabase = await createServerClient()
+  const { data: { user }, error: authError } = await supabase.auth.getUser()
+  if (authError || !user) {
     throw new Error('Acesso Negado: Usuário não autenticado.')
   }
 
@@ -45,9 +65,8 @@ async function checkAuth(supabase: any) {
 }
 
 export async function getSuperUserInfo() {
-  const supabase = createClient()
   try {
-    const auth = await checkAuth(supabase)
+    const auth = await checkAuth()
     return { authorized: true, email: auth.email }
   } catch (err: any) {
     return { authorized: false, error: err.message }
@@ -55,8 +74,10 @@ export async function getSuperUserInfo() {
 }
 
 export async function getDashboardMetrics() {
-  const supabase = createClient()
-  await checkAuth(supabase)
+  await checkAuth()
+
+  const supabase = await createServerClient()
+  const adminClient = getAdminClient()
 
   // 1. Fetch Price Table
   const { data: prices } = await supabase
@@ -87,7 +108,7 @@ export async function getDashboardMetrics() {
   const startOfMonth = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000)
   const startOfLastMonth = new Date(now.getTime() - 60 * 24 * 60 * 60 * 1000)
 
-  // 2. Build global message stats queries
+  // 2. Build global message stats queries using admin client
   const [
     todayMsgs, yesterdayMsgs,
     weekMsgs, lastWeekMsgs,
@@ -95,14 +116,14 @@ export async function getDashboardMetrics() {
     metricsViewRes,
     templateUsageRes
   ] = await Promise.all([
-    supabase.from('whatsapp_outbox').select('template_name, payload_type, status, created_at').eq('status', 'sent').eq('delivery_result->>provider', 'META_CLOUD_API').gte('sent_at', startOfToday.toISOString()),
-    supabase.from('whatsapp_outbox').select('template_name, payload_type, status, created_at').eq('status', 'sent').eq('delivery_result->>provider', 'META_CLOUD_API').gte('sent_at', startOfYesterday.toISOString()).lt('sent_at', startOfToday.toISOString()),
+    adminClient.from('whatsapp_outbox').select('template_name, payload_type, status, created_at').eq('status', 'sent').eq('delivery_result->>provider', 'META_CLOUD_API').gte('sent_at', startOfToday.toISOString()),
+    adminClient.from('whatsapp_outbox').select('template_name, payload_type, status, created_at').eq('status', 'sent').eq('delivery_result->>provider', 'META_CLOUD_API').gte('sent_at', startOfYesterday.toISOString()).lt('sent_at', startOfToday.toISOString()),
     
-    supabase.from('whatsapp_outbox').select('template_name, payload_type, status, created_at').eq('status', 'sent').eq('delivery_result->>provider', 'META_CLOUD_API').gte('sent_at', startOfWeek.toISOString()),
-    supabase.from('whatsapp_outbox').select('template_name, payload_type, status, created_at').eq('status', 'sent').eq('delivery_result->>provider', 'META_CLOUD_API').gte('sent_at', startOfLastWeek.toISOString()).lt('sent_at', startOfWeek.toISOString()),
+    adminClient.from('whatsapp_outbox').select('template_name, payload_type, status, created_at').eq('status', 'sent').eq('delivery_result->>provider', 'META_CLOUD_API').gte('sent_at', startOfWeek.toISOString()),
+    adminClient.from('whatsapp_outbox').select('template_name, payload_type, status, created_at').eq('status', 'sent').eq('delivery_result->>provider', 'META_CLOUD_API').gte('sent_at', startOfLastWeek.toISOString()).lt('sent_at', startOfWeek.toISOString()),
     
-    supabase.from('whatsapp_outbox').select('template_name, payload_type, status, created_at').eq('status', 'sent').eq('delivery_result->>provider', 'META_CLOUD_API').gte('sent_at', startOfMonth.toISOString()),
-    supabase.from('whatsapp_outbox').select('template_name, payload_type, status, created_at').eq('status', 'sent').eq('delivery_result->>provider', 'META_CLOUD_API').gte('sent_at', startOfLastMonth.toISOString()).lt('sent_at', startOfMonth.toISOString()),
+    adminClient.from('whatsapp_outbox').select('template_name, payload_type, status, created_at').eq('status', 'sent').eq('delivery_result->>provider', 'META_CLOUD_API').gte('sent_at', startOfMonth.toISOString()),
+    adminClient.from('whatsapp_outbox').select('template_name, payload_type, status, created_at').eq('status', 'sent').eq('delivery_result->>provider', 'META_CLOUD_API').gte('sent_at', startOfLastMonth.toISOString()).lt('sent_at', startOfMonth.toISOString()),
     
     supabase.from('whatsapp_metrics_view').select('*').single(),
     supabase.from('whatsapp_template_usage_view').select('*').order('usage_count', { ascending: false })
@@ -162,9 +183,9 @@ export async function getDashboardMetrics() {
 }
 
 export async function getConsumptionByCondo() {
-  const supabase = createClient()
-  await checkAuth(supabase)
+  await checkAuth()
 
+  const supabase = await createServerClient()
   const { data, error } = await supabase.rpc('get_whatsapp_consumption_by_condo', {
     p_condominio_id: null
   })
@@ -178,8 +199,10 @@ export async function getConsumptionByCondo() {
 }
 
 export async function getConversations(searchQuery = '', filterType = 'all') {
-  const supabase = createClient()
-  await checkAuth(supabase)
+  await checkAuth()
+
+  const supabase = await createServerClient()
+  const adminClient = getAdminClient()
 
   let query = supabase
     .from('whatsapp_conversations')
@@ -197,21 +220,41 @@ export async function getConversations(searchQuery = '', filterType = 'all') {
     query = query.or(`window_open_until.lt.${new Date().toISOString()},window_open_until.is.null`)
   } else if (filterType === 'nao_lidas') {
     query = query.gt('unread_count', 0)
-  } else if (filterType === 'meta') {
-    query = query.eq('current_provider', 'META_CLOUD_API')
-  } else if (filterType === 'botconversa') {
-    query = query.eq('current_provider', 'BOTCONVERSA')
   }
 
-  const { data: conversations } = await query
+  const { data: conversations, error } = await query
+
+  if (error) {
+    console.error('[getConversations] Error fetching conversations:', error.message)
+    return []
+  }
 
   if (!conversations) return []
 
-  // Client side/Server Action memory filtering for global search to bypass SQL join limitations
-  let filtered = conversations
+  // Filtro por participação histórica de provedores em whatsapp_outbox
+  let providerFiltered = conversations
+  if (filterType === 'meta' || filterType === 'botconversa' || filterType === 'evolution') {
+    const targetProvider = 
+      filterType === 'meta' ? 'META_CLOUD_API' :
+      filterType === 'botconversa' ? 'BOTCONVERSA' : 
+      'EVOLUTION'
+
+    const { data: outboxRecords } = await adminClient
+      .from('whatsapp_outbox')
+      .select('recipient_phone')
+      .eq('delivery_result->>provider', targetProvider)
+
+    const historicalPhones = new Set(outboxRecords?.map(o => o.recipient_phone).filter(Boolean) || [])
+    providerFiltered = conversations.filter(c => 
+      c.current_provider === targetProvider || historicalPhones.has(c.telefone)
+    )
+  }
+
+  // Client side / Server Action memory filtering for global search to bypass SQL join limitations
+  let filtered = providerFiltered
   if (searchQuery.trim()) {
     const term = searchQuery.toLowerCase()
-    filtered = conversations.filter(c => {
+    filtered = providerFiltered.filter(c => {
       const nameMatch = c.perfil?.nome_completo?.toLowerCase().includes(term)
       const phoneMatch = c.telefone?.toLowerCase().includes(term)
       const unitMatch = (c.perfil?.bloco_txt?.toLowerCase().includes(term) || c.perfil?.apto_txt?.toLowerCase().includes(term))
@@ -224,20 +267,32 @@ export async function getConversations(searchQuery = '', filterType = 'all') {
 }
 
 export async function getChatHistory(telefone: string) {
-  const supabase = createClient()
-  await checkAuth(supabase)
+  await checkAuth()
 
-  const { data: messages } = await supabase
+  const canonicalPhone = normalizePhone(telefone)
+  if (!canonicalPhone) {
+    throw new Error('Telefone inválido para consulta.')
+  }
+
+  const adminClient = getAdminClient()
+
+  const { data: messages, error } = await adminClient
     .from('whatsapp_outbox')
     .select('*')
-    .eq('recipient_phone', telefone)
+    .eq('recipient_phone', canonicalPhone)
     .order('created_at', { ascending: true })
 
+  if (error) {
+    console.error('[getChatHistory] Error fetching outbox:', error.message)
+    throw new Error('Falha ao recuperar histórico da conversa.')
+  }
+
   // Reset unread counts on view
+  const supabase = await createServerClient()
   await supabase
     .from('whatsapp_conversations')
     .update({ unread_count: 0 })
-    .eq('telefone', telefone)
+    .eq('telefone', canonicalPhone)
 
   return messages || []
 }
@@ -261,16 +316,8 @@ function normalizePhone(raw: string): string {
   return phone
 }
 
-async function sha256(text: string): Promise<string> {
-  const msgBuffer = new TextEncoder().encode(text)
-  const cryptoObj = typeof window !== 'undefined' ? window.crypto : (typeof globalThis !== 'undefined' ? globalThis.crypto : null)
-  if (!cryptoObj || !cryptoObj.subtle) {
-    throw new Error('Cryptographic library subtle is not available in this environment.')
-  }
-  const hashBuffer = await cryptoObj.subtle.digest("SHA-256", msgBuffer)
-  const hashArray = Array.from(new Uint8Array(hashBuffer))
-  const hashHex = hashArray.map(b => b.toString(16).padStart(2, "0")).join("")
-  return hashHex
+function sha256(text: string): string {
+  return createHash('sha256').update(text).digest('hex')
 }
 
 export async function sendManualMessage(
@@ -280,17 +327,21 @@ export async function sendManualMessage(
   variables: string[] = [],
   reason = ''
 ) {
-  const supabase = createClient()
-  const authInfo = await checkAuth(supabase)
+  const authInfo = await checkAuth()
+  const canonicalPhone = normalizePhone(telefone)
+  if (!canonicalPhone) {
+    throw new Error('Telefone inválido para envio de mensagem.')
+  }
+
+  const supabase = await createServerClient()
+  const adminClient = getAdminClient()
 
   // Fetch conversation window status
   const { data: conv } = await supabase
     .from('whatsapp_conversations')
     .select('window_open_until, condominio_id, perfil_id')
-    .eq('telefone', telefone)
+    .eq('telefone', canonicalPhone)
     .maybeSingle()
-
-  const isWindowOpen = conv?.window_open_until && new Date(conv.window_open_until) >= new Date()
 
   // Format message content
   let messageContent: any = { value: text }
@@ -306,16 +357,15 @@ export async function sendManualMessage(
   }
 
   // Calculate message hash for deduplication and DB constraint
-  const phoneNormalized = normalizePhone(telefone)
   const payloadType = templateName ? 'interactive' : 'text'
-  const rawString = `${phoneNormalized}:${payloadType}:${text}:${conv?.condominio_id || ""}`
-  const messageHash = await sha256(rawString)
+  const rawString = `${canonicalPhone}:${payloadType}:${text}:${conv?.condominio_id || ""}`
+  const messageHash = sha256(rawString)
 
-  // Insert outgoing audit message in outbox
-  const { data: newMsg, error } = await supabase
+  // Insert outgoing audit message in outbox using admin client
+  const { data: newMsg, error } = await adminClient
     .from('whatsapp_outbox')
     .insert({
-      recipient_phone: telefone,
+      recipient_phone: canonicalPhone,
       payload_type: templateName ? 'interactive' : 'text',
       message_type: templateName ? 'TEMPLATE_MANUAL' : 'TEXTO_LIVRE_MANUAL',
       message_content: messageContent,
@@ -330,7 +380,10 @@ export async function sendManualMessage(
     .select()
     .single()
 
-  if (error) throw new Error(error.message)
+  if (error) {
+    console.error('[sendManualMessage] Error inserting outbox message:', error.message)
+    throw new Error(error.message)
+  }
+
   return newMsg
 }
-

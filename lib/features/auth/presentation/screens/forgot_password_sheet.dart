@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:condomeet/core/design_system/app_colors.dart';
@@ -39,6 +40,9 @@ class _ForgotPasswordSheetState extends State<ForgotPasswordSheet> {
   String? _errorMsg;
   bool _isLoading = false;
 
+  Timer? _cooldownTimer;
+  int _cooldownSeconds = 0;
+
   @override
   void initState() {
     super.initState();
@@ -49,11 +53,39 @@ class _ForgotPasswordSheetState extends State<ForgotPasswordSheet> {
 
   @override
   void dispose() {
+    _cooldownTimer?.cancel();
+    _cooldownTimer = null;
     _emailController.dispose();
     _codeController.dispose();
     _newPasswordController.dispose();
     _confirmPasswordController.dispose();
     super.dispose();
+  }
+
+  void _startCooldownTimer([int seconds = 300]) {
+    _cooldownTimer?.cancel();
+    _cooldownSeconds = seconds;
+    _cooldownTimer = Timer.periodic(const Duration(seconds: 1), (timer) {
+      if (!mounted) {
+        timer.cancel();
+        return;
+      }
+      if (_cooldownSeconds > 1) {
+        setState(() => _cooldownSeconds--);
+      } else {
+        setState(() => _cooldownSeconds = 0);
+        timer.cancel();
+      }
+    });
+  }
+
+  String get _cooldownText {
+    if (_cooldownSeconds <= 0) {
+      return 'Não recebeu? Enviar novamente';
+    }
+    final minutes = _cooldownSeconds ~/ 60;
+    final seconds = (_cooldownSeconds % 60).toString().padLeft(2, '0');
+    return 'Enviar novamente em $minutes:$seconds';
   }
 
   @override
@@ -62,12 +94,16 @@ class _ForgotPasswordSheetState extends State<ForgotPasswordSheet> {
     return BlocListener<AuthBloc, AuthState>(
       listener: (context, state) {
         if (state.status == AuthStatus.forgotPasswordCodeSent) {
+          final wasStep2 = _isStep2;
           setState(() {
             _isStep2 = true;
             _isLoading = false;
             _maskedWhatsapp = state.maskedWhatsapp;
             _errorMsg = state.errorMessage;
           });
+          if (!wasStep2 || _cooldownSeconds <= 0) {
+            _startCooldownTimer(300);
+          }
         } else if (state.status == AuthStatus.authenticated) {
           Navigator.of(context).pop();
         } else if (state.status == AuthStatus.unauthenticated && state.errorMessage != null) {
@@ -250,20 +286,31 @@ class _ForgotPasswordSheetState extends State<ForgotPasswordSheet> {
         ),
         const SizedBox(height: 8),
         TextButton(
-          onPressed: _isLoading ? null : _requestCode,
-          child: const Text('Não recebeu? Enviar novamente', style: TextStyle(color: AppColors.textSecondary)),
+          onPressed: (_isLoading || _cooldownSeconds > 0) ? null : _requestCode,
+          child: Text(
+            _cooldownText,
+            style: TextStyle(
+              color: (_isLoading || _cooldownSeconds > 0)
+                  ? AppColors.textSecondary.withValues(alpha: 0.5)
+                  : AppColors.textSecondary,
+            ),
+          ),
         ),
       ],
     );
   }
 
   void _requestCode() {
+    if (_isLoading || _cooldownSeconds > 0) return;
     final email = _emailController.text.trim().toLowerCase();
     if (email.isEmpty || !email.contains('@')) {
       setState(() => _errorMsg = 'Digite um email válido');
       return;
     }
-    setState(() => _errorMsg = null);
+    setState(() {
+      _isLoading = true;
+      _errorMsg = null;
+    });
     context.read<AuthBloc>().add(AuthForgotPasswordRequested(email: email));
   }
 

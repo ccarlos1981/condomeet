@@ -1,7 +1,7 @@
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts'
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 import { create } from 'https://deno.land/x/djwt@v2.9.1/mod.ts'
-import { smartSend, DELAY_TEXT_MS } from '../_shared/botconversa.ts'
+import { smartSend, MessageType, DELAY_TEXT_MS } from '../_shared/botconversa.ts'
 
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
@@ -193,7 +193,7 @@ serve(async (req) => {
           const cod = genCodInterno()
           const msg = `${headerLine}\nEi, ${firstName}.\n\nO ${itemLabel} de Título:\n${doc?.titulo || titulo || ''}\n\nCategoria do ${itemLabel}:\n${doc?.categoria || ''}\n\nData de Expedição:\n${formatDate(doc?.data_expedicao)}\n\nData de Validade:\n${formatDate(doc?.data_validade)}\n\nCondomeet Agradece.\ncód interno: ${cod}`
 
-          const result = await smartSend(BOTCONVERSA_API_KEY, s.botconversa_id, s.whatsapp, 'text', msg, firstName, supabase, s.id)
+          const result = await smartSend(BOTCONVERSA_API_KEY, s.botconversa_id, s.whatsapp, 'text', msg, firstName, supabase, s.id, MessageType.NOTICE, 'documentos-push-notify')
           if (result.success) whatsappSent++
           await new Promise(r => setTimeout(r, DELAY_TEXT_MS))
         }

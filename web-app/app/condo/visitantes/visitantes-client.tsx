@@ -136,6 +136,8 @@ export default function VisitantesResidentClient({
     return true
   })
 
+  const [successFeedback, setSuccessFeedback] = useState('')
+
   async function handleCreate() {
     if (!form.visitor_type || !form.validity_date) {
       setError('Escolha o tipo de visitante e a data de validade.')
@@ -143,6 +145,7 @@ export default function VisitantesResidentClient({
     }
     setSaving(true)
     setError('')
+    setSuccessFeedback('')
     const supabase = createClient()
     const { data: { user: cu } } = await supabase.auth.getUser()
 
@@ -176,6 +179,34 @@ export default function VisitantesResidentClient({
       setError('Erro ao criar autorização. Tente novamente.')
     } else if (inserted) {
       setConvites(prev => [inserted, ...prev])
+
+      // Enfileirar notificação via Edge Function convite-whatsapp-notify
+      let waStatus = ''
+      try {
+        const { data: notifyRes } = await supabase.functions.invoke('convite-whatsapp-notify', {
+          body: {
+            action: 'created',
+            convite_id: inserted.id,
+            resident_id: inserted.resident_id,
+            condominio_id: inserted.condominio_id,
+            guest_name: inserted.guest_name,
+            visitor_phone: inserted.whatsapp || form.whatsapp.trim() || null,
+            visitor_type: inserted.visitor_type,
+            validity_date: inserted.validity_date,
+            qr_data: inserted.qr_data,
+          }
+        })
+        if (notifyRes && (notifyRes.sent_resident || notifyRes.sent_visitor)) {
+          waStatus = '✔ Autorização registrada. ✔ Notificação WhatsApp enviada!'
+        } else {
+          waStatus = '✔ Autorização registrada. ⚠ Notificação WhatsApp não enviada.'
+        }
+      } catch (err) {
+        console.error('[convite-whatsapp-notify] Erro:', err)
+        waStatus = '✔ Autorização registrada. ⚠ Notificação WhatsApp indisponível.'
+      }
+
+      setSuccessFeedback(waStatus)
       setShowModal(false)
       setForm({ guest_name: '', visitor_type: '', validity_date: todayStr, whatsapp: '', observacao: '', documento: '', placa: '', cracha_referencia: '' })
     }
@@ -201,6 +232,16 @@ export default function VisitantesResidentClient({
 
   return (
     <div>
+      {/* Visual Feedback Banner */}
+      {successFeedback && (
+        <div className="mb-4 p-4 rounded-2xl bg-emerald-50 border border-emerald-200 flex items-center justify-between text-emerald-800 text-sm font-medium shadow-sm">
+          <span>{successFeedback}</span>
+          <button onClick={() => setSuccessFeedback('')} className="text-emerald-600 hover:text-emerald-900 font-bold ml-2">
+            ✕
+          </button>
+        </div>
+      )}
+
       {/* Toolbar */}
       <div className="flex items-center justify-between mb-5 gap-3 flex-wrap">
         <div className="flex items-center gap-2">

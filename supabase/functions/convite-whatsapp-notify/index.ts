@@ -8,7 +8,7 @@
 
 import { createClient } from "npm:@supabase/supabase-js@2"
 import { create, getNumericDate } from "https://deno.land/x/djwt@v2.9.1/mod.ts"
-import { smartSend } from "../_shared/botconversa.ts"
+import { smartSend, MessageType } from "../_shared/botconversa.ts"
 
 // ── Dynamic structure labels ────────────────────────────────────────────────
 function getBlocoLabel(tipo?: string): string {
@@ -42,17 +42,21 @@ function jsonResponse(body: unknown, status = 200): Response {
 }
 
 function isSecretKey(token: string): boolean {
+  if (!token) return false
   // Accept sb_secret_ keys
   if (token.startsWith("sb_secret_")) return true
   // Accept exact match with SUPABASE_SERVICE_ROLE_KEY env
   const envKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? ""
   if (envKey && token === envKey) return true
-  // Accept JWT tokens with service_role
+  // Accept exact match with SUPABASE_ANON_KEY env
+  const anonKey = Deno.env.get("SUPABASE_ANON_KEY") ?? ""
+  if (anonKey && token === anonKey) return true
+  // Accept JWT tokens with authenticated, service_role or anon role
   try {
     const parts = token.split(".")
     if (parts.length === 3) {
       const payload = JSON.parse(atob(parts[1]))
-      if (payload.role === "service_role") return true
+      if (payload.role === "service_role" || payload.role === "authenticated" || payload.role === "anon") return true
     }
   } catch { /* not a valid JWT */ }
   return false
@@ -197,7 +201,6 @@ function cleanPhone(raw: string): string {
   return phone
 }
 
-// ── BotConversa: send WhatsApp message ─────────────────────────────────────
 async function sendWhatsApp(
   botconversaApiKey: string,
   botconversaId: string | null | undefined,
@@ -205,9 +208,23 @@ async function sendWhatsApp(
   message: string,
   firstName?: string,
   supabase?: any,
-  perfilId?: string
+  perfilId?: string,
+  messageType?: string,
+  templateParams?: string[]
 ): Promise<boolean> {
-  const result = await smartSend(botconversaApiKey, botconversaId, phone, "text", message, firstName, supabase, perfilId)
+  const result = await smartSend(
+    botconversaApiKey,
+    botconversaId,
+    phone,
+    "text",
+    message,
+    firstName,
+    supabase,
+    perfilId,
+    messageType,
+    "convite-whatsapp-notify",
+    templateParams
+  )
   return result.success
 }
 
@@ -225,26 +242,37 @@ async function handleCreated(
     condominio_id,
     guest_name,
     visitor_phone,
+    visitor_type,
     validity_date,
     valid_until,
     qr_data,
   } = payload as Record<string, string>
 
   // ── Fetch resident data ──────────────────────────────────────────
-  const { data: perfil } = await supabase
+  const { data: perfil, error: perfilErr } = await supabase
     .from("perfil")
-    .select("id, nome_completo, whatsapp, botconversa_id, fcm_token, bloco_txt, apto_txt, notificacoes_whatsapp")
+    .select("id, nome_completo, whatsapp, botconversa_id, bloco_txt, apto_txt, notificacoes_whatsapp")
     .eq("id", resident_id)
-    .single()
+    .maybeSingle()
+
+  if (perfilErr) {
+    console.error(`[convite-notify] perfil fetch error for resident ${resident_id}:`, perfilErr)
+  }
 
   if (!perfil?.whatsapp || perfil.notificacoes_whatsapp === false) {
     console.warn(
-      `No whatsapp or opt-out for resident ${resident_id}, skipping WhatsApp`
+      `No whatsapp or opt-out for resident ${resident_id} (found perfil: ${!!perfil}, whatsapp: ${perfil?.whatsapp}), skipping WhatsApp`
     )
     return jsonResponse({
       sent_resident: false,
       sent_visitor: false,
       reason: perfil?.notificacoes_whatsapp === false ? "Resident opted out" : "Resident has no whatsapp",
+      debug: {
+        perfilErr: perfilErr ? String(perfilErr.message || perfilErr) : null,
+        resident_id,
+        perfilFound: !!perfil,
+        whatsapp: perfil?.whatsapp || null
+      }
     })
   }
 
@@ -265,55 +293,31 @@ async function handleCreated(
   }
   const residentFirstName =
     perfil.nome_completo?.split(" ")[0] || "Morador"
-  const codInterno = genCodInterno()
+  const tipoText = visitor_type || "Visitante"
 
   const hasVisitorPhone =
     visitor_phone && visitor_phone.replace(/\D/g, "").length >= 10
 
   // ── MSG 1 — MORADOR ──────────────────────────────────────────────
-
-  let msg1: string
-  if (hasVisitorPhone) {
-    msg1 =
-      `🚪\n` +
-      `Autorização confirmada!\n` +
-      `\n` +
-      `Ei, ${residentFirstName}, avise seu/sua visitante ${guest_name || ""}\n` +
-      `\n` +
-      `Acabamos de enviar uma autorização de entrada para ele(a). 👋\n` +
-      `\n` +
-      `Ele(a) já pode entrar! 😊\n` +
-      `\n` +
-      `Peça para ele(a) apresentar este código na portaria:\n` +
-      `\n` +
-      `🔐 ${shortCode}\n` +
-      `\n` +
-      `Visita para a Data: ${visitDate}\n` +
-      `\n` +
-      `Qualquer dúvida no uso do aplicativo, estamos por aqui.\n` +
-      `\n` +
-      `Obrigado por usar o Condomeet 🧡\n` +
-      `cód interno: ${codInterno}`
-  } else {
-    msg1 =
-      `🚪\n` +
-      `Autorização confirmada!\n` +
-      `\n` +
-      `Ei, ${residentFirstName}, avise seu visitante! 👋\n` +
-      `\n` +
-      `Ele(a) já pode entrar! 😊\n` +
-      `\n` +
-      `Peça para ele(a) apresentar este código na portaria:\n` +
-      `\n` +
-      `🔐 ${shortCode}\n` +
-      `\n` +
-      `Visita para a Data: ${visitDate}\n` +
-      `\n` +
-      `Qualquer dúvida no uso do aplicativo, estamos por aqui.\n` +
-      `\n` +
-      `Obrigado por usar o Condomeet 🧡\n` +
-      `cód interno: ${codInterno}`
-  }
+  const msg1 =
+    `🚪 ${condoNome}\n` +
+    `\n` +
+    `Olá, ${residentFirstName}! 👋\n` +
+    `\n` +
+    `Registramos a solicitação de entrada para o seu visitante:\n` +
+    `\n` +
+    `${guest_name || "Visitante"}\n` +
+    `\n` +
+    `Tipo:\n` +
+    `${tipoText}\n` +
+    `\n` +
+    `Data:\n` +
+    `${visitDate}\n` +
+    `\n` +
+    `Ao chegar na portaria peça para apresentar o código:\n` +
+    `🔑 ${shortCode}\n` +
+    `\n` +
+    `Condomeet agradece.`
 
   const sentResident = await sendWhatsApp(
     botconversaApiKey,
@@ -322,7 +326,16 @@ async function handleCreated(
     msg1,
     residentFirstName,
     supabase,
-    perfil.id
+    perfil.id,
+    MessageType.VISITOR_INVITE,
+    [
+      condoNome,
+      residentFirstName,
+      guest_name || "Visitante",
+      tipoText,
+      visitDate,
+      shortCode
+    ]
   )
   console.log(
     `Msg1 (resident ${resident_id}): ${sentResident ? "✅" : "❌"}`
@@ -360,33 +373,41 @@ async function handleCreated(
       )
     }
 
-    const codInterno2 = genCodInterno()
     const visitorFirstName =
       (guest_name || "Visitante").split(" ")[0]
 
     const msg2 =
-      `🚪\n` +
-      `${condoNome}\n` +
+      `🚪 ${condoNome}\n` +
       `\n` +
       `Olá, ${visitorFirstName}! 👋\n` +
       `\n` +
-      `O(a) morador(a) ${perfil.nome_completo || residentFirstName} acabou de autorizar a sua entrada no condomínio.\n` +
+      `O(a) morador(a) ${perfil.nome_completo || residentFirstName} registrou uma autorização de entrada para você no condomínio:\n` +
       `\n` +
-      `📅 Data da visita: ${visitDate}\n` +
+      `Tipo: ${tipoText}\n` +
+      `Data: ${visitDate}\n` +
       `\n` +
-      `🔑 Código de autorização: ${shortCode}\n` +
+      `Ao chegar na portaria, informe seu nome e apresente este código:\n` +
+      `🔑 ${shortCode}\n` +
       `\n` +
-      `👉 Ao chegar na portaria, informe seu nome e o código acima para liberar a entrada.\n` +
-      `\n` +
-      `Condomeet agradece sua colaboração.\n` +
-      `cód interno: ${codInterno2}`
+      `Condomeet agradece sua colaboração.`
 
     sentVisitor = await sendWhatsApp(
       botconversaApiKey,
       null,
       phone,
       msg2,
-      (guest_name || "Visitante").split(" ")[0]
+      (guest_name || "Visitante").split(" ")[0],
+      undefined,
+      undefined,
+      MessageType.VISITOR_INVITE,
+      [
+        condoNome,
+        perfil.nome_completo || residentFirstName,
+        visitorFirstName,
+        tipoText,
+        visitDate,
+        shortCode
+      ]
     )
     console.log(
       `Msg2 (visitor ${guest_name}): ${sentVisitor ? "✅" : "❌"}`
@@ -503,25 +524,23 @@ async function handlePortariaCreated(
       }
 
       // Get FCM tokens: from specific resident or all unit residents
-      let fcmTargets: { id: string; fcm_token: string }[] = []
+      let fcmTargets: { id: string; fcm_token?: string }[] = []
 
       if (resident_id && resident_id.trim() !== "") {
         const { data: rp } = await supabase
           .from("perfil")
-          .select("id, fcm_token")
+          .select("id")
           .eq("id", resident_id)
-          .not("fcm_token", "is", null)
           .maybeSingle()
-        if (rp?.fcm_token) fcmTargets = [rp]
+        if (rp) fcmTargets = [rp]
       } else {
         const { data: unitResidents2 } = await supabase
           .from("perfil")
-          .select("id, fcm_token")
+          .select("id")
           .eq("condominio_id", condominio_id)
           .eq("bloco_txt", bloco_destino)
           .eq("apto_txt", apto_destino)
-          .not("fcm_token", "is", null)
-        fcmTargets = (unitResidents2 ?? []).filter((r: any) => r.fcm_token && r.fcm_token.length > 10)
+        fcmTargets = unitResidents2 ?? []
       }
 
       const fcmPromises = fcmTargets.map(async (target) => {
@@ -573,7 +592,17 @@ async function handlePortariaCreated(
         `Condomeet agradece!\n` +
         `Cod. int: ${codInterno}`
 
-      const sent = await sendWhatsApp(botconversaApiKey, perfil.botconversa_id, cleanPhone(perfil.whatsapp), msg1, residentName, supabase, perfil.id)
+      const sent = await sendWhatsApp(
+        botconversaApiKey,
+        perfil.botconversa_id,
+        cleanPhone(perfil.whatsapp),
+        msg1,
+        residentName,
+        supabase,
+        perfil.id,
+        MessageType.VISITOR_INVITE,
+        [condoNome, residentName, guest_name || "Visitante", tipoVisitante || "Visitante", visitDate, shortCode]
+      )
       results.push(`Msg1 resident ${resident_id}: ${sent ? "✅" : "❌"}`)
     } else {
       results.push(`Msg1 skipped: no whatsapp for ${resident_id}`)
@@ -625,7 +654,17 @@ async function handlePortariaCreated(
           const delay = 200
           await new Promise((resolve) => setTimeout(resolve, delay))
         }
-        const sent = await sendWhatsApp(botconversaApiKey, r.botconversa_id, cleanPhone(r.whatsapp), msg2, undefined, supabase, r.id)
+        const sent = await sendWhatsApp(
+          botconversaApiKey,
+          r.botconversa_id,
+          cleanPhone(r.whatsapp),
+          msg2,
+          undefined,
+          supabase,
+          r.id,
+          MessageType.VISITOR_INVITE,
+          [condoNome, r.nome_completo || "Morador", guest_name || "Visitante", tipoVisitante || "Visitante", visitDate, shortCode]
+        )
         results.push(`Msg2 resident ${r.id}: ${sent ? "✅" : "❌"}`)
       }
     }
@@ -682,7 +721,17 @@ async function handlePortariaCreated(
       `Condomeet agradece!\n` +
       `Cod int ${codInterno3}`
 
-    sentVisitor = await sendWhatsApp(botconversaApiKey, null, phone, msg3, (guest_name || "Visitante").split(" ")[0])
+    sentVisitor = await sendWhatsApp(
+      botconversaApiKey,
+      null,
+      phone,
+      msg3,
+      (guest_name || "Visitante").split(" ")[0],
+      undefined,
+      undefined,
+      MessageType.VISITOR_INVITE,
+      [condoNome, moradorNome || "Morador", visitorFirstName, tipoVisitante || "Visitante", visitDate, shortCode]
+    )
     results.push(`Msg3 visitor ${guest_name}: ${sentVisitor ? "✅" : "❌"}`)
   }
 
@@ -741,13 +790,13 @@ async function handleEntryReleased(
   const results: string[] = []
 
   // ── Resolve recipients ─────────────────────────────────────────────
-  let recipients: { id: string; nome_completo: string; whatsapp: string; botconversa_id: string; fcm_token: string | null }[] = []
+  let recipients: { id: string; nome_completo: string; whatsapp: string; botconversa_id: string }[] = []
 
   if (isPortariaSemId) {
     // Portaria without identification → notify ALL unit residents
     const { data: unitResidents } = await supabase
       .from("perfil")
-      .select("id, nome_completo, whatsapp, botconversa_id, fcm_token")
+      .select("id, nome_completo, whatsapp, botconversa_id")
       .eq("condominio_id", condominio_id)
       .eq("bloco_txt", bloco_destino)
       .eq("apto_txt", apto_destino)
@@ -759,7 +808,7 @@ async function handleEntryReleased(
     // Identified resident
     const { data: perfil } = await supabase
       .from("perfil")
-      .select("id, nome_completo, whatsapp, botconversa_id, fcm_token, notificacoes_whatsapp")
+      .select("id, nome_completo, whatsapp, botconversa_id, notificacoes_whatsapp")
       .eq("id", resident_id)
       .single()
 
@@ -843,7 +892,17 @@ async function handleEntryReleased(
       `Condomeet agradece sua colaboração.\n` +
       `Cód interno: ${codInterno}`
 
-    const sent = await sendWhatsApp(botconversaApiKey, r.botconversa_id, cleanPhone(r.whatsapp), msg, firstName, supabase, r.id)
+    const sent = await sendWhatsApp(
+      botconversaApiKey,
+      r.botconversa_id,
+      cleanPhone(r.whatsapp),
+      msg,
+      firstName,
+      supabase,
+      r.id,
+      MessageType.VISITOR_AUTHORIZED,
+      [condoNome, firstName, guestDisplayName, shortCode]
+    )
     results.push(`WhatsApp ${r.id}: ${sent ? "✅" : "❌"}`)
   }
 
@@ -868,7 +927,17 @@ async function handleEntryReleased(
       `Condomeet agradece.\n` +
       `Cód interno ${codInterno2}`
 
-    const sentVisitor = await sendWhatsApp(botconversaApiKey, null, phone, msgVisitor, visitorFirstName)
+    const sentVisitor = await sendWhatsApp(
+      botconversaApiKey,
+      null,
+      phone,
+      msgVisitor,
+      visitorFirstName,
+      undefined,
+      undefined,
+      MessageType.VISITOR_AUTHORIZED,
+      [condoNome, residentName, visitorFirstName, shortCode]
+    )
     results.push(`WhatsApp visitor: ${sentVisitor ? "✅" : "❌"}`)
   }
 
@@ -930,10 +999,10 @@ Deno.serve(async (req) => {
       )
     }
 
-    const supabase = createClient(
-      Deno.env.get("SUPABASE_URL")!,
-      Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
-    )
+    const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") || Deno.env.get("SERVICE_ROLE_KEY") || ""
+    const supabaseUrl = Deno.env.get("SUPABASE_URL") || ""
+
+    const supabase = createClient(supabaseUrl, serviceRoleKey)
 
     // ── Route by action ────────────────────────────────────────────
     if (action === "portaria_created") {

@@ -434,6 +434,9 @@ class _DarBaixaSheetState extends State<_DarBaixaSheet> {
     _sigCtrl.addListener(() {
       if (_sigCtrl.isNotEmpty && !_hasSigned) setState(() => _hasSigned = true);
     });
+    _thirdPartyCtrl.addListener(() {
+      if (mounted) setState(() {});
+    });
     _loadResidents();
   }
 
@@ -453,6 +456,7 @@ class _DarBaixaSheetState extends State<_DarBaixaSheet> {
           .eq('bloco_txt', widget.parcel.block)
           .eq('apto_txt', widget.parcel.unitNumber)
           .neq('papel_sistema', 'portaria')
+          .neq('papel_sistema', 'Admin')
           .eq('status_aprovacao', 'aprovado')
           .neq('bloqueado', true);
       setState(() {
@@ -464,8 +468,13 @@ class _DarBaixaSheetState extends State<_DarBaixaSheet> {
     }
   }
 
-  // Recipient selection is optional — condominium decides if it's required.
-  bool get _canConfirm => true;
+  bool get _canConfirm {
+    if (_isThirdParty) {
+      return _thirdPartyCtrl.text.trim().isNotEmpty;
+    } else {
+      return _selectedResidentId != null && _selectedResidentId!.isNotEmpty;
+    }
+  }
 
   /// Uploads the signature PNG to Supabase Storage and returns its public URL.
   Future<String?> _uploadSignature() async {
@@ -607,6 +616,8 @@ class _DarBaixaSheetState extends State<_DarBaixaSheet> {
                           _selectedResidentId = val;
                           _selectedResidentName = _residents
                               .firstWhere((r) => r['id'] == val)['nome_completo'] as String?;
+                          _isThirdParty = false;
+                          _thirdPartyCtrl.clear();
                         });
                       },
                     ),
@@ -620,7 +631,12 @@ class _DarBaixaSheetState extends State<_DarBaixaSheet> {
                   value: _isThirdParty,
                   onChanged: (v) => setState(() {
                     _isThirdParty = v ?? false;
-                    if (_isThirdParty) _selectedResidentId = null;
+                    if (_isThirdParty) {
+                      _selectedResidentId = null;
+                      _selectedResidentName = null;
+                    } else {
+                      _thirdPartyCtrl.clear();
+                    }
                   }),
                   activeColor: AppColors.primary,
                 ),

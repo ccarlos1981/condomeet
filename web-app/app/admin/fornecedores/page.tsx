@@ -1,6 +1,7 @@
 import { createClient } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
 import FornecedoresClient from './fornecedores-client'
+import { isAdminRole } from '@/lib/roles'
 
 export const metadata = {
   title: 'Fornecedores - Condomeet',
@@ -25,10 +26,7 @@ export default async function FornecedoresPage() {
     redirect('/condo')
   }
 
-  const r = profile.papel_sistema?.toLowerCase() || ''
-  const isAdmin = r.includes('síndico') || r.includes('sindico') || r.includes('admin')
-
-  if (!isAdmin) {
+  if (!isAdminRole(profile.papel_sistema)) {
     // Only admins/sindicos can access Fornecedores
     redirect('/condo')
   }

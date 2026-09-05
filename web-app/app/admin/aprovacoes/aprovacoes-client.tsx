@@ -13,6 +13,7 @@ type Profile = {
   apto_txt: string | null
   status_aprovacao: string | null
   papel_sistema: string | null
+  tipo_morador?: string | null
   created_at: string
   email: string | null
   whatsapp: string | null
@@ -32,7 +33,7 @@ export default function AprovacoesClient({ profiles, tipoEstrutura }: { profiles
   const blocoLabel = getBlocoLabel(tipoEstrutura)
   const aptoLabel = getAptoLabel(tipoEstrutura)
 
-  const blocos = Array.from(new Set(profiles.map(p => p.bloco_txt).filter(Boolean) as string[]))
+  const blocos = Array.from(new Set(profiles.map(p => p.bloco_txt).filter(b => Boolean(b) && b !== 'Admin') as string[]))
   blocos.sort((a, b) => a.localeCompare(b, undefined, { numeric: true }))
 
   const aptos = Array.from(new Set(
@@ -207,7 +208,11 @@ export default function AprovacoesClient({ profiles, tipoEstrutura }: { profiles
                       )}
                       {p.bloco_txt && (
                         <span className="text-xs text-gray-500">
-                          🏠 {blocoLabel} {p.bloco_txt}{p.apto_txt ? ` / ${aptoLabel} ${p.apto_txt}` : ''}
+                          {p.papel_sistema === 'Admin' || p.bloco_txt === 'Admin' ? (
+                            '🔐 Identidade Administrativa'
+                          ) : (
+                            `🏠 ${blocoLabel} ${p.bloco_txt}${p.apto_txt ? ` / ${aptoLabel} ${p.apto_txt}` : ''}`
+                          )}
                         </span>
                       )}
                       <span className="text-xs text-gray-400 flex items-center gap-1">

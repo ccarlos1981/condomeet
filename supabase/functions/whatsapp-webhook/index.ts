@@ -1,4 +1,5 @@
 import { createClient } from "npm:@supabase/supabase-js@2"
+import { dispatchSupportInboundAlert } from "../_shared/support_alert.ts"
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -111,7 +112,24 @@ Deno.serve(async (req) => {
               for (const message of value.messages) {
                 const from = message.from
                 const text = message.text?.body || ""
-                console.log(`[Webhook] Incoming message from ${from}: ${text}`)
+                const wamid = message.id || null
+                console.log(`[Webhook] Incoming message from ${from} (wamid=${wamid}): ${text}`)
+
+                // Idempotência Meta: se o wamid já foi processado como received, pular duplicata
+                if (wamid) {
+                  const { data: existingInbound } = await supabase
+                    .from("whatsapp_outbox")
+                    .select("id")
+                    .eq("delivery_result->>provider_message_id", wamid)
+                    .eq("status", "received")
+                    .limit(1)
+                    .maybeSingle()
+
+                  if (existingInbound) {
+                    console.log(`[Webhook] Idempotência Meta: mensagem wamid=${wamid} já processada. Ignorando retry.`)
+                    continue
+                  }
+                }
                 
                 // Audit incoming message
                 try {
@@ -148,19 +166,50 @@ Deno.serve(async (req) => {
                       .eq("id", matchedPerfil.id)
                   }
 
-                  // Gravar a mensagem de entrada no whatsapp_outbox com status = received
+                  // Gravar a mensagem de entrada no whatsapp_outbox via RPC Canônica Inbound
                   const firstName = matchedPerfil?.nome_completo ? matchedPerfil.nome_completo.split(" ")[0] : "Morador"
-                  await supabase.from("whatsapp_outbox").insert({
-                    recipient_phone: from,
-                    payload_type: "text",
-                    message_type: "RESPOSTA_MORADOR",
-                    message_content: { value: text, firstName },
-                    status: "received",
-                    perfil_id: matchedPerfil?.id || null,
-                    condominio_id: matchedPerfil?.condominio_id || null,
-                    sent_at: new Date().toISOString(),
-                    message_hash: "received_" + from + "_" + Date.now() + "_" + Math.random().toString(36).substring(2, 7)
+                  const { data: outboxId, error: inboundErr } = await supabase.rpc("record_whatsapp_incoming_message", {
+                    p_recipient_phone: from,
+                    p_message_text: text,
+                    p_first_name: firstName,
+                    p_perfil_id: matchedPerfil?.id || null,
+                    p_condominio_id: matchedPerfil?.condominio_id ? String(matchedPerfil.condominio_id) : null
                   })
+
+                  if (inboundErr) {
+                    console.error("[Webhook] Failed to record incoming message via RPC:", inboundErr.message)
+                  } else {
+                    // Enriquecer delivery_result com metadados do provedor META para rastreabilidade e idempotência
+                    if (outboxId && wamid) {
+                      try {
+                        await supabase
+                          .from("whatsapp_outbox")
+                          .update({
+                            delivery_result: {
+                              provider: "META_CLOUD_API",
+                              provider_message_id: wamid,
+                              received_at: new Date().toISOString()
+                            }
+                          })
+                          .eq("id", outboxId)
+                      } catch (metaUpdateErr: any) {
+                        console.warn("[Webhook] Aviso ao atualizar delivery_result Meta:", metaUpdateErr.message)
+                      }
+                    }
+
+                    // Disparar Alerta Interno de Suporte (Fase 4.24.25)
+                    try {
+                      await dispatchSupportInboundAlert({
+                        supabase,
+                        senderPhone: from,
+                        inboundOutboxId: outboxId ? String(outboxId) : null,
+                        providerMessageId: wamid,
+                        callerFunction: "whatsapp-webhook"
+                      })
+                    } catch (alertErr: any) {
+                      console.error("[Webhook] Erro ao disparar alerta de suporte:", alertErr.message)
+                    }
+                  }
                 } catch (e: any) {
                   console.error("[Webhook] Failed to process incoming message and update window:", e.message)
                 }

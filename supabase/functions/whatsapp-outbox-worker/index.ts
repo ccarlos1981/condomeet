@@ -1,5 +1,6 @@
 import { createClient } from "npm:@supabase/supabase-js@2"
 import { renderTemplateText } from "../_shared/template_renderer.ts"
+import { validateWhatsAppSendPolicy, getMessageFallbackWindow, getMessageTTL, calculateWarmupRoute, getDeterministicPartition, sendViaEvolution } from "../_shared/botconversa.ts"
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -9,7 +10,8 @@ const corsHeaders = {
 
 const BOTCONVERSA_BASE_URL = "https://backend.botconversa.com.br/api/v1/webhook"
 const META_API_BASE_URL = "https://graph.facebook.com/v21.0"
-const PROVIDER_DWELL_TIME_MS = 15 * 60 * 1000 // 15 minutes minimum on fallback provider
+const BOTCONVERSA_TIMEOUT_MS = 30000 // 30s timeout para BotConversa (permite fluxo de 2 etapas: resolve + send)
+const META_TIMEOUT_MS = 15000        // 15s timeout para Meta Cloud API (Graph API)
 
 interface CallResult {
   success: boolean
@@ -17,27 +19,11 @@ interface CallResult {
   body?: string
   error?: string
   isPermanent: boolean
+  providerMessageId?: string
   subscriberId?: string
 }
 
-interface MessageProviderRuntime {
-  active_provider: string
-  fallback_provider: string
-  botconversa_enabled: boolean
-  cloud_api_enabled: boolean
-  automatic_failover_enabled: boolean
-  last_provider_change_at: string
-  last_provider_change_reason: string | null
-  manual_override: boolean
-  manual_provider: string | null
-}
-
-interface ProviderDecision {
-  provider: "BOTCONVERSA" | "META_CLOUD_API"
-  reason: string
-}
-
-// Helper to make fetch calls with strict 30s timeout and AbortController
+// Helper to make fetch calls with strict timeout and AbortController
 async function fetchWithTimeout(
   url: string,
   options: RequestInit,
@@ -86,7 +72,7 @@ async function resolveSubscriber(
       "API-KEY": apiKey,
     },
     body: JSON.stringify(body),
-  })
+  }, BOTCONVERSA_TIMEOUT_MS)
 
   if (res.timedOut) {
     return { success: false, status: 408, error: "Network Timeout (30s) na resolucao do contato", isPermanent: false }
@@ -111,7 +97,7 @@ async function resolveSubscriber(
 }
 
 // Dispatches direct message send to BotConversa
-async function sendMessage(
+async function sendMessageToBotConversa(
   apiKey: string,
   subscriberId: string,
   type: string,
@@ -119,14 +105,50 @@ async function sendMessage(
 ): Promise<CallResult> {
   const url = `${BOTCONVERSA_BASE_URL}/subscriber/${encodeURIComponent(subscriberId)}/send_message/`
   
-  // Rewrite PNG to JPEG if needed, parse JSON for interactive buttons
+  let finalType = type
   let finalValue: any = value
+
   if (type === "file" && typeof value === "string" && value.toLowerCase().endsWith(".png")) {
     finalValue = value.replace(/\.png$/i, ".jpeg")
-  } else if (type === "interactive" && typeof value === "string") {
-    try {
-      finalValue = JSON.parse(value)
-    } catch (_) {}
+  } else if (type === "interactive") {
+    finalType = "text"
+    let parsed: any = null
+    if (typeof value === "string") {
+      try {
+        parsed = JSON.parse(value)
+      } catch (_) {
+        parsed = null
+      }
+    } else if (typeof value === "object" && value !== null) {
+      parsed = value
+    }
+
+    if (parsed) {
+      const headerText = parsed.header?.text ? `*${parsed.header.text}*\n\n` : ""
+      const bodyText = parsed.body?.text || (typeof value === "string" ? value : "")
+      const footerText = parsed.footer?.text ? `\n\n_${parsed.footer.text}_` : ""
+      
+      let buttonsPrompt = ""
+      if (Array.isArray(parsed.action?.buttons) && parsed.action.buttons.length > 0) {
+        const buttonsList = parsed.action.buttons.map((b: any, idx: number) => {
+          const title = b.reply?.title || b.title || `Opção ${idx + 1}`
+          const icon = idx === 0 ? "1️⃣" : (idx === 1 ? "2️⃣" : "🔹")
+          return `${icon} *${title}*`
+        }).join("\n")
+        
+        buttonsPrompt = `\n\nResponda com:\n${buttonsList}`
+      } else {
+        buttonsPrompt = `\n\nResponda com:\n1️⃣ *APROVAR* — para autorizar a entrada\n2️⃣ *RECUSAR* — para recusar a entrada`
+      }
+
+      if (bodyText.includes("Responda com:") || bodyText.includes("1️⃣")) {
+        finalValue = `${headerText}${bodyText}${footerText}`.trim()
+      } else {
+        finalValue = `${headerText}${bodyText}${buttonsPrompt}${footerText}`.trim()
+      }
+    } else {
+      finalValue = typeof value === "string" ? value : JSON.stringify(value)
+    }
   }
 
   const res = await fetchWithTimeout(url, {
@@ -135,8 +157,8 @@ async function sendMessage(
       "Content-Type": "application/json",
       "API-KEY": apiKey,
     },
-    body: JSON.stringify({ type, value: finalValue }),
-  })
+    body: JSON.stringify({ type: finalType, value: finalValue }),
+  }, BOTCONVERSA_TIMEOUT_MS)
 
   if (res.timedOut) {
     return { success: false, status: 408, error: "Network Timeout (30s) no envio da mensagem", isPermanent: false }
@@ -193,7 +215,6 @@ async function sendViaMetaCloudAPI(
       payload.type = "document"
       payload.document = { link: messageContent }
     } else {
-      // Default to document for unknown file types
       payload.type = "document"
       payload.document = { link: messageContent }
     }
@@ -216,10 +237,10 @@ async function sendViaMetaCloudAPI(
       "Authorization": `Bearer ${accessToken}`,
     },
     body: JSON.stringify(payload),
-  })
+  }, META_TIMEOUT_MS)
 
   if (res.timedOut) {
-    return { success: false, status: 408, error: "Network Timeout (30s) no envio via Meta Cloud API", isPermanent: false }
+    return { success: false, status: 408, error: "Network Timeout (15s) no envio via Meta Cloud API", isPermanent: false }
   }
 
   if (!res.ok) {
@@ -228,230 +249,6 @@ async function sendViaMetaCloudAPI(
   }
 
   return { success: true, status: res.status, body: res.text, isPermanent: false }
-}
-
-// Determines which provider should handle the current message
-function resolveProvider(
-  providerRuntime: MessageProviderRuntime,
-  metaCredentialsAvailable: boolean
-): ProviderDecision {
-  // Priority 1: Manual override (operator control)
-  if (providerRuntime.manual_override && providerRuntime.manual_provider) {
-    const provider = providerRuntime.manual_provider as "BOTCONVERSA" | "META_CLOUD_API"
-    if (provider === "META_CLOUD_API" && !metaCredentialsAvailable) {
-      console.warn("[Provider] Manual override para META_CLOUD_API mas credentials ausentes. Fallback para BOTCONVERSA.")
-      return { provider: "BOTCONVERSA", reason: "manual_override=META mas credentials Meta ausentes" }
-    }
-    return { provider, reason: `manual_override=${provider}` }
-  }
-
-  // Priority 2: Automatic failover disabled — use active_provider from table (default config)
-  if (!providerRuntime.automatic_failover_enabled) {
-    const activeProvider = providerRuntime.active_provider as "BOTCONVERSA" | "META_CLOUD_API"
-    if (activeProvider === "META_CLOUD_API" && !metaCredentialsAvailable) {
-      return { provider: "BOTCONVERSA", reason: "active_provider=META mas credentials Meta ausentes (failover desativado)" }
-    }
-    return { provider: activeProvider, reason: "automatic_failover_enabled=false" }
-  }
-
-  // Priority 3: Automatic failover enabled — use active_provider from table
-  const activeProvider = providerRuntime.active_provider as "BOTCONVERSA" | "META_CLOUD_API"
-  if (activeProvider === "META_CLOUD_API" && !metaCredentialsAvailable) {
-    console.warn("[Provider] active_provider=META_CLOUD_API mas credentials ausentes. Fallback para BOTCONVERSA.")
-    return { provider: "BOTCONVERSA", reason: "active_provider=META mas credentials Meta ausentes" }
-  }
-
-  return { provider: activeProvider, reason: `active_provider=${activeProvider}` }
-}
-
-// Evaluates whether a provider failover should occur after a send failure
-async function evaluateFailover(
-  supabase: any,
-  runtime: any,
-  providerRuntime: MessageProviderRuntime,
-  failureResult: CallResult,
-  currentProvider: string
-): Promise<{ breakLoop: boolean }> {
-  const nowStr = new Date().toISOString()
-  const newFailures = runtime.consecutive_failures + 1
-  const thresholdReached = newFailures >= runtime.failure_threshold
-
-  if (!thresholdReached) {
-    // Below threshold — just increment failures
-    await supabase
-      .from("whatsapp_runtime")
-      .update({
-        consecutive_failures: newFailures,
-        last_failure_at: nowStr,
-        last_reason: `${currentProvider}: ${failureResult.error}`,
-      })
-      .eq("id", "singleton")
-    return { breakLoop: false }
-  }
-
-  // Threshold reached
-  if (!providerRuntime.automatic_failover_enabled) {
-    // Failover disabled — open Circuit Breaker and pause (original behavior)
-    console.error(`[Failover] Threshold atingido (${newFailures}/${runtime.failure_threshold}). Failover desabilitado. Abrindo Circuit Breaker.`)
-    await supabase
-      .from("whatsapp_runtime")
-      .update({
-        consecutive_failures: newFailures,
-        circuit_state: "OPEN",
-        last_failure_at: nowStr,
-        last_reason: `${currentProvider}: ${failureResult.error}`,
-        state_changed_at: nowStr,
-      })
-      .eq("id", "singleton")
-
-    // Audit: blocked failover
-    try {
-      await supabase.from("botconversa_monitoring").insert({
-        action_type: "PROVIDER_FAILOVER_BLOCKED",
-        recipient_phone: "system",
-        error_message: `Threshold atingido (${newFailures} falhas). automatic_failover_enabled=false. Circuit Breaker OPEN.`,
-        function_name: "whatsapp-outbox-worker",
-        delivery_status: "PROVIDER_FAILOVER_BLOCKED"
-      })
-    } catch (_) {}
-
-    return { breakLoop: true }
-  }
-
-  // Failover enabled — swap provider
-  const newProvider = providerRuntime.fallback_provider
-  console.warn(`[Failover] Threshold atingido (${newFailures}/${runtime.failure_threshold}). FAILOVER: ${currentProvider} → ${newProvider}`)
-
-  // Update provider routing
-  await supabase
-    .from("message_provider_runtime")
-    .update({
-      active_provider: newProvider,
-      last_provider_change_at: nowStr,
-      last_provider_change_reason: `Auto-failover: ${newFailures} falhas consecutivas em ${currentProvider}. Erro: ${failureResult.error}`,
-    })
-    .eq("id", "singleton")
-
-  // Reset circuit breaker and failures for the new provider
-  await supabase
-    .from("whatsapp_runtime")
-    .update({
-      consecutive_failures: 0,
-      circuit_state: "CLOSED",
-      last_failure_at: nowStr,
-      last_reason: `Failover: ${currentProvider} → ${newProvider}`,
-      state_changed_at: nowStr,
-    })
-    .eq("id", "singleton")
-
-  // Audit: provider failover
-  try {
-    await supabase.from("botconversa_monitoring").insert({
-      action_type: "PROVIDER_FAILOVER",
-      recipient_phone: "system",
-      error_message: `FAILOVER: ${currentProvider} → ${newProvider}. Motivo: ${newFailures} falhas consecutivas. Ultimo erro: ${failureResult.error}`,
-      function_name: "whatsapp-outbox-worker",
-      delivery_status: "PROVIDER_FAILOVER"
-    })
-  } catch (_) {}
-
-  return { breakLoop: false } // Continue processing via new provider
-}
-
-// Evaluates whether recovery to primary provider should occur after a successful send
-async function evaluateRecovery(
-  supabase: any,
-  runtime: any,
-  providerRuntime: MessageProviderRuntime,
-  currentProvider: string
-): Promise<void> {
-  const nowStr = new Date().toISOString()
-
-  // Se o provedor que enviou com sucesso não for o fallback (ou seja, é o primário), apenas resetamos falhas
-  if (currentProvider !== providerRuntime.fallback_provider) {
-    if (runtime.circuit_state !== "CLOSED" || runtime.consecutive_failures > 0) {
-      await supabase
-        .from("whatsapp_runtime")
-        .update({
-          circuit_state: "CLOSED",
-          consecutive_failures: 0,
-          state_changed_at: nowStr,
-        })
-        .eq("id", "singleton")
-    }
-    return
-  }
-
-  // Estamos no fallback_provider (em contingência) — avaliar retorno ao primário (o oposto do fallback)
-  if (runtime.consecutive_failures > 0) {
-    await supabase
-      .from("whatsapp_runtime")
-      .update({
-        consecutive_failures: 0,
-        state_changed_at: nowStr,
-      })
-      .eq("id", "singleton")
-  }
-
-  // Gate 1: Dwell time — mínimo 15 minutos no fallback provider
-  const timeSinceFailover = Date.now() - new Date(providerRuntime.last_provider_change_at).getTime()
-  if (timeSinceFailover < PROVIDER_DWELL_TIME_MS) {
-    const remainingMin = Math.round((PROVIDER_DWELL_TIME_MS - timeSinceFailover) / 60000)
-    console.log(`[Recovery] Dwell time ativo. ${remainingMin}min restantes antes de tentar retorno ao provedor primário.`)
-    return
-  }
-
-  const primaryProvider = providerRuntime.fallback_provider === "BOTCONVERSA" ? "META_CLOUD_API" : "BOTCONVERSA"
-
-  // Gate 2: Saúde do primário (só se o primário for BOTCONVERSA, pois a Meta Cloud API é baseada em nuvem e não tem celular desconectado)
-  if (primaryProvider === "BOTCONVERSA") {
-    const { data: health } = await supabase
-      .from("whatsapp_health_status")
-      .select("whatsapp_connection_status")
-      .eq("id", "singleton")
-      .single()
-
-    const connectionStatus = health?.whatsapp_connection_status || "unknown"
-    if (connectionStatus !== "connected") {
-      console.log(`[Recovery] BotConversa (provedor primário) ainda desconectado (status: ${connectionStatus}). Mantendo fallback.`)
-      return
-    }
-  }
-
-  // Gate 3: Circuit breaker must not be OPEN
-  const { data: currentRuntime } = await supabase
-    .from("whatsapp_runtime")
-    .select("circuit_state")
-    .eq("id", "singleton")
-    .single()
-
-  if (currentRuntime?.circuit_state === "OPEN") {
-    console.log("[Recovery] Circuit breaker ainda OPEN. Mantendo fallback.")
-    return
-  }
-
-  // All gates passed — recover to primary provider
-  console.log(`[Recovery] Todos os gates passaram. RECOVERY: ${currentProvider} → ${primaryProvider}`)
-
-  await supabase
-    .from("message_provider_runtime")
-    .update({
-      active_provider: primaryProvider,
-      last_provider_change_at: nowStr,
-      last_provider_change_reason: `Auto-recovery: ${primaryProvider} saudavel após dwell time de ${Math.round(PROVIDER_DWELL_TIME_MS / 60000)}min`,
-    })
-    .eq("id", "singleton")
-
-  // Audit: provider recovery
-  try {
-    await supabase.from("botconversa_monitoring").insert({
-      action_type: "PROVIDER_RECOVERY",
-      recipient_phone: "system",
-      error_message: `RECOVERY: ${currentProvider} → ${primaryProvider}. Provedor primário saudável após dwell time.`,
-      function_name: "whatsapp-outbox-worker",
-      delivery_status: "PROVIDER_RECOVERY"
-    })
-  } catch (_) {}
 }
 
 Deno.serve(async (req) => {
@@ -502,10 +299,17 @@ Deno.serve(async (req) => {
     })
   }
 
-  // Meta Cloud API credentials (optional — failover disabled if absent)
+  // Meta Cloud API credentials (used as in-flight fallback)
   const META_ACCESS_TOKEN = Deno.env.get("WHATSAPP_ACCESS_TOKEN") || null
   const META_PHONE_NUMBER_ID = Deno.env.get("WHATSAPP_PHONE_NUMBER_ID") || null
   const metaCredentialsAvailable = !!META_ACCESS_TOKEN && !!META_PHONE_NUMBER_ID
+
+  // Evolution API credentials & Feature Flags (FASE 4.26 — WELCOME 100% BotConversa / Evolution suspensa)
+  const EVOLUTION_WELCOME_PILOT_ENABLED = Deno.env.get("EVOLUTION_WELCOME_PILOT_ENABLED") === "true"
+  const EVOLUTION_WELCOME_PERCENTAGE = parseInt(Deno.env.get("EVOLUTION_WELCOME_PERCENTAGE") || "0", 10)
+  const EVOLUTION_API_URL = Deno.env.get("EVOLUTION_API_URL") || "https://evolution.condomeet.com.br"
+  const EVOLUTION_API_KEY = Deno.env.get("EVOLUTION_API_KEY") || ""
+  const EVOLUTION_INSTANCE = Deno.env.get("EVOLUTION_INSTANCE") || "condomeet-secundario-prod"
 
   // 1. Acquire Database Lease Lock (PgBouncer compatible, crash resilient)
   const { data: leaseAcquired } = await supabase.rpc("acquire_worker_lease", {
@@ -521,7 +325,7 @@ Deno.serve(async (req) => {
     })
   }
 
-  console.log(`[Worker] Lease Lock obtido para lease=${leaseId}. Iniciando processamento. Instance: ${instanceId}`)
+  console.log(`[Worker] Lease Lock obtido para lease=${leaseId}. Iniciando processamento BotConversa First. Instance: ${instanceId}`)
 
   const renewLease = async (): Promise<boolean> => {
     try {
@@ -534,7 +338,6 @@ Deno.serve(async (req) => {
         console.error(`[Lease] Falha ao renovar lease lock para instance=${instanceId} lease=${leaseId}:`, error || "Lock expirou ou foi tomado por outra instancia.")
         return false
       }
-      console.log(`[Lease] Lease lock renovado com sucesso para instance=${instanceId} lease=${leaseId}`)
       return true
     } catch (err) {
       console.error(`[Lease] Excecao ao renovar lease:`, err)
@@ -543,52 +346,22 @@ Deno.serve(async (req) => {
   };
 
   try {
-    // 2.5 Carregar pilotos de rollout ativos do banco
-    const pilotMap = new Map<string, string>()
-    try {
-      const { data: pilots } = await supabase
-        .from("whatsapp_pilot_rollout")
-        .select("condominio_id, current_stage")
-        .eq("is_active", true)
-      
-      if (pilots) {
-        for (const p of pilots) {
-          pilotMap.set(p.condominio_id, p.current_stage)
-        }
-        console.log(`[Worker] Carregados ${pilotMap.size} pilotos de rollout ativos.`)
-      }
-    } catch (pilotErr: any) {
-      console.error("[Worker] Erro ao carregar whatsapp_pilot_rollout:", pilotErr.message)
-    }
+    // 2. O auto-recovery atômico e seguro é executado de forma transacional e protegida
+    // diretamente dentro da RPC public.claim_single_whatsapp_message, evitando colisões 23505.
 
-    // 3. Auto-recover messages stuck in "sending" status for > 2 minutes
-    const twoMinutesAgo = new Date(Date.now() - 2 * 60 * 1000).toISOString()
-    const { count: recoveredCount } = await supabase
-      .from("whatsapp_outbox")
-      .update({
-        status: "pending",
-        error_message: "Recuperado: expirou timeout de 2 minutos no status sending",
-      })
-      .eq("status", "sending")
-      .lt("processing_started_at", twoMinutesAgo)
-
-    if (recoveredCount && recoveredCount > 0) {
-      console.log(`[Worker] Recuperadas ${recoveredCount} mensagens presas no status 'sending'.`)
-    }
-
-    // 4. Processing Loop (Unitary claim-send-commit)
+    // 3. Processing Loop (Unitary claim-send-commit)
     while (true) {
-      // 4a-1. Renew Lease Lock before processing
+      // 3a. Renew Lease Lock before claiming
       const leaseOkBefore = await renewLease()
       if (!leaseOkBefore) {
         console.log("[Worker] Nao foi possivel renovar o Lease Lock. Finalizando loop.")
         break
       }
 
-      // 4a. Read configuration and operational limits
+      // 3b. Read runtime configuration
       const { data: runtime, error: runtimeErr } = await supabase
         .from("whatsapp_runtime")
-        .select("*")
+        .select("operational_mode, circuit_state")
         .eq("id", "singleton")
         .single()
 
@@ -602,158 +375,7 @@ Deno.serve(async (req) => {
         break
       }
 
-      // 4a-3. Read provider routing configuration
-      const { data: providerRuntime, error: providerErr } = await supabase
-        .from("message_provider_runtime")
-        .select("*")
-        .eq("id", "singleton")
-        .single()
-
-      if (providerErr || !providerRuntime) {
-        console.error("[Worker] Erro ao carregar message_provider_runtime:", providerErr)
-        break
-      }
-
-      // 4a-4. Resolve provider for current loop iteration
-      let decision = resolveProvider(providerRuntime as MessageProviderRuntime, metaCredentialsAvailable)
-
-      // 4a-2. Check BotConversa connection status (only relevant if BotConversa is the active provider)
-      const isBotConversaActive = decision.provider === "BOTCONVERSA"
-      let connectionStatus = "connected"
-
-      if (isBotConversaActive) {
-        const { data: health, error: healthErr } = await supabase
-          .from("whatsapp_health_status")
-          .select("whatsapp_connection_status")
-          .eq("id", "singleton")
-          .single()
-
-        if (healthErr) {
-          console.error("[Worker] Erro ao carregar whatsapp_health_status:", healthErr)
-        }
-
-        connectionStatus = health?.whatsapp_connection_status || "connected"
-        
-        if (connectionStatus !== "connected") {
-          // Check if automatic failover can handle this
-          if (providerRuntime.automatic_failover_enabled && metaCredentialsAvailable) {
-            // Failover enabled — switch to Meta instead of pausing
-            if (providerRuntime.active_provider !== "META_CLOUD_API") {
-              console.warn(`[Worker] BotConversa desconectado (status: ${connectionStatus}). Failover para META_CLOUD_API.`)
-              const nowFailover = new Date().toISOString()
-              await supabase.from("message_provider_runtime").update({
-                active_provider: "META_CLOUD_API",
-                last_provider_change_at: nowFailover,
-                last_provider_change_reason: `Auto-failover: BotConversa desconectado (status: ${connectionStatus})`
-              }).eq("id", "singleton")
-
-              // Reset circuit breaker for Meta
-              await supabase.from("whatsapp_runtime").update({
-                consecutive_failures: 0,
-                circuit_state: "CLOSED",
-                state_changed_at: nowFailover,
-              }).eq("id", "singleton")
-
-              // Audit failover
-              try {
-                await supabase.from("botconversa_monitoring").insert({
-                  action_type: "PROVIDER_FAILOVER",
-                  recipient_phone: "system",
-                  error_message: `BotConversa desconectado (${connectionStatus}). FAILOVER: BOTCONVERSA → META_CLOUD_API.`,
-                  function_name: "whatsapp-outbox-worker",
-                  delivery_status: "PROVIDER_FAILOVER"
-                })
-              } catch (_) {}
-
-              // Re-read provider runtime after update
-              const { data: updatedProviderRuntime } = await supabase
-                .from("message_provider_runtime")
-                .select("*")
-                .eq("id", "singleton")
-                .single()
-              if (updatedProviderRuntime) {
-                Object.assign(providerRuntime, updatedProviderRuntime)
-              }
-            }
-            // Continue processing via Meta (do NOT break)
-          } else {
-            // Failover disabled — pause queue (original behavior)
-            console.warn(`[Worker] BotConversa WhatsApp esta desconectado (status: ${connectionStatus}). Pausando fila.`)
-
-            // Log BOTCONVERSA_QUEUE_PAUSED if not already logged as paused in transition
-            try {
-              const { data: lastAction } = await supabase
-                .from("botconversa_monitoring")
-                .select("action_type")
-                .in("action_type", ["BOTCONVERSA_QUEUE_PAUSED", "BOTCONVERSA_QUEUE_RESUMED"])
-                .order("timestamp", { ascending: false })
-                .limit(1)
-                .maybeSingle()
-
-              if (!lastAction || lastAction.action_type === "BOTCONVERSA_QUEUE_RESUMED") {
-                await supabase.from("botconversa_monitoring").insert({
-                  action_type: "BOTCONVERSA_QUEUE_PAUSED",
-                  recipient_phone: "system",
-                  error_message: `WhatsApp connection status is ${connectionStatus}`,
-                  function_name: "whatsapp-outbox-worker",
-                  delivery_status: "BOTCONVERSA_QUEUE_PAUSED"
-                })
-                console.log("[Worker] Logged BOTCONVERSA_QUEUE_PAUSED")
-              }
-            } catch (logErr) {
-              console.error("[Worker] Failed to log queue paused:", logErr)
-            }
-
-            break
-          }
-        } else {
-          // Log BOTCONVERSA_QUEUE_RESUMED if transitioning back
-          try {
-            const { data: lastAction } = await supabase
-              .from("botconversa_monitoring")
-              .select("action_type")
-              .in("action_type", ["BOTCONVERSA_QUEUE_PAUSED", "BOTCONVERSA_QUEUE_RESUMED"])
-              .order("timestamp", { ascending: false })
-              .limit(1)
-              .maybeSingle()
-
-            if (lastAction && lastAction.action_type === "BOTCONVERSA_QUEUE_PAUSED") {
-              await supabase.from("botconversa_monitoring").insert({
-                action_type: "BOTCONVERSA_QUEUE_RESUMED",
-                recipient_phone: "system",
-                error_message: "WhatsApp connection status is connected",
-                function_name: "whatsapp-outbox-worker",
-                delivery_status: "BOTCONVERSA_QUEUE_RESUMED"
-              })
-              console.log("[Worker] Logged BOTCONVERSA_QUEUE_RESUMED")
-            }
-          } catch (logErr) {
-            console.error("[Worker] Failed to log queue resumed:", logErr)
-          }
-        }
-      }
-
-      // 4b. Circuit Breaker Checks
-      if (runtime.circuit_state === "OPEN") {
-        const stateAgeMs = Date.now() - new Date(runtime.state_changed_at).getTime()
-        const circuitCooldownMs = 5 * 60 * 1000 // 5 minutes cooldown
-
-        if (stateAgeMs > circuitCooldownMs) {
-          console.log("[Worker] Tempo limite do Circuit Breaker atingido. Mudando para HALF_OPEN.")
-          await supabase
-            .from("whatsapp_runtime")
-            .update({
-              circuit_state: "HALF_OPEN",
-              state_changed_at: new Date().toISOString(),
-            })
-            .eq("id", "singleton")
-        } else {
-          console.log("[Worker] Circuit Breaker esta ABERTO. Fila suspensa.")
-          break
-        }
-      }
-
-      // 4c. Claim exactly ONE message within priority group
+      // 3c. Claim exactly ONE message within priority group
       const { data: claimedArray, error: claimErr } = await supabase.rpc("claim_single_whatsapp_message", {
         p_min_priority: minPriority,
         p_max_priority: maxPriority
@@ -769,518 +391,544 @@ Deno.serve(async (req) => {
         break
       }
 
-      console.log(`[Worker] Processando mensagem id=${msg.id}, telefone=${msg.recipient_phone}, prioridade=${msg.priority}`)
+      const startAttemptStr = new Date().toISOString()
+      console.log(`[Worker] Processando mensagem id=${msg.id}, telefone=${msg.recipient_phone}, prioridade=${msg.priority}, tipo=${msg.message_type || "TEXTO_LIVRE"}, status_claimed=${msg.status}`)
 
-      let result: CallResult = { success: false, isPermanent: false }
-      let resolvedSubscriberId = msg.message_content.botconversaId || null
-
-      // 4d. Resolve provider for this message
-      decision = resolveProvider(providerRuntime as MessageProviderRuntime, metaCredentialsAvailable)
-      
-      // 1. Regra Global Temporária: Encomendas vão sempre pela Meta Cloud API (se credenciais ok)
-      const msgType = msg.message_type || ""
-      const textBody = msg.message_content.value || ""
-      
-      if ((msgType === "PARCEL" || msgType === "PARCEL_DELIVERED" || msgType === "OTP") && metaCredentialsAvailable) {
-        decision = { provider: "META_CLOUD_API", reason: "Canal Oficial Meta para Encomendas e Autenticação (OTP)" }
+      // 3c-1. Verificação de Deadline Absoluto (TTL / Anti-Backlog)
+      const nowMs = Date.now()
+      if (msg.expires_at && new Date(msg.expires_at).getTime() <= nowMs) {
+        console.warn(`[Worker TTL] Mensagem id=${msg.id} expirou antes do envio (expires_at=${msg.expires_at}). Descartando com status=expired.`)
+        await supabase
+          .from("whatsapp_outbox")
+          .update({
+            status: "expired",
+            expired_at: new Date().toISOString(),
+            expiration_reason: "TTL_EXCEEDED_BEFORE_DISPATCH",
+            updated_at: new Date().toISOString()
+          })
+          .eq("id", msg.id)
+        continue
       }
-      // 2. Aplicar filtro de rollout do piloto se ativo no banco
-      else if (msg.condominio_id && pilotMap.has(msg.condominio_id)) {
-        const stage = pilotMap.get(msg.condominio_id)
-        let isMetaAllowed = false
-        
-        if (stage === "completo") {
-          isMetaAllowed = true
-        } else if (stage === "reservas") {
-          // Encomendas + Visitantes + Reservas/Documentos
-          if (msgType === "VISITOR_INVITE" || msgType === "VISITOR_AUTHORIZED" || textBody.includes("reserva") || textBody.includes("documento")) {
-             isMetaAllowed = true
-          }
-        } else if (stage === "visitantes") {
-          // Encomendas + Visitantes
-          if (msgType === "VISITOR_INVITE" || msgType === "VISITOR_AUTHORIZED") {
-             isMetaAllowed = true
-          }
-        }
-        // Note: stage 'encomendas' removido daqui pois já está coberto pela Regra Global Temporária acima
-        
-        if (isMetaAllowed) {
-          if (metaCredentialsAvailable) {
-            decision = { provider: "META_CLOUD_API", reason: `Piloto ativo (stage=${stage})` }
-          }
-        } else {
-          // Se não permitido no estágio atual, faz o fallback para o BotConversa
-          decision = { provider: "BOTCONVERSA", reason: `Piloto ativo (stage=${stage}) - Fora do escopo do estágio` }
-        }
-      }
-      
-      console.log(`[Worker] Provider decidido: ${decision.provider} (${decision.reason})`)
 
-      // 4e. Send message via resolved provider
-      if (decision.provider === "META_CLOUD_API") {
-        // A. Verificar se a janela de atendimento de 24 horas está aberta
-        let isWindowOpen = false
-        if (msg.perfil_id) {
+      const isDirectMetaClaim = msg.status === "sending_meta"
+      let resolvedSubscriberId = msg.message_content?.botconversaId || null
+      let primaryResult: CallResult = { success: false, isPermanent: false }
+      let sentSuccessfully = false
+      let finalProviderUsed = isDirectMetaClaim ? "META_CLOUD_API" : "BOTCONVERSA"
+      let fallbackTriggered = isDirectMetaClaim
+      let fallbackReason: string | null = isDirectMetaClaim ? (msg.fallback_reason || "BC_DISPATCHED_NO_CONFIRMATION") : null
+      let primaryError: string | null = null
+      let enterDispatchedGuard = false
+      let fallbackAfterStr: string | null = null
+
+      // 3d. Routing Resolution: WARMUP_MODE (99% Meta / 1% BotConversa) vs BotConversa First vs Evolution WELCOME Pilot
+      let selectedProvider: "META" | "BOTCONVERSA" | "EVOLUTION" = "BOTCONVERSA"
+
+      if (!isDirectMetaClaim) {
+        let warmupMode = false
+        let canSendWarmup = false
+
+        try {
+          const { data: warmupCheck, error: warmupErr } = await supabase.rpc("check_and_increment_warmup_cap", {
+            p_instance_id: "singleton"
+          })
+          if (!warmupErr && warmupCheck) {
+            warmupMode = !!warmupCheck.warmup_mode
+            canSendWarmup = !!warmupCheck.can_send_warmup
+          }
+        } catch (wErr: any) {
+          console.error("[Worker Warmup] Erro ao checar warmup cap:", wErr.message)
+        }
+
+        // Checar status da Evolution caso o piloto esteja ativo
+        let isEvolutionConnected = true
+        if (EVOLUTION_WELCOME_PILOT_ENABLED) {
           try {
-            const { data: perfil } = await supabase
-              .from("perfil")
-              .select("last_interaction_at")
-              .eq("id", msg.perfil_id)
-              .single()
+            const { data: evoHealth } = await supabase
+              .from("whatsapp_health_status")
+              .select("evolution_connection_status")
+              .eq("id", "singleton")
+              .maybeSingle()
+            if (evoHealth?.evolution_connection_status === "disconnected") {
+              isEvolutionConnected = false
+            }
+          } catch (_) {}
+        }
 
-            if (perfil?.last_interaction_at) {
-              const lastInteraction = new Date(perfil.last_interaction_at).getTime()
-              const twentyFourHours = 24 * 60 * 60 * 1000
-              if (Date.now() - lastInteraction < twentyFourHours) {
-                isWindowOpen = true
-                console.log(`[Worker] Janela de 24h aberta para perfil_id=${msg.perfil_id}`)
+        const routeResult = calculateWarmupRoute({
+          messageId: msg.id,
+          perfilId: msg.perfil_id,
+          messageType: msg.message_type,
+          warmupMode,
+          canSendWarmup,
+          welcomePilotEnabled: EVOLUTION_WELCOME_PILOT_ENABLED,
+          welcomePilotPercentage: EVOLUTION_WELCOME_PERCENTAGE,
+          evolutionConnected: isEvolutionConnected
+        })
+
+        selectedProvider = routeResult.provider
+        console.log(`[Worker Router] Rota calculada para msg id=${msg.id}: ${selectedProvider} (partição=${routeResult.partition}, motivo=${routeResult.reason})`)
+      } else {
+        selectedProvider = "META"
+      }
+
+      // 3e-EVOLUTION. EXECUÇÃO ROTA EVOLUTION API (FASE 4.20.7 — Exclusivo para MessageType.WELCOME no escopo do piloto)
+      if (selectedProvider === "EVOLUTION" && !isDirectMetaClaim) {
+        let textVal = msg.message_content?.value || ""
+        const tpl = msg.message_content?.template
+        if (tpl?.name && Array.isArray(tpl.parameters) && tpl.parameters.length > 0) {
+          try {
+            const { data: templateRow } = await supabase
+              .from("whatsapp_meta_templates")
+              .select("definition_payload")
+              .eq("name", tpl.name)
+              .eq("language", tpl.language || "pt_BR")
+              .maybeSingle()
+
+            if (templateRow?.definition_payload) {
+              const renderRes = renderTemplateText(templateRow.definition_payload, tpl.parameters)
+              if (renderRes.success && renderRes.text) {
+                textVal = renderRes.text
               }
             }
-          } catch (e: any) {
-            console.error("[Worker] Erro ao verificar last_interaction_at:", e.message)
+          } catch (renderErr: any) {
+            console.error("[Worker] Erro ao renderizar template para Evolution:", renderErr.message)
           }
         }
 
-        // B. Tentar resolver template caso a janela esteja FECHADA
-        let finalTemplateName: string | undefined = undefined
-        let finalTemplateLanguage: string | undefined = undefined
-        let finalTemplateComponents: any[] | undefined = undefined
+        primaryResult = await sendViaEvolution(
+          EVOLUTION_API_URL,
+          EVOLUTION_API_KEY,
+          EVOLUTION_INSTANCE,
+          msg.recipient_phone,
+          msg.payload_type || "text",
+          textVal
+        )
 
-        const textBody = msg.message_content.value || ""
+        if (primaryResult.success) {
+          finalProviderUsed = "EVOLUTION"
+          sentSuccessfully = true
+          console.log(`[Worker] Requisição aceita com sucesso pela Evolution (HTTP 200/201) para id=${msg.id}, provider_message_id=${primaryResult.providerMessageId}.`)
+        } else {
+          primaryError = primaryResult.error || "Falha na Evolution API"
+          console.warn(`[Worker Evolution Fail] Evolution falhou para msg id=${msg.id}: ${primaryError}`)
+        }
+      }
 
-        if (msg.payload_type === "text") {
-          // ── CAMINHO OFICIAL FASE 2: Contrato Estruturado (Zero Regex / Zero Lógica de Negócio) ──
-          if (msg.message_content?.template?.name && Array.isArray(msg.message_content.template.parameters)) {
-            const contractVersion = msg.message_content.template.contract_version || 1
-            console.log(`[Worker] Processando via contrato estruturado FASE 2 (contract_version=${contractVersion}, template=${msg.message_content.template.name})`)
+      // 3e. EXECUÇÃO ROTA BOTCONVERSA (Apenas se selecionado pelo router e não for claim direto Meta)
+      if (selectedProvider === "BOTCONVERSA" && !isDirectMetaClaim) {
+        // Check BotConversa connection status from whatsapp_health_status
+        let isBotConversaDisconnected = false
+        try {
+          const { data: health } = await supabase
+            .from("whatsapp_health_status")
+            .select("whatsapp_connection_status")
+            .eq("id", "singleton")
+            .maybeSingle()
 
-            finalTemplateName = msg.message_content.template.name
-            finalTemplateLanguage = msg.message_content.template.language || "pt_BR"
-            finalTemplateComponents = [
-              {
-                type: "body",
-                parameters: msg.message_content.template.parameters.map((p: any) => ({
-                  type: "text",
-                  text: String(p ?? "—").trim()
-                }))
+          if (health?.whatsapp_connection_status === "disconnected") {
+            isBotConversaDisconnected = true
+            console.warn(`[Worker] BotConversa reportado como DESCONECTADO em whatsapp_health_status.`)
+          }
+        } catch (healthErr: any) {
+          console.error("[Worker] Erro ao checar whatsapp_health_status:", healthErr.message)
+        }
+
+        // ATTEMPT 1: BOTCONVERSA (PRIMARY) — Only if connected
+        if (!isBotConversaDisconnected) {
+          // Injeção de Falha Controlada Exclusiva para Testes Isolados de Fallback
+          if (msg.message_content?.simulate_botconversa_fail) {
+            console.warn(`[Worker Simulation] Injeção de falha controlada (HTTP 503) exclusivamente para a mensagem id=${msg.id}`)
+            primaryResult = {
+              success: false,
+              status: 503,
+              error: "HTTP 503: Service Unavailable (Simulação Controlada de Falha Isolada)",
+              isPermanent: false,
+            }
+          } else {
+            // Enforce Global Rate Limiter (3 consecutive msgs -> 13-27s cooldown)
+            let slotAllowed = false
+            while (!slotAllowed) {
+              const { data: slot, error: slotErr } = await supabase.rpc("acquire_botconversa_slot", {
+                p_instance_id: instanceId
+              })
+
+              if (slotErr || !slot) {
+                console.error("[Worker RateLimiter Fail-Closed] Erro ao invocar acquire_botconversa_slot:", slotErr || "Resposta nula do limiter")
+                await new Promise((r) => setTimeout(r, 13000))
+                await renewLease()
+                continue
               }
-            ]
-          } else if (!isWindowOpen) {
-            // ── CAMINHO LEGADO DEPRECADO: Fallback por Regex (Para mensagens antigas sem contrato) ──
-            // Aplicado Apenas se a janela estiver FECHADA, pois se estiver ABERTA, pode ir como texto livre.
-            console.warn("[DEPRECATED_REGEX_FALLBACK] Executando fallback por regex para mensagem legada sem contrato estruturado.")
 
-            // Buscar nome real do condomínio do banco para evitar fallbacks no template Meta
-            let dbCondoName: string | undefined = undefined
-            if (msg.condominio_id) {
+              if (slot?.allowed) {
+                slotAllowed = true
+              } else {
+                const waitMs = Math.min(Math.max(slot?.wait_ms || 13000, 500), 27000)
+                console.log(`[Worker RateLimiter] BotConversa em cooldown global (${waitMs}ms restante). Aguardando...`)
+                await new Promise((r) => setTimeout(r, waitMs))
+                await renewLease()
+              }
+            }
+
+            // 3e-1. Resolve subscriber if not already cached
+            if (!resolvedSubscriberId) {
+              console.log(`[Worker] Resolvendo subscriber ID no BotConversa para telefone=${msg.recipient_phone}`)
+              const resolveRes = await resolveSubscriber(
+                BOTCONVERSA_API_KEY,
+                msg.recipient_phone,
+                msg.message_content?.firstName || "Morador"
+              )
+
+              if (resolveRes.success) {
+                resolvedSubscriberId = resolveRes.subscriberId
+                console.log(`[Worker] Telefone resolvido para subscriberId=${resolvedSubscriberId}. Atualizando perfil...`)
+
+                if (msg.perfil_id) {
+                  try {
+                    await supabase
+                      .from("perfil")
+                      .update({ botconversa_id: resolvedSubscriberId })
+                      .eq("id", msg.perfil_id)
+                  } catch (_) {}
+                }
+              } else {
+                primaryResult = resolveRes
+              }
+            }
+
+            // 3e-2. Send message via BotConversa if subscriber resolved
+            if (resolvedSubscriberId) {
+              let finalTextValue = msg.message_content?.value || ""
+              const tpl = msg.message_content?.template
+
+              if (tpl?.name && Array.isArray(tpl.parameters) && tpl.parameters.length > 0) {
+                try {
+                  const { data: templateRow } = await supabase
+                    .from("whatsapp_meta_templates")
+                    .select("definition_payload")
+                    .eq("name", tpl.name)
+                    .eq("language", tpl.language || "pt_BR")
+                    .maybeSingle()
+
+                  if (templateRow?.definition_payload) {
+                    const renderRes = renderTemplateText(templateRow.definition_payload, tpl.parameters)
+                    if (renderRes.success && renderRes.text) {
+                      finalTextValue = renderRes.text
+                    }
+                  }
+                } catch (renderErr: any) {
+                  console.error("[Worker] Erro ao renderizar template para BotConversa:", renderErr.message)
+                }
+              }
+
+              primaryResult = await sendMessageToBotConversa(
+                BOTCONVERSA_API_KEY,
+                resolvedSubscriberId,
+                msg.payload_type || "text",
+                finalTextValue
+              )
+            }
+
+            // 3e-3. If BotConversa returned HTTP 200 (Accepted)
+            if (primaryResult.success) {
+              finalProviderUsed = "BOTCONVERSA"
+              console.log(`[Worker] Requisição aceita com sucesso pelo BotConversa (HTTP 200) para id=${msg.id}.`)
+
               try {
-                const { data: condoObj } = await supabase
-                  .from("condominios")
-                  .select("nome")
-                  .eq("id", msg.condominio_id)
-                  .single()
-                if (condoObj?.nome) dbCondoName = condoObj.nome
+                await supabase.rpc("confirm_botconversa_sent", { p_instance_id: instanceId })
+              } catch (confirmErr) {
+                console.error("[Worker RateLimiter] Erro ao confirmar envio BotConversa:", confirmErr)
+              }
+
+              // Calcular Janela de Guarda por MessageType (FASE 4.17 / FASE 4.19)
+              const fallbackWindowSec = getMessageFallbackWindow(msg.message_type)
+
+              if (fallbackWindowSec === 0 || msg.message_type === "DUAL_NUMBER_NOTICE" || msg.message_type === "WELCOME" || msg.message_type === "NOTICE") {
+                // Caso específico sem janela de fallback (ex.: DUAL_NUMBER_NOTICE, WELCOME e NOTICE onde Meta é estritamente proibido sem template)
+                sentSuccessfully = true
+                if (msg.message_type === "DUAL_NUMBER_NOTICE") {
+                  try {
+                    await supabase
+                      .from("whatsapp_dual_number_notices")
+                      .update({
+                        status: "sent",
+                        sent_at: new Date().toISOString(),
+                        updated_at: new Date().toISOString()
+                      })
+                      .eq("recipient_phone", msg.recipient_phone)
+                  } catch (dualSentErr: any) {
+                    console.error("[Worker] Erro ao atualizar status do DUAL_NUMBER_NOTICE:", dualSentErr.message)
+                  }
+                }
+              } else {
+                // Entra em Estado de Guarda 'dispatched_bc'
+                enterDispatchedGuard = true
+                fallbackAfterStr = new Date(Date.now() + fallbackWindowSec * 1000).toISOString()
+                console.log(`[Worker FASE 4.18] Mensagem id=${msg.id} entra em guarda 'dispatched_bc' (${fallbackWindowSec}s até ${fallbackAfterStr}).`)
+              }
+
+              // Disparo do gatilho pós-primeiro envio real: Enfileira DUAL_NUMBER_NOTICE se for primeira vez
+              if (msg.message_type !== "DUAL_NUMBER_NOTICE") {
+                try {
+                  const { data: enqueueRes, error: enqueueErr } = await supabase.rpc("enqueue_dual_number_notice_if_needed", {
+                    p_recipient_phone: msg.recipient_phone,
+                    p_perfil_id: msg.perfil_id || null,
+                    p_condominio_id: msg.condominio_id || null,
+                    p_trigger_outbox_id: msg.id
+                  })
+                  if (enqueueErr) {
+                    console.error("[Worker DualNumberNotice] Erro ao invocar enqueue_dual_number_notice_if_needed:", enqueueErr)
+                  } else if (enqueueRes?.enqueued) {
+                    console.log(`[Worker DualNumberNotice] DUAL_NUMBER_NOTICE enfileirado para telefone=${msg.recipient_phone} (outbox_id=${enqueueRes.outbox_id}, delay=${enqueueRes.delay_sec}s).`)
+                  }
+                } catch (dualErr: any) {
+                  console.error("[Worker DualNumberNotice] Excecao ao enfileirar aviso:", dualErr.message)
+                }
+              }
+            } else {
+              primaryError = primaryResult.error || "Falha desconhecida no BotConversa"
+              console.warn(`[Worker Primary Fail] BotConversa falhou para msg id=${msg.id}: ${primaryError}`)
+            }
+          }
+        } else {
+          primaryError = "BotConversa desconectado em whatsapp_health_status"
+        }
+      }
+
+      // 3f. EXECUÇÃO ROTA META CLOUD API (PRIMARY OU CONTINGÊNCIA)
+      // Acionado se:
+      // a) Router selecionou META como Primary (WARMUP_MODE 90% ou teto diário atingido)
+      // b) Claim direto de reconciliação (isDirectMetaClaim = true, guard window estourou)
+      // c) Falha explícita no BotConversa (HTTP 4xx/5xx, timeout, desconectado) e não está em dispatched_guard
+      const isMetaFallbackForbidden = msg.message_type === "DUAL_NUMBER_NOTICE" || msg.message_type === "WELCOME" || msg.message_type === "NOTICE" || msg.message_content?.allow_meta_fallback === false
+
+      if (!sentSuccessfully && !enterDispatchedGuard) {
+        if (isMetaFallbackForbidden) {
+          console.warn(`[Worker Fallback] Fallback Meta BLOQUEADO para message_type=${msg.message_type || "DESCONHECIDO"}. Mensagem sera mantida em retry exclusivo no BotConversa.`)
+        } else {
+          if (selectedProvider === "BOTCONVERSA") {
+            fallbackTriggered = true
+            if (!fallbackReason) {
+              const isTimeout = primaryResult.status === 408
+              const is503 = primaryResult.status === 503
+              fallbackReason = isDirectMetaClaim
+                ? "BC_DISPATCHED_NO_CONFIRMATION"
+                : (primaryError?.includes("desconectado")
+                  ? "BOTCONVERSA_DISCONNECTED"
+                  : (isTimeout ? "BOTCONVERSA_TIMEOUT_AMBIGUOUS_30S" : (is503 ? "BOTCONVERSA_HTTP_503" : `BOTCONVERSA_ERROR: ${primaryError}`)))
+            }
+            console.warn(`[Worker Fallback] Acionando contingência META_CLOUD_API para msg id=${msg.id}. Motivo: ${fallbackReason}`)
+          } else {
+            console.log(`[Worker Meta Primary] Disparando diretamente via META_CLOUD_API para msg id=${msg.id} (Rota 99% / Warmup)`)
+          }
+
+          if (!metaCredentialsAvailable) {
+            console.error(`[Worker Fallback] Meta Cloud API credentials indisponiveis. Nao foi possivel acionar envio Meta.`)
+          } else {
+            finalProviderUsed = "META_CLOUD_API"
+
+            // Prepare Meta Template / Contract Components
+            let finalTemplateName: string | undefined = undefined
+            let finalTemplateLanguage: string | undefined = undefined
+            let finalTemplateComponents: any[] | undefined = undefined
+
+            const textBody = msg.message_content?.value || ""
+
+            // Check if structured contract exists
+            if (msg.message_content?.template?.name && Array.isArray(msg.message_content.template.parameters)) {
+              finalTemplateName = msg.message_content.template.name
+              finalTemplateLanguage = msg.message_content.template.language || "pt_BR"
+              finalTemplateComponents = [
+                {
+                  type: "body",
+                  parameters: msg.message_content.template.parameters.map((p: any) => ({
+                    type: "text",
+                    text: String(p ?? "—").trim()
+                  }))
+                }
+              ]
+
+              // Authentication / OTP template button url parameter
+              if (msg.message_type === "OTP" || finalTemplateName === "condomeet_recuperacao_senha_v1") {
+                const otpCode = String(msg.message_content.template.parameters[0] ?? "").trim()
+                finalTemplateComponents.push({
+                  type: "button",
+                  sub_type: "url",
+                  index: "0",
+                  parameters: [{ type: "text", text: otpCode }]
+                })
+              }
+            }
+
+            // Validate template approved status
+            let isTemplateApproved = true
+            let unapprovedReason = ""
+            if (finalTemplateName) {
+              try {
+                const { data: tplCheck } = await supabase
+                  .from("whatsapp_meta_templates")
+                  .select("status")
+                  .eq("name", finalTemplateName)
+                  .eq("language", finalTemplateLanguage || "pt_BR")
+                  .maybeSingle()
+
+                if (tplCheck && tplCheck.status !== "APPROVED") {
+                  isTemplateApproved = false
+                  unapprovedReason = `Template '${finalTemplateName}' status local: ${tplCheck.status}.`
+                }
               } catch (_) {}
             }
 
-            // 1. Encomenda recebida (condomeet_encomenda_recebida_v2)
-            if (textBody.includes("Chegou uma encomenda para o seu apartamento")) {
-              finalTemplateName = "condomeet_encomenda_recebida_v2"
-              finalTemplateLanguage = "pt_BR"
-
-              const condoMatch = textBody.match(/📦 \*(.*?)\*/)
-              const typeMatch = textBody.match(/📨 \*Tipo de encomenda:\*\n(.*)/)
-              const unitMatch = textBody.match(/🏢 \*Unidade\*\n(.*?): (.*?) \/ (.*?): (.*)/)
-              const trackMatch = textBody.match(/🔍 \*Cod. rastreio:\* (.*)/)
-              const limitMatch = textBody.match(/⏱ \*Retirar até:\* (.*)/)
-              const obsMatch = textBody.match(/🗒️ \*Observação da encomenda:\*\n([\s\S]*?)\n\nCondomeet agradece!/)
-
-              const condo = dbCondoName || condoMatch?.[1] || "Condomínio"
-              const type = typeMatch?.[1] || "Encomenda"
-              const blockLabel = unitMatch?.[1] || "Bloco"
-              const blockVal = unitMatch?.[2] || "—"
-              const aptLabel = unitMatch?.[3] || "Apto"
-              const aptVal = unitMatch?.[4] || "—"
-              const tracking = trackMatch?.[1] || "Não informado"
-              const limit = limitMatch?.[1] || "Imediato"
-              const obs = obsMatch?.[1] || "Sem observação"
-
-              finalTemplateComponents = [
-                {
-                  type: "body",
-                  parameters: [
-                    { type: "text", text: condo },
-                    { type: "text", text: type },
-                    { type: "text", text: blockLabel },
-                    { type: "text", text: blockVal },
-                    { type: "text", text: aptLabel },
-                    { type: "text", text: aptVal },
-                    { type: "text", text: tracking },
-                    { type: "text", text: limit },
-                    { type: "text", text: obs }
-                  ]
-                }
-              ]
-            }
-
-            // 1b. Encomenda retirada / baixa (condomeet_encomenda_retirada_v1)
-            else if (textBody.includes("entregue com sucesso") || textBody.includes("retirada com sucesso")) {
-              finalTemplateName = "condomeet_encomenda_retirada_v1"
-              finalTemplateLanguage = "pt_BR"
-
-              const condoMatch = textBody.match(/📦 \*(.*?)\*/)
-              const residentMatch = textBody.match(/Olá, (.*?)!/)
-              const typeMatch = textBody.match(/📦 (.*?)\n\nRecebida em:/)
-              const arrMatch = textBody.match(/Recebida em:\n(.*?)\n\nRetirada em:/)
-              const delMatch = textBody.match(/Retirada em:\n(.*?)\n\nObrigado\./)
-
-              const condo = dbCondoName || condoMatch?.[1] || "Condomínio"
-              const resident = msg.message_content.firstName || residentMatch?.[1] || "Morador"
-              const type = typeMatch?.[1] || "Pacote"
-              const arrDate = arrMatch?.[1] || "—"
-              const delDate = delMatch?.[1] || "—"
-
-              finalTemplateComponents = [
-                {
-                  type: "body",
-                  parameters: [
-                    { type: "text", text: condo },
-                    { type: "text", text: resident },
-                    { type: "text", text: type },
-                    { type: "text", text: arrDate },
-                    { type: "text", text: delDate }
-                  ]
-                }
-              ]
-            }
-
-            // 2. Visitante aguardando autorizacao (condomeet_visitante_aguardando_v3)
-            else if (
-              textBody.includes("registramos sua solicitação para entrada") ||
-              textBody.includes("avise seu/sua visitante") ||
-              textBody.includes("avise seu visitante") ||
-              textBody.includes("autorizar a sua entrada no condomínio") ||
-              textBody.includes("Autorização confirmada!")
-            ) {
-              finalTemplateName = "condomeet_visitante_aguardando_v3"
-              finalTemplateLanguage = "pt_BR"
-
-              const condoMatch = textBody.match(/🏙\s*(.*?)\n|🏢\s*(.*?)\n|🚪\n(.*?)\n/)
-              const visitorMatch = textBody.match(/visitante (.*?)\n|Visitante: (.*?)\n|Olá, (.*?)!|Ei (.*?),/i)
-              const typeMatch = textBody.match(/Tipo: (.*?)\n|Tipo de visitante:\n\s*(.*?)\n/i)
-              const dateMatch = textBody.match(/Visita para a Data:\s*(.*?)\n|Data da visita:\s*(.*?)\n|data:\n\s*(.*?)\n|dia:\n\s*(.*?)\.|para o dia:\s*\n?\s*(.*?)\./i)
-              const codeMatch = textBody.match(/(?:🔑|🔐)\s*([A-Za-z0-9]+)|código na portaria:\s*\n?\s*(?:🔑|🔐)?\s*([A-Za-z0-9]+)|Código de autorização:\s*([A-Za-z0-9]+)|Código:\s*\n?\s*([A-Za-z0-9]+)/i)
-
-              const condo = dbCondoName || condoMatch?.[1] || condoMatch?.[2] || condoMatch?.[3] || "Condomínio"
-              const resident = msg.message_content.firstName || "Morador"
-              let visitor = visitorMatch?.[1] || visitorMatch?.[2] || visitorMatch?.[3] || visitorMatch?.[4] || "Visitante"
-              if (visitor.includes("avise seu")) visitor = "Visitante"
-              const type = typeMatch?.[1] || typeMatch?.[2] || "Visitante"
-              const date = dateMatch?.[1] || dateMatch?.[2] || dateMatch?.[3] || dateMatch?.[4] || dateMatch?.[5] || "Hoje"
-              let code = codeMatch?.[1] || codeMatch?.[2] || codeMatch?.[3] || codeMatch?.[4] || "—"
-              code = code.trim().replace(/[\.\s]/g, "")
-
-              finalTemplateComponents = [
-                {
-                  type: "body",
-                  parameters: [
-                    { type: "text", text: condo.trim() },
-                    { type: "text", text: resident.trim() },
-                    { type: "text", text: visitor.trim() },
-                    { type: "text", text: type.trim() },
-                    { type: "text", text: date.trim() },
-                    { type: "text", text: code }
-                  ]
-                }
-              ]
-            }
-
-            // 3. Reserva confirmada (condomeet_reserva_confirmada_v2)
-            else if (textBody.includes("Sua reserva já está aprovada") || textBody.includes("reserva de vaga foi confirmada")) {
-              finalTemplateName = "condomeet_reserva_confirmada_v2"
-              finalTemplateLanguage = "pt_BR"
-
-              const condoMatch = textBody.match(/📆\s*Condomínio (.*?)\n|📆Condomínio (.*?)\n/)
-              const spaceMatch = textBody.match(/Espaço: (.*?)\n|Vaga: (.*?)\n/)
-              const dateMatch = textBody.match(/Data do evento:\n(.*?)\n|Período: (.*?)\n/)
-
-              const condo = condoMatch?.[1] || condoMatch?.[2] || "Condomínio"
-              const resident = msg.message_content.firstName || "Morador"
-              const space = spaceMatch?.[1] || spaceMatch?.[2] || "Área comum"
-              const date = dateMatch?.[1] || dateMatch?.[2] || "Agendada"
-
-              finalTemplateComponents = [
-                {
-                  type: "body",
-                  parameters: [
-                    { type: "text", text: condo.trim() },
-                    { type: "text", text: resident },
-                    { type: "text", text: space.trim() },
-                    { type: "text", text: date.trim() }
-                  ]
-                }
-              ]
-            }
-
-            // 4. Reserva cancelada (condomeet_reserva_cancelada_v2)
-            else if (textBody.includes("reserva foi recusada") || textBody.includes("Reserva cancelada")) {
-              finalTemplateName = "condomeet_reserva_cancelada_v2"
-              finalTemplateLanguage = "pt_BR"
-
-              const condoMatch = textBody.match(/📆\s*Condomínio (.*?)\n|📆Condomínio (.*?)\n/)
-              const spaceMatch = textBody.match(/Espaço: (.*?)\n|Vaga: (.*?)\n/)
-              const dateMatch = textBody.match(/Data: (.*?)\n|Período: (.*?)\n/)
-
-              const condo = condoMatch?.[1] || condoMatch?.[2] || "Condomínio"
-              const resident = msg.message_content.firstName || "Morador"
-              const space = spaceMatch?.[1] || spaceMatch?.[2] || "Área comum"
-              const date = dateMatch?.[1] || dateMatch?.[2] || "Agendada"
-
-              finalTemplateComponents = [
-                {
-                  type: "body",
-                  parameters: [
-                    { type: "text", text: condo.trim() },
-                    { type: "text", text: resident },
-                    { type: "text", text: space.trim() },
-                    { type: "text", text: date.trim() }
-                  ]
-                }
-              ]
-            }
-
-            // 5. Documento disponível (condomeet_documento_disponivel_v2)
-            else if (
-              textBody.includes("documento de Título:") ||
-              textBody.includes("contrato de Título:") ||
-              textBody.includes("vencerá daqui a")
-            ) {
-              finalTemplateName = "condomeet_documento_disponivel_v2"
-              finalTemplateLanguage = "pt_BR"
-
-              const condoMatch = textBody.match(/do condomínio (.*?)\n/)
-              const typeMatch = textBody.match(/O (documento|contrato) de Título:/)
-              const titleMatch = textBody.match(/Título:\n(.*?)\n/)
-              const catMatch = textBody.match(/Categoria do (?:documento|contrato):\n(.*?)\n/)
-              const expMatch = textBody.match(/Data de Expedição:\n(.*?)\n/)
-              const valMatch = textBody.match(/Data de Validade:\n(.*?)\n/)
-
-              const condo = condoMatch?.[1] || "Condomínio"
-              const resident = msg.message_content.firstName || "Morador"
-              const type = typeMatch?.[1] || "documento"
-              const title = titleMatch?.[1] || "Novo documento"
-              const category = catMatch?.[1] || "Geral"
-              const expedicao = expMatch?.[1] || "—"
-              const validade = valMatch?.[1] || "—"
-
-              finalTemplateComponents = [
-                {
-                  type: "body",
-                  parameters: [
-                    { type: "text", text: condo.trim() },
-                    { type: "text", text: resident },
-                    { type: "text", text: type },
-                    { type: "text", text: title.trim() },
-                    { type: "text", text: category.trim() },
-                    { type: "text", text: expedicao },
-                    { type: "text", text: validade }
-                  ]
-                }
-              ]
-            }
-          }
-        }
-
-        // C. Validar obrigatoriamente se o template possui status APPROVED no MetaTemplateService
-        let isTemplateApproved = true
-        let unapprovedReason = ""
-
-        if (finalTemplateName) {
-          try {
-            const { data: tplCheck } = await supabase
-              .from("whatsapp_meta_templates")
-              .select("status")
-              .eq("name", finalTemplateName)
-              .eq("language", finalTemplateLanguage || "pt_BR")
-              .maybeSingle()
-
-            if (!tplCheck || tplCheck.status !== "APPROVED") {
-              isTemplateApproved = false
-              unapprovedReason = `Template '${finalTemplateName}' não está APPROVED na WABA Meta (status local: ${tplCheck?.status || 'NÃO CADASTRADO'}). Envio bloqueado preventivamente.`
-              console.warn(`[Worker PREVENTIVE BLOCK] ${unapprovedReason}`)
-            }
-          } catch (checkErr: any) {
-            console.error("[Worker] Erro ao checar status do template:", checkErr.message)
-          }
-        }
-
-        if (!isTemplateApproved) {
-          // NÃO CHAMAR GRAPH API — Bloqueio Preventivo (evita HTTP 404 #132001)
-          result = {
-            success: false,
-            skipped: false,
-            resolvedNow: false,
-            subscriberId: "",
-            phoneNormalized: msg.recipient_phone,
-            httpStatus: 400,
-            reason: unapprovedReason,
-            error: unapprovedReason,
-            deliveryStatus: "TEMPLATE_NOT_APPROVED" as any
-          }
-        } else {
-          // Executar chamada de envio via Meta Cloud API apenas se aprovado
-          result = await sendViaMetaCloudAPI(
-            META_ACCESS_TOKEN!,
-            META_PHONE_NUMBER_ID!,
-            msg.recipient_phone,
-            msg.payload_type || "text",
-            msg.message_content.value,
-            finalTemplateName,
-            finalTemplateLanguage,
-            finalTemplateComponents
-          )
-        }
-
-        // D. Registrar template_name e template_language no outbox para auditoria
-        if (finalTemplateName) {
-          try {
-            await supabase
-              .from("whatsapp_outbox")
-              .update({
-                template_name: finalTemplateName,
-                template_language: finalTemplateLanguage || "pt_BR"
+            // Injeção de Falha Controlada Exclusiva para Testes Isolados da Meta
+            if (msg.message_content?.simulate_meta_fail) {
+              console.warn(`[Worker Simulation] Injeção de falha controlada Meta para msg id=${msg.id}`)
+              const simStatus = msg.message_content.simulate_meta_fail.status || 500
+              const simError = msg.message_content.simulate_meta_fail.error || "Simulated Meta Error"
+              const simPermanent = simStatus >= 400 && simStatus < 500 && simStatus !== 408 && simStatus !== 429
+              primaryResult = {
+                success: false,
+                status: simStatus,
+                error: simError,
+                isPermanent: simPermanent
+              }
+            } else {
+              // Policy check before dispatch
+              const outboxPolicyCheck = validateWhatsAppSendPolicy({
+                callerFunction: "whatsapp-outbox-worker",
+                messageType: msg.message_type,
+                templateName: finalTemplateName,
+                textValue: textBody,
+                isCampaign: msg.priority === 0
               })
-              .eq("id", msg.id)
-            console.log(`[Worker] Gravado template audit para msg_id=${msg.id}: ${finalTemplateName}`)
-          } catch (auditErr: any) {
-            console.error("[Worker] Erro ao gravar auditoria do template:", auditErr.message)
-          }
-        }
-      } else {
-        // BotConversa — uses same contract as Meta, adapted for text transport
-        if (!resolvedSubscriberId) {
-          console.log(`[Worker] Resolvendo subscriber ID para telefone=${msg.recipient_phone}`)
-          const resolveRes = await resolveSubscriber(
-            BOTCONVERSA_API_KEY,
-            msg.recipient_phone,
-            msg.message_content.firstName || "Morador"
-          )
 
-          if (resolveRes.success) {
-            resolvedSubscriberId = resolveRes.subscriberId
-            console.log(`[Worker] Telefone resolvido para subscriberId=${resolvedSubscriberId}. Salvando em perfil...`)
+              if (!outboxPolicyCheck.allowed) {
+                primaryResult = {
+                  success: false,
+                  isPermanent: true,
+                  status: 400,
+                  error: `Policy Blocked: ${outboxPolicyCheck.reason}`
+                }
+              } else if (!isTemplateApproved && finalTemplateName) {
+                primaryResult = {
+                  success: false,
+                  isPermanent: true,
+                  status: 400,
+                  error: `Meta Template Not Approved: ${unapprovedReason}`
+                }
+              } else {
+                const metaResult = await sendViaMetaCloudAPI(
+                  META_ACCESS_TOKEN!,
+                  META_PHONE_NUMBER_ID!,
+                  msg.recipient_phone,
+                  msg.payload_type || "text",
+                  msg.message_content?.value,
+                  finalTemplateName,
+                  finalTemplateLanguage,
+                  finalTemplateComponents
+                )
 
-            if (msg.perfil_id) {
-              await supabase
-                .from("perfil")
-                .update({ botconversa_id: resolvedSubscriberId })
-                .eq("id", msg.perfil_id)
-            }
-          } else {
-            result = resolveRes
-          }
-        }
-
-        if (resolvedSubscriberId) {
-          // Resolve final text: structured contract (FASE 2) or legacy value
-          let finalTextValue = msg.message_content.value
-          const tpl = msg.message_content?.template
-
-          if (tpl?.name && Array.isArray(tpl.parameters) && tpl.parameters.length > 0) {
-            // ── Contrato Estruturado: Renderizar texto via módulo dedicado template_renderer.ts ──
-            try {
-              const { data: templateRow } = await supabase
-                .from("whatsapp_meta_templates")
-                .select("definition_payload")
-                .eq("name", tpl.name)
-                .eq("language", tpl.language || "pt_BR")
-                .maybeSingle()
-
-              if (templateRow?.definition_payload) {
-                const renderRes = renderTemplateText(templateRow.definition_payload, tpl.parameters)
-                if (renderRes.success && renderRes.text) {
-                  finalTextValue = renderRes.text
-                  console.log(`[Worker] BotConversa: texto renderizado via template_renderer (template=${tpl.name})`)
+                if (metaResult.success) {
+                  sentSuccessfully = true
+                  primaryResult = metaResult
+                  console.log(`[Worker] Mensagem id=${msg.id} enviada com SUCESSO via META_CLOUD_API.`)
+                } else {
+                  primaryResult = metaResult
+                  console.error(`[Worker] Falha no envio Meta para msg id=${msg.id}: ${metaResult.error}`)
                 }
               }
-            } catch (renderErr: any) {
-              console.error(`[Worker] Erro ao renderizar template para BotConversa (fallback para value):`, renderErr.message)
-              // finalTextValue já contém msg.message_content.value como fallback seguro
             }
           }
-
-          result = await sendMessage(
-            BOTCONVERSA_API_KEY,
-            resolvedSubscriberId,
-            msg.payload_type || "text",
-            finalTextValue
-          )
         }
       }
 
-      // 4f. Write audit log (last_attempt_at and delivery_result)
+
+      // 3g. Update Outbox Record and Delivery Result (JSONB)
       const nowStr = new Date().toISOString()
       let providerMessageId: string | null = null
-      if (decision.provider === "META_CLOUD_API" && result.success && result.body) {
+      if (finalProviderUsed === "META_CLOUD_API" && primaryResult.success && primaryResult.body) {
         try {
-          const parsed = JSON.parse(result.body)
+          const parsed = JSON.parse(primaryResult.body)
           if (parsed?.messages?.[0]?.id) {
             providerMessageId = parsed.messages[0].id
           }
         } catch (_) {}
+      } else if (finalProviderUsed === "EVOLUTION" && primaryResult.success) {
+        providerMessageId = primaryResult.providerMessageId || null
       }
 
-      await supabase
-        .from("whatsapp_outbox")
-        .update({
-          last_attempt_at: nowStr,
-          delivery_result: {
-            provider: decision.provider,
-            provider_reason: decision.reason,
-            status_code: result.status || null,
-            response: result.body || null,
-            error_message: result.error || null,
-            is_permanent_error: result.isPermanent,
-            resolved_subscriber_id: resolvedSubscriberId,
-            provider_message_id: providerMessageId,
-          },
-        })
-        .eq("id", msg.id)
+      const deliveryResultPayload: Record<string, any> = {
+        provider: finalProviderUsed,
+        status_code: primaryResult.status || (sentSuccessfully ? 200 : null),
+        response: primaryResult.body || null,
+        error_message: primaryResult.error || null,
+        is_permanent_error: primaryResult.isPermanent,
+        resolved_subscriber_id: resolvedSubscriberId,
+        provider_message_id: providerMessageId,
+      }
 
-      // 4g. Process outcome (success, retry or permanent failure)
-      if (result.success) {
-        console.log(`[Worker] Mensagem id=${msg.id} enviada com SUCESSO via ${decision.provider}.`)
+      if (fallbackTriggered) {
+        deliveryResultPayload.fallback_triggered = true
+        deliveryResultPayload.fallback_reason = fallbackReason
+        deliveryResultPayload.primary_attempt_provider = "BOTCONVERSA"
+        deliveryResultPayload.primary_error = primaryError || (primaryResult.status === 503 ? "HTTP 503: Service Unavailable (Simulação Controlada de Falha Isolada)" : null)
+        deliveryResultPayload.primary_attempt_at = startAttemptStr
+        if (sentSuccessfully) {
+          deliveryResultPayload.meta_sent_at = nowStr
+        }
+      }
+
+      // 3h. Process Final State Transition
+      if (enterDispatchedGuard) {
+        // Mensagem aceita pelo BotConversa -> Transição para 'dispatched_bc' com Janela de Guarda
+        await supabase
+          .from("whatsapp_outbox")
+          .update({
+            status: "dispatched_bc",
+            dispatched_at: nowStr,
+            fallback_after: fallbackAfterStr,
+            provider_attempt: "BOTCONVERSA",
+            last_attempt_at: nowStr,
+            delivery_result: deliveryResultPayload,
+            updated_at: nowStr
+          })
+          .eq("id", msg.id)
+      } else if (sentSuccessfully) {
+        // Envio definitivo concluído (via Meta Cloud API ou BotConversa sem janela)
         await supabase
           .from("whatsapp_outbox")
           .update({
             status: "sent",
             sent_at: nowStr,
+            last_attempt_at: nowStr,
+            provider_attempt: finalProviderUsed,
+            fallback_reason: fallbackReason,
+            delivery_result: deliveryResultPayload,
+            updated_at: nowStr
           })
           .eq("id", msg.id)
-
-        // Evaluate recovery (includes dwell time check)
-        await evaluateRecovery(supabase, runtime, providerRuntime as MessageProviderRuntime, decision.provider)
       } else {
-        console.error(`[Worker] Falha no envio via ${decision.provider} da mensagem id=${msg.id}. Erro: ${result.error}`)
-        
-        if (result.isPermanent) {
-          // Permanent failure -> Move directly to failed (Dead Letter)
-          console.error(`[Worker] Erro permanente detectado. Movendo id=${msg.id} direto para Dead Letters.`)
+        // Falha no envio
+        if (primaryResult.isPermanent) {
+          console.error(`[Worker] Erro permanente na mensagem id=${msg.id}. Movendo para Dead Letter (failed).`)
           await supabase
             .from("whatsapp_outbox")
             .update({
               status: "failed",
-              error_message: `Erro Permanente (${decision.provider}): ${result.error}`,
+              last_attempt_at: nowStr,
+              provider_attempt: finalProviderUsed,
+              fallback_reason: fallbackReason,
+              error_message: `Falha Permanente (${finalProviderUsed}): ${primaryResult.error}`,
+              delivery_result: deliveryResultPayload,
+              updated_at: nowStr
             })
             .eq("id", msg.id)
         } else {
-          // Temporary failure -> Retry with backoff
           const shouldRetry = msg.retry_count < msg.max_retries
           const nextAttempt = shouldRetry
             ? new Date(Date.now() + Math.pow(2, msg.retry_count) * 60 * 1000).toISOString()
             : null
 
-          console.log(`[Worker] Erro temporario (${decision.provider}). Tentativas: ${msg.retry_count + 1}/${msg.max_retries}. Reagendado? ${shouldRetry}`)
+          console.log(`[Worker] Erro temporario (${finalProviderUsed}). Tentativas: ${msg.retry_count + 1}/${msg.max_retries}. Reagendado? ${shouldRetry}`)
 
           await supabase
             .from("whatsapp_outbox")
@@ -1288,62 +936,54 @@ Deno.serve(async (req) => {
               status: shouldRetry ? "pending" : "failed",
               retry_count: msg.retry_count + 1,
               next_attempt_at: nextAttempt,
-              error_message: `Erro Temporario (${decision.provider}): ${result.error}`,
+              last_attempt_at: nowStr,
+              provider_attempt: finalProviderUsed,
+              fallback_reason: fallbackReason,
+              error_message: `Falha Temporaria (${finalProviderUsed}): ${primaryResult.error}`,
+              delivery_result: deliveryResultPayload,
+              updated_at: nowStr
             })
             .eq("id", msg.id)
         }
-
-        // Evaluate failover (replaces manual consecutive_failures + Circuit Breaker block)
-        const { breakLoop } = await evaluateFailover(supabase, runtime, providerRuntime as MessageProviderRuntime, result, decision.provider)
-        if (breakLoop) {
-          console.error(`[Worker] Circuit Breaker ativado! Pausando processamento.`)
-          break
-        }
       }
 
-      // 4g-2. Renew Lease Lock after sending
-      const leaseOkAfterSend = await renewLease()
-      if (!leaseOkAfterSend) {
-        console.log("[Worker] Nao foi possivel renovar o Lease Lock apos envio. Finalizando loop.")
+      // 3i. Renew lease after cycle
+      const leaseOkAfter = await renewLease()
+      if (!leaseOkAfter) {
+        console.log("[Worker] Nao foi possivel renovar o Lease Lock apos ciclo. Finalizando loop.")
         break
       }
 
-      // 4h. Cooldown with Priority and Operational Mode (SAFE_MODE check)
-      let baseCooldown = 3 // default
-      let jitter = 0
+      // 3j. Pacing delay between iterations
+      // FASE 7.14.2: Distinção estrita entre WELCOME ATRASADO (Backlog) e NOVO WELCOME
+      if (msg.message_type === "WELCOME") {
+        const msgAgeMs = Date.now() - new Date(msg.created_at).getTime()
+        const isBacklogDelayed = msgAgeMs >= 15 * 60 * 1000 // 15 minutos ou mais de atraso na fila
 
-      if (queueType === "high") {
-        if (runtime.operational_mode === "SAFE_MODE") {
-          baseCooldown = 3
+        if (isBacklogDelayed) {
+          const backlogPacingMs = 300000 // 5 minutos = 300.000 ms para WELCOME atrasado
+          console.log(`[Worker Pacing] Mensagem WELCOME ATRASADA processada (id=${msg.id}, idade=${Math.round(msgAgeMs / 60000)}min). Aplicando intervalo conservador de 5 minutos (300s) antes do próximo envio do backlog...`)
+          let elapsed = 0
+          while (elapsed < backlogPacingMs) {
+            const waitTime = Math.min(15000, backlogPacingMs - elapsed)
+            await new Promise((r) => setTimeout(r, waitTime))
+            elapsed += waitTime
+            const renewed = await renewLease()
+            if (!renewed) {
+              console.warn(`[Worker Pacing] Perda de lease durante a espera de 5 minutos da mensagem id=${msg.id}.`)
+              break
+            }
+          }
         } else {
-          baseCooldown = 1
+          // NOVO WELCOME (criado recentemente < 15 min): pacing padrão da fila para entrega oportuna
+          console.log(`[Worker Pacing] NOVO WELCOME processado (id=${msg.id}, idade=${Math.round(msgAgeMs / 1000)}s). Aplicando pacing operacional padrão (1.8s).`)
+          const pacingMs = queueType === "high" ? 1000 : 1800
+          await new Promise((r) => setTimeout(r, pacingMs))
         }
       } else {
-        if (runtime.operational_mode === "SAFE_MODE") {
-          baseCooldown = 20 // standard safe mode cooldown
-        } else {
-          if (msg.priority <= 5) {
-            baseCooldown = 2 // critical (SOS, Visitor)
-            jitter = Math.floor(Math.random() * 2) // +0 to 1s jitter
-          } else if (msg.priority <= 10) {
-            baseCooldown = 2 // Encomendas (Prioridade 10): 2s base + 0-2s jitter (Total 2s a 4s)
-            jitter = Math.floor(Math.random() * 3) // +0 to 2s jitter
-          } else {
-            baseCooldown = 12 // informational (Avisos, Boletos)
-            jitter = Math.floor(Math.random() * 5) + 1 // +1 to 5s jitter
-          }
-        }
-      }
-
-      const totalSleepSec = baseCooldown + jitter
-      console.log(`[Worker] Cooldown de ${totalSleepSec}s iniciado antes do proximo claim para lease=${leaseId}.`)
-      await new Promise((r) => setTimeout(r, totalSleepSec * 1000))
-
-      // 4h-2. Renew Lease Lock after cooldown
-      const leaseOkAfterCooldown = await renewLease()
-      if (!leaseOkAfterCooldown) {
-        console.log("[Worker] Nao foi possivel renovar o Lease Lock apos cooldown. Finalizando loop.")
-        break
+        // Demais MessageTypes (PARCEL, VISITOR_INVITE, NOTICE, etc.): pacing padrão inalterado
+        const pacingMs = queueType === "high" ? 1000 : 1800
+        await new Promise((r) => setTimeout(r, pacingMs))
       }
     }
   } catch (err: any) {

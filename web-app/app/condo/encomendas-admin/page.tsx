@@ -15,14 +15,16 @@ export default async function EncomendasAdminPage() {
     .eq('id', user.id)
     .single()
 
-  const role = profile?.papel_sistema ?? ''
+  const role = (profile?.papel_sistema ?? '').toLowerCase()
   const isAdmin =
-    role.toLowerCase().includes('portaria') ||
-    role.toLowerCase().includes('porteiro') ||
-    role.toLowerCase().includes('síndico') ||
-    role.toLowerCase().includes('sindico') ||
-    role.toLowerCase().includes('sub') ||
-    role === 'admin'
+    role.includes('admin') ||
+    role.includes('portaria') ||
+    role.includes('porteiro') ||
+    role.includes('síndico') ||
+    role.includes('sindico') ||
+    role.includes('sub') ||
+    role.includes('zelador') ||
+    role.includes('funcionario')
 
   const condoId = profile?.condominio_id ?? ''
 

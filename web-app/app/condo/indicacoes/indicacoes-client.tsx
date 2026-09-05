@@ -1,7 +1,7 @@
 'use client'
 import { useState, useRef } from 'react'
 import { createClient } from '@/lib/supabase/client'
-import { Star, Plus, X, Phone, MessageCircle, MapPin, User, Search, ChevronDown } from 'lucide-react'
+import { Star, Plus, X, Phone, MapPin, User, Search, ChevronDown } from 'lucide-react'
 
 const ESPECIALIDADES = [
   'Academia', 'Administradora de Condomínios', 'Advocacia', 'Agronomia',
@@ -161,7 +161,11 @@ export default function IndicacoesClient({
 
   const filtered = indicacoes.filter(i => {
     const matchEsp = !filterEsp || i.especialidade === filterEsp
-    const matchSearch = !filterSearch || i.nome.toLowerCase().includes(filterSearch.toLowerCase())
+    const search = filterSearch.trim().toLowerCase()
+    const matchSearch =
+      !search ||
+      (i.nome && i.nome.toLowerCase().includes(search)) ||
+      (i.especialidade && i.especialidade.toLowerCase().includes(search))
     return matchEsp && matchSearch
   })
 
@@ -317,7 +321,7 @@ export default function IndicacoesClient({
             type="text"
             value={filterSearch}
             onChange={e => setFilterSearch(e.target.value)}
-            placeholder="Buscar por nome..."
+            placeholder="Buscar por nome ou especialidade..."
             className="w-full border border-gray-200 rounded-xl pl-9 pr-3 py-2.5 text-sm focus:outline-none focus:border-[#FC5931] focus:ring-1 focus:ring-[#FC5931]/30"
           />
         </div>
@@ -376,10 +380,12 @@ export default function IndicacoesClient({
                         {ind.whatsapp && (
                           <button
                             onClick={() => openWhatsApp(ind.whatsapp!)}
-                            className="flex items-center gap-1.5 bg-green-500 hover:bg-green-600 text-white text-xs font-semibold px-3 py-1.5 rounded-xl transition-colors shadow-sm shadow-green-500/30"
-                            title="Falar com o indicado via WhatsApp"
+                            className="flex items-center justify-center bg-[#25D366] hover:bg-[#20bd5a] text-white p-2 rounded-xl transition-colors shadow-sm shadow-[#25D366]/30"
+                            title="WhatsApp"
+                            aria-label="WhatsApp"
                           >
-                            <MessageCircle size={14} /> WhatsApp
+                            {/* eslint-disable-next-line @next/next/no-img-element */}
+                            <img src="/whatsapp_logo.png" alt="WhatsApp" className="w-5 h-5 object-contain" />
                           </button>
                         )}
                       </div>

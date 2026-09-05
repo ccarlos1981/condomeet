@@ -65,10 +65,9 @@ serve(async (req) => {
       `Condomeet`
 
     // Template parameters para o contrato estruturado FASE 2.
-    // O template AUTHENTICATION 'condomeet_recuperacao_senha_v1' espera 2 parâmetros:
-    //   {{1}} = Nome do usuário
-    //   {{2}} = Código de verificação (OTP)
-    const templateParams = [firstName, code]
+    // O template AUTHENTICATION 'condomeet_recuperacao_senha_v1' da Meta possui 1 parâmetro:
+    //   {{1}} = Código de verificação (OTP)
+    const templateParams = [code]
 
     const result = await smartSend(
       BOTCONVERSA_API_KEY,

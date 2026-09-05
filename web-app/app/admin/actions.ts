@@ -4,6 +4,8 @@ import { createClient } from '@/lib/supabase/server'
 import { createClient as createSupabaseClient } from '@supabase/supabase-js'
 import { revalidatePath } from 'next/cache'
 
+import { isAdminRole } from '@/lib/roles'
+
 export async function adminUpdateProfile(data: {
   id: string
   nome_completo: string
@@ -12,6 +14,7 @@ export async function adminUpdateProfile(data: {
   bloco_txt: string
   apto_txt: string
   papel_sistema: string
+  tipo_morador?: string | null
 }) {
   try {
     const supabase = await createClient()
@@ -25,8 +28,7 @@ export async function adminUpdateProfile(data: {
       .eq('id', user.id)
       .single()
 
-    const normalizedRole = adminProfile?.papel_sistema?.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "") || ''
-    if (!normalizedRole.includes('sindico') && !normalizedRole.includes('admin')) {
+    if (!isAdminRole(adminProfile?.papel_sistema)) {
       return { error: 'Permissão negada. Apenas síndicos e admins podem editar moradores.' }
     }
 
@@ -43,17 +45,35 @@ export async function adminUpdateProfile(data: {
       return { error: 'Morador não encontrado ou não pertence a este condomínio.' }
     }
 
-    // 3. Update the Perfil
+    // 3. Normalize fields based on canonical roles
+    let finalBloco = data.bloco_txt?.trim() ?? ''
+    let finalApto = data.apto_txt?.trim() ?? ''
+    const isTargetAdmin = data.papel_sistema === 'Admin'
+
+    if (isTargetAdmin) {
+      finalBloco = 'Admin'
+      finalApto = 'Admin'
+    } else if (finalBloco.toLowerCase() === 'admin' || finalApto.toLowerCase() === 'admin') {
+      return { error: 'Moradores e síndicos devem possuir unidade residencial válida, não podendo utilizar a identificação técnica Admin.' }
+    }
+
+    // 4. Update the Perfil
+    const profileUpdate: Record<string, any> = {
+      nome_completo: data.nome_completo,
+      whatsapp: data.whatsapp,
+      email: data.email,
+      bloco_txt: finalBloco,
+      apto_txt: finalApto,
+      papel_sistema: data.papel_sistema,
+    }
+
+    if (data.tipo_morador !== undefined) {
+      profileUpdate.tipo_morador = data.tipo_morador
+    }
+
     const { error: updateError } = await supabase
       .from('perfil')
-      .update({
-        nome_completo: data.nome_completo,
-        whatsapp: data.whatsapp,
-        email: data.email,
-        bloco_txt: data.bloco_txt,
-        apto_txt: data.apto_txt,
-        papel_sistema: data.papel_sistema
-      })
+      .update(profileUpdate)
       .eq('id', data.id)
 
     if (updateError) {
@@ -61,9 +81,9 @@ export async function adminUpdateProfile(data: {
       return { error: 'Erro ao atualizar dados do morador.' }
     }
 
-    // 4. Update unidade_perfil if bloco_txt or apto_txt changed
+    // 5. Update unidade_perfil ONLY for real residential units (non-Admin)
     try {
-      if (data.bloco_txt && data.apto_txt) {
+      if (!isTargetAdmin && finalBloco && finalApto && finalBloco !== 'Admin') {
         // Find or create block
         let blocoId
         const { data: blocoArr } = await supabase
@@ -119,14 +139,55 @@ export async function adminUpdateProfile(data: {
           }
 
           if (unidadeId) {
-            // Delete old bindings to keep it 1-to-1 ideally (assuming they moved)
-            await supabase.from('unidade_perfil').delete().eq('perfil_id', data.id)
+            // Check if user is already actively linked to this exact unit
+            const { data: existingActive } = await supabase
+              .from('unidade_perfil')
+              .select('id, unidade_id, status')
+              .eq('perfil_id', data.id)
+              .eq('status', 'ativo')
 
-            // Insert new binding
-            await supabase.from('unidade_perfil').insert({
-              perfil_id: data.id,
-              unidade_id: unidadeId
-            })
+            const isAlreadyLinked = existingActive?.some(link => link.unidade_id === unidadeId)
+
+            if (!isAlreadyLinked) {
+              const nowIso = new Date().toISOString()
+              
+              // Inactivate any previous active unit links to preserve history
+              await supabase
+                .from('unidade_perfil')
+                .update({
+                  status: 'inativo',
+                  data_saida: nowIso,
+                })
+                .eq('perfil_id', data.id)
+                .eq('status', 'ativo')
+
+              // Check if a link already exists for (perfil_id, unidadeId)
+              const { data: targetLink } = await supabase
+                .from('unidade_perfil')
+                .select('id')
+                .eq('perfil_id', data.id)
+                .eq('unidade_id', unidadeId)
+                .maybeSingle()
+
+              if (targetLink) {
+                await supabase
+                  .from('unidade_perfil')
+                  .update({
+                    status: 'ativo',
+                    data_saida: null,
+                  })
+                  .eq('id', targetLink.id)
+              } else {
+                await supabase
+                  .from('unidade_perfil')
+                  .insert({
+                    perfil_id: data.id,
+                    unidade_id: unidadeId,
+                    status: 'ativo',
+                    data_entrada: nowIso,
+                  })
+              }
+            }
           }
         }
       }
@@ -139,9 +200,10 @@ export async function adminUpdateProfile(data: {
     revalidatePath('/portaria') // Also update concierge
 
     return { success: true }
-  } catch (err: any) {
+  } catch (err: unknown) {
     console.error('Erro interno adminUpdateProfile:', err)
-    return { error: err.message || 'Erro interno ao atualizar o perfil.' }
+    const msg = err instanceof Error ? err.message : 'Erro interno ao atualizar o perfil.'
+    return { error: msg }
   }
 }
 
@@ -182,8 +244,9 @@ export async function adminResetPassword(userId: string) {
     }
 
     return { success: true }
-  } catch (err: any) {
+  } catch (err: unknown) {
     console.error('Erro interno adminResetPassword:', err)
-    return { error: err.message || 'Erro interno ao resetar senha.' }
+    const msg = err instanceof Error ? err.message : 'Erro interno ao resetar senha.'
+    return { error: msg }
   }
 }

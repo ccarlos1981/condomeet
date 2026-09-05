@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:condomeet/core/design_system/app_colors.dart';
 import 'package:condomeet/core/di/injection_container.dart';
+import 'package:condomeet/features/community/domain/models/common_area.dart';
 
 class AreasComunsAdminScreen extends StatefulWidget {
   const AreasComunsAdminScreen({super.key});
@@ -23,85 +24,166 @@ class _AreasComunsAdminScreenState extends State<AreasComunsAdminScreen> {
   }
 
   Future<void> _load() async {
-    final user = _supabase.auth.currentUser;
-    if (user == null) return;
+    try {
+      final user = _supabase.auth.currentUser;
+      if (user == null) {
+        if (mounted) setState(() => _loading = false);
+        return;
+      }
 
-    final profile = await _supabase
-        .from('perfil')
-        .select('condominio_id')
-        .eq('id', user.id)
-        .maybeSingle();
+      final profile = await _supabase
+          .from('perfil')
+          .select('condominio_id')
+          .eq('id', user.id)
+          .maybeSingle();
 
-    final condoId = profile?['condominio_id'] as String?;
-    if (condoId == null) { setState(() => _loading = false); return; }
+      final condoId = profile?['condominio_id'] as String?;
+      if (condoId == null) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Erro: Condomínio não encontrado no seu perfil.'),
+              backgroundColor: Colors.orange,
+            ),
+          );
+          setState(() => _loading = false);
+        }
+        return;
+      }
 
-    final data = await _supabase
-        .from('areas_comuns')
-        .select('*')
-        .eq('condominio_id', condoId)
-        .order('tipo_agenda');
+      final data = await _supabase
+          .from('areas_comuns')
+          .select('*')
+          .eq('condominio_id', condoId)
+          .order('created_at', ascending: false);
 
-    setState(() {
-      _areas = List<Map<String, dynamic>>.from(data as List);
-      _loading = false;
-    });
+      if (mounted) {
+        setState(() {
+          _areas = List<Map<String, dynamic>>.from(data as List);
+          _loading = false;
+        });
+      }
+    } catch (e) {
+      debugPrint('Erro ao carregar áreas comuns: $e');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Erro ao carregar áreas comuns: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+        setState(() => _loading = false);
+      }
+    }
   }
 
   Future<void> _toggleAtivo(Map<String, dynamic> area) async {
-    HapticFeedback.selectionClick();
-    final newVal = !(area['ativo'] == true || area['ativo'] == 1);
-    await _supabase
-        .from('areas_comuns')
-        .update({'ativo': newVal})
-        .eq('id', area['id'] as String);
-    _load();
+    try {
+      HapticFeedback.selectionClick();
+      final newVal = !(area['ativo'] == true || area['ativo'] == 1);
+      await _supabase
+          .from('areas_comuns')
+          .update({
+            'ativo': newVal,
+            'updated_at': DateTime.now().toIso8601String(),
+          })
+          .eq('id', area['id'] as String)
+          .select()
+          .single();
+      _load();
+    } catch (e) {
+      debugPrint('Erro ao alterar status da área comum: $e');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Erro ao alterar status: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
   }
 
   Future<void> _delete(String id) async {
-    final confirm = await showDialog<bool>(
-      context: context,
-      builder: (_) => AlertDialog(
-        title: const Text('Confirmar exclusão'),
-        content: const Text('Deseja excluir esta área comum?'),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Cancelar')),
-          TextButton(
-            onPressed: () => Navigator.pop(context, true),
-            child: const Text('Excluir', style: TextStyle(color: Colors.red)),
+    try {
+      final confirm = await showDialog<bool>(
+        context: context,
+        builder: (_) => AlertDialog(
+          title: const Text('Confirmar exclusão'),
+          content: const Text('Deseja excluir esta área comum?'),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context, false),
+              child: const Text('Cancelar'),
+            ),
+            TextButton(
+              onPressed: () => Navigator.pop(context, true),
+              child: const Text('Excluir', style: TextStyle(color: Colors.red)),
+            ),
+          ],
+        ),
+      );
+      if (confirm != true) return;
+      await _supabase.from('areas_comuns').delete().eq('id', id);
+      _load();
+    } catch (e) {
+      debugPrint('Erro ao excluir área comum: $e');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Erro ao excluir: $e'),
+            backgroundColor: Colors.red,
           ),
-        ],
-      ),
-    );
-    if (confirm != true) return;
-    await _supabase.from('areas_comuns').delete().eq('id', id);
-    _load();
+        );
+      }
+    }
   }
 
   Future<void> _toggleAprovacao(Map<String, dynamic> area) async {
-    HapticFeedback.selectionClick();
-    final cur = area['aprovacao_automatica'] == true || area['aprovacao_automatica'] == 1;
-    await _supabase
-        .from('areas_comuns')
-        .update({'aprovacao_automatica': !cur})
-        .eq('id', area['id'] as String);
-    _load();
+    try {
+      HapticFeedback.selectionClick();
+      final cur = area['aprovacao_automatica'] == true || area['aprovacao_automatica'] == 1;
+      await _supabase
+          .from('areas_comuns')
+          .update({
+            'aprovacao_automatica': !cur,
+            'updated_at': DateTime.now().toIso8601String(),
+          })
+          .eq('id', area['id'] as String)
+          .select()
+          .single();
+      _load();
+    } catch (e) {
+      debugPrint('Erro ao alterar aprovação automática: $e');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Erro ao alterar aprovação: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
   }
 
   Future<void> _showEditForm(Map<String, dynamic> area) async {
     final tipoCtrl = TextEditingController(text: area['tipo_agenda'] as String? ?? '');
     final localCtrl = TextEditingController(text: area['local'] as String? ?? '');
+    final outroLocalCtrl = TextEditingController(text: area['outro_local'] as String? ?? '');
     final capacidadeCtrl = TextEditingController(text: (area['capacidade'] ?? 0).toString());
     final limiteCtrl = TextEditingController(text: (area['limite_acesso'] ?? 1).toString());
     final hrsCancelarCtrl = TextEditingController(text: (area['hrs_cancelar'] ?? 24).toString());
-    // Extract taxa from precos array
+    
+    // Extract taxa from precos array or taxa_reserva field
     final precos = area['precos'];
-    double taxaAtual = 0;
-    if (precos is List && precos.isNotEmpty) {
+    double taxaAtual = (area['taxa_reserva'] as num?)?.toDouble() ?? 0;
+    if (taxaAtual == 0 && precos is List && precos.isNotEmpty) {
       taxaAtual = (precos[0]['valor'] as num?)?.toDouble() ?? 0;
     }
     final taxaCtrl = TextEditingController(text: taxaAtual > 0 ? taxaAtual.toString() : '0');
     String tipoReserva = area['tipo_reserva'] as String? ?? 'por_dia';
     bool aprovAuto = area['aprovacao_automatica'] == true || area['aprovacao_automatica'] == 1;
+    bool savingInSheet = false;
 
     final result = await showModalBottomSheet<bool>(
       context: context,
@@ -123,7 +205,6 @@ class _AreasComunsAdminScreenState extends State<AreasComunsAdminScreen> {
                 mainAxisSize: MainAxisSize.min,
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  // Handle bar
                   Center(
                     child: Container(
                       width: 40, height: 4,
@@ -140,7 +221,6 @@ class _AreasComunsAdminScreenState extends State<AreasComunsAdminScreen> {
                   ),
                   const SizedBox(height: 16),
 
-                  // Tipo (nome)
                   TextField(
                     controller: tipoCtrl,
                     decoration: InputDecoration(
@@ -152,7 +232,6 @@ class _AreasComunsAdminScreenState extends State<AreasComunsAdminScreen> {
                   ),
                   const SizedBox(height: 12),
 
-                  // Local
                   TextField(
                     controller: localCtrl,
                     decoration: InputDecoration(
@@ -164,7 +243,17 @@ class _AreasComunsAdminScreenState extends State<AreasComunsAdminScreen> {
                   ),
                   const SizedBox(height: 12),
 
-                  // Tipo Reserva
+                  TextField(
+                    controller: outroLocalCtrl,
+                    decoration: InputDecoration(
+                      labelText: 'Outro Local (opcional)',
+                      hintText: 'Ex: Fase A, Área Externa...',
+                      prefixIcon: const Icon(Icons.edit_location_alt_outlined, size: 20),
+                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+
                   Row(
                     children: [
                       const Text('Tipo de Reserva:', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
@@ -186,7 +275,6 @@ class _AreasComunsAdminScreenState extends State<AreasComunsAdminScreen> {
                   ),
                   const SizedBox(height: 12),
 
-                  // Capacidade + Limite + Hrs cancelar
                   Row(
                     children: [
                       Expanded(
@@ -231,7 +319,6 @@ class _AreasComunsAdminScreenState extends State<AreasComunsAdminScreen> {
                   ),
                   const SizedBox(height: 12),
 
-                  // Taxa
                   TextField(
                     controller: taxaCtrl,
                     keyboardType: const TextInputType.numberWithOptions(decimal: true),
@@ -244,7 +331,6 @@ class _AreasComunsAdminScreenState extends State<AreasComunsAdminScreen> {
                   ),
                   const SizedBox(height: 12),
 
-                  // Aprovação automática toggle
                   SwitchListTile(
                     contentPadding: EdgeInsets.zero,
                     title: const Text('Aprovação automática', style: TextStyle(fontSize: 14)),
@@ -260,12 +346,11 @@ class _AreasComunsAdminScreenState extends State<AreasComunsAdminScreen> {
                   ),
                   const SizedBox(height: 16),
 
-                  // Botão Salvar
                   SizedBox(
                     width: double.infinity,
                     height: 48,
                     child: ElevatedButton.icon(
-                      onPressed: () async {
+                      onPressed: savingInSheet ? null : () async {
                         final nome = tipoCtrl.text.trim();
                         if (nome.isEmpty) {
                           ScaffoldMessenger.of(ctx).showSnackBar(
@@ -274,33 +359,50 @@ class _AreasComunsAdminScreenState extends State<AreasComunsAdminScreen> {
                           return;
                         }
 
+                        setSheetState(() => savingInSheet = true);
+
                         final taxa = double.tryParse(taxaCtrl.text.replaceAll(',', '.')) ?? 0;
                         final novosPrecos = taxa > 0
                             ? [{'perfil': 'morador', 'valor': taxa}]
                             : <Map<String, dynamic>>[];
 
                         try {
-                          await _supabase.from('areas_comuns').update({
+                          final response = await _supabase.from('areas_comuns').update({
                             'tipo_agenda': nome,
-                            'local': localCtrl.text.trim().isEmpty ? 'Espaço comum' : localCtrl.text.trim(),
+                            'local': localCtrl.text.trim(),
+                            'outro_local': outroLocalCtrl.text.trim().isNotEmpty ? outroLocalCtrl.text.trim() : null,
                             'tipo_reserva': tipoReserva,
                             'capacidade': int.tryParse(capacidadeCtrl.text) ?? 0,
                             'limite_acesso': int.tryParse(limiteCtrl.text) ?? 1,
                             'hrs_cancelar': int.tryParse(hrsCancelarCtrl.text) ?? 24,
                             'precos': novosPrecos,
+                            'taxa_reserva': taxa,
                             'aprovacao_automatica': aprovAuto,
-                          }).eq('id', area['id'] as String);
+                            'updated_at': DateTime.now().toIso8601String(),
+                          }).eq('id', area['id'] as String).select().single();
+
+                          if (response['id'] == null) {
+                            throw Exception('Falha ao confirmar alteração no banco de dados.');
+                          }
+
                           if (ctx.mounted) Navigator.pop(ctx, true);
                         } catch (e) {
+                          debugPrint('Erro ao atualizar área comum: $e');
+                          setSheetState(() => savingInSheet = false);
                           if (ctx.mounted) {
                             ScaffoldMessenger.of(ctx).showSnackBar(
-                              SnackBar(content: Text('Erro: $e'), backgroundColor: Colors.red),
+                              SnackBar(content: Text('Erro ao salvar no banco: $e'), backgroundColor: Colors.red),
                             );
                           }
                         }
                       },
-                      icon: const Icon(Icons.save_outlined, size: 20),
-                      label: const Text('Salvar Alterações', style: TextStyle(fontWeight: FontWeight.bold)),
+                      icon: savingInSheet
+                          ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
+                          : const Icon(Icons.save_outlined, size: 20),
+                      label: Text(
+                        savingInSheet ? 'Salvando...' : 'Salvar Alterações',
+                        style: const TextStyle(fontWeight: FontWeight.bold),
+                      ),
                       style: ElevatedButton.styleFrom(
                         backgroundColor: AppColors.primary,
                         foregroundColor: Colors.white,
@@ -317,6 +419,11 @@ class _AreasComunsAdminScreenState extends State<AreasComunsAdminScreen> {
     );
 
     if (result == true) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Área Comum atualizada com sucesso!'), backgroundColor: Colors.green),
+        );
+      }
       setState(() => _loading = true);
       _load();
     }
@@ -336,23 +443,41 @@ class _AreasComunsAdminScreenState extends State<AreasComunsAdminScreen> {
 
   Future<void> _showCreateForm() async {
     final user = _supabase.auth.currentUser;
-    if (user == null) return;
+    if (user == null) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Usuário não autenticado.'), backgroundColor: Colors.red),
+        );
+      }
+      return;
+    }
+
     final profile = await _supabase
         .from('perfil')
         .select('condominio_id')
         .eq('id', user.id)
         .maybeSingle();
+
     final condoId = profile?['condominio_id'] as String?;
-    if (condoId == null) return;
+    if (condoId == null) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Erro: Condomínio não encontrado no seu perfil.'), backgroundColor: Colors.orange),
+        );
+      }
+      return;
+    }
 
     final tipoCtrl = TextEditingController();
     final localCtrl = TextEditingController(text: 'Bloco A');
+    final outroLocalCtrl = TextEditingController();
     final capacidadeCtrl = TextEditingController(text: '10');
     final limiteCtrl = TextEditingController(text: '1');
-    final hrsCancelarCtrl = TextEditingController(text: '48');
+    final hrsCancelarCtrl = TextEditingController(text: '24');
     final taxaCtrl = TextEditingController(text: '0');
     String tipoReserva = 'por_dia';
     bool aprovAuto = false;
+    bool savingInSheet = false;
 
     final result = await showModalBottomSheet<bool>(
       context: context,
@@ -374,7 +499,6 @@ class _AreasComunsAdminScreenState extends State<AreasComunsAdminScreen> {
                 mainAxisSize: MainAxisSize.min,
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  // Handle bar
                   Center(
                     child: Container(
                       width: 40, height: 4,
@@ -391,7 +515,6 @@ class _AreasComunsAdminScreenState extends State<AreasComunsAdminScreen> {
                   ),
                   const SizedBox(height: 16),
 
-                  // Tipo (nome)
                   TextField(
                     controller: tipoCtrl,
                     decoration: InputDecoration(
@@ -403,7 +526,6 @@ class _AreasComunsAdminScreenState extends State<AreasComunsAdminScreen> {
                   ),
                   const SizedBox(height: 12),
 
-                  // Local
                   TextField(
                     controller: localCtrl,
                     decoration: InputDecoration(
@@ -415,7 +537,17 @@ class _AreasComunsAdminScreenState extends State<AreasComunsAdminScreen> {
                   ),
                   const SizedBox(height: 12),
 
-                  // Tipo Reserva
+                  TextField(
+                    controller: outroLocalCtrl,
+                    decoration: InputDecoration(
+                      labelText: 'Outro Local (opcional)',
+                      hintText: 'Ex: Fase A, Área Externa...',
+                      prefixIcon: const Icon(Icons.edit_location_alt_outlined, size: 20),
+                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+
                   Row(
                     children: [
                       const Text('Tipo de Reserva:', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
@@ -437,7 +569,6 @@ class _AreasComunsAdminScreenState extends State<AreasComunsAdminScreen> {
                   ),
                   const SizedBox(height: 12),
 
-                  // Capacidade + Limite + Hrs cancelar
                   Row(
                     children: [
                       Expanded(
@@ -482,7 +613,6 @@ class _AreasComunsAdminScreenState extends State<AreasComunsAdminScreen> {
                   ),
                   const SizedBox(height: 12),
 
-                  // Taxa
                   TextField(
                     controller: taxaCtrl,
                     keyboardType: const TextInputType.numberWithOptions(decimal: true),
@@ -495,7 +625,6 @@ class _AreasComunsAdminScreenState extends State<AreasComunsAdminScreen> {
                   ),
                   const SizedBox(height: 12),
 
-                  // Aprovação automática toggle
                   SwitchListTile(
                     contentPadding: EdgeInsets.zero,
                     title: const Text('Aprovação automática', style: TextStyle(fontSize: 14)),
@@ -511,12 +640,11 @@ class _AreasComunsAdminScreenState extends State<AreasComunsAdminScreen> {
                   ),
                   const SizedBox(height: 16),
 
-                  // Botão Criar
                   SizedBox(
                     width: double.infinity,
                     height: 48,
                     child: ElevatedButton.icon(
-                      onPressed: () async {
+                      onPressed: savingInSheet ? null : () async {
                         final nome = tipoCtrl.text.trim();
                         if (nome.isEmpty) {
                           ScaffoldMessenger.of(ctx).showSnackBar(
@@ -525,35 +653,51 @@ class _AreasComunsAdminScreenState extends State<AreasComunsAdminScreen> {
                           return;
                         }
 
+                        setSheetState(() => savingInSheet = true);
+
                         final taxa = double.tryParse(taxaCtrl.text.replaceAll(',', '.')) ?? 0;
                         final precos = taxa > 0
                             ? [{'perfil': 'morador', 'valor': taxa}]
                             : <Map<String, dynamic>>[];
 
                         try {
-                          await _supabase.from('areas_comuns').insert({
+                          final response = await _supabase.from('areas_comuns').insert({
                             'condominio_id': condoId,
                             'tipo_agenda': nome,
-                            'local': localCtrl.text.trim().isEmpty ? 'Espaço comum' : localCtrl.text.trim(),
+                            'local': localCtrl.text.trim(),
+                            'outro_local': outroLocalCtrl.text.trim().isNotEmpty ? outroLocalCtrl.text.trim() : null,
                             'tipo_reserva': tipoReserva,
                             'capacidade': int.tryParse(capacidadeCtrl.text) ?? 0,
                             'limite_acesso': int.tryParse(limiteCtrl.text) ?? 1,
                             'hrs_cancelar': int.tryParse(hrsCancelarCtrl.text) ?? 24,
                             'precos': precos,
+                            'taxa_reserva': taxa,
                             'aprovacao_automatica': aprovAuto,
                             'ativo': true,
-                          });
+                          }).select().single();
+
+                          if (response['id'] == null) {
+                            throw Exception('Falha ao confirmar criação no banco de dados.');
+                          }
+
                           if (ctx.mounted) Navigator.pop(ctx, true);
                         } catch (e) {
+                          debugPrint('Erro ao criar área comum: $e');
+                          setSheetState(() => savingInSheet = false);
                           if (ctx.mounted) {
                             ScaffoldMessenger.of(ctx).showSnackBar(
-                              SnackBar(content: Text('Erro: $e'), backgroundColor: Colors.red),
+                              SnackBar(content: Text('Erro ao salvar no banco: $e'), backgroundColor: Colors.red),
                             );
                           }
                         }
                       },
-                      icon: const Icon(Icons.add_circle_outline, size: 20),
-                      label: const Text('Criar Área Comum', style: TextStyle(fontWeight: FontWeight.bold)),
+                      icon: savingInSheet
+                          ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
+                          : const Icon(Icons.add_circle_outline, size: 20),
+                      label: Text(
+                        savingInSheet ? 'Criando...' : 'Criar Área Comum',
+                        style: const TextStyle(fontWeight: FontWeight.bold),
+                      ),
                       style: ElevatedButton.styleFrom(
                         backgroundColor: AppColors.primary,
                         foregroundColor: Colors.white,
@@ -570,6 +714,11 @@ class _AreasComunsAdminScreenState extends State<AreasComunsAdminScreen> {
     );
 
     if (result == true) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Área Comum criada com sucesso!'), backgroundColor: Colors.green),
+        );
+      }
       setState(() => _loading = true);
       _load();
     }
@@ -631,7 +780,10 @@ class _AreasComunsAdminScreenState extends State<AreasComunsAdminScreen> {
     final isAtivo = area['ativo'] == true || area['ativo'] == 1;
     final isAutoAprov = area['aprovacao_automatica'] == true || area['aprovacao_automatica'] == 1;
     final tipo = area['tipo_agenda'] as String? ?? '—';
-    final local = area['local'] as String? ?? '';
+    final local = CommonArea.formatLocalDisplay(
+      local: area['local'] as String?,
+      outroLocal: area['outro_local'] as String?,
+    );
     final cap = area['capacidade']?.toString() ?? '0';
     final tipoReserva = area['tipo_reserva'] as String? ?? 'por_dia';
     final isPorHora = tipoReserva == 'por_hora';
@@ -649,7 +801,6 @@ class _AreasComunsAdminScreenState extends State<AreasComunsAdminScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Header row
             Row(
               children: [
                 Container(
@@ -702,10 +853,8 @@ class _AreasComunsAdminScreenState extends State<AreasComunsAdminScreen> {
             const Divider(height: 1),
             const SizedBox(height: 8),
 
-            // Actions row 1: Ativo + Aprovação automática
             Row(
               children: [
-                // Ativo toggle
                 GestureDetector(
                   onTap: () => _toggleAtivo(area),
                   child: Row(children: [
@@ -718,7 +867,6 @@ class _AreasComunsAdminScreenState extends State<AreasComunsAdminScreen> {
                   ]),
                 ),
                 const SizedBox(width: 16),
-                // Aprovação automática toggle
                 GestureDetector(
                   onTap: () => _toggleAprovacao(area),
                   child: Row(children: [
@@ -735,10 +883,8 @@ class _AreasComunsAdminScreenState extends State<AreasComunsAdminScreen> {
 
             const SizedBox(height: 8),
 
-            // Actions row 2: Editar + Horários (por_hora only) + Apagar
             Row(
               children: [
-                // Editar
                 GestureDetector(
                   onTap: () => _showEditForm(area),
                   child: Container(
@@ -755,7 +901,7 @@ class _AreasComunsAdminScreenState extends State<AreasComunsAdminScreen> {
                   ),
                 ),
                 const SizedBox(width: 8),
-                if (isPorHora) ...[  
+                if (isPorHora) ...[
                   GestureDetector(
                     onTap: () => Navigator.of(context).pushNamed(
                       '/admin-horarios',
@@ -777,7 +923,6 @@ class _AreasComunsAdminScreenState extends State<AreasComunsAdminScreen> {
                   const SizedBox(width: 8),
                 ],
                 const Spacer(),
-                // Apagar
                 GestureDetector(
                   onTap: () => _delete(area['id'] as String),
                   child: Container(

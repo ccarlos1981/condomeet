@@ -1,7 +1,7 @@
 'use client'
 
 import { useState } from 'react'
-import { Send, Megaphone, Edit, Clock, Check, X, ShieldAlert, Trash2 } from 'lucide-react'
+import { Send, Megaphone, Edit, Clock, Check, X, ShieldAlert, Trash2, Users, Smartphone, Info } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 
 interface Condominio {
@@ -18,9 +18,18 @@ interface Agendamento {
   ativo: boolean
 }
 
+interface CondoStats {
+  totalUsuarios: number
+  totalDispositivos: number
+}
+
 interface Props {
   condominios: Condominio[]
   initialAgendamentos: Agendamento[]
+  stats?: {
+    global: CondoStats
+    byCondo: Record<string, CondoStats>
+  }
 }
 
 const ORDER: Record<string, number> = { seg: 0, ter: 1, qua: 2, qui: 3, sex: 4, sab: 5, dom: 6 }
@@ -35,7 +44,7 @@ const DIA_LABELS: Record<string, string> = {
   dom: 'Domingo'
 }
 
-export default function UniversalPushForm({ condominios, initialAgendamentos }: Props) {
+export default function UniversalPushForm({ condominios, initialAgendamentos, stats }: Props) {
   // Manual push form state
   const [condominioId, setCondominioId] = useState('')
   const [titulo, setTitulo] = useState('')
@@ -53,6 +62,10 @@ export default function UniversalPushForm({ condominios, initialAgendamentos }: 
   const [editAtivo, setEditAtivo] = useState(false)
 
   const selectedCondo = condominios.find(c => c.id === condominioId)
+  const currentStats = condominioId
+    ? (stats?.byCondo[condominioId] ?? { totalUsuarios: 0, totalDispositivos: 0 })
+    : (stats?.global ?? { totalUsuarios: 0, totalDispositivos: 0 })
+
   const sortedAgendamentos = [...agendamentos].sort((a, b) => {
     const dayDiff = ORDER[a.dia_semana] - ORDER[b.dia_semana]
     if (dayDiff !== 0) return dayDiff
@@ -228,10 +241,23 @@ export default function UniversalPushForm({ condominios, initialAgendamentos }: 
         throw new Error((data?.error as string) ?? `Erro ao enviar push`)
       }
 
-      setResult({
-        type: 'success',
-        message: `✅ Push enviado para ${data.sent} de ${data.total} dispositivos`,
-      })
+      if (data.total === 0) {
+        setResult({
+          type: 'error',
+          message: `Nenhum dispositivo com Push ativo encontrado para o público selecionado (0 dispositivos).`,
+        })
+      } else if (data.sent === data.total) {
+        setResult({
+          type: 'success',
+          message: `✅ Push enviado para ${data.sent} de ${data.total} dispositivos com Push ativo.`,
+        })
+      } else {
+        const failed = data.total - data.sent
+        setResult({
+          type: 'success',
+          message: `✅ Push enviado para ${data.sent} de ${data.total} dispositivos com Push ativo (${failed} ${failed === 1 ? 'falhou' : 'falharam'}).`,
+        })
+      }
       setTitulo('')
       setCorpo('')
     } catch (err) {
@@ -260,8 +286,8 @@ export default function UniversalPushForm({ condominios, initialAgendamentos }: 
             <Megaphone size={18} className="text-orange-500 mt-0.5 shrink-0" />
             <p className="text-sm text-orange-700">
               {condominioId
-                ? <>Este push será enviado para os usuários do <strong>{selectedCondo?.nome}</strong>.</>
-                : <>Este push será enviado para <strong>todos os usuários cadastrados</strong> em todos os condomínios.</>
+                ? <>Este push será enviado para os dispositivos com Push ativo do <strong>{selectedCondo?.nome}</strong>.</>
+                : <>Este push será enviado para os <strong>dispositivos com Push ativo</strong> em todos os condomínios.</>
               }
             </p>
           </div>
@@ -294,6 +320,43 @@ export default function UniversalPushForm({ condominios, initialAgendamentos }: 
                 <option key={c.id} value={c.id}>{c.nome}</option>
               ))}
             </select>
+          </div>
+
+          {/* Card de Contexto: Usuários x Dispositivos */}
+          <div className="bg-slate-50 border border-slate-200/80 rounded-xl p-4 space-y-3">
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-bold text-slate-700 uppercase tracking-wider">
+                {condominioId ? selectedCondo?.nome : 'Todos os Condomínios'}
+              </span>
+              <span className="text-[11px] font-semibold px-2 py-0.5 bg-slate-200/70 text-slate-700 rounded-md">
+                Público Estimado
+              </span>
+            </div>
+
+            <div className="grid grid-cols-2 gap-3">
+              <div className="bg-white rounded-lg p-3 border border-slate-100 shadow-sm">
+                <div className="flex items-center gap-1.5 text-slate-500 text-xs font-medium mb-1">
+                  <Users size={14} className="text-slate-400" />
+                  <span>Usuários cadastrados</span>
+                </div>
+                <p className="text-xl font-bold text-slate-900">{currentStats.totalUsuarios}</p>
+              </div>
+
+              <div className="bg-white rounded-lg p-3 border border-orange-100 shadow-sm">
+                <div className="flex items-center gap-1.5 text-orange-600 text-xs font-semibold mb-1">
+                  <Smartphone size={14} className="text-[#FC5931]" />
+                  <span>Push ativo</span>
+                </div>
+                <p className="text-xl font-bold text-[#FC5931]">{currentStats.totalDispositivos}</p>
+              </div>
+            </div>
+
+            <div className="flex items-start gap-2 pt-1 text-[11px] text-slate-500 leading-tight">
+              <Info size={14} className="text-slate-400 shrink-0 mt-0.5" />
+              <span>
+                Somente usuários com o aplicativo instalado, login realizado e Push ativo recebem esta notificação.
+              </span>
+            </div>
           </div>
 
           {/* Assunto */}

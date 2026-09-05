@@ -19,7 +19,6 @@ class DocumentRepositoryImpl implements DocumentRepository {
           }
         })
         .handleError((e) {
-          print('❌ watchDocuments error: $e');
           return <CondoDocument>[];
         });
   }
@@ -28,13 +27,30 @@ class DocumentRepositoryImpl implements DocumentRepository {
     try {
       final rows = await _supabase
           .from('documentos')
-          .select('id, condominio_id, titulo, pasta_id, arquivo_url, arquivo_nome, categoria, data_validade, data_expedicao, mostrar_moradores, descricao')
+          .select('''
+            id,
+            condominio_id,
+            titulo,
+            pasta_id,
+            tipo_id,
+            tipo,
+            sem_validade,
+            arquivo_url,
+            arquivo_nome,
+            categoria,
+            data_validade,
+            data_expedicao,
+            mostrar_moradores,
+            avisar_moradores,
+            descricao,
+            doc_pastas(nome),
+            documento_tipos(nome, icone)
+          ''')
           .eq('condominio_id', condominioId)
           .eq('mostrar_moradores', true)
           .order('titulo');
       return (rows as List).map((r) => CondoDocument.fromMap(r as Map<String, dynamic>)).toList();
     } catch (e) {
-      print('❌ _fetchDocuments error: $e');
       return [];
     }
   }

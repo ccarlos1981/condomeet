@@ -1,6 +1,10 @@
 // _shared/botconversa.ts — Shared BotConversa API utilities
 // Used by: botconversa-send, whatsapp-parcel-notify, and other notification functions
 
+export { MessageType, VALID_MESSAGE_TYPES, EVENT_PRIORITY_MAP, TEMPLATE_REGISTRY, validateTemplateContract, PolicyErrorCode, REGISTERED_OFFICIAL_TEMPLATES, AUTHORIZED_TRANSACTIONAL_CALLERS, CALLER_ALLOWED_MESSAGE_TYPES, MESSAGE_ABSOLUTE_TTL_SECONDS, MESSAGE_FALLBACK_WINDOW_SECONDS, getMessageTTL, getMessageFallbackWindow } from "./message_types.ts";
+export type { MessageTypeValue, TemplateContract, TemplateDefinition } from "./message_types.ts";
+import { MessageType, VALID_MESSAGE_TYPES, EVENT_PRIORITY_MAP, TEMPLATE_REGISTRY, validateTemplateContract, PolicyErrorCode, REGISTERED_OFFICIAL_TEMPLATES, AUTHORIZED_TRANSACTIONAL_CALLERS, CALLER_ALLOWED_MESSAGE_TYPES, TemplateContract, MessageTypeValue, getMessageTTL, getMessageFallbackWindow } from "./message_types.ts";
+
 export const BOTCONVERSA_BASE_URL =
   "https://backend.botconversa.com.br/api/v1/webhook"
 export const DELAY_TEXT_MS = 1_000
@@ -147,8 +151,8 @@ export function normalizePhone(raw: string): string {
   return phone
 }
 
-// ── Send text or file message (Direct Fetch) ─────────────────────────────────────
-export async function sendMessageDirect(
+// ── Send text or file message (Direct Fetch - Encapsulado/Privado) ───────────────
+async function sendMessageDirect(
   apiKey: string,
   subscriberId: string,
   tipo: "text" | "file",
@@ -216,8 +220,8 @@ export async function sendMessageDirect(
   }
 }
 
-// ── Send text or file message (Queued Wrapper) ──────────────────────────────────
-export async function sendMessage(
+// ── Send text or file message (Queued Wrapper - Encapsulado/Privado) ────────────
+async function sendMessage(
   apiKey: string,
   subscriberId: string,
   tipo: "text" | "file",
@@ -232,13 +236,13 @@ export async function sendMessage(
   )
 }
 
-// ── Send interactive button message (Direct Fetch) ──────────────────────────────
+// ── Send interactive button message (Direct Fetch - Encapsulado/Privado) ────────
 export interface InteractiveButton {
   id: string
   title: string // max 20 chars
 }
 
-export async function sendInteractiveButtonsDirect(
+async function sendInteractiveButtonsDirect(
   apiKey: string,
   subscriberId: string,
   bodyText: string,
@@ -320,7 +324,9 @@ export async function sendInteractiveButtons(
   footerText?: string,
   supabase?: any,
   perfilId?: string,
-  phone?: string | null | undefined
+  phone?: string | null | undefined,
+  messageType?: string,
+  callerFunction?: string
 ): Promise<BotConversaSendResult> {
   const interactive: Record<string, unknown> = {
     type: "button",
@@ -343,12 +349,14 @@ export async function sendInteractiveButtons(
     JSON.stringify(interactive),
     undefined,
     supabase,
-    perfilId
+    perfilId,
+    messageType || MessageType.VISITOR_AUTHORIZED,
+    callerFunction || "sendInteractiveButtons"
   )
 }
 
-// ── Send flow ─────────────────────────────────────────────────────────────
-export async function sendFlow(
+// ── Send flow (Encapsulado/Privado) ──────────────────────────────────────────
+async function sendFlow(
   apiKey: string,
   subscriberId: string,
   flowId: number
@@ -470,8 +478,8 @@ export async function resolveSubscriber(
   }
 }
 
-// ── Send by phone ──────────────────────────────────────────
-export async function sendByPhone(
+// ── Send by phone (Encapsulado/Privado) ──────────────────────────────────────
+async function sendByPhone(
   apiKey: string,
   phone: string,
   tipo: "text" | "file",
@@ -518,12 +526,141 @@ export async function sendByPhone(
 
 // ── Smart send: prefer botconversa_id, fallback to phone ──────────────────
 // SHA-256 helper
-async function sha256(text: string): Promise<string> {
+export async function sha256(text: string): Promise<string> {
   const msgBuffer = new TextEncoder().encode(text);
   const hashBuffer = await crypto.subtle.digest("SHA-256", msgBuffer);
   const hashArray = Array.from(new Uint8Array(hashBuffer));
   const hashHex = hashArray.map(b => b.toString(16).padStart(2, "0")).join("");
   return hashHex;
+}
+
+export interface PolicyCheckParams {
+  callerFunction?: string;
+  messageType?: string;
+  templateName?: string | null;
+  templateCategory?: string | null;
+  textValue?: string;
+  isCampaign?: boolean;
+  isBroadcast?: boolean;
+  recipientCount?: number;
+  templateParams?: string[];
+}
+
+export function validateWhatsAppSendPolicy(params: PolicyCheckParams): { allowed: boolean; reason?: string; errorCode?: string } {
+  const { callerFunction, messageType, templateName, templateCategory, textValue = "", isCampaign = false, isBroadcast = false, recipientCount, templateParams } = params;
+  const lowerText = textValue.toLowerCase();
+
+  // 0a. Strict Whitelist Check (FASE 4.16B)
+  if (!callerFunction || !AUTHORIZED_TRANSACTIONAL_CALLERS.has(callerFunction)) {
+    return {
+      allowed: false,
+      reason: `Caller '${callerFunction || "anônimo"}' is not authorized in AUTHORIZED_TRANSACTIONAL_CALLERS. All WhatsApp dispatches must originate from homologated transactional callers.`,
+      errorCode: PolicyErrorCode.CALLER_NOT_AUTHORIZED,
+    };
+  }
+
+  // 0b. Caller Allowed MessageTypes Matrix Check (FASE 4.16B)
+  if (messageType && callerFunction in CALLER_ALLOWED_MESSAGE_TYPES) {
+    const allowedTypes = CALLER_ALLOWED_MESSAGE_TYPES[callerFunction];
+    if (allowedTypes && !allowedTypes.has(messageType)) {
+      return {
+        allowed: false,
+        reason: `MessageType '${messageType}' is not permitted for caller '${callerFunction}'.`,
+        errorCode: PolicyErrorCode.INVALID_CALLER_MESSAGE_TYPE,
+      };
+    }
+  }
+
+  // 0c. Prohibit broadcast/campaign dispatches on WhatsApp
+  if (isCampaign || isBroadcast) {
+    return {
+      allowed: false,
+      reason: "Broadcast / mass campaign messages are strictly forbidden on WhatsApp by Condomeet Governance (FASE 4.16B). Use Push Notification (FCM), In-App Feed, or Email for broad communication.",
+      errorCode: PolicyErrorCode.BROADCAST_BLOCKED,
+    };
+  }
+
+  // 0d. Validate transactional recipient volume limit (Max 5 for transactional groups, e.g. board members / emergency contacts)
+  if (recipientCount && recipientCount > 5) {
+    return {
+      allowed: false,
+      reason: `Recipient count (${recipientCount}) exceeds maximum allowed transactional threshold (5). Mass dispatches on WhatsApp are forbidden.`,
+      errorCode: PolicyErrorCode.BROADCAST_BLOCKED,
+    };
+  }
+
+  // 1. Prohibit MARKETING category across all channels
+  if (templateCategory === "MARKETING" || messageType === "MARKETING") {
+    return {
+      allowed: false,
+      reason: "Marketing category is strictly forbidden in Condomeet WhatsApp ecosystem.",
+      errorCode: PolicyErrorCode.MARKETING_BLOCKED,
+    };
+  }
+
+  // 2. Prohibit commercial upsell, ads, sales calls, or marketing links in text content
+  if (
+    lowerText.includes("destacar seu perfil") ||
+    lowerText.includes("atrair mais clientes") ||
+    lowerText.includes("instagram.com") ||
+    lowerText.includes("facebook.com") ||
+    lowerText.includes("compre agora") ||
+    lowerText.includes("oferta exclusiva") ||
+    lowerText.includes("cupom de desconto")
+  ) {
+    return {
+      allowed: false,
+      reason: `Commercial marketing content detected in "${callerFunction || 'dispatch'}". Marketing dispatches are forbidden.`,
+      errorCode: PolicyErrorCode.MARKETING_BLOCKED,
+    };
+  }
+
+  // 3. Campaigns MUST use an approved template from TEMPLATE_REGISTRY (NO FREE TEXT FOR CAMPAIGNS)
+  if (isCampaign) {
+    if (!templateName || templateName.trim() === "") {
+      return {
+        allowed: false,
+        reason: "WhatsApp campaigns must use an approved template from TEMPLATE_REGISTRY. Free text is forbidden.",
+        errorCode: PolicyErrorCode.CAMPAIGN_FREE_TEXT_BLOCKED,
+      };
+    }
+
+    // Check if template is registered in TEMPLATE_REGISTRY or REGISTERED_OFFICIAL_TEMPLATES
+    const isRegistered = REGISTERED_OFFICIAL_TEMPLATES.has(templateName) || Object.values(TEMPLATE_REGISTRY).some(
+      (tpl) => tpl && tpl.defaultName === templateName
+    );
+    if (!isRegistered) {
+      return {
+        allowed: false,
+        reason: `Template '${templateName}' is not registered in TEMPLATE_REGISTRY.`,
+        errorCode: PolicyErrorCode.TEMPLATE_NOT_REGISTERED,
+      };
+    }
+  }
+
+  // 4. Validate template contract if an explicit templateName is requested or worker is attempting Meta Cloud API dispatch
+  if ((templateName || callerFunction === "whatsapp-outbox-worker") && messageType && messageType in TEMPLATE_REGISTRY) {
+    const tplDef = TEMPLATE_REGISTRY[messageType as keyof typeof TEMPLATE_REGISTRY];
+    if (tplDef) {
+      if (templateName && templateName !== tplDef.defaultName && !templateName.startsWith(tplDef.family)) {
+        return {
+          allowed: false,
+          reason: `Template '${templateName}' does not match registered family '${tplDef.family}' for messageType '${messageType}'.`,
+          errorCode: PolicyErrorCode.INVALID_CONTRACT,
+        };
+      }
+
+      if (templateParams && templateParams.length < tplDef.minParameters) {
+        return {
+          allowed: false,
+          reason: `Template '${tplDef.defaultName}' requires at least ${tplDef.minParameters} parameters, provided ${templateParams.length}.`,
+          errorCode: PolicyErrorCode.INVALID_CONTRACT,
+        };
+      }
+    }
+  }
+
+  return { allowed: true };
 }
 
 // ── Smart send: Produces outbox record instead of direct API call ──────────
@@ -535,7 +672,12 @@ export async function smartSend(
   value: string,
   firstName?: string,
   supabase?: any,
-  perfilId?: string
+  perfilId?: string,
+  messageType?: string,
+  callerFunction?: string,
+  templateParams?: string[],
+  entityType?: string,
+  entityId?: string
 ): Promise<BotConversaSendResult> {
   const rawPhone = phone || ""
   const phoneNormalized = normalizePhone(rawPhone)
@@ -580,6 +722,56 @@ export async function smartSend(
     }
   }
 
+  // 1b. Central Policy Governance Check (Whitelist de Callers, Anti-Broadcast e Diretrizes Gerais)
+  const policyCheck = validateWhatsAppSendPolicy({
+    callerFunction: callerFunction || "smartSend",
+    messageType,
+    textValue: value,
+    isCampaign: callerFunction === "campaign-worker",
+  });
+
+  if (!policyCheck.allowed) {
+    console.error(JSON.stringify({
+      event: "WHATSAPP_POLICY_BLOCKED",
+      errorCode: policyCheck.errorCode,
+      reason: policyCheck.reason,
+      caller_function: callerFunction || "smartSend",
+      message_type: messageType || null,
+      recipient_phone: phoneNormalized
+    }));
+
+    let sb = supabase;
+    if (!sb) {
+      try {
+        const { createClient } = await import("https://esm.sh/@supabase/supabase-js@2");
+        sb = createClient(Deno.env.get("SUPABASE_URL") || "", Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") || "");
+      } catch (_) {}
+    }
+    if (sb) {
+      try {
+        await sb.from("botconversa_monitoring").insert({
+          action_type: "POLICY_BLOCKED",
+          recipient_phone: phoneNormalized,
+          perfil_id: perfilId || null,
+          error_message: `[${policyCheck.errorCode}] ${policyCheck.reason}`,
+          function_name: callerFunction || "smartSend",
+          delivery_status: policyCheck.errorCode
+        });
+      } catch (_) {}
+    }
+
+    return {
+      success: false,
+      skipped: true,
+      resolvedNow: false,
+      subscriberId: botconversaId || "",
+      phoneNormalized,
+      reason: policyCheck.reason,
+      error: policyCheck.reason,
+      deliveryStatus: policyCheck.errorCode as any
+    };
+  }
+
   // 2. Resolve database client
   let sb = supabase;
   if (!sb) {
@@ -592,7 +784,7 @@ export async function smartSend(
   }
 
   let finalPerfilId = perfilId || null;
-  let condominioId = null;
+  let condominioId: string | null = null;
 
   // 3. Resolve condominio_id and perfil_id
   if (sb) {
@@ -622,13 +814,101 @@ export async function smartSend(
     }
   }
 
-  // 4. Compute message priority
-  let priority = 10; // Default
-  const lowerVal = value.toLowerCase();
-  if (lowerVal.includes("sos") || lowerVal.includes("aprovar entrada") || lowerVal.includes("recusar entrada") || lowerVal.includes("senha")) {
-    priority = 1; // Critical
-  } else if (lowerVal.includes("lembrete") || lowerVal.includes("boleto") || lowerVal.includes("vencimento")) {
-    priority = 20; // Low
+  // 4. Compute message priority via MessageType / EVENT_PRIORITY_MAP
+  let priority: number;
+  const isValidType = messageType && VALID_MESSAGE_TYPES.has(messageType as any);
+
+  if (isValidType && messageType in EVENT_PRIORITY_MAP) {
+    // Resolução Oficial Determinística por Tipo de Evento
+    priority = EVENT_PRIORITY_MAP[messageType as keyof typeof EVENT_PRIORITY_MAP];
+    console.log(JSON.stringify({
+      event: "OFFICIAL_PRIORITY_RESOLVED",
+      message_type: messageType,
+      priority,
+      queue: priority <= 5 ? "queue=high" : "queue=low",
+      caller_function: callerFunction || "desconhecida"
+    }));
+  } else {
+    // Transição Fases 1 e 2: Warning Estruturado + Fallback por Texto Temporário
+    const lowerVal = value.toLowerCase();
+    if (lowerVal.includes("sos") || lowerVal.includes("aprovar entrada") || lowerVal.includes("recusar entrada") || lowerVal.includes("senha")) {
+      priority = 1; // Critical
+    } else if (lowerVal.includes("lembrete") || lowerVal.includes("boleto") || lowerVal.includes("vencimento")) {
+      priority = 20; // Low
+    } else {
+      priority = 10; // Default
+    }
+
+    console.warn(JSON.stringify({
+      event: "DEPRECATED_FALLBACK_TRIGGERED",
+      warning: `MessageType ausente ou nao homologado ("${messageType || "vazio"}"). Ativando fallback temporario por texto.`,
+      caller_function: callerFunction || "desconhecida",
+      received_message_type: messageType || null,
+      calculated_priority: priority,
+      queue: priority <= 5 ? "queue=high" : "queue=low"
+    }));
+  }
+
+  // 4b. Validar contrato do Template se houver definição no TEMPLATE_REGISTRY
+  // REGRA CANÔNICA FASE 4.17.1: A ausência, pendência ou erro de contrato do template Meta
+  // NUNCA pode impedir o BotConversa de enfileirar e enviar a mensagem primária.
+  // A validação Meta define apenas se o fallback para a Meta Cloud API estará disponível.
+  let templateObject: TemplateContract | null = null;
+  const isMetaTemplateCandidate = tipo !== "interactive" && !(callerFunction === "whatsapp-guest" && !templateParams);
+  const templateDef = (isMetaTemplateCandidate && messageType) ? TEMPLATE_REGISTRY[messageType as MessageTypeValue] : null;
+
+  if (templateDef) {
+    let resolvedName = templateDef.defaultName;
+    let resolvedVersion = templateDef.contractVersion || 1;
+    let isDbApproved = false;
+
+    // Tentativa de resolver automaticamente a versão/nome do template no banco local
+    if (sb) {
+      try {
+        const { data: dbTemplate } = await sb.rpc("resolve_whatsapp_template", { 
+          p_family: templateDef.family, 
+          p_language: templateDef.language 
+        });
+        if (dbTemplate && dbTemplate.name) {
+          resolvedName = dbTemplate.name;
+          resolvedVersion = dbTemplate.template_version || resolvedVersion;
+          isDbApproved = dbTemplate.status === "APPROVED";
+        } else {
+          console.warn(JSON.stringify({
+            event: "TEMPLATE_FALLBACK_UNAPPROVED_LOCAL",
+            template: templateDef.defaultName,
+            family: templateDef.family,
+            message_type: messageType,
+            warning: `Template '${templateDef.defaultName}' não está APPROVED na tabela local de templates. O envio primário BotConversa prossegue normalmente.`,
+            caller_function: callerFunction || "desconhecida"
+          }));
+        }
+      } catch (e) {
+        console.warn(`[smartSend] Erro não-bloqueante ao resolver template family ${templateDef.family}:`, e);
+      }
+    }
+
+    const candidateTemplate: TemplateContract = {
+      contract_version: resolvedVersion,
+      name: resolvedName,
+      language: templateDef.language,
+      parameters: templateParams || []
+    };
+
+    const validation = validateTemplateContract(messageType!, candidateTemplate);
+    if (validation.valid) {
+      templateObject = candidateTemplate;
+    } else {
+      console.warn(JSON.stringify({
+        event: "META_FALLBACK_TEMPLATE_UNAVAILABLE",
+        warning: "Contrato de template Meta ausente ou incompleto para esta mensagem. O envio primário pelo BotConversa prosseguirá normalmente sem payload estruturado de fallback.",
+        error: validation.error,
+        message_type: messageType,
+        caller_function: callerFunction || "desconhecida"
+      }));
+      // Fallback estruturado desabilitado, mas o envio primário no BotConversa CONTINUA!
+      templateObject = null;
+    }
   }
 
   // 5. Compute unique message hash
@@ -640,12 +920,12 @@ export async function smartSend(
     try {
       const twoMinutesAgo = new Date(Date.now() - 2 * 60 * 1000).toISOString();
       const { data: duplicate } = await sb
-        .from("whatsapp_outbox")
-        .select("id")
-        .eq("message_hash", messageHash)
-        .or(`status.eq.pending,and(status.eq.sent,sent_at.gt.${twoMinutesAgo})`)
-        .limit(1)
-        .maybeSingle();
+          .from("whatsapp_outbox")
+          .select("id")
+          .eq("message_hash", messageHash)
+          .or(`status.eq.pending,and(status.eq.sent,sent_at.gt.${twoMinutesAgo})`)
+          .limit(1)
+          .maybeSingle();
 
       if (duplicate) {
         console.log(`[smartSend] Deduplicação ativada. Mensagem duplicada ignorada (Hash: ${messageHash})`);
@@ -663,40 +943,50 @@ export async function smartSend(
     }
   }
 
-  // 7. Insert message into whatsapp_outbox
+  // 7. Enqueue message into whatsapp_outbox via Canonical PostgreSQL Governance RPC
   if (sb) {
     try {
-      const { error: insError } = await sb
-        .from("whatsapp_outbox")
-        .insert({
-          recipient_phone: phoneNormalized,
-          perfil_id: finalPerfilId,
-          condominio_id: condominioId,
-          payload_type: tipo,
-          message_type: "TEXTO_LIVRE",
-          message_content: {
+      const resolvedEntityType = entityType || (messageType === MessageType.OTP ? "auth_users" : "perfil");
+      const resolvedEntityId = entityId || finalPerfilId || undefined;
+      const ttlSeconds = getMessageTTL(messageType);
+      const calculatedExpiresAt = new Date(Date.now() + ttlSeconds * 1000).toISOString();
+
+      const { data: outboxId, error: rpcError } = await sb.rpc(
+        "enqueue_whatsapp_transactional_message",
+        {
+          p_recipient_phone: phoneNormalized,
+          p_payload_type: tipo,
+          p_message_type: messageType || "TEXTO_LIVRE",
+          p_message_content: {
             value,
             firstName: firstName || "",
-            botconversaId: botconversaId || null
+            botconversaId: botconversaId || null,
+            template: templateObject
           },
-          priority,
-          message_hash: messageHash
-        });
+          p_caller_function: callerFunction || "smartSend",
+          p_entity_type: resolvedEntityType,
+          p_entity_id: resolvedEntityId,
+          p_condominio_id: condominioId,
+          p_perfil_id: finalPerfilId,
+          p_priority: priority,
+          p_expires_at: calculatedExpiresAt
+        }
+      );
 
-      if (insError) {
-        console.error("[smartSend] Error inserting into outbox:", insError);
+      if (rpcError) {
+        console.error("[smartSend] Governance RPC rejected message:", rpcError);
         return {
           success: false,
           skipped: false,
           resolvedNow: false,
           subscriberId: botconversaId || "",
           phoneNormalized,
-          error: insError.message,
+          error: rpcError.message,
           deliveryStatus: "BOTCONVERSA_API_ERROR"
-        }
+        };
       }
     } catch (err: any) {
-      console.error("[smartSend] Exception inserting into outbox:", err);
+      console.error("[smartSend] Exception invoking governance RPC:", err);
       return {
         success: false,
         skipped: false,
@@ -707,6 +997,26 @@ export async function smartSend(
         deliveryStatus: "BOTCONVERSA_API_ERROR"
       }
     }
+  }
+
+  // 7b. Fire & Forget Worker Wake-up Trigger
+  try {
+    const workerQueue = priority <= 5 ? "high" : "low"
+    const edgeUrl = Deno.env.get("SUPABASE_URL") || "https://avypyaxthvgaybplnwxu.supabase.co"
+    const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") || ""
+
+    if (edgeUrl && serviceKey) {
+      fetch(`${edgeUrl}/functions/v1/whatsapp-outbox-worker?queue=${workerQueue}`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${serviceKey}`
+        },
+        body: JSON.stringify({})
+      }).catch((wErr) => console.error("[smartSend] Background worker wake-up error:", wErr))
+    }
+  } catch (wakeErr) {
+    console.error("[smartSend] Exception triggering worker wake-up:", wakeErr)
   }
 
   return {
@@ -720,15 +1030,39 @@ export async function smartSend(
 }
 
 // ── Send to multiple recipients sequentially ──────────────────────────────
+export const MAX_TRANSACTIONAL_RECIPIENTS = 5;
+
 export async function sendToRecipients(
   apiKey: string,
   recipients: Array<{ id: string; botconversa_id?: string | null; whatsapp?: string | null; nome_completo: string }>,
   msg: string,
   tipo: "text" | "file",
-  options?: { flowId?: number; personalizeMsg?: boolean; supabase?: any }
+  options?: { flowId?: number; personalizeMsg?: boolean; supabase?: any; messageType?: string; callerFunction?: string; templateParams?: string[] }
 ): Promise<BotConversaSendResult[]> {
   const delayMs = tipo === "file" ? DELAY_FILE_MS : DELAY_TEXT_MS
   const results: BotConversaSendResult[] = []
+
+  // Anti-broadcast protection: reject batch calls exceeding transactional limits (FASE 4.16A)
+  if (recipients.length > MAX_TRANSACTIONAL_RECIPIENTS) {
+    console.error(JSON.stringify({
+      event: "WHATSAPP_BROADCAST_BLOCKED",
+      errorCode: PolicyErrorCode.BROADCAST_BLOCKED,
+      recipient_count: recipients.length,
+      max_allowed: MAX_TRANSACTIONAL_RECIPIENTS,
+      reason: `Tentativa de envio em lote via WhatsApp com ${recipients.length} destinatários bloqueada por governança. Use Push FCM para difusão ampla.`,
+      caller_function: options?.callerFunction || "sendToRecipients"
+    }));
+    return recipients.map((r) => ({
+      success: false,
+      skipped: true,
+      resolvedNow: false,
+      subscriberId: r.botconversa_id || "",
+      phoneNormalized: normalizePhone(r.whatsapp || ""),
+      reason: `Bloqueio de Governança (FASE 4.16A): Envio para ${recipients.length} destinatários excede o limite transacional (${MAX_TRANSACTIONAL_RECIPIENTS}). Broadcast via WhatsApp é proibido.`,
+      error: `Bloqueio de Governança: Broadcast via WhatsApp é proibido.`,
+      deliveryStatus: PolicyErrorCode.BROADCAST_BLOCKED as any
+    }));
+  }
 
   for (let i = 0; i < recipients.length; i++) {
     const recipient = recipients[i]
@@ -748,7 +1082,10 @@ export async function sendToRecipients(
       finalMsg,
       recipient.nome_completo?.split(" ")[0],
       options?.supabase,
-      recipient.id
+      recipient.id,
+      options?.messageType,
+      options?.callerFunction,
+      options?.templateParams
     )
 
     results.push(result)
@@ -801,3 +1138,289 @@ export function parseWebhook(body: any): IncomingMessage | null {
     return null;
   }
 }
+
+export interface CallResult {
+  success: boolean
+  status: number
+  body?: string
+  error?: string
+  isPermanent: boolean
+  providerMessageId?: string
+  subscriberId?: string
+}
+
+async function fetchWithTimeout(
+  url: string,
+  options: RequestInit,
+  timeoutMs = 30000
+): Promise<{ ok: boolean; status: number; text: string; timedOut: boolean }> {
+  const controller = new AbortController()
+  const timeoutId = setTimeout(() => controller.abort(), timeoutMs)
+
+  try {
+    const res = await fetch(url, {
+      ...options,
+      signal: controller.signal,
+    })
+    const text = await res.text()
+    clearTimeout(timeoutId)
+    return { ok: res.ok, status: res.status, text, timedOut: false }
+  } catch (err: any) {
+    clearTimeout(timeoutId)
+    const isTimeout = err.name === "AbortError"
+    return {
+      ok: false,
+      status: isTimeout ? 408 : 500,
+      text: err.message,
+      timedOut: isTimeout,
+    }
+  }
+}
+
+// ── FASE 4.20.7: Evolution API Sender Helper ────────────────────────────────
+export async function sendViaEvolution(
+  apiUrl: string,
+  apiKey: string,
+  instanceName: string,
+  recipientPhone: string,
+  payloadType: string,
+  messageContent: string
+): Promise<CallResult> {
+  const cleanPhone = normalizePhone(recipientPhone)
+  const baseUrl = apiUrl.replace(/\/+$/, "")
+  const isMedia = payloadType === "file" || payloadType === "image" || payloadType === "document"
+  const endpoint = isMedia
+    ? `${baseUrl}/message/sendMedia/${instanceName}`
+    : `${baseUrl}/message/sendText/${instanceName}`
+
+  const bodyPayload: Record<string, any> = {
+    number: cleanPhone
+  }
+
+  if (isMedia) {
+    bodyPayload.media = messageContent
+    bodyPayload.mediatype = payloadType === "image" ? "image" : "document"
+    bodyPayload.caption = ""
+  } else {
+    bodyPayload.text = messageContent
+  }
+
+  const res = await fetchWithTimeout(
+    endpoint,
+    {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "apikey": apiKey
+      },
+      body: JSON.stringify(bodyPayload)
+    },
+    15000
+  )
+
+  if (res.timedOut) {
+    return {
+      success: false,
+      status: 408,
+      error: "Network Timeout (15s) no envio via Evolution API",
+      isPermanent: false
+    }
+  }
+
+  if (!res.ok) {
+    // HTTP 400 e 404 indicam erro permanente (ex: formato incorreto); demais são transitórios
+    const isPermanent = res.status === 400 || res.status === 404
+    return {
+      success: false,
+      status: res.status,
+      body: res.text,
+      error: `Evolution API HTTP ${res.status}: ${res.text}`,
+      isPermanent
+    }
+  }
+
+  let providerMessageId: string | undefined
+  try {
+    const data = JSON.parse(res.text)
+    providerMessageId = data?.key?.id || data?.id
+  } catch (_) {
+    // resposta em texto puro
+  }
+
+  return {
+    success: true,
+    status: res.status,
+    body: res.text,
+    providerMessageId,
+    isPermanent: false
+  }
+}
+
+// ── FASE 4.18 / FASE 4.20.7: Deterministic Partition & Router Helpers ─────────
+export function getDeterministicPartition(id: string): number {
+  let hash = 0;
+  for (let i = 0; i < id.length; i++) {
+    const char = id.charCodeAt(i);
+    hash = ((hash << 5) - hash) + char;
+    hash |= 0;
+  }
+  return Math.abs(hash) % 100;
+}
+
+export interface WelcomePilotParams {
+  perfilId?: string | null;
+  messageId: string;
+  pilotEnabled?: boolean;
+  pilotPercentage?: number;
+  evolutionConnected?: boolean;
+}
+
+export function calculateWelcomePilotRoute(params: WelcomePilotParams): {
+  provider: "EVOLUTION" | "BOTCONVERSA";
+  partition: number;
+  reason: string;
+} {
+  const pilotEnabled = params.pilotEnabled ?? false;
+  const pilotPercentage = params.pilotPercentage ?? 0;
+  const evolutionConnected = params.evolutionConnected ?? true;
+  const partitionKey = params.perfilId || params.messageId;
+  const partition = getDeterministicPartition(partitionKey);
+
+  // 1. Se o piloto estiver desligado -> 100% BotConversa
+  if (!pilotEnabled) {
+    return {
+      provider: "BOTCONVERSA",
+      partition,
+      reason: "WELCOME_PILOT_DISABLED"
+    };
+  }
+
+  // 2. Se a Evolution estiver desconectada antes do envio -> Failover seguro para BotConversa
+  if (!evolutionConnected) {
+    return {
+      provider: "BOTCONVERSA",
+      partition,
+      reason: "EVOLUTION_DISCONNECTED_FAILOVER_BC"
+    };
+  }
+
+  // 3. Avaliação da partição determinística conforme percentual do piloto (0, 25, 50, 100)
+  if (pilotPercentage >= 100) {
+    return {
+      provider: "EVOLUTION",
+      partition,
+      reason: "WELCOME_PILOT_EVOLUTION_100PCT"
+    };
+  }
+
+  if (pilotPercentage > 0 && partition < pilotPercentage) {
+    return {
+      provider: "EVOLUTION",
+      partition,
+      reason: `WELCOME_PILOT_EVOLUTION_${pilotPercentage}PCT`
+    };
+  }
+
+  return {
+    provider: "BOTCONVERSA",
+    partition,
+    reason: `WELCOME_PILOT_BC_REMAINDER_${100 - pilotPercentage}PCT`
+  };
+}
+
+export function calculateWarmupRoute(params: {
+  messageId: string;
+  perfilId?: string | null;
+  messageType?: string | null;
+  warmupMode: boolean;
+  canSendWarmup: boolean;
+  welcomePilotEnabled?: boolean;
+  welcomePilotPercentage?: number;
+  evolutionConnected?: boolean;
+}): {
+  provider: "META" | "BOTCONVERSA" | "EVOLUTION";
+  partition: number;
+  reason: string;
+} {
+  // Regra 1a: DUAL_NUMBER_NOTICE sempre 100% BotConversa
+  if (params.messageType === "DUAL_NUMBER_NOTICE") {
+    return {
+      provider: "BOTCONVERSA",
+      partition: getDeterministicPartition(params.perfilId || params.messageId),
+      reason: "DUAL_NUMBER_NOTICE_EXCLUSIVE_BC"
+    };
+  }
+
+  // Regra 1b: WELCOME — Roteado exclusivamente pelo calculateWelcomePilotRoute (Evolution Piloto ou BotConversa)
+  if (params.messageType === "WELCOME") {
+    const welcomeRoute = calculateWelcomePilotRoute({
+      perfilId: params.perfilId,
+      messageId: params.messageId,
+      pilotEnabled: params.welcomePilotEnabled ?? false,
+      pilotPercentage: params.welcomePilotPercentage ?? 0,
+      evolutionConnected: params.evolutionConnected ?? true
+    });
+    return {
+      provider: welcomeRoute.provider,
+      partition: welcomeRoute.partition,
+      reason: welcomeRoute.reason
+    };
+  }
+
+  // Regra 1c: NOTICE sempre 100% BotConversa enquanto não houver template Meta aprovado
+  if (params.messageType === "NOTICE") {
+    return {
+      provider: "BOTCONVERSA",
+      partition: getDeterministicPartition(params.perfilId || params.messageId),
+      reason: "NOTICE_NO_TEMPLATE_BC"
+    };
+  }
+
+  // Regra 1d: VISITOR_AUTHORIZED — Roteamento Balanceado 50% Meta / 50% BotConversa / 0% Evolution (Fase 7.13.1)
+  if (params.messageType === "VISITOR_AUTHORIZED") {
+    const partitionKey = params.perfilId || params.messageId;
+    const partition = getDeterministicPartition(partitionKey);
+    const isMeta = partition < 50;
+    return {
+      provider: isMeta ? "META" : "BOTCONVERSA",
+      partition,
+      reason: isMeta ? "VISITOR_AUTHORIZED_50PCT_META" : "VISITOR_AUTHORIZED_50PCT_BOTCONVERSA"
+    };
+  }
+
+  // Regra 2: Se WARMUP_MODE estiver desligado, volta 100% para BotConversa First
+  if (!params.warmupMode) {
+    return {
+      provider: "BOTCONVERSA",
+      partition: getDeterministicPartition(params.messageId),
+      reason: "WARMUP_MODE_DISABLED"
+    };
+  }
+
+  const partition = getDeterministicPartition(params.messageId);
+
+  // Regra 3: Se a partição for 99 (1%) E o teto diário permitir -> BotConversa Warmup
+  if (partition >= 99) {
+    if (params.canSendWarmup) {
+      return {
+        provider: "BOTCONVERSA",
+        partition,
+        reason: "WARMUP_ROTA_BC_1PCT"
+      };
+    } else {
+      return {
+        provider: "META",
+        partition,
+        reason: "WARMUP_CAP_EXCEEDED_ROLLOVER_META"
+      };
+    }
+  }
+
+  // Regra 4: Partições 0..98 (99%) -> Meta Primary
+  return {
+    provider: "META",
+    partition,
+    reason: "WARMUP_ROTA_META_99PCT"
+  };
+}
+

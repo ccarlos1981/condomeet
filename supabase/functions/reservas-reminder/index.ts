@@ -1,6 +1,6 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 import { create } from 'https://deno.land/x/djwt@v2.9.1/mod.ts'
-import { smartSend, normalizePhone, DELAY_TEXT_MS } from '../_shared/botconversa.ts'
+import { smartSend, normalizePhone, MessageType, DELAY_TEXT_MS } from '../_shared/botconversa.ts'
 
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
@@ -45,8 +45,8 @@ async function sendFcmPush(fcmToken: string, title: string, body: string, projec
           token: fcmToken,
           notification: { title, body },
           data: { type: 'reserva_lembrete' },
-          android: { priority: 'high', notification: { channel_id: 'reservas' } },
-          apns: { payload: { aps: { sound: 'default', badge: 1 } } },
+          android: { priority: 'high', notification: { channel_id: 'avisos_v2', sound: 'condomeet' } },
+          apns: { payload: { aps: { sound: 'condomeet.aiff', badge: 1 } } },
         },
       }),
     }
@@ -75,7 +75,7 @@ async function sendWhatsAppReminder(
     `Condomeet agradece!\n` +
     `Cód interno: ${codInterno}`
 
-  const result = await smartSend(apiKey, botconversaId, phone, 'text', msg, firstName, supabase, perfilId)
+  const result = await smartSend(apiKey, botconversaId, phone, 'text', msg, firstName, supabase, perfilId, MessageType.RESERVATION, 'reservas-reminder')
   return result.success
 }
 

@@ -23,6 +23,7 @@ import 'package:condomeet/features/auth/presentation/screens/edit_profile_screen
 import 'package:condomeet/features/auth/presentation/screens/change_password_sheet.dart';
 import 'package:condomeet/features/community/presentation/screens/empresa_detalhe_screen.dart';
 import 'package:supabase_flutter/supabase_flutter.dart' hide AuthState;
+import 'package:condomeet/shared/utils/role_helper.dart';
 import 'package:condomeet/main.dart';
 
 class HomeScreen extends StatefulWidget {
@@ -374,179 +375,191 @@ class _HomeScreenState extends State<HomeScreen> {
                       authState.role ?? 'resident',
                     );
 
-                    return Column(
-                      children: [
-                        _buildHeader(authState),
-                        Expanded(
-                          child: SingleChildScrollView(
-                            dragStartBehavior: DragStartBehavior.down,
-                            padding: const EdgeInsets.only(bottom: 24),
-                            child: Column(
-                              children: [
-                                _buildSelfieBanner(),
-                                if (menuItems.isNotEmpty)
-                                  _buildMenuSection(context, menuItems),
-                                _buildParcelCard(),
-                                _buildPartnersSection(),
-                                _buildFeaturedSection(),
-                                const SizedBox(
-                                  height: 80,
-                                ), // Space for bottom nav
-                              ],
+                      return Column(
+                        children: [
+                          _buildHeader(authState, condominiumName: condominium.name),
+                          Expanded(
+                            child: SingleChildScrollView(
+                              dragStartBehavior: DragStartBehavior.down,
+                              padding: const EdgeInsets.only(bottom: 24),
+                              child: Column(
+                                children: [
+                                  _buildSelfieBanner(),
+                                  if (menuItems.isNotEmpty)
+                                    _buildMenuSection(context, menuItems),
+                                  _buildParcelCard(authState),
+                                  _buildPartnersSection(),
+                                  _buildFeaturedSection(),
+                                  const SizedBox(
+                                    height: 80,
+                                  ), // Space for bottom nav
+                                ],
+                              ),
                             ),
                           ),
-                        ),
-                      ],
-                    );
-                  },
+                        ],
+                      );
+                    },
+                  ),
                 ),
+                bottomNavigationBar: _buildBottomNav(context, authState),
               ),
-              bottomNavigationBar: _buildBottomNav(context, authState),
-            ),
-          );
-        },
-      ),
-    );
-  }
-
-  Widget _buildSelfieBanner() {
-    // Don't show banner if user already has a photo
-    if (_fotoUrl != null && _fotoUrl!.isNotEmpty)
-      return const SizedBox.shrink();
-
-    return GestureDetector(
-      onTap: _uploadingSelfie ? null : _captureSelfie,
-      child: Container(
-        width: double.infinity,
-        color: const Color(0xFFFFDEDE),
-        padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
-        margin: const EdgeInsets.only(top: 8),
-        child: Row(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            if (_uploadingSelfie) ...[
-              const SizedBox(
-                width: 16,
-                height: 16,
-                child: CircularProgressIndicator(
-                  strokeWidth: 2,
-                  color: AppColors.primary,
-                ),
-              ),
-              const SizedBox(width: 12),
-              const Text(
-                'Salvando selfie...',
-                style: TextStyle(color: AppColors.textMain, fontSize: 13),
-              ),
-            ] else ...[
-              Container(
-                width: 12,
-                height: 12,
-                decoration: const BoxDecoration(
-                  color: Colors.red,
-                  shape: BoxShape.circle,
-                ),
-              ),
-              const SizedBox(width: 12),
-              const Icon(Icons.camera_alt, size: 18, color: AppColors.primary),
-              const SizedBox(width: 6),
-              const Text(
-                'Vamos tirar uma Selfie? ',
-                style: TextStyle(color: AppColors.textMain, fontSize: 13),
-              ),
-              const Text(
-                'Clique aqui.',
-                style: TextStyle(
-                  color: AppColors.primary,
-                  fontSize: 13,
-                  fontWeight: FontWeight.bold,
-                  decoration: TextDecoration.underline,
-                ),
-              ),
-            ],
-          ],
+            );
+          },
         ),
-      ),
-    );
-  }
+      );
+    }
 
-  Widget _buildHeader(AuthState authState) {
-    return Container(
-      color: Colors.white,
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-      child: Row(
-        children: [
-          // Logo
-          Image.asset('assets/images/logo.png', width: 40, height: 40),
-          const SizedBox(width: 8),
-          const Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  'CONDOMEET',
-                  style: TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.w900,
-                    color: AppColors.primary,
-                    letterSpacing: 0.5,
-                  ),
-                ),
-                Text(
-                  'seu condomínio digital',
-                  style: TextStyle(
-                    fontSize: 10,
-                    color: AppColors.textSecondary,
-                  ),
-                ),
-              ],
-            ),
-          ),
-          // Notification bell
-          Stack(
+    Widget _buildSelfieBanner() {
+      // Don't show banner if user already has a photo
+      if (_fotoUrl != null && _fotoUrl!.isNotEmpty)
+        return const SizedBox.shrink();
+
+      return GestureDetector(
+        onTap: _uploadingSelfie ? null : _captureSelfie,
+        child: Container(
+          width: double.infinity,
+          color: const Color(0xFFFFDEDE),
+          padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
+          margin: const EdgeInsets.only(top: 8),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              IconButton(
-                icon: const Icon(
-                  Icons.notifications_none_rounded,
-                  color: AppColors.primary,
+              if (_uploadingSelfie) ...[
+                const SizedBox(
+                  width: 16,
+                  height: 16,
+                  child: CircularProgressIndicator(
+                    strokeWidth: 2,
+                    color: AppColors.primary,
+                  ),
                 ),
-                padding: EdgeInsets.zero,
-                constraints: const BoxConstraints(),
-                onPressed: () {},
-              ),
-              Positioned(
-                right: 2,
-                top: 2,
-                child: Container(
-                  width: 8,
-                  height: 8,
+                const SizedBox(width: 12),
+                const Text(
+                  'Salvando selfie...',
+                  style: TextStyle(color: AppColors.textMain, fontSize: 13),
+                ),
+              ] else ...[
+                Container(
+                  width: 12,
+                  height: 12,
                   decoration: const BoxDecoration(
                     color: Colors.red,
                     shape: BoxShape.circle,
                   ),
                 ),
-              ),
+                const SizedBox(width: 12),
+                const Icon(Icons.camera_alt, size: 18, color: AppColors.primary),
+                const SizedBox(width: 6),
+                const Text(
+                  'Vamos tirar uma Selfie? ',
+                  style: TextStyle(color: AppColors.textMain, fontSize: 13),
+                ),
+                const Text(
+                  'Clique aqui.',
+                  style: TextStyle(
+                    color: AppColors.primary,
+                    fontSize: 13,
+                    fontWeight: FontWeight.bold,
+                    decoration: TextDecoration.underline,
+                  ),
+                ),
+              ],
             ],
           ),
-          const SizedBox(width: 16),
-          // Profile
-          GestureDetector(
-            onTap: () => _scaffoldKey.currentState?.openEndDrawer(),
-            child: CircleAvatar(
-              radius: 18,
-              backgroundColor: const Color(0xFFB0BEC5),
-              backgroundImage: _fotoUrl != null && _fotoUrl!.isNotEmpty
-                  ? NetworkImage(_fotoUrl!)
-                  : null,
-              child: _fotoUrl == null || _fotoUrl!.isEmpty
-                  ? const Icon(Icons.person, color: Colors.white, size: 24)
-                  : null,
+        ),
+      );
+    }
+
+    Widget _buildHeader(AuthState authState, {String? condominiumName}) {
+      return Container(
+        color: Colors.white,
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+        child: Row(
+          children: [
+            // Logo
+            Image.asset('assets/images/logo.png', width: 40, height: 40),
+            const SizedBox(width: 8),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const Text(
+                    'CONDOMEET',
+                    style: TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.w900,
+                      color: AppColors.primary,
+                      letterSpacing: 0.5,
+                    ),
+                  ),
+                  const Text(
+                    'seu condomínio digital',
+                    style: TextStyle(
+                      fontSize: 10,
+                      color: AppColors.textSecondary,
+                    ),
+                  ),
+                  if (condominiumName != null && condominiumName.isNotEmpty)
+                    Text(
+                      condominiumName,
+                      style: const TextStyle(
+                        fontSize: 10,
+                        color: AppColors.textSecondary,
+                      ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                ],
+              ),
             ),
-          ),
-        ],
-      ),
-    );
-  }
+            const SizedBox(width: 8),
+            // Notification bell
+            Stack(
+              children: [
+                IconButton(
+                  icon: const Icon(
+                    Icons.notifications_none_rounded,
+                    color: AppColors.primary,
+                  ),
+                  padding: EdgeInsets.zero,
+                  constraints: const BoxConstraints(),
+                  onPressed: () {},
+                ),
+                Positioned(
+                  right: 2,
+                  top: 2,
+                  child: Container(
+                    width: 8,
+                    height: 8,
+                    decoration: const BoxDecoration(
+                      color: Colors.red,
+                      shape: BoxShape.circle,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(width: 16),
+            // Profile
+            GestureDetector(
+              onTap: () => _scaffoldKey.currentState?.openEndDrawer(),
+              child: CircleAvatar(
+                radius: 18,
+                backgroundColor: const Color(0xFFB0BEC5),
+                backgroundImage: _fotoUrl != null && _fotoUrl!.isNotEmpty
+                    ? NetworkImage(_fotoUrl!)
+                    : null,
+                child: _fotoUrl == null || _fotoUrl!.isEmpty
+                    ? const Icon(Icons.person, color: Colors.white, size: 24)
+                    : null,
+              ),
+            ),
+          ],
+        ),
+      );
+    }
 
   Widget _buildMenuSection(BuildContext context, List<FeatureMenuItem> items) {
     // 2 linhas fixas, colunas automáticas, scroll horizontal
@@ -645,15 +658,24 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  Widget _buildParcelCard() {
+  Widget _buildParcelCard(AuthState authState) {
+    final role = (authState.role ?? '').toLowerCase();
+    final bool isPorter = role.contains('porteiro') || role.contains('portaria');
+
     return BlocBuilder<ParcelBloc, ParcelState>(
       builder: (context, state) {
         List<Parcel> pendingParcels = [];
         if (state is ParcelLoaded) {
-          final sevenDaysAgo = DateTime.now().subtract(const Duration(days: 7));
-          pendingParcels = state.pendingParcels
-              .where((p) => p.arrivalTime.isAfter(sevenDaysAgo))
-              .toList();
+          if (isPorter) {
+            // Para Portaria: todas as encomendas pendentes do condomínio
+            pendingParcels = state.pendingParcels;
+          } else {
+            // Para Morador / Síndico: encomendas pendentes pessoais dos últimos 7 dias
+            final sevenDaysAgo = DateTime.now().subtract(const Duration(days: 7));
+            pendingParcels = state.pendingParcels
+                .where((p) => p.arrivalTime.isAfter(sevenDaysAgo))
+                .toList();
+          }
         }
         final pendingCount = pendingParcels.length;
         final firstParcel = pendingParcels.isNotEmpty
@@ -700,6 +722,36 @@ class _HomeScreenState extends State<HomeScreen> {
           }
         }
 
+        // Textos e ações diferenciados por perfil
+        final String headerTitle;
+        final String primaryStatusText;
+        final String secondaryStatusText;
+        final String targetRoute;
+
+        if (isPorter) {
+          targetRoute = '/pending-deliveries';
+          headerTitle = 'Encomendas do Condomínio';
+          if (pendingCount > 0) {
+            primaryStatusText = 'Há $pendingCount ${pendingCount == 1 ? "encomenda aguardando retirada no condomínio" : "encomendas aguardando retirada no condomínio"}';
+            secondaryStatusText = 'Gerencie entradas, saídas e assinaturas de retirada.';
+          } else {
+            primaryStatusText = 'Nenhuma encomenda aguardando retirada no condomínio';
+            secondaryStatusText = 'Todas as encomendas registradas foram entregues.';
+          }
+        } else {
+          targetRoute = '/parcel-dashboard';
+          headerTitle = pendingCount > 0
+              ? 'Encomenda aguardando retirada'
+              : 'Nos últimos 7 Dias';
+          if (pendingCount > 0) {
+            primaryStatusText = 'Você tem $pendingCount ${pendingCount == 1 ? "encomenda pendente" : "encomendas pendentes"} nos últimos 7 dias';
+            secondaryStatusText = 'Passe na portaria para retirar.';
+          } else {
+            primaryStatusText = 'Nenhuma encomenda pendente nos últimos 7 dias :)';
+            secondaryStatusText = 'Avisaremos no seu WhatsApp quando chegar.';
+          }
+        }
+
         return Container(
           width: double.infinity,
           margin: const EdgeInsets.all(16),
@@ -721,28 +773,26 @@ class _HomeScreenState extends State<HomeScreen> {
                 child: Row(
                   children: [
                     Text(
-                      pendingCount > 0 ? '😯' : '😊',
+                      pendingCount > 0 ? '📦' : '😊',
                       style: const TextStyle(fontSize: 18),
                     ),
                     const SizedBox(width: 8),
                     Expanded(
                       child: Text(
-                        pendingCount > 0
-                            ? 'Você tem $pendingCount ${pendingCount == 1 ? "encomenda pendente" : "encomendas pendentes"} nos últimos 7 dias'
-                            : 'Nenhuma encomenda pendente nos últimos 7 dias :)',
+                        primaryStatusText,
                         style: const TextStyle(
                           fontWeight: FontWeight.bold,
                           fontSize: 14,
                         ),
                       ),
                     ),
-                    if (pendingCount > 0)
+                    if (isPorter || pendingCount > 0)
                       TextButton(
                         onPressed: () =>
-                            Navigator.pushNamed(context, '/parcel-dashboard'),
-                        child: const Text(
-                          'Ver tudo',
-                          style: TextStyle(
+                            Navigator.pushNamed(context, targetRoute),
+                        child: Text(
+                          isPorter ? 'Acessar' : 'Ver tudo',
+                          style: const TextStyle(
                             color: AppColors.primary,
                             fontSize: 12,
                             fontWeight: FontWeight.bold,
@@ -779,9 +829,7 @@ class _HomeScreenState extends State<HomeScreen> {
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Text(
-                            pendingCount > 0
-                                ? 'Encomenda aguardando retirada'
-                                : 'Nos últimos 7 Dias',
+                            headerTitle,
                             style: const TextStyle(
                               fontWeight: FontWeight.bold,
                               fontSize: 13,
@@ -797,34 +845,36 @@ class _HomeScreenState extends State<HomeScreen> {
                                   fontWeight: FontWeight.w600,
                                 ),
                               ),
+                            if (!isPorter) ...[
+                              Text(
+                                [
+                                  if (tipoLabel.isNotEmpty) tipoLabel,
+                                  if (pendingCount > 1)
+                                    '+${pendingCount - 1} mais',
+                                ].join(' · ').isNotEmpty
+                                    ? [
+                                        if (tipoLabel.isNotEmpty) tipoLabel,
+                                        if (pendingCount > 1)
+                                          '+${pendingCount - 1} mais',
+                                      ].join(' · ')
+                                    : 'Passe na portaria para retirar.',
+                                style: const TextStyle(
+                                  fontSize: 11,
+                                  color: AppColors.textSecondary,
+                                ),
+                              ),
+                            ],
                             Text(
-                              [
-                                    if (tipoLabel.isNotEmpty) tipoLabel,
-                                    if (pendingCount > 1)
-                                      '+${pendingCount - 1} mais',
-                                  ].join(' · ').isNotEmpty
-                                  ? [
-                                      if (tipoLabel.isNotEmpty) tipoLabel,
-                                      if (pendingCount > 1)
-                                        '+${pendingCount - 1} mais',
-                                    ].join(' · ')
-                                  : 'Passe na portaria para retirar.',
+                              secondaryStatusText,
                               style: const TextStyle(
                                 fontSize: 11,
                                 color: AppColors.textSecondary,
                               ),
                             ),
-                            const Text(
-                              'Passe na portaria para retirar.',
-                              style: TextStyle(
-                                fontSize: 11,
-                                color: AppColors.textSecondary,
-                              ),
-                            ),
                           ] else
-                            const Text(
-                              'Avisaremos no seu WhatsApp quando chegar.',
-                              style: TextStyle(
+                            Text(
+                              secondaryStatusText,
+                              style: const TextStyle(
                                 fontSize: 11,
                                 color: AppColors.textSecondary,
                               ),
@@ -843,13 +893,13 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   Widget _buildDrawer(BuildContext context, AuthState authState) {
-    final String roleLower = (authState.role ?? '').toLowerCase();
-    final bool isAdmin =
-        roleLower == 'admin' ||
-        roleLower == 'administrador' ||
-        roleLower == 'syndic' ||
-        roleLower == 'sindico' ||
-        roleLower == 'síndico';
+    final bool isAdmin = authState.isAdministrativeUser;
+    final String roleName = authState.formattedRoleName;
+    final bool hasValidUnit = authState.unitId != null &&
+        authState.unitId!.isNotEmpty &&
+        authState.unitId != '0 / 0' &&
+        !authState.unitId!.contains(' 0,') &&
+        !authState.unitId!.endsWith(' 0');
 
     return Drawer(
       backgroundColor: AppColors.primary,
@@ -872,24 +922,21 @@ class _HomeScreenState extends State<HomeScreen> {
                             fontWeight: FontWeight.bold,
                           ),
                         ),
-                        if (authState.unitId != null &&
-                            authState.unitId!.isNotEmpty &&
-                            authState.unitId != '0 / 0' &&
-                            !authState.unitId!.contains(' 0,') &&
-                            !authState.unitId!.endsWith(' 0'))
+                        const SizedBox(height: 2),
+                        Text(
+                          roleName,
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 14,
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                        if (hasValidUnit)
                           Text(
                             'Unid. ${authState.unitId}',
                             style: const TextStyle(
-                              color: Colors.white,
-                              fontSize: 14,
-                            ),
-                          )
-                        else
-                          Text(
-                            isAdmin ? 'Administrador' : 'Morador',
-                            style: const TextStyle(
                               color: Colors.white70,
-                              fontSize: 14,
+                              fontSize: 12,
                             ),
                           ),
                       ],
@@ -898,16 +945,16 @@ class _HomeScreenState extends State<HomeScreen> {
                   if (isAdmin)
                     Container(
                       padding: const EdgeInsets.symmetric(
-                        horizontal: 12,
+                        horizontal: 10,
                         vertical: 4,
                       ),
                       decoration: BoxDecoration(
                         border: Border.all(color: Colors.white),
                         borderRadius: BorderRadius.circular(4),
                       ),
-                      child: const Text(
-                        'ADMIN',
-                        style: TextStyle(
+                      child: Text(
+                        roleName.toUpperCase(),
+                        style: const TextStyle(
                           color: Colors.white,
                           fontSize: 11,
                           fontWeight: FontWeight.bold,

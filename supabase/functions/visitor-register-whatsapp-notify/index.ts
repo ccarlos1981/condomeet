@@ -3,7 +3,7 @@
 // Sends WhatsApp notification to all residents of the target unit via BotConversa.
 
 import { createClient } from "npm:@supabase/supabase-js@2"
-import { sendToRecipients } from "../_shared/botconversa.ts"
+import { sendToRecipients, MessageType } from "../_shared/botconversa.ts"
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -131,7 +131,12 @@ Deno.serve(async (req: Request) => {
       `Condomeet agradece!\n` +
       `Cód interno: ${codInterno}`
 
-    const results = await sendToRecipients(BOTCONVERSA_API_KEY, validRecipients, msg, "text", { personalizeMsg: true, supabase })
+    const results = await sendToRecipients(BOTCONVERSA_API_KEY, validRecipients, msg, "text", {
+      personalizeMsg: true,
+      supabase,
+      messageType: MessageType.VISITOR_AUTHORIZED,
+      callerFunction: "visitor-register-whatsapp-notify"
+    })
     console.log(`[visitor-register-notify] Results:`, results)
 
     return jsonResponse({

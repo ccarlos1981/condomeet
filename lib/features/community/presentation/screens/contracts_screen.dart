@@ -2,11 +2,55 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:condomeet/core/design_system/design_system.dart';
-import 'package:condomeet/features/community/domain/models/document.dart';
 import 'package:condomeet/features/auth/presentation/bloc/auth_bloc.dart';
 import 'package:condomeet/core/services/powersync_service.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:get_it/get_it.dart';
+
+class _ResidentContractItem {
+  final String id;
+  final String titulo;
+  final String? pastaNome;
+  final String? categoria;
+  final String? fornecedorNome;
+  final String? dataValidade;
+  final bool semValidade;
+  final String? arquivoUrl;
+  final String? arquivoNome;
+
+  const _ResidentContractItem({
+    required this.id,
+    required this.titulo,
+    this.pastaNome,
+    this.categoria,
+    this.fornecedorNome,
+    this.dataValidade,
+    this.semValidade = false,
+    this.arquivoUrl,
+    this.arquivoNome,
+  });
+
+  String get extensao {
+    final nome = arquivoNome ?? arquivoUrl ?? '';
+    final dot = nome.lastIndexOf('.');
+    if (dot == -1 || dot == nome.length - 1) return 'pdf';
+    return nome.substring(dot + 1).toLowerCase();
+  }
+
+  factory _ResidentContractItem.fromMap(Map<String, dynamic> r) {
+    return _ResidentContractItem(
+      id: r['id'] as String,
+      titulo: r['titulo'] as String? ?? '',
+      pastaNome: r['pasta_nome'] as String?,
+      categoria: r['categoria'] as String?,
+      fornecedorNome: r['fornecedor_nome'] as String?,
+      dataValidade: r['data_validade'] as String?,
+      semValidade: r['sem_validade'] == 1 || r['sem_validade'] == true,
+      arquivoUrl: r['arquivo_url'] as String?,
+      arquivoNome: r['arquivo_nome'] as String?,
+    );
+  }
+}
 
 class ContractsScreen extends StatefulWidget {
   const ContractsScreen({super.key});
@@ -19,7 +63,7 @@ class _ContractsScreenState extends State<ContractsScreen> {
   final TextEditingController _searchController = TextEditingController();
   String _searchQuery = '';
   Timer? _debounce;
-  List<CondoDocument> _contratos = [];
+  List<_ResidentContractItem> _contratos = [];
   bool _loading = true;
   String? _error;
   StreamSubscription? _sub;
@@ -44,7 +88,8 @@ class _ContractsScreenState extends State<ContractsScreen> {
         c.id, c.condominio_id, c.titulo, c.pasta_id,
         p.nome AS pasta_nome,
         c.arquivo_url, c.arquivo_nome, c.categoria,
-        c.data_validade, c.data_expedicao,
+        c.fornecedor_nome,
+        c.data_validade, c.data_expedicao, c.sem_validade,
         c.mostrar_moradores, c.descricao
       FROM contratos c
       LEFT JOIN contrato_pastas p ON p.id = c.pasta_id
@@ -57,14 +102,13 @@ class _ContractsScreenState extends State<ContractsScreen> {
       (rows) {
         if (mounted) {
           setState(() {
-            _contratos = rows.map((r) => CondoDocument.fromMap(r)).toList();
+            _contratos = rows.map((r) => _ResidentContractItem.fromMap(r)).toList();
             _loading = false;
             _error = null;
           });
         }
       },
       onError: (e) {
-        // Fallback: tabela pode ainda não ter sincronizado
         if (mounted) setState(() { _loading = false; });
       },
     );
@@ -85,16 +129,17 @@ class _ContractsScreenState extends State<ContractsScreen> {
     super.dispose();
   }
 
-  Map<String, List<CondoDocument>> get _grupos {
+  Map<String, List<_ResidentContractItem>> get _grupos {
     final filtered = _contratos.where((d) {
       final q = _searchQuery;
       if (q.isEmpty) return true;
       return d.titulo.toLowerCase().contains(q) ||
+          (d.fornecedorNome?.toLowerCase().contains(q) ?? false) ||
           (d.categoria?.toLowerCase().contains(q) ?? false) ||
           (d.pastaNome?.toLowerCase().contains(q) ?? false);
     }).toList();
 
-    final Map<String, List<CondoDocument>> grupos = {};
+    final Map<String, List<_ResidentContractItem>> grupos = {};
     for (final c in filtered) {
       final pasta = c.pastaNome ?? 'Sem pasta';
       grupos.putIfAbsent(pasta, () => []).add(c);
@@ -227,9 +272,13 @@ class _ContractsScreenState extends State<ContractsScreen> {
                   subtitle: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
+                      if (doc.fornecedorNome != null && doc.fornecedorNome!.isNotEmpty)
+                        Text(doc.fornecedorNome!, style: AppTypography.bodySmall.copyWith(color: AppColors.textMain, fontWeight: FontWeight.w500)),
                       if (doc.categoria != null && doc.categoria!.isNotEmpty)
                         Text(doc.categoria!, style: AppTypography.bodySmall.copyWith(color: AppColors.primary)),
-                      if (doc.dataValidade != null)
+                      if (doc.semValidade)
+                        Text('Vigência: Permanente', style: AppTypography.bodySmall.copyWith(color: AppColors.textSecondary, fontSize: 10))
+                      else if (doc.dataValidade != null)
                         Text('Validade: ${_formatDate(doc.dataValidade!)}',
                             style: AppTypography.bodySmall.copyWith(color: AppColors.textSecondary, fontSize: 10)),
                     ],

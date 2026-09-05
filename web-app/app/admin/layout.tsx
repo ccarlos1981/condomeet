@@ -2,6 +2,7 @@ import { createClient } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
 import AdminSidebar from './admin-sidebar'
 import { cookies } from 'next/headers'
+import { isAdminRole, isMasterRole } from '@/lib/roles'
 
 export default async function AdminLayout({ children }: { children: React.ReactNode }) {
   const supabase = await createClient()
@@ -23,12 +24,10 @@ export default async function AdminLayout({ children }: { children: React.ReactN
     .eq('email', user.email ?? '')
     .maybeSingle()
 
-  const isRoleMaster = ['admin', 'superadmin', 'super_admin', 'master'].includes(role.toLowerCase())
+  const isRoleMaster = isMasterRole(role)
   const isSuperAdmin = isRoleMaster || !!superadmin
+  const isAdmin = isAdminRole(role)
 
-  const isAdmin = ['Síndico', 'Síndico (a)', 'sindico', 'ADMIN', 'admin', 'Porteiro', 'Porteria', 'Administradora'].some(r =>
-    role.toLowerCase().includes(r.toLowerCase())
-  )
   if (!isAdmin && !isSuperAdmin) redirect('/condo')
 
   let condoId = profile?.condominio_id ?? ''

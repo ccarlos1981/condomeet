@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -40,6 +41,12 @@ class _ParcelRegistrationScreenState extends State<ParcelRegistrationScreen> {
   List<Map<String, dynamic>> _residentesUnidade = [];
   bool _loadingBlocos = true;
   bool _loadingAptos = false;
+
+  // AI OCR state
+  bool _isAnalyzingPhoto = false;
+  String? _aiFeedbackMessage;
+  bool _aiFeedbackSuccess = false;
+  int _analysisRequestId = 0;
 
   // Form fields
   String? _selectedTipo;
@@ -91,12 +98,14 @@ class _ParcelRegistrationScreenState extends State<ParcelRegistrationScreen> {
     }
   }
 
-  Future<void> _onBlocoSelected(Map<String, dynamic>? bloco) async {
+  Future<void> _onBlocoSelected(Map<String, dynamic>? bloco, {Map<String, dynamic>? preserveApto}) async {
     setState(() {
       _selectedBloco = bloco;
-      _selectedApto = null;
+      _selectedApto = preserveApto;
       _aptos = [];
-      _residentesUnidade = [];
+      if (preserveApto == null) {
+        _residentesUnidade = [];
+      }
       _loadingAptos = bloco != null;
     });
     if (bloco == null) return;
@@ -148,11 +157,227 @@ class _ParcelRegistrationScreenState extends State<ParcelRegistrationScreen> {
           .select('id, nome_completo')
           .eq('bloco_txt', blocoNome)
           .eq('apto_txt', aptoNum)
-          .neq('papel_sistema', 'portaria');
+          .neq('papel_sistema', 'portaria')
+          .neq('papel_sistema', 'Admin');
       setState(() {
         _residentesUnidade = List<Map<String, dynamic>>.from(data);
       });
     } catch (_) {}
+  }
+
+  Future<void> _analyzePhotoWithAi(XFile photo) async {
+    final hasBloco = _selectedBloco != null;
+    final hasApto = _selectedApto != null;
+
+    // CENÁRIO 1: Ambos já preenchidos manualmente -> NÃO chamar Edge Function / IA. Custo ZERO.
+    if (hasBloco && hasApto) {
+      return;
+    }
+
+    final currentReqId = ++_analysisRequestId;
+    setState(() {
+      _isAnalyzingPhoto = true;
+      _aiFeedbackMessage = 'Analisando a foto...';
+      _aiFeedbackSuccess = false;
+    });
+
+    try {
+      final bytes = await photo.readAsBytes();
+      final base64Image = base64Encode(bytes);
+
+      // Call Edge Function parcel-ai-extract
+      final response = await _supabase.functions.invoke(
+        'parcel-ai-extract',
+        body: {'image_base64': base64Image},
+      );
+
+      // Check race condition & mounted
+      if (!mounted || currentReqId != _analysisRequestId) return;
+
+      if (response.status != 200) {
+        setState(() {
+          _isAnalyzingPhoto = false;
+          _aiFeedbackMessage = '⚠️ Não foi possível identificar a unidade pela foto. Preencha Bloco e Apartamento manualmente.';
+          _aiFeedbackSuccess = false;
+        });
+        return;
+      }
+
+      final data = response.data is Map<String, dynamic>
+          ? response.data as Map<String, dynamic>
+          : jsonDecode(response.data.toString()) as Map<String, dynamic>;
+
+      final leituraOk = data['leitura_ok'] == true;
+      final rawBloco = data['bloco']?.toString().trim();
+      final rawApto = data['apartamento']?.toString().trim();
+
+      if (!leituraOk || (rawBloco == null && rawApto == null)) {
+        setState(() {
+          _isAnalyzingPhoto = false;
+          _aiFeedbackMessage = '⚠️ Não foi possível identificar a unidade pela foto. Preencha manualmente.';
+          _aiFeedbackSuccess = false;
+        });
+        return;
+      }
+
+      // CENÁRIO 2: Bloco preenchido manualmente, Apto vazio
+      if (hasBloco && !hasApto) {
+        if (rawApto != null) {
+          final matchingApto = _aptos.firstWhere(
+            (a) => a['numero'].toString().trim().toLowerCase() == rawApto.toLowerCase(),
+            orElse: () => {},
+          );
+
+          if (matchingApto.isNotEmpty) {
+            await _onAptoSelected(matchingApto);
+            if (!mounted || currentReqId != _analysisRequestId) return;
+
+            setState(() {
+              _isAnalyzingPhoto = false;
+              _aiFeedbackMessage = '✓ Apartamento identificado automaticamente pela foto';
+              _aiFeedbackSuccess = true;
+            });
+          } else {
+            setState(() {
+              _isAnalyzingPhoto = false;
+              _aiFeedbackMessage = '⚠️ O apartamento identificado na foto não foi encontrado para o bloco selecionado. Confira os dados manualmente.';
+              _aiFeedbackSuccess = false;
+            });
+          }
+        } else {
+          setState(() {
+            _isAnalyzingPhoto = false;
+            _aiFeedbackMessage = '⚠️ Não foi possível identificar o apartamento pela foto. Selecione manualmente.';
+            _aiFeedbackSuccess = false;
+          });
+        }
+        return;
+      }
+
+      // CENÁRIO 3: Bloco vazio, Apartamento preenchido manualmente
+      if (!hasBloco && hasApto) {
+        final manualApto = _selectedApto!;
+        final manualAptoNum = manualApto['numero'].toString().trim().toLowerCase();
+
+        if (rawBloco != null) {
+          final matchingBloco = _blocos.firstWhere(
+            (b) => b['nome_ou_numero'].toString().trim().toLowerCase() == rawBloco.toLowerCase(),
+            orElse: () => {},
+          );
+
+          if (matchingBloco.isNotEmpty) {
+            await _onBlocoSelected(matchingBloco, preserveApto: manualApto);
+            if (!mounted || currentReqId != _analysisRequestId) return;
+
+            final matchingAptoInBloco = _aptos.firstWhere(
+              (a) => a['numero'].toString().trim().toLowerCase() == manualAptoNum,
+              orElse: () => {},
+            );
+
+            if (matchingAptoInBloco.isNotEmpty) {
+              await _onAptoSelected(matchingAptoInBloco);
+              if (!mounted || currentReqId != _analysisRequestId) return;
+
+              setState(() {
+                _isAnalyzingPhoto = false;
+                _aiFeedbackMessage = '✓ Bloco identificado automaticamente pela foto';
+                _aiFeedbackSuccess = true;
+              });
+            } else {
+              setState(() {
+                _selectedBloco = null;
+                _aptos = [];
+                _isAnalyzingPhoto = false;
+                _aiFeedbackMessage = '⚠️ O bloco identificado na foto não foi encontrado para o apartamento selecionado. Confira os dados manualmente.';
+                _aiFeedbackSuccess = false;
+              });
+            }
+          } else {
+            setState(() {
+              _isAnalyzingPhoto = false;
+              _aiFeedbackMessage = '⚠️ O bloco identificado na foto não foi encontrado neste condomínio. Confira os dados manualmente.';
+              _aiFeedbackSuccess = false;
+            });
+          }
+        } else {
+          setState(() {
+            _isAnalyzingPhoto = false;
+            _aiFeedbackMessage = '⚠️ Não foi possível identificar o bloco pela foto. Selecione manualmente.';
+            _aiFeedbackSuccess = false;
+          });
+        }
+        return;
+      }
+
+      // CENÁRIO 4: Ambos vazios (!hasBloco && !hasApto)
+      if (rawBloco == null && rawApto != null) {
+        setState(() {
+          _isAnalyzingPhoto = false;
+          _aiFeedbackMessage = '⚠️ Apartamento $rawApto identificado, mas o bloco não está visível na foto. Selecione o bloco manualmente.';
+          _aiFeedbackSuccess = false;
+        });
+        return;
+      }
+
+      final matchingBloco = _blocos.firstWhere(
+        (b) => b['nome_ou_numero'].toString().trim().toLowerCase() == rawBloco!.toLowerCase(),
+        orElse: () => {},
+      );
+
+      if (matchingBloco.isEmpty) {
+        setState(() {
+          _isAnalyzingPhoto = false;
+          _aiFeedbackMessage = '⚠️ A unidade identificada na foto não foi encontrada neste condomínio. Confira os dados manualmente.';
+          _aiFeedbackSuccess = false;
+        });
+        return;
+      }
+
+      // Block exists in condominium! Load aptos for this block
+      await _onBlocoSelected(matchingBloco);
+      if (!mounted || currentReqId != _analysisRequestId) return;
+
+      // If apartment was also extracted, look for it in _aptos
+      if (rawApto != null) {
+        final matchingApto = _aptos.firstWhere(
+          (a) => a['numero'].toString().trim().toLowerCase() == rawApto.toLowerCase(),
+          orElse: () => {},
+        );
+
+        if (matchingApto.isNotEmpty) {
+          await _onAptoSelected(matchingApto);
+          if (!mounted || currentReqId != _analysisRequestId) return;
+
+          setState(() {
+            _isAnalyzingPhoto = false;
+            _aiFeedbackMessage = '✓ Unidade identificada automaticamente pela foto';
+            _aiFeedbackSuccess = true;
+          });
+          return;
+        } else {
+          setState(() {
+            _isAnalyzingPhoto = false;
+            _aiFeedbackMessage = '⚠️ A unidade identificada na foto não foi encontrada neste condomínio. Confira os dados manualmente.';
+            _aiFeedbackSuccess = false;
+          });
+          return;
+        }
+      } else {
+        // Only block found
+        setState(() {
+          _isAnalyzingPhoto = false;
+          _aiFeedbackMessage = '✓ Bloco identificado. Selecione o apartamento manualmente.';
+          _aiFeedbackSuccess = false;
+        });
+      }
+    } catch (e) {
+      if (!mounted || currentReqId != _analysisRequestId) return;
+      setState(() {
+        _isAnalyzingPhoto = false;
+        _aiFeedbackMessage = '⚠️ Não foi possível identificar a unidade pela foto. Preencha Bloco e Apartamento manualmente.';
+        _aiFeedbackSuccess = false;
+      });
+    }
   }
 
   Future<void> _takePhoto() async {
@@ -203,7 +428,10 @@ class _ParcelRegistrationScreenState extends State<ParcelRegistrationScreen> {
         maxHeight: 1280,
         imageQuality: 85,
       );
-      if (photo != null && mounted) setState(() => _photo = photo);
+      if (photo != null && mounted) {
+        setState(() => _photo = photo);
+        _analyzePhotoWithAi(photo);
+      }
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -318,6 +546,66 @@ class _ParcelRegistrationScreenState extends State<ParcelRegistrationScreen> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
+              // ── AI Extraction Feedback Banner
+              if (_isAnalyzingPhoto)
+                Padding(
+                  padding: const EdgeInsets.only(bottom: 16),
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 11),
+                    decoration: BoxDecoration(
+                      color: AppColors.primary.withValues(alpha: 0.08),
+                      border: Border.all(color: AppColors.primary.withValues(alpha: 0.25)),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: Row(children: [
+                      const SizedBox(
+                        width: 16,
+                        height: 16,
+                        child: CircularProgressIndicator(strokeWidth: 2, color: AppColors.primary),
+                      ),
+                      const SizedBox(width: 10),
+                      const Expanded(
+                        child: Text(
+                          'Analisando a foto...',
+                          style: TextStyle(color: AppColors.primary, fontSize: 13, fontWeight: FontWeight.w600),
+                        ),
+                      ),
+                    ]),
+                  ),
+                )
+              else if (_aiFeedbackMessage != null)
+                Padding(
+                  padding: const EdgeInsets.only(bottom: 16),
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 11),
+                    decoration: BoxDecoration(
+                      color: _aiFeedbackSuccess ? Colors.green.shade50 : Colors.amber.shade50,
+                      border: Border.all(
+                        color: _aiFeedbackSuccess ? Colors.green.shade200 : Colors.amber.shade300,
+                      ),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: Row(children: [
+                      Icon(
+                        _aiFeedbackSuccess ? Icons.check_circle_outline : Icons.warning_amber_rounded,
+                        color: _aiFeedbackSuccess ? Colors.green.shade700 : Colors.amber.shade800,
+                        size: 18,
+                      ),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: Text(
+                          _aiFeedbackMessage!,
+                          style: TextStyle(
+                            color: _aiFeedbackSuccess ? Colors.green.shade800 : Colors.amber.shade900,
+                            fontSize: 13,
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                      ),
+                    ]),
+                  ),
+                ),
+
               // ── Bloco / Apto
               Row(children: [
                 Expanded(child: _buildBlocoDropdown()),

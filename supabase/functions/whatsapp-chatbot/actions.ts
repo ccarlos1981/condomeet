@@ -2,7 +2,7 @@
 // Each action modifies the database or sends notifications
 
 import { type SupabaseClient } from "npm:@supabase/supabase-js@2"
-import { smartSend, DELAY_TEXT_MS } from "../_shared/botconversa.ts"
+import { smartSend, MessageType, DELAY_TEXT_MS } from "../_shared/botconversa.ts"
 
 export interface ActionResult {
   type: string
@@ -84,8 +84,8 @@ async function escalateToHuman(ctx: ActionParams): Promise<ActionResult> {
   }
 
   const [r1, r2] = await Promise.all([
-    smartSend(BOTCONVERSA_API_KEY, null, adminPhone1, "text", msg, "Admin", ctx.supabase),
-    smartSend(BOTCONVERSA_API_KEY, null, adminPhone2, "text", msg, "Admin", ctx.supabase),
+    smartSend(BOTCONVERSA_API_KEY, null, adminPhone1, "text", msg, "Admin", ctx.supabase, undefined, MessageType.NOTICE, "whatsapp-chatbot"),
+    smartSend(BOTCONVERSA_API_KEY, null, adminPhone2, "text", msg, "Admin", ctx.supabase, undefined, MessageType.NOTICE, "whatsapp-chatbot"),
   ])
 
   const success = r1.success || r2.success
@@ -188,7 +188,7 @@ async function reportWrongParcel(ctx: ActionParams): Promise<ActionResult> {
     // Fallback: notify admin phones
     if (BOTCONVERSA_API_KEY) {
       const adminPhone1 = Deno.env.get("ADMIN_PHONE_1") || "5531992707070"
-      await smartSend(BOTCONVERSA_API_KEY, null, adminPhone1, "text", msg, "Admin", ctx.supabase)
+      await smartSend(BOTCONVERSA_API_KEY, null, adminPhone1, "text", msg, "Admin", ctx.supabase, undefined, MessageType.NOTICE, "whatsapp-chatbot")
     }
     return {
       type: "REPORT_WRONG_PARCEL",
@@ -202,7 +202,7 @@ async function reportWrongParcel(ctx: ActionParams): Promise<ActionResult> {
   if (BOTCONVERSA_API_KEY) {
     for (const sindico of sindicos) {
       if (sindico.botconversa_id || sindico.whatsapp) {
-        const result = await smartSend(BOTCONVERSA_API_KEY, sindico.botconversa_id, sindico.whatsapp, "text", msg, undefined, ctx.supabase, sindico.id)
+        const result = await smartSend(BOTCONVERSA_API_KEY, sindico.botconversa_id, sindico.whatsapp, "text", msg, undefined, ctx.supabase, sindico.id, MessageType.NOTICE, "whatsapp-chatbot")
         if (result.success) anySuccess = true
         await new Promise(r => setTimeout(r, DELAY_TEXT_MS))
       }
@@ -239,7 +239,7 @@ async function reportUnauthorizedVisitor(ctx: ActionParams): Promise<ActionResul
     // Fallback: notify admin phones
     if (BOTCONVERSA_API_KEY) {
       const adminPhone1 = Deno.env.get("ADMIN_PHONE_1") || "5531992707070"
-      await smartSend(BOTCONVERSA_API_KEY, null, adminPhone1, "text", msg, "Admin", ctx.supabase)
+      await smartSend(BOTCONVERSA_API_KEY, null, adminPhone1, "text", msg, "Admin", ctx.supabase, undefined, MessageType.NOTICE, "whatsapp-chatbot")
     }
     return {
       type: "REPORT_UNAUTHORIZED_VISITOR",
@@ -253,7 +253,7 @@ async function reportUnauthorizedVisitor(ctx: ActionParams): Promise<ActionResul
   if (BOTCONVERSA_API_KEY) {
     for (const sindico of sindicos) {
       if (sindico.botconversa_id || sindico.whatsapp) {
-        const result = await smartSend(BOTCONVERSA_API_KEY, sindico.botconversa_id, sindico.whatsapp, "text", msg, undefined, ctx.supabase, sindico.id)
+        const result = await smartSend(BOTCONVERSA_API_KEY, sindico.botconversa_id, sindico.whatsapp, "text", msg, undefined, ctx.supabase, sindico.id, MessageType.NOTICE, "whatsapp-chatbot")
         if (result.success) anySuccess = true
         await new Promise(r => setTimeout(r, DELAY_TEXT_MS))
       }

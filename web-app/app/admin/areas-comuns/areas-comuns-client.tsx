@@ -53,6 +53,7 @@ export default function AreasComunsClient({ condominioId, initialAreas }: Props)
   const [editId, setEditId] = useState<string | null>(null)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [success, setSuccess] = useState<string | null>(null)
   const [showForm, setShowForm] = useState(false)
   const formRef = useRef<HTMLDivElement>(null)
 
@@ -65,12 +66,23 @@ export default function AreasComunsClient({ condominioId, initialAreas }: Props)
     setField('precos', updated)
   }
 
+  function openNewForm() {
+    setForm(emptyForm())
+    setEditId(null)
+    setError(null)
+    setSuccess(null)
+    setShowForm(true)
+    setTimeout(() => formRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 50)
+  }
+
   function startEdit(area: Area) {
     const { id, ...rest } = area
     const precos = [...(rest.precos ?? [])]
     while (precos.length < 3) precos.push({ valor: 0, regra: '' })
     setForm({ ...rest, precos, taxa_reserva: area.taxa_reserva ?? 0 })
     setEditId(id)
+    setError(null)
+    setSuccess(null)
     setShowForm(true)
     // Scroll to the form below the list
     setTimeout(() => formRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 50)
@@ -85,37 +97,47 @@ export default function AreasComunsClient({ condominioId, initialAreas }: Props)
 
   async function handleSave() {
     if (!form.tipo_agenda) { setError('Escolha o Tipo de Agenda'); return }
-    setSaving(true); setError(null)
+    setSaving(true); setError(null); setSuccess(null)
 
     const payload = {
       ...form,
-      outro_local: form.local === 'Outro' ? form.outro_local : null,
+      local: form.local ?? '',
+      outro_local: form.outro_local && form.outro_local.trim().length > 0 ? form.outro_local.trim() : null,
       precos: form.precos, // always save all 3 slots to preserve position (Faixa 1/2/3)
     }
 
-    const method = editId ? 'PUT' : 'POST'
-    const body = editId ? { id: editId, ...payload } : { ...payload, condominio_id: condominioId }
+    const isEditing = Boolean(editId)
+    const method = isEditing ? 'PUT' : 'POST'
+    const body = isEditing ? { id: editId, ...payload } : { ...payload, condominio_id: condominioId }
 
-    const res = await fetch('/api/areas-comuns', {
-      method,
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(body),
-    })
-    const data = await res.json()
-    if (!res.ok) { setError(data.error ?? 'Erro ao salvar'); setSaving(false); return }
+    try {
+      const res = await fetch('/api/areas-comuns', {
+        method,
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+      })
+      const data = await res.json()
+      if (!res.ok) { setError(data.error ?? 'Erro ao salvar'); setSaving(false); return }
 
-    if (editId) {
-      setAreas(prev => prev.map(a => a.id === editId ? data : a))
-    } else {
-      setAreas(prev => [data, ...prev])
+      if (isEditing && editId) {
+        setAreas(prev => prev.map(a => a.id === editId ? data : a))
+      } else {
+        setAreas(prev => [data, ...prev])
+      }
+      cancelEdit()
+      setSuccess(isEditing ? 'Área comum atualizada com sucesso.' : 'Área comum criada com sucesso.')
+      setTimeout(() => setSuccess(null), 4000)
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : 'Erro inesperado ao salvar')
+    } finally {
+      setSaving(false)
     }
-    cancelEdit()
-    setSaving(false)
   }
 
   async function handleDelete(id: string) {
     if (!confirm('Excluir esta área comum?')) return
     await fetch(`/api/areas-comuns?id=${id}`, { method: 'DELETE' })
+    if (editId === id) cancelEdit()
     setAreas(prev => prev.filter(a => a.id !== id))
   }
 
@@ -132,7 +154,28 @@ export default function AreasComunsClient({ condominioId, initialAreas }: Props)
     }
   }
 
-  const labelLocal = (a: Area) => a.local === 'Outro' && a.outro_local ? a.outro_local : a.local
+  function labelLocal(a: Area): string {
+    const loc = a.local?.trim() ?? ''
+    const outro = a.outro_local?.trim() ?? ''
+
+    if (loc.toLowerCase() === 'outro' && outro.length > 0) {
+      return outro
+    }
+
+    if (loc.length > 0 && loc.toLowerCase() !== 'outro') {
+      return loc
+    }
+
+    if (outro.length > 0) {
+      return outro
+    }
+
+    if (loc.length > 0) {
+      return loc
+    }
+
+    return '—'
+  }
 
   return (
     <div className="max-w-5xl">
@@ -146,7 +189,13 @@ export default function AreasComunsClient({ condominioId, initialAreas }: Props)
           </div>
         </div>
         <button
-          onClick={() => setShowForm(f => !f)}
+          onClick={() => {
+            if (showForm && editId === null) {
+              cancelEdit()
+            } else {
+              openNewForm()
+            }
+          }}
           className="flex items-center gap-2 bg-[#FC5931] text-white px-5 py-2.5 rounded-full text-sm font-semibold hover:bg-[#D42F1D] transition-colors"
         >
           <Plus size={16} />
@@ -154,6 +203,13 @@ export default function AreasComunsClient({ condominioId, initialAreas }: Props)
         </button>
       </div>
 
+      {/* Success Banner */}
+      {success && (
+        <div className="mb-4 p-3.5 bg-green-50 border border-green-200 text-green-700 text-sm rounded-xl flex items-center gap-2">
+          <CheckCircle size={16} className="text-green-600 shrink-0" />
+          <span>{success}</span>
+        </div>
+      )}
 
       {/* List */}
       {areas.length === 0 ? (

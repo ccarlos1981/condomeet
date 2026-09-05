@@ -2,7 +2,7 @@
 // Processes campaign batches sequentially with concurrency protection and retry backoff
 
 import { createClient } from "npm:@supabase/supabase-js@2"
-import { smartSend } from "../_shared/botconversa.ts"
+import { smartSend, validateWhatsAppSendPolicy } from "../_shared/botconversa.ts"
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -139,22 +139,48 @@ Deno.serve(async (req) => {
         continue
       }
 
-      // 5. Process claimed batch
+      // 5. Hardening: Policy Check before processing campaign batch
+      if (camp.channel === "whatsapp") {
+        const policyCheck = validateWhatsAppSendPolicy({
+          callerFunction: "campaign-worker",
+          messageType: camp.message_type || "NOTICE",
+          templateName: camp.template_name || null,
+          textValue: camp.message_value,
+          isCampaign: true,
+          templateParams: camp.template_params || []
+        });
+
+        if (!policyCheck.allowed) {
+          console.error(`[Worker] Campaign ${camp.id} BLOCKED by policy: ${policyCheck.reason}`);
+          await supabase
+            .from("notification_campaigns")
+            .update({
+              status: "failed",
+              completed_at: new Date().toISOString(),
+              error_log: { policy_blocked: true, error_code: policyCheck.errorCode, reason: policyCheck.reason }
+            })
+            .eq("id", camp.id);
+          continue;
+        }
+      }
+
+      // Process claimed batch
       for (const rec of claimedRecipients || []) {
         console.log(`[Worker] Processing recipient ${rec.recipient_name} (${rec.recipient_phone})`)
 
         if (camp.channel === "whatsapp") {
-          // Pass priority = 0 for campaigns
           const sendRes = await smartSend(
             BOTCONVERSA_API_KEY,
             null, // resolve dynamic
             rec.recipient_phone,
-            camp.message_type,
+            "text", // tipo
             camp.message_value,
             rec.recipient_name,
             supabase,
             rec.perfil_id,
-            0 // priority
+            camp.message_type || "NOTICE",
+            "campaign-worker",
+            camp.template_params || []
           )
 
           if (sendRes.success) {

@@ -11,6 +11,7 @@ import {
 } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { useRouter } from 'next/navigation'
+import { isMasterRole, formatRoleName } from '@/lib/roles'
 
 type NavItem = {
   label: string
@@ -119,7 +120,7 @@ export default function AdminSidebar({
       items: [
         { label: 'Configurar Acesso', href: '/admin/configurar-acesso', icon: <Settings size={18} /> },
         { label: 'Configurar Ordem',  href: '/admin/configurar-ordem',  icon: <SlidersHorizontal size={18} /> },
-        ...((isSuperAdmin || ['admin', 'superadmin', 'super_admin', 'master'].includes(role.toLowerCase()))
+        ...((isSuperAdmin || isMasterRole(role))
           ? [
               { label: 'Push Universal', href: '/admin/push-universal', icon: <Megaphone size={18} /> },
               { label: 'Suporte Usuário', href: '/admin/suporte', icon: <MessageSquare size={18} /> },
@@ -131,6 +132,7 @@ export default function AdminSidebar({
                 children: [
                   { label: 'Dashboard', href: '/admin/api-oficial/dashboard', icon: <BarChart3 size={18} /> },
                   { label: 'Chat', href: '/admin/api-oficial/chat', icon: <MessageSquare size={18} /> },
+                  { label: 'Templates', href: '/admin/whatsapp-templates', icon: <FileText size={18} /> },
                 ],
               },
             ]
@@ -219,7 +221,7 @@ export default function AdminSidebar({
           <p className="text-sm font-medium text-white/80 truncate">{userName}</p>
           <div className="flex items-center gap-2 mt-1">
             <span className="inline-block text-[10px] uppercase tracking-wider font-bold bg-[#FC5931]/20 text-[#FC5931] px-2 py-0.5 rounded-full">
-              {role}
+              {formatRoleName(role)}
             </span>
             <Link
               href="/admin/passo-a-passo"

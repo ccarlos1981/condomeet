@@ -12,6 +12,7 @@ type Morador = {
   apto_txt: string | null
   status_aprovacao: string | null
   papel_sistema: string | null
+  tipo_morador?: string | null
   created_at: string
   email: string | null
   whatsapp: string | null
@@ -66,7 +67,7 @@ export default function MoradoresClient({ moradores, tipoEstrutura }: { moradore
     const moradorCount = moradores.filter(m => m.papel_sistema?.includes('Morador')).length
     const portariaCount = moradores.filter(m => m.papel_sistema?.includes('Port')).length
     const sindicoCount = moradores.filter(m => m.papel_sistema?.toLowerCase().includes('sínd') || m.papel_sistema?.toLowerCase().includes('sind')).length
-    const blocosCount = new Set(moradores.map(m => m.bloco_txt).filter(Boolean)).size
+    const blocosCount = new Set(moradores.map(m => m.bloco_txt).filter(b => Boolean(b) && b !== 'Admin')).size
     return { total, moradorCount, portariaCount, sindicoCount, blocosCount }
   }, [moradores])
 
@@ -311,8 +312,16 @@ export default function MoradoresClient({ moradores, tipoEstrutura }: { moradore
                   {/* Footer */}
                   <div className="px-4 py-2.5 bg-gray-50/80 border-t border-gray-100 flex items-center justify-between">
                     <div className="flex items-center gap-1.5 text-xs text-gray-500">
-                      <Home size={12} className="text-gray-400" />
-                      <span>{m.bloco_txt ? `${blocoLabel} ${m.bloco_txt}` : '—'}{m.apto_txt ? ` · ${aptoLabel} ${m.apto_txt}` : ''}</span>
+                      {m.papel_sistema === 'Admin' || m.bloco_txt === 'Admin' ? (
+                        <span className="text-amber-700 font-medium flex items-center gap-1">
+                          <Shield size={12} className="text-amber-500" /> Identidade Administrativa
+                        </span>
+                      ) : (
+                        <>
+                          <Home size={12} className="text-gray-400" />
+                          <span>{m.bloco_txt ? `${blocoLabel} ${m.bloco_txt}` : '—'}{m.apto_txt ? ` · ${aptoLabel} ${m.apto_txt}` : ''}</span>
+                        </>
+                      )}
                     </div>
                     <span className="text-[10px] text-gray-400">
                       {new Date(m.created_at).toLocaleDateString('pt-BR', { month: 'short', year: '2-digit' })}

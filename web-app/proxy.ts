@@ -1,5 +1,6 @@
 import { createServerClient } from '@supabase/ssr'
 import { NextResponse, type NextRequest } from 'next/server'
+import { isAdminRole } from '@/lib/roles'
 
 export async function proxy(request: NextRequest) {
   let supabaseResponse = NextResponse.next({ request })
@@ -46,9 +47,7 @@ export async function proxy(request: NextRequest) {
       .eq('id', user.id)
       .single()
 
-    const role = profile?.papel_sistema ?? ''
-    const isAdmin = ['Síndico', 'Síndico (a)', 'sindico', 'ADMIN', 'admin'].includes(role)
-    if (!isAdmin) {
+    if (!isAdminRole(profile?.papel_sistema)) {
       return NextResponse.redirect(new URL('/condo', request.url))
     }
   }

@@ -1,7 +1,10 @@
 import 'package:get_it/get_it.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:condomeet/core/network/supabase_resilience_service.dart';
 import 'package:condomeet/core/services/powersync_service.dart';
 import 'package:condomeet/core/services/security_service.dart';
+import 'package:condomeet/core/services/telemetry_service.dart';
+import 'package:condomeet/core/services/version_check_service.dart';
 import 'package:condomeet/core/services/notification_service.dart';
 import 'package:condomeet/core/services/fcm_notification_service.dart';
 
@@ -55,6 +58,9 @@ Future<void> initDependencies() async {
 
   // Core Services
   sl.registerLazySingleton(() => SecurityService());
+  sl.registerLazySingleton(() => SupabaseResilienceService());
+  sl.registerLazySingleton(() => TelemetryService(supabase: sl(), resilienceService: sl()));
+  sl.registerLazySingleton(() => VersionCheckService(sl()));
   
   // Storage & Sync
   final powerSyncService = PowerSyncService();
@@ -76,7 +82,7 @@ Future<void> initDependencies() async {
     () => ConsentRepositoryImpl(sl(), sl()),
   );
   sl.registerLazySingleton<AuthRepository>(
-    () => AuthRepositoryImpl(supabase: sl()),
+    () => AuthRepositoryImpl(supabase: sl(), resilienceService: sl()),
   );
   sl.registerLazySingleton<ParcelRepository>(
     () => ParcelRepositoryImpl(sl()),

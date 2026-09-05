@@ -33,6 +33,33 @@ export default async function PushUniversalPage() {
     .select('id, dia_semana, horario, assunto, mensagem, ativo')
     .is('condominio_id', null)
 
+  // Fetch profiles to calculate total registered users vs active push devices
+  const { data: perfis } = await supabase
+    .from('perfil')
+    .select('condominio_id, fcm_token')
+
+  const condoStats: Record<string, { totalUsuarios: number; totalDispositivos: number }> = {}
+  let globalUsuarios = 0
+  let globalDispositivos = 0
+
+  if (perfis) {
+    for (const p of perfis) {
+      globalUsuarios++
+      const hasToken = typeof p.fcm_token === 'string' && p.fcm_token.trim().length > 0
+      if (hasToken) globalDispositivos++
+
+      if (p.condominio_id) {
+        if (!condoStats[p.condominio_id]) {
+          condoStats[p.condominio_id] = { totalUsuarios: 0, totalDispositivos: 0 }
+        }
+        condoStats[p.condominio_id].totalUsuarios++
+        if (hasToken) {
+          condoStats[p.condominio_id].totalDispositivos++
+        }
+      }
+    }
+  }
+
   return (
     <div className="space-y-6 max-w-6xl mx-auto">
       <div className="flex items-center gap-3">
@@ -47,7 +74,11 @@ export default async function PushUniversalPage() {
 
       <UniversalPushForm 
         condominios={condominios ?? []} 
-        initialAgendamentos={agendamentos || []} 
+        initialAgendamentos={agendamentos || []}
+        stats={{
+          global: { totalUsuarios: globalUsuarios, totalDispositivos: globalDispositivos },
+          byCondo: condoStats,
+        }}
       />
     </div>
   )
