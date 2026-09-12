@@ -21,30 +21,29 @@ export default async function AdminEncomendasPage() {
 
   const condoId = profile?.condominio_id ?? ''
 
-  // Fetch tipo_estrutura
-  const { data: condo } = await supabase
-    .from('condominios')
-    .select('tipo_estrutura')
-    .eq('id', condoId)
-    .single()
-  const tipoEstrutura = condo?.tipo_estrutura ?? 'predio'
-
-  // Fetch ALL blocos and aptos from structural tables for filter dropdowns
-  const { data: blocosData } = await supabase
-    .from('blocos')
-    .select('nome_ou_numero')
-    .eq('condominio_id', condoId)
-    .gt('nome_ou_numero', '0')
-
-  const { data: aptosData } = await supabase
-    .from('apartamentos')
-    .select('numero')
-    .eq('condominio_id', condoId)
-    .gt('numero', '0')
+  // Fetch tipo_estrutura, blocos and apartamentos in parallel (independent queries)
+  const [condoResult, blocosData, aptosData] = await Promise.all([
+    supabase
+      .from('condominios')
+      .select('tipo_estrutura')
+      .eq('id', condoId)
+      .single(),
+    supabase
+      .from('blocos')
+      .select('nome_ou_numero')
+      .eq('condominio_id', condoId)
+      .gt('nome_ou_numero', '0'),
+    supabase
+      .from('apartamentos')
+      .select('numero')
+      .eq('condominio_id', condoId)
+      .gt('numero', '0'),
+  ])
+  const tipoEstrutura = condoResult.data?.tipo_estrutura ?? 'predio'
 
   const numSort = (a: string, b: string) => a.localeCompare(b, 'pt', { numeric: true })
-  const allBlocos = [...new Set((blocosData ?? []).map(b => b.nome_ou_numero).filter(Boolean) as string[])].sort(numSort)
-  const allAptosArr = [...new Set((aptosData ?? []).map(a => a.numero).filter(Boolean) as string[])].sort(numSort)
+  const allBlocos = [...new Set((blocosData.data ?? []).map(b => b.nome_ou_numero).filter(Boolean) as string[])].sort(numSort)
+  const allAptosArr = [...new Set((aptosData.data ?? []).map(a => a.numero).filter(Boolean) as string[])].sort(numSort)
   const allAptosMap: Record<string, string[]> = {}
   for (const bloco of allBlocos) {
     allAptosMap[bloco] = allAptosArr

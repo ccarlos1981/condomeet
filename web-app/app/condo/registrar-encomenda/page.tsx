@@ -35,35 +35,35 @@ export default async function RegistrarEncomendaPage() {
 
   const condoId = profile?.condominio_id ?? ''
 
-  // Fetch tipo_estrutura from condominios
-  const { data: condo } = await supabase
-    .from('condominios')
-    .select('tipo_estrutura')
-    .eq('id', condoId)
-    .single()
-  const tipoEstrutura = condo?.tipo_estrutura ?? 'predio'
-
-  // Strategy 1: fetch from structural tables (blocos + unidades + apartamentos)
-  let units: UnitOption[] = []
-
-  const blocos = await fetchAll(
+  // Fetch tipo_estrutura, blocos and apartamentos in parallel (independent queries)
+  const [condoResult, blocos, rawAptos] = await Promise.all([
     supabase
-      .from('blocos')
-      .select('id, nome_ou_numero')
-      .eq('condominio_id', condoId)
-      .order('nome_ou_numero')
-  )
+      .from('condominios')
+      .select('tipo_estrutura')
+      .eq('id', condoId)
+      .single(),
+    fetchAll(
+      supabase
+        .from('blocos')
+        .select('id, nome_ou_numero')
+        .eq('condominio_id', condoId)
+        .order('nome_ou_numero')
+    ),
+    fetchAll(
+      supabase
+        .from('apartamentos')
+        .select('id, numero')
+        .eq('condominio_id', condoId)
+        .order('numero')
+    ),
+  ])
 
-  const rawAptos = await fetchAll(
-    supabase
-      .from('apartamentos')
-      .select('id, numero')
-      .eq('condominio_id', condoId)
-      .order('numero')
-  )
+  const tipoEstrutura = condoResult.data?.tipo_estrutura ?? 'predio'
 
   const allBlocosDesc = (blocos as any[]) ? (blocos as any[]).map((b: any) => b.nome_ou_numero).filter((b: string) => b !== 'Admin' && b !== '0') : []
   const allAptosDesc = (rawAptos as any[]) ? (rawAptos as any[]).map((a: any) => a.numero).filter((a: string) => a !== 'Admin' && a !== '0') : []
+
+  let units: UnitOption[] = []
 
   if (blocos && blocos.length > 0) {
     const blocoMap: Record<string, string> = {}
@@ -77,14 +77,9 @@ export default async function RegistrarEncomendaPage() {
     )
 
     if (unidades && unidades.length > 0) {
-      const aptos = await fetchAll(
-        supabase
-          .from('apartamentos')
-          .select('id, numero')
-          .eq('condominio_id', condoId)
-      )
+      // Reuse rawAptos instead of fetching apartamentos again (eliminates duplicate query)
       const aptoMap: Record<string, string> = {}
-      ;(aptos as any[] ?? []).forEach((a: any) => { aptoMap[a.id] = a.numero })
+      ;(rawAptos as any[] ?? []).forEach((a: any) => { aptoMap[a.id] = a.numero })
 
       // Fetch residents to map bloco_txt+apto_txt → profile (excluding technical Admin)
       const perfis = await fetchAll(

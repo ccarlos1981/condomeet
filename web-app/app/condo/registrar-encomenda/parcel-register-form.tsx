@@ -377,7 +377,8 @@ export default function ParcelRegisterForm({ condoId, registeredById, units, tip
 
       if (photoWarning) setWarning(photoWarning)
       setSuccess(true)
-      setTimeout(() => router.push(redirectTo || '/condo/encomendas-admin'), 3500)
+      // Redirect immediately — success card is rendered during the navigation transition
+      router.push(redirectTo || '/condo/encomendas-admin')
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : 'Erro inesperado.')
       setSubmitting(false)

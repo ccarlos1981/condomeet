@@ -367,8 +367,11 @@ export default function ParcelList({ initialParcels, isPorter, userId, condoId, 
   // Server-side fetch state (porter/admin mode)
   const [loading, setLoading] = useState(isPorter)
   const [totalFiltered, setTotalFiltered] = useState(0)
+  const [totalKnown, setTotalKnown] = useState(false)
+  const [hasMore, setHasMore] = useState(false)
   const [pendingStat, setPendingStat] = useState(0)
   const [deliveredStat, setDeliveredStat] = useState(0)
+  const [fetchError, setFetchError] = useState<string | null>(null)
   const fetchIdRef = useRef(0)
 
   useEffect(() => { requestAnimationFrame(() => setMounted(true)) }, [])
@@ -395,19 +398,21 @@ export default function ParcelList({ initialParcels, isPorter, userId, condoId, 
     status: 'all' | 'pending' | 'delivered',
     bloco: string,
     apto: string,
-    pageNum: number
+    pageNum: number,
+    fetchStats: boolean = true
   ) => {
     const fetchId = ++fetchIdRef.current
     setLoading(true)
+    setFetchError(null)
 
     try {
       const from = (pageNum - 1) * PER_PAGE
       const to = from + PER_PAGE - 1
 
-      // Main data query with count
+      // Main data query WITHOUT count:exact (eliminates timeout under RLS)
       let query = supabase
         .from('encomendas')
-        .select(PARCEL_FIELDS, { count: 'exact' })
+        .select(PARCEL_FIELDS)
         .eq('condominio_id', condoId)
         .order('created_at', { ascending: false })
 
@@ -415,37 +420,22 @@ export default function ParcelList({ initialParcels, isPorter, userId, condoId, 
       if (bloco) query = query.eq('bloco', bloco)
       if (apto) query = query.eq('apto', apto)
 
-      // Stats queries — filtered by bloco/apto but NOT by status
-      let pendingQ = supabase.from('encomendas')
-        .select('*', { count: 'exact', head: true })
-        .eq('condominio_id', condoId)
-        .eq('status', 'pending')
-      let deliveredQ = supabase.from('encomendas')
-        .select('*', { count: 'exact', head: true })
-        .eq('condominio_id', condoId)
-        .eq('status', 'delivered')
-
-      if (bloco) {
-        pendingQ = pendingQ.eq('bloco', bloco)
-        deliveredQ = deliveredQ.eq('bloco', bloco)
-      }
-      if (apto) {
-        pendingQ = pendingQ.eq('apto', apto)
-        deliveredQ = deliveredQ.eq('apto', apto)
-      }
-
-      // Execute all in parallel
-      const [dataResult, pendingResult, deliveredResult] = await Promise.all([
-        query.range(from, to),
-        pendingQ,
-        deliveredQ,
-      ])
+      // ── 1. Fetch data first (fast: ~283ms even on cold start) ────────────
+      const { data, error } = await query.range(from, to)
 
       // Race condition guard
       if (fetchId !== fetchIdRef.current) return
 
-      const { data, count, error } = dataResult
-      if (error) console.error('❌ fetch parcels error:', error)
+      if (error) {
+        console.error('❌ fetch parcels error:', {
+          code: error.code,
+          message: error.message,
+          details: error.details,
+          hint: error.hint,
+        })
+        setFetchError('Não foi possível carregar as encomendas. Tente novamente.')
+        return
+      }
 
       // Resolve resident names
       const parcelsData = (data ?? []) as Record<string, unknown>[]
@@ -474,21 +464,74 @@ export default function ParcelList({ initialParcels, isPorter, userId, condoId, 
       }) as Parcel[]
 
       setParcels(parcelsWithResident)
-      setTotalFiltered(count ?? 0)
-      setPendingStat(pendingResult.count ?? 0)
-      setDeliveredStat(deliveredResult.count ?? 0)
+      // Infer hasMore: if we got exactly PER_PAGE items, there are likely more pages
+      setHasMore(parcelsWithResident.length === PER_PAGE)
+
+      // ── 2. Stats RPC (background, non-blocking) ─────────────────────────
+      // Data is already rendered. Stats update counters asynchronously.
+      // On cold start, the RPC may take 3-22s; on warm cache, 196ms.
+      if (fetchStats) {
+        supabase.rpc('get_encomendas_stats', {
+          p_condominio_id: condoId,
+          p_bloco: bloco || null,
+          p_apto: apto || null,
+        }).then(({ data: statsData, error: statsError }) => {
+          // Race condition guard
+          if (fetchId !== fetchIdRef.current) return
+
+          if (statsError) {
+            console.error('❌ stats RPC error:', {
+              code: statsError.code,
+              message: statsError.message,
+              details: statsError.details,
+              hint: statsError.hint,
+            })
+            // Stats failure is non-fatal: data already loaded, pagination uses hasMore fallback
+            setTotalKnown(false)
+            return
+          }
+
+          const s = statsData?.[0]
+          if (s) {
+            const rpcPending = Number(s.pending) || 0
+            const rpcDelivered = Number(s.delivered) || 0
+            const rpcTotal = Number(s.total) || 0
+
+            setPendingStat(rpcPending)
+            setDeliveredStat(rpcDelivered)
+
+            // Derive totalFiltered based on active status filter
+            switch (status) {
+              case 'pending':  setTotalFiltered(rpcPending); break
+              case 'delivered': setTotalFiltered(rpcDelivered); break
+              default:         setTotalFiltered(rpcTotal); break
+            }
+            setTotalKnown(true)
+          }
+        })
+      }
     } catch (err) {
-      console.error('❌ fetchParcels error:', err)
+      console.error('❌ fetchParcels unexpected error:', err instanceof Error ? err.message : err)
+      setFetchError('Erro inesperado ao carregar encomendas. Tente novamente.')
     } finally {
       if (fetchId === fetchIdRef.current) setLoading(false)
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [condoId])
 
+  // Track previous filter values to detect structural changes vs page-only changes
+  const prevFiltersRef = useRef({ status: statusFilter, bloco: blocoFilter, apto: aptoFilter })
+
   // Fetch on mount and filter change (porter/admin mode)
   useEffect(() => {
     if (isPorter) {
-      fetchParcels(statusFilter, blocoFilter, aptoFilter, page)
+      const prev = prevFiltersRef.current
+      const filtersChanged = prev.status !== statusFilter || prev.bloco !== blocoFilter || prev.apto !== aptoFilter
+      prevFiltersRef.current = { status: statusFilter, bloco: blocoFilter, apto: aptoFilter }
+
+      // Fetch stats on initial load or filter change; skip stats on page-only change
+      const needStats = filtersChanged || page === 1
+      fetchParcels(statusFilter, blocoFilter, aptoFilter, page, needStats)
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [statusFilter, blocoFilter, aptoFilter, page, isPorter])
@@ -507,8 +550,9 @@ export default function ParcelList({ initialParcels, isPorter, userId, condoId, 
         return true
       })
 
+  // Pagination: when totalKnown, use exact count; otherwise use hasMore heuristic
   const totalPages = isPorter
-    ? Math.max(1, Math.ceil(totalFiltered / PER_PAGE))
+    ? (totalKnown ? Math.max(1, Math.ceil(totalFiltered / PER_PAGE)) : (hasMore ? page + 1 : page))
     : Math.max(1, Math.ceil(filtered.length / PER_PAGE))
 
   const paginated = isPorter
@@ -692,6 +736,17 @@ export default function ParcelList({ initialParcels, isPorter, userId, condoId, 
           <Loader2 size={32} className="text-[#FC5931] mx-auto mb-3 animate-spin" />
           <p className="text-gray-400 text-sm">Carregando encomendas...</p>
         </div>
+      ) : fetchError ? (
+        <div className="bg-white rounded-2xl border border-red-100 shadow-sm p-12 text-center">
+          <AlertTriangle size={40} className="text-red-300 mx-auto mb-3" />
+          <p className="text-red-500 text-sm font-medium">{fetchError}</p>
+          <button
+            onClick={() => fetchParcels(statusFilter, blocoFilter, aptoFilter, page, true)}
+            className="mt-4 px-4 py-2 text-xs font-medium text-[#FC5931] border border-[#FC5931] rounded-xl hover:bg-orange-50 transition-colors"
+          >
+            Tentar novamente
+          </button>
+        </div>
       ) : paginated.length === 0 ? (
         <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-12 text-center">
           <Package size={40} className="text-gray-200 mx-auto mb-3" />
@@ -856,7 +911,7 @@ export default function ParcelList({ initialParcels, isPorter, userId, condoId, 
       )}
 
       {/* Pagination */}
-      {totalPages > 1 && (
+      {(isPorter ? (totalKnown ? totalPages > 1 : hasMore || page > 1) : totalPages > 1) && (
         <div className="flex items-center justify-center gap-2 mt-6">
           <button
             disabled={page === 1}
@@ -865,9 +920,11 @@ export default function ParcelList({ initialParcels, isPorter, userId, condoId, 
           >
             Anterior
           </button>
-          <span className="text-sm text-gray-500">{page} / {totalPages}</span>
+          <span className="text-sm text-gray-500">
+            {isPorter && !totalKnown ? `Página ${page}` : `${page} / ${totalPages}`}
+          </span>
           <button
-            disabled={page === totalPages}
+            disabled={isPorter ? (!totalKnown ? !hasMore : page >= totalPages) : page >= totalPages}
             onClick={() => setPage(p => p + 1)}
             className="px-4 py-2 border border-gray-200 rounded-xl text-sm text-gray-600 hover:bg-gray-50 disabled:opacity-40 transition-colors"
           >
