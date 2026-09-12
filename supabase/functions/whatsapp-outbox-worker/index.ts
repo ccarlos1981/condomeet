@@ -1,6 +1,50 @@
 import { createClient } from "npm:@supabase/supabase-js@2"
 import { renderTemplateText } from "../_shared/template_renderer.ts"
-import { validateWhatsAppSendPolicy, getMessageFallbackWindow, getMessageTTL, calculateWarmupRoute, getDeterministicPartition, sendViaEvolution } from "../_shared/botconversa.ts"
+import { 
+  validateWhatsAppSendPolicy, 
+  getMessageFallbackWindow, 
+  getMessageTTL, 
+  calculateWarmupRoute, 
+  getDeterministicPartition, 
+  sendViaEvolution,
+  isMeta100ContingencyActive,
+  isCutoffTimeBRT,
+  evaluateCongestionMode
+} from "../_shared/botconversa.ts"
+
+// FASE 7.19.1: Helper para consultar a profundidade da fila LOW pendente e elegível
+async function getEligibleLowQueueDepth(supabase: any): Promise<number> {
+  const nowIso = new Date().toISOString()
+  try {
+    const { data: rpcCount, error: rpcErr } = await supabase.rpc("get_eligible_queue_depth", {
+      p_min_priority: 6,
+      p_max_priority: 99
+    })
+    if (!rpcErr && typeof rpcCount === "number") {
+      return rpcCount
+    }
+  } catch (_) {}
+
+  try {
+    const { count, error } = await supabase
+      .from("whatsapp_outbox")
+      .select("id", { count: "exact", head: true })
+      .eq("status", "pending")
+      .gte("priority", 6)
+      .lte("priority", 99)
+      .or(`next_attempt_at.is.null,next_attempt_at.lte.${nowIso}`)
+      .or(`expires_at.is.null,expires_at.gt.${nowIso}`)
+
+    if (error) {
+      console.error("[Worker Congestion] Erro ao consultar profundidade da fila LOW:", error)
+      return 0
+    }
+    return count ?? 0
+  } catch (err: any) {
+    console.error("[Worker Congestion] Excecao ao consultar contagem da fila LOW:", err.message)
+    return 0
+  }
+}
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -18,6 +62,8 @@ interface CallResult {
   status?: number
   body?: string
   error?: string
+  errorCode?: string
+  isTimeout?: boolean
   isPermanent: boolean
   providerMessageId?: string
   subscriberId?: string
@@ -251,7 +297,14 @@ async function sendViaMetaCloudAPI(
   return { success: true, status: res.status, body: res.text, isPermanent: false }
 }
 
-Deno.serve(async (req) => {
+export interface OutboxWorkerOptions {
+  supabaseClient?: any;
+}
+
+export async function handleOutboxWorker(
+  req: Request,
+  options?: OutboxWorkerOptions,
+): Promise<Response> {
   if (req.method === "OPTIONS") {
     return new Response("ok", { headers: corsHeaders })
   }
@@ -285,12 +338,12 @@ Deno.serve(async (req) => {
   const instanceId = crypto.randomUUID()
   const startAt = new Date().toISOString()
 
-  const supabase = createClient(
+  const supabase = options?.supabaseClient ?? createClient(
     Deno.env.get("SUPABASE_URL")!,
     Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
   )
 
-  const BOTCONVERSA_API_KEY = Deno.env.get("BOTCONVERSA_API_KEY")
+  const BOTCONVERSA_API_KEY = Deno.env.get("BOTCONVERSA_API_KEY") || (options?.supabaseClient ? "mock_key_for_test" : null)
   if (!BOTCONVERSA_API_KEY) {
     console.error("BOTCONVERSA_API_KEY is not configured in env variables.")
     return new Response(JSON.stringify({ error: "BOTCONVERSA_API_KEY is not configured" }), {
@@ -375,6 +428,45 @@ Deno.serve(async (req) => {
         break
       }
 
+      // 3b-1. FASE 7.19.1: Avaliação de Congestion Mode e Cutoff 22:00 BRT (EXCLUSIVO PARA QUEUE=LOW)
+      let isCongested = false
+      if (queueType === "low") {
+        const eligibleLowDepth = await getEligibleLowQueueDepth(supabase)
+        const congestionEval = evaluateCongestionMode(queueType, eligibleLowDepth)
+        isCongested = congestionEval.isCongested
+
+        // CUTOFF 22:00 BRT: Se a fila LOW estiver congestionada e o relógio atingir 22:00 BRT
+        // Novos claims de backlog são bloqueados e as mensagens acumuladas não processadas são expiradas.
+        if (isCongested && isCutoffTimeBRT()) {
+          console.warn(`[Worker Cutoff 22h] Queue LOW CONGESTIONADA atingiu 22:00 BRT (${eligibleLowDepth} mensagens acumuladas no backlog). Bloqueando novos claims e expirando backlog...`)
+          try {
+            const { data: rpcExp, error: rpcExpErr } = await supabase.rpc("expire_congested_backlog_22h", {
+              p_min_priority: minPriority,
+              p_max_priority: maxPriority
+            })
+            if (rpcExpErr) {
+              await supabase
+                .from("whatsapp_outbox")
+                .update({
+                  status: "expired",
+                  expired_at: new Date().toISOString(),
+                  expiration_reason: "CUTOFF_22H_EXPIRED",
+                  updated_at: new Date().toISOString()
+                })
+                .eq("status", "pending")
+                .gte("priority", minPriority)
+                .lte("priority", maxPriority)
+                .or(`expires_at.is.null,expires_at.gt.${new Date().toISOString()}`)
+            }
+          } catch (cutoffErr: any) {
+            console.error("[Worker Cutoff 22h] Erro ao expirar backlog congestionado:", cutoffErr.message)
+          }
+
+          console.log("[Worker Cutoff 22h] Backlog congestionado expirado com sucesso. Encerrando loop do worker LOW.")
+          break
+        }
+      }
+
       // 3c. Claim exactly ONE message within priority group
       const { data: claimedArray, error: claimErr } = await supabase.rpc("claim_single_whatsapp_message", {
         p_min_priority: minPriority,
@@ -421,53 +513,63 @@ Deno.serve(async (req) => {
       let enterDispatchedGuard = false
       let fallbackAfterStr: string | null = null
 
-      // 3d. Routing Resolution: WARMUP_MODE (99% Meta / 1% BotConversa) vs BotConversa First vs Evolution WELCOME Pilot
-      let selectedProvider: "META" | "BOTCONVERSA" | "EVOLUTION" = "BOTCONVERSA"
+      // 3d. Routing Resolution: WARMUP_MODE (99% Meta / 1% BotConversa) vs BotConversa First vs Evolution WELCOME Pilot vs UAZAPI
+      let selectedProvider: "META" | "BOTCONVERSA" | "EVOLUTION" | "UAZAPI" = "BOTCONVERSA"
 
       if (!isDirectMetaClaim) {
-        let warmupMode = false
-        let canSendWarmup = false
+        if (
+          msg.provider === "UAZAPI" ||
+          msg.provider_attempt === "UAZAPI" ||
+          msg.message_content?.provider === "UAZAPI" ||
+          Deno.env.get("WHATSAPP_ROUTING_PROVIDER") === "UAZAPI"
+        ) {
+          selectedProvider = "UAZAPI"
+          console.log(`[Worker Router] Rota UAZAPI selecionada para msg id=${msg.id}`)
+        } else {
+          let warmupMode = false
+          let canSendWarmup = false
 
-        try {
-          const { data: warmupCheck, error: warmupErr } = await supabase.rpc("check_and_increment_warmup_cap", {
-            p_instance_id: "singleton"
-          })
-          if (!warmupErr && warmupCheck) {
-            warmupMode = !!warmupCheck.warmup_mode
-            canSendWarmup = !!warmupCheck.can_send_warmup
-          }
-        } catch (wErr: any) {
-          console.error("[Worker Warmup] Erro ao checar warmup cap:", wErr.message)
-        }
-
-        // Checar status da Evolution caso o piloto esteja ativo
-        let isEvolutionConnected = true
-        if (EVOLUTION_WELCOME_PILOT_ENABLED) {
           try {
-            const { data: evoHealth } = await supabase
-              .from("whatsapp_health_status")
-              .select("evolution_connection_status")
-              .eq("id", "singleton")
-              .maybeSingle()
-            if (evoHealth?.evolution_connection_status === "disconnected") {
-              isEvolutionConnected = false
+            const { data: warmupCheck, error: warmupErr } = await supabase.rpc("check_and_increment_warmup_cap", {
+              p_instance_id: "singleton"
+            })
+            if (!warmupErr && warmupCheck) {
+              warmupMode = !!warmupCheck.warmup_mode
+              canSendWarmup = !!warmupCheck.can_send_warmup
             }
-          } catch (_) {}
+          } catch (wErr: any) {
+            console.error("[Worker Warmup] Erro ao checar warmup cap:", wErr.message)
+          }
+
+          // Checar status da Evolution caso o piloto esteja ativo
+          let isEvolutionConnected = true
+          if (EVOLUTION_WELCOME_PILOT_ENABLED) {
+            try {
+              const { data: evoHealth } = await supabase
+                .from("whatsapp_health_status")
+                .select("evolution_connection_status")
+                .eq("id", "singleton")
+                .maybeSingle()
+              if (evoHealth?.evolution_connection_status === "disconnected") {
+                isEvolutionConnected = false
+              }
+            } catch (_) {}
+          }
+
+          const routeResult = calculateWarmupRoute({
+            messageId: msg.id,
+            perfilId: msg.perfil_id,
+            messageType: msg.message_type,
+            warmupMode,
+            canSendWarmup,
+            welcomePilotEnabled: EVOLUTION_WELCOME_PILOT_ENABLED,
+            welcomePilotPercentage: EVOLUTION_WELCOME_PERCENTAGE,
+            evolutionConnected: isEvolutionConnected
+          })
+
+          selectedProvider = routeResult.provider
+          console.log(`[Worker Router] Rota calculada para msg id=${msg.id}: ${selectedProvider} (partição=${routeResult.partition}, motivo=${routeResult.reason})`)
         }
-
-        const routeResult = calculateWarmupRoute({
-          messageId: msg.id,
-          perfilId: msg.perfil_id,
-          messageType: msg.message_type,
-          warmupMode,
-          canSendWarmup,
-          welcomePilotEnabled: EVOLUTION_WELCOME_PILOT_ENABLED,
-          welcomePilotPercentage: EVOLUTION_WELCOME_PERCENTAGE,
-          evolutionConnected: isEvolutionConnected
-        })
-
-        selectedProvider = routeResult.provider
-        console.log(`[Worker Router] Rota calculada para msg id=${msg.id}: ${selectedProvider} (partição=${routeResult.partition}, motivo=${routeResult.reason})`)
       } else {
         selectedProvider = "META"
       }
@@ -513,6 +615,22 @@ Deno.serve(async (req) => {
           primaryError = primaryResult.error || "Falha na Evolution API"
           console.warn(`[Worker Evolution Fail] Evolution falhou para msg id=${msg.id}: ${primaryError}`)
         }
+      }
+
+      // 3e-UAZAPI. EXECUÇÃO ROTA UAZAPI (PROVIDER INDISPONÍVEL NO BASELINE ATUAL)
+      if (selectedProvider === "UAZAPI" && !isDirectMetaClaim) {
+        finalProviderUsed = "UAZAPI"
+        primaryError = "Provider UAZAPI indisponível neste baseline operacional"
+        primaryResult = {
+          success: false,
+          status: 503,
+          body: JSON.stringify({ error: "PROVIDER_UNAVAILABLE", provider: "UAZAPI" }),
+          error: primaryError,
+          errorCode: "UAZAPI_PROVIDER_UNAVAILABLE",
+          isPermanent: false,
+          isTimeout: false,
+        }
+        console.warn(`[Worker UAZAPI] Provedor UAZAPI solicitado para msg id=${msg.id}, porém UAZAPI está indisponível neste baseline. Mensagem mantida no ciclo padrão de falha/retry.`)
       }
 
       // 3e. EXECUÇÃO ROTA BOTCONVERSA (Apenas se selecionado pelo router e não for claim direto Meta)
@@ -668,7 +786,9 @@ Deno.serve(async (req) => {
               }
 
               // Disparo do gatilho pós-primeiro envio real: Enfileira DUAL_NUMBER_NOTICE se for primeira vez
-              if (msg.message_type !== "DUAL_NUMBER_NOTICE") {
+              // FASE 7.19.1: Suspenso durante contingência Meta 100% (BotConversa 0%)
+              const meta100ContingencyEnabled = isMeta100ContingencyActive()
+              if (msg.message_type !== "DUAL_NUMBER_NOTICE" && !meta100ContingencyEnabled) {
                 try {
                   const { data: enqueueRes, error: enqueueErr } = await supabase.rpc("enqueue_dual_number_notice_if_needed", {
                     p_recipient_phone: msg.recipient_phone,
@@ -700,7 +820,10 @@ Deno.serve(async (req) => {
       // a) Router selecionou META como Primary (WARMUP_MODE 90% ou teto diário atingido)
       // b) Claim direto de reconciliação (isDirectMetaClaim = true, guard window estourou)
       // c) Falha explícita no BotConversa (HTTP 4xx/5xx, timeout, desconectado) e não está em dispatched_guard
-      const isMetaFallbackForbidden = msg.message_type === "DUAL_NUMBER_NOTICE" || msg.message_type === "WELCOME" || msg.message_type === "NOTICE" || msg.message_content?.allow_meta_fallback === false
+      // FASE 7.19.1: Durante contingência Meta 100%, WELCOME é permitido via Meta (approval-notify com template estruturado)
+      const emergencyFailoverEnabled = Deno.env.get("WHATSAPP_META_EMERGENCY_FAILOVER_ENABLED") === "true"
+      const meta100ContingencyActive = isMeta100ContingencyActive()
+      const isMetaFallbackForbidden = msg.message_type === "DUAL_NUMBER_NOTICE" || (!emergencyFailoverEnabled && !meta100ContingencyActive && msg.message_type === "WELCOME") || msg.message_type === "NOTICE" || msg.message_content?.allow_meta_fallback === false || selectedProvider === "UAZAPI"
 
       if (!sentSuccessfully && !enterDispatchedGuard) {
         if (isMetaFallbackForbidden) {
@@ -854,6 +977,8 @@ Deno.serve(async (req) => {
         } catch (_) {}
       } else if (finalProviderUsed === "EVOLUTION" && primaryResult.success) {
         providerMessageId = primaryResult.providerMessageId || null
+      } else if (finalProviderUsed === "UAZAPI") {
+        providerMessageId = primaryResult.providerMessageId || null
       }
 
       const deliveryResultPayload: Record<string, any> = {
@@ -861,6 +986,7 @@ Deno.serve(async (req) => {
         status_code: primaryResult.status || (sentSuccessfully ? 200 : null),
         response: primaryResult.body || null,
         error_message: primaryResult.error || null,
+        error_code: primaryResult.errorCode || null,
         is_permanent_error: primaryResult.isPermanent,
         resolved_subscriber_id: resolvedSubscriberId,
         provider_message_id: providerMessageId,
@@ -955,35 +1081,56 @@ Deno.serve(async (req) => {
       }
 
       // 3j. Pacing delay between iterations
-      // FASE 7.14.2: Distinção estrita entre WELCOME ATRASADO (Backlog) e NOVO WELCOME
-      if (msg.message_type === "WELCOME") {
-        const msgAgeMs = Date.now() - new Date(msg.created_at).getTime()
-        const isBacklogDelayed = msgAgeMs >= 15 * 60 * 1000 // 15 minutos ou mais de atraso na fila
-
-        if (isBacklogDelayed) {
-          const backlogPacingMs = 300000 // 5 minutos = 300.000 ms para WELCOME atrasado
-          console.log(`[Worker Pacing] Mensagem WELCOME ATRASADA processada (id=${msg.id}, idade=${Math.round(msgAgeMs / 60000)}min). Aplicando intervalo conservador de 5 minutos (300s) antes do próximo envio do backlog...`)
+      if (queueType === "high") {
+        // FASE 7.19.1: Fila HIGH NUNCA entra em Congestion Mode (preserva SLAs críticos de SOS, OTP e Convites)
+        const pacingMs = 1000
+        await new Promise((r) => setTimeout(r, pacingMs))
+      } else {
+        // Fila LOW (prioridades 6..99): Avaliar Congestion Mode
+        if (isCongested) {
+          console.log(`[Worker Pacing] CONGESTION MODE ATIVO na fila LOW (> 10 msgs acumuladas). Aplicando intervalo de 45 segundos com renovação segura de lease...`)
+          const congestionWaitMs = 45000
           let elapsed = 0
-          while (elapsed < backlogPacingMs) {
-            const waitTime = Math.min(15000, backlogPacingMs - elapsed)
-            await new Promise((r) => setTimeout(r, waitTime))
-            elapsed += waitTime
+          while (elapsed < congestionWaitMs) {
+            const waitSlice = Math.min(15000, congestionWaitMs - elapsed)
+            await new Promise((r) => setTimeout(r, waitSlice))
+            elapsed += waitSlice
             const renewed = await renewLease()
             if (!renewed) {
-              console.warn(`[Worker Pacing] Perda de lease durante a espera de 5 minutos da mensagem id=${msg.id}.`)
+              console.warn(`[Worker Pacing] Perda de lease durante a espera de congestionamento de 45s (msg id=${msg.id}).`)
               break
             }
           }
+        } else if (msg.message_type === "WELCOME") {
+          // FASE 7.14.2: Distinção estrita entre WELCOME ATRASADO (Backlog >= 15 min) e NOVO WELCOME
+          const msgAgeMs = Date.now() - new Date(msg.created_at).getTime()
+          const isBacklogDelayed = msgAgeMs >= 15 * 60 * 1000 // 15 minutos ou mais de atraso na fila
+
+          if (isBacklogDelayed) {
+            const backlogPacingMs = 300000 // 5 minutos = 300.000 ms para WELCOME atrasado
+            console.log(`[Worker Pacing] Mensagem WELCOME ATRASADA processada (id=${msg.id}, idade=${Math.round(msgAgeMs / 60000)}min). Aplicando intervalo conservador de 5 minutos (300s) antes do próximo envio do backlog...`)
+            let elapsed = 0
+            while (elapsed < backlogPacingMs) {
+              const waitTime = Math.min(15000, backlogPacingMs - elapsed)
+              await new Promise((r) => setTimeout(r, waitTime))
+              elapsed += waitTime
+              const renewed = await renewLease()
+              if (!renewed) {
+                console.warn(`[Worker Pacing] Perda de lease durante a espera de 5 minutos da mensagem id=${msg.id}.`)
+                break
+              }
+            }
+          } else {
+            // NOVO WELCOME (criado recentemente < 15 min): pacing padrão da fila para entrega oportuna
+            console.log(`[Worker Pacing] NOVO WELCOME processado (id=${msg.id}, idade=${Math.round(msgAgeMs / 1000)}s). Aplicando pacing operacional padrão (1.8s).`)
+            const pacingMs = 1800
+            await new Promise((r) => setTimeout(r, pacingMs))
+          }
         } else {
-          // NOVO WELCOME (criado recentemente < 15 min): pacing padrão da fila para entrega oportuna
-          console.log(`[Worker Pacing] NOVO WELCOME processado (id=${msg.id}, idade=${Math.round(msgAgeMs / 1000)}s). Aplicando pacing operacional padrão (1.8s).`)
-          const pacingMs = queueType === "high" ? 1000 : 1800
+          // Demais MessageTypes da fila LOW em pacing normal
+          const pacingMs = 1800
           await new Promise((r) => setTimeout(r, pacingMs))
         }
-      } else {
-        // Demais MessageTypes (PARCEL, VISITOR_INVITE, NOTICE, etc.): pacing padrão inalterado
-        const pacingMs = queueType === "high" ? 1000 : 1800
-        await new Promise((r) => setTimeout(r, pacingMs))
       }
     }
   } catch (err: any) {
@@ -1001,4 +1148,8 @@ Deno.serve(async (req) => {
   return new Response(JSON.stringify({ status: "done" }), {
     headers: { ...corsHeaders, "Content-Type": "application/json" },
   })
-})
+}
+
+if (import.meta.main) {
+  Deno.serve((req: Request) => handleOutboxWorker(req))
+}

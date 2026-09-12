@@ -20,27 +20,49 @@ export default async function ReservasAdminPage() {
     .single()
   const tipoEstrutura = condoData?.tipo ?? 'predio'
 
-  // Load reservas without FK join
+  // Load all areas_comuns for this condominium
+  const { data: todasAreas } = await supabase
+    .from('areas_comuns')
+    .select('id, tipo_agenda, local, outro_local, precos')
+    .eq('condominio_id', condoId)
+    .order('tipo_agenda')
+
+  const areaList = todasAreas ?? []
+  const areaMap = Object.fromEntries(
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    areaList.map((a: any) => [a.id, a])
+  )
+
+  // Load blocos and aptos from perfil in this condominium
+  const { data: perfisCondo } = await supabase
+    .from('perfil')
+    .select('bloco_txt, apto_txt')
+    .eq('condominio_id', condoId)
+    .not('bloco_txt', 'is', null)
+    .not('apto_txt', 'is', null)
+
+  const blocos = [...new Set((perfisCondo ?? []).map((p: { bloco_txt?: string }) => p.bloco_txt?.trim()).filter(Boolean) as string[])].sort()
+  const aptosPorBloco: Record<string, string[]> = {}
+  for (const b of blocos) {
+    aptosPorBloco[b] = [...new Set(
+      (perfisCondo ?? [])
+        .filter((p: { bloco_txt?: string }) => p.bloco_txt?.trim() === b)
+        .map((p: { apto_txt?: string }) => p.apto_txt?.trim())
+        .filter(Boolean) as string[]
+    )].sort((a, b) => a.localeCompare(b, undefined, { numeric: true }))
+  }
+  const todosAptos = [...new Set(
+    (perfisCondo ?? []).map((p: { apto_txt?: string }) => p.apto_txt?.trim()).filter(Boolean) as string[]
+  )].sort((a, b) => a.localeCompare(b, undefined, { numeric: true }))
+
+  // Load reservas
   const { data: reservas } = await supabase
     .from('reservas')
-    .select('id, data_reserva, status, created_at, area_id, user_id, valor_reserva, status_pagamento')
+    .select('id, data_reserva, status, created_at, area_id, user_id, nome_evento, valor_reserva, status_pagamento')
     .eq('condominio_id', condoId)
     .order('created_at', { ascending: false })
 
   const reservaList = reservas ?? []
-
-  // Fetch areas_comuns separately
-  const areaIds = [...new Set(reservaList.map((r: { area_id: string }) => r.area_id).filter(Boolean))]
-  const { data: areas } = areaIds.length > 0
-    ? await supabase
-        .from('areas_comuns')
-        .select('id, tipo_agenda, precos')
-        .in('id', areaIds)
-    : { data: [] }
-
-  const areaMap = Object.fromEntries(
-    (areas ?? []).map((a: { id: string; tipo_agenda: string; precos: any }) => [a.id, a])
-  )
 
   // Fetch moradores separately
   const moradorIds = [...new Set(reservaList.map((r: { user_id: string }) => r.user_id).filter(Boolean))]
@@ -56,13 +78,6 @@ export default async function ReservasAdminPage() {
     (moradores ?? []).map((m: any) => [m.id, m])
   )
 
-  const { data: tipos } = await supabase
-    .from('areas_comuns')
-    .select('tipo_agenda')
-    .eq('condominio_id', condoId)
-
-  const tiposUnicos = [...new Set((tipos ?? []).map(t => t.tipo_agenda))]
-
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const withProfiles: any[] = reservaList.map((r: Record<string, unknown>) => ({
     ...r,
@@ -73,10 +88,22 @@ export default async function ReservasAdminPage() {
   return (
     <ReservasAdminClient
       reservas={withProfiles as unknown as ReservaRow[]}
-      tiposAgenda={tiposUnicos}
+      areas={areaList}
+      blocos={blocos}
+      aptosPorBloco={aptosPorBloco}
+      todosAptos={todosAptos}
       tipoEstrutura={tipoEstrutura}
     />
   )
+}
+
+export interface AreaItem {
+  id: string
+  tipo_agenda: string
+  local?: string
+  outro_local?: string
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  precos?: any[]
 }
 
 export interface ReservaRow {
@@ -85,8 +112,10 @@ export interface ReservaRow {
   status: string
   created_at: string
   user_id: string
+  area_id?: string
+  nome_evento?: string
   valor_reserva?: number
   status_pagamento?: string
-  areas_comuns: { tipo_agenda: string; precos?: any[] }
+  areas_comuns: AreaItem
   perfil: { nome_completo: string; bloco_txt: string; apto_txt: string; papel_sistema: string; whatsapp?: string; botconversa_id?: string }
 }

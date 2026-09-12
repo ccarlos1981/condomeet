@@ -1328,6 +1328,54 @@ export function calculateWelcomePilotRoute(params: WelcomePilotParams): {
   };
 }
 
+/**
+ * FASE 7.19.1.1 — Helper para checar se a contingência Meta 100% / BotConversa 0% está ativa.
+ * GOVERNANÇA ESTRITA:
+ * - flag ausente = FALSE
+ * - flag "false" = FALSE
+ * - flag "FALSE" = FALSE
+ * - flag "TRUE" = FALSE
+ * - flag "1" = FALSE
+ * - flag "yes" = FALSE
+ * - flag "true" = TRUE (Único valor que ativa a contingência)
+ * Default absoluto: FALSE (Deploy != Ativação)
+ */
+export function isMeta100ContingencyActive(): boolean {
+  if (typeof Deno === "undefined" || !Deno.env) return false;
+  return Deno.env.get("WHATSAPP_META_100_CONTINGENCY_ENABLED") === "true";
+}
+
+/**
+ * FASE 7.19.1 — Checa se o horário atual em Brasília (America/Sao_Paulo) atingiu ou ultrapassou o cutoff das 22:00 BRT.
+ */
+export function isCutoffTimeBRT(date: Date = new Date()): boolean {
+  const formatter = new Intl.DateTimeFormat("en-US", {
+    timeZone: "America/Sao_Paulo",
+    hour12: false,
+    hour: "numeric"
+  });
+  const hour = parseInt(formatter.format(date), 10);
+  return hour >= 22;
+}
+
+/**
+ * FASE 7.19.1 — Avalia se o Congestion Mode deve ser ativado para a fila e retorna os parâmetros de pacing.
+ * Aplicável estritamente à fila LOW (prioridades 6..99). Fila HIGH nunca entra em congestionamento.
+ */
+export function evaluateCongestionMode(
+  queueType: string,
+  eligibleDepth: number
+): { isCongested: boolean; pacingMs: number } {
+  if (queueType !== "low") {
+    return { isCongested: false, pacingMs: 1000 };
+  }
+  const isCongested = eligibleDepth > 10;
+  return {
+    isCongested,
+    pacingMs: isCongested ? 45000 : 1800
+  };
+}
+
 export function calculateWarmupRoute(params: {
   messageId: string;
   perfilId?: string | null;
@@ -1342,12 +1390,60 @@ export function calculateWarmupRoute(params: {
   partition: number;
   reason: string;
 } {
-  // Regra 1a: DUAL_NUMBER_NOTICE sempre 100% BotConversa
+  // Regra 1a: DUAL_NUMBER_NOTICE sempre 100% BotConversa (mesmo durante failover emergencial)
   if (params.messageType === "DUAL_NUMBER_NOTICE") {
     return {
       provider: "BOTCONVERSA",
       partition: getDeterministicPartition(params.perfilId || params.messageId),
       reason: "DUAL_NUMBER_NOTICE_EXCLUSIVE_BC"
+    };
+  }
+
+  // Regra 1c (elevada): NOTICE sempre 100% BotConversa (mesmo durante failover emergencial — suspenso sem template Meta)
+  if (params.messageType === "NOTICE") {
+    return {
+      provider: "BOTCONVERSA",
+      partition: getDeterministicPartition(params.perfilId || params.messageId),
+      reason: "NOTICE_NO_TEMPLATE_BC"
+    };
+  }
+
+  // ╔══════════════════════════════════════════════════════════════════════════╗
+  // ║ FASE 7.19.1.1 — Contingência: META 100% (estrito flag === "true")        ║
+  // ║ Flag: WHATSAPP_META_100_CONTINGENCY_ENABLED (default: false)              ║
+  // ║ Quando ativo:                                                            ║
+  // ║ - MessageTypes elegíveis → META 100% (partição ignorada, sem 99/1)       ║
+  // ║ - VISITOR_AUTHORIZED → META 100% (ao invés de 50/50)                     ║
+  // ║ - WELCOME (approval-notify) → META 100% (condomeet_boas_vindas_v1)      ║
+  // ║ - NOTICE e DUAL_NUMBER_NOTICE → Protegidos (Meta BLOQUEADA)              ║
+  // ║ - BotConversa = 0%, Evolution = 0%, UAZAP = 0%                           ║
+  // ╚══════════════════════════════════════════════════════════════════════════╝
+  if (isMeta100ContingencyActive()) {
+    const partition = getDeterministicPartition(params.perfilId || params.messageId);
+    return {
+      provider: "META",
+      partition,
+      reason: "CONTINGENCY_META_100"
+    };
+  }
+
+  // ╔══════════════════════════════════════════════════════════════════════════╗
+  // ║ FASE 7.18 — Emergency Failover BotConversa → Meta Cloud API           ║
+  // ║ Flag: WHATSAPP_META_EMERGENCY_FAILOVER_ENABLED (default: false)        ║
+  // ║ Quando ativo: Todos os tipos compatíveis → META 100%                  ║
+  // ║ WELCOME (approval-notify) → META com template condomeet_boas_vindas_v1║
+  // ║ VISITOR_AUTHORIZED → META 100% (ao invés de 50/50)                    ║
+  // ║ Demais tipos já compatíveis → META 100% (ao invés de 99/1 warmup)     ║
+  // ║ REVERSÍVEL: Basta desligar a env var para retornar ao comportamento    ║
+  // ║ normal sem necessidade de deploy.                                       ║
+  // ╚══════════════════════════════════════════════════════════════════════════╝
+  const emergencyFailoverEnabled = (typeof Deno !== "undefined" && Deno.env?.get("WHATSAPP_META_EMERGENCY_FAILOVER_ENABLED") === "true");
+  if (emergencyFailoverEnabled) {
+    const partition = getDeterministicPartition(params.perfilId || params.messageId);
+    return {
+      provider: "META",
+      partition,
+      reason: "EMERGENCY_FAILOVER_META_100"
     };
   }
 
@@ -1364,15 +1460,6 @@ export function calculateWarmupRoute(params: {
       provider: welcomeRoute.provider,
       partition: welcomeRoute.partition,
       reason: welcomeRoute.reason
-    };
-  }
-
-  // Regra 1c: NOTICE sempre 100% BotConversa enquanto não houver template Meta aprovado
-  if (params.messageType === "NOTICE") {
-    return {
-      provider: "BOTCONVERSA",
-      partition: getDeterministicPartition(params.perfilId || params.messageId),
-      reason: "NOTICE_NO_TEMPLATE_BC"
     };
   }
 

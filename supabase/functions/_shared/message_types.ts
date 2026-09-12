@@ -184,7 +184,13 @@ export const TEMPLATE_REGISTRY: Record<MessageTypeValue, TemplateDefinition | nu
   },
   [MessageType.RESERVATION]: null,
   [MessageType.NOTICE]: null,
-  [MessageType.WELCOME]: null,
+  [MessageType.WELCOME]: {
+    family: "boas_vindas",
+    defaultName: "condomeet_boas_vindas_v1",
+    language: "pt_BR",
+    minParameters: 2,
+    contractVersion: 1
+  },
   [MessageType.FINANCIAL]: null,
   [MessageType.TEXTO_LIVRE]: null,
   [MessageType.RESPOSTA_MORADOR]: null,

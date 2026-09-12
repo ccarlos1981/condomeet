@@ -2,7 +2,7 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2"
 import { create, getNumericDate } from "https://deno.land/x/djwt@v2.9.1/mod.ts"
-import { smartSend, MessageType } from "../_shared/botconversa.ts"
+import { smartSend, MessageType, isMeta100ContingencyActive } from "../_shared/botconversa.ts"
 
 // ── FCM helpers ─────────────────────────────────────────────────────────────
 function pemToBinary(pem: string): ArrayBuffer {
@@ -130,19 +130,26 @@ serve(async (req) => {
         `Cód interno: ${codInterno}`
 
       const BOTCONVERSA_API_KEY = Deno.env.get("BOTCONVERSA_API_KEY")
+      // FASE 7.18 / FASE 7.19.1.1: Contingência Meta 100% BotConversa -> Meta Cloud API (estrito === "true")
+      const emergencyFailoverEnabled = Deno.env.get("WHATSAPP_META_EMERGENCY_FAILOVER_ENABLED") === "true"
+      const meta100ContingencyEnabled = isMeta100ContingencyActive()
+      const firstName = perfil.nome_completo?.split(" ")[0] || "Morador"
+      const isMetaMode = meta100ContingencyEnabled || emergencyFailoverEnabled
+      const templateParams = isMetaMode ? [firstName, condoNome] : undefined
 
-      if (BOTCONVERSA_API_KEY) {
+      if (BOTCONVERSA_API_KEY || isMetaMode) {
         const sentRes = await smartSend(
-          BOTCONVERSA_API_KEY,
+          BOTCONVERSA_API_KEY || "",
           perfil.botconversa_id,
           perfil.whatsapp,
           "text",
           msg,
-          perfil.nome_completo?.split(" ")[0],
+          firstName,
           supabase,
           perfil_id,
           MessageType.WELCOME,
-          "approval-notify"
+          "approval-notify",
+          templateParams
         )
         results.push(`WhatsApp resident: ${sentRes.success ? "✅" : "❌"}`)
       } else {

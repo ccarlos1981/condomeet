@@ -2,7 +2,7 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2"
 import { create, getNumericDate } from "https://deno.land/x/djwt@v2.9.1/mod.ts"
-import { smartSend, MessageType, DELAY_TEXT_MS } from "../_shared/botconversa.ts"
+import { smartSend, MessageType, DELAY_TEXT_MS, isMeta100ContingencyActive } from "../_shared/botconversa.ts"
 
 // ── FCM helpers ─────────────────────────────────────────────────────────────
 function pemToBinary(pem: string): ArrayBuffer {
@@ -116,7 +116,25 @@ serve(async (req) => {
     // ═════════════════════════════════════════════════════════════════
     // PART 1: Welcome messages to the new resident (2 messages)
     // ═════════════════════════════════════════════════════════════════
-    if (perfil.notificacoes_whatsapp !== false && BOTCONVERSA_API_KEY && (perfil.botconversa_id || perfil.whatsapp?.trim())) {
+
+    // FASE 7.18 / FASE 7.19.1: Contingência Meta 100% — Suprimir Msg 1 e Msg 2 do welcome-notify
+    // Motivo: Msg 1 diz "cadastro criado" mas o template Meta diz "cadastro aprovado" (divergência semântica).
+    //         Msg 2 é aviso de números oficiais sem template Meta compatível.
+    //         Ambas devem ser suspensas durante a contingência BotConversa -> Meta.
+    const emergencyFailoverEnabled = Deno.env.get("WHATSAPP_META_EMERGENCY_FAILOVER_ENABLED") === "true"
+    const meta100ContingencyEnabled = isMeta100ContingencyActive()
+
+    if (meta100ContingencyEnabled || emergencyFailoverEnabled) {
+      console.log(JSON.stringify({
+        event: "WELCOME_SUPPRESSED_CONTINGENCY",
+        perfil_id,
+        condominio_id,
+        reason: "Msg1 (boas-vindas) e Msg2 (números oficiais) suprimidas durante contingência BotConversa → Meta 100%",
+        flag: "WHATSAPP_META_100_CONTINGENCY_ENABLED"
+      }))
+      results.push("WhatsApp msg1: suppressed (CONTINGENCY_META_100)")
+      results.push("WhatsApp msg2: suppressed (CONTINGENCY_META_100)")
+    } else if (perfil.notificacoes_whatsapp !== false && BOTCONVERSA_API_KEY && (perfil.botconversa_id || perfil.whatsapp?.trim())) {
       
       // 1a. Checagem Atômica de Cap de Welcome
       let welcomeAllowed = true

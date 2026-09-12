@@ -45,9 +45,12 @@ class _PendingDeliveriesScreenState extends State<PendingDeliveriesScreen> {
 
   List<Parcel> _parcels = []; // current page of results
   int _totalFiltered = 0;
+  int _totalStat = 0;
   int _pendingStat = 0;
   int _deliveredStat = 0;
+  int _archivedStat = 0;
   bool _isLoading = true;
+  bool _isFetching = false;
   String? _error;
   String? _fullscreenUrl;
   int _fetchId = 0; // race condition guard
@@ -109,9 +112,15 @@ class _PendingDeliveriesScreenState extends State<PendingDeliveriesScreen> {
   }
 
   /// Server-side fetch: queries Supabase with current filters + pagination
-  Future<void> _fetchParcels() async {
+  Future<void> _fetchParcels({bool fetchStats = true}) async {
+    if (_isFetching) return;
+    _isFetching = true;
+
     final condoId = context.read<AuthBloc>().state.condominiumId;
-    if (condoId == null) return;
+    if (condoId == null) {
+      _isFetching = false;
+      return;
+    }
 
     final fetchId = ++_fetchId;
     setState(() { _isLoading = true; _error = null; });
@@ -121,10 +130,7 @@ class _PendingDeliveriesScreenState extends State<PendingDeliveriesScreen> {
       final rangeFrom = (_currentPage - 1) * _itemsPerPage;
       final rangeTo = rangeFrom + _itemsPerPage - 1;
 
-      // ── Build filter base ─────────────────────────────────────────────
-      // Apply all .eq() filters BEFORE .order() since order() returns
-      // PostgrestTransformBuilder which doesn't expose filter methods.
-
+      // ── Build data query filter ───────────────────────────────────────
       var dataFilter = supabase
           .from('encomendas')
           .select('''
@@ -135,51 +141,77 @@ class _PendingDeliveriesScreenState extends State<PendingDeliveriesScreen> {
           ''')
           .eq('condominio_id', condoId);
 
-      var countFilter = supabase.from('encomendas').select('id').eq('condominio_id', condoId);
-      var pendingFilter = supabase.from('encomendas').select('id').eq('condominio_id', condoId).eq('status', 'pending');
-      var deliveredFilter = supabase.from('encomendas').select('id').eq('condominio_id', condoId).eq('status', 'delivered');
-
-      // Apply status filter to data + count queries
+      // Apply status filter to data query
       if (_filter == _Filter.aguardando) {
         dataFilter = dataFilter.eq('status', 'pending');
-        countFilter = countFilter.eq('status', 'pending');
       } else if (_filter == _Filter.entregues) {
         dataFilter = dataFilter.eq('status', 'delivered');
-        countFilter = countFilter.eq('status', 'delivered');
       }
 
-      // Apply bloco/apto to all queries
-      if (_filterBloco != null) {
-        dataFilter = dataFilter.eq('bloco', _filterBloco!);
-        countFilter = countFilter.eq('bloco', _filterBloco!);
-        pendingFilter = pendingFilter.eq('bloco', _filterBloco!);
-        deliveredFilter = deliveredFilter.eq('bloco', _filterBloco!);
+      // Apply bloco/apto to data query
+      if (_filterBloco != null && _filterBloco!.trim().isNotEmpty) {
+        dataFilter = dataFilter.eq('bloco', _filterBloco!.trim());
       }
-      if (_filterApto != null) {
-        dataFilter = dataFilter.eq('apto', _filterApto!);
-        countFilter = countFilter.eq('apto', _filterApto!);
-        pendingFilter = pendingFilter.eq('apto', _filterApto!);
-        deliveredFilter = deliveredFilter.eq('apto', _filterApto!);
+      if (_filterApto != null && _filterApto!.trim().isNotEmpty) {
+        dataFilter = dataFilter.eq('apto', _filterApto!.trim());
       }
 
-      // Execute queries separately (different return types: List vs int)
-      final dataFuture = dataFilter.order('created_at', ascending: false).range(rangeFrom, rangeTo);
-      final countFuture = countFilter.count(CountOption.exact);
-      final pendingFuture = pendingFilter.count(CountOption.exact);
-      final deliveredFuture = deliveredFilter.count(CountOption.exact);
+      // Execute paginated list query
+      final dataFuture = dataFilter
+          .order('created_at', ascending: false)
+          .range(rangeFrom, rangeTo);
 
-      // Await all
-      final dataRows = await dataFuture;
-      final countResult = await countFuture;
-      final pendingResult = await pendingFuture;
-      final deliveredResult = await deliveredFuture;
+      // Execute single RPC for stats if requested
+      Future<dynamic>? statsFuture;
+      if (fetchStats) {
+        statsFuture = supabase.rpc('get_encomendas_stats', params: {
+          'p_condominio_id': condoId,
+          'p_bloco': (_filterBloco != null && _filterBloco!.trim().isNotEmpty) ? _filterBloco!.trim() : null,
+          'p_apto': (_filterApto != null && _filterApto!.trim().isNotEmpty) ? _filterApto!.trim() : null,
+        });
+      }
 
-      final totalCount = countResult.count;
-      final pendingCount = pendingResult.count;
-      final deliveredCount = deliveredResult.count;
+      final List<dynamic> results;
+      if (statsFuture != null) {
+        results = await Future.wait([dataFuture, statsFuture]);
+      } else {
+        final dataRows = await dataFuture;
+        results = [dataRows, null];
+      }
+
+      final dataRows = results[0];
+      final statsResult = results[1];
 
       // Race condition guard
       if (fetchId != _fetchId) return;
+
+      int statsTotal = _totalStat;
+      int statsPending = _pendingStat;
+      int statsDelivered = _deliveredStat;
+      int statsArchived = _archivedStat;
+
+      if (statsResult != null) {
+        Map<String, dynamic>? statsMap;
+        if (statsResult is List && statsResult.isNotEmpty) {
+          final first = statsResult.first;
+          if (first is Map<String, dynamic>) {
+            statsMap = first;
+          } else if (first is Map) {
+            statsMap = Map<String, dynamic>.from(first);
+          }
+        } else if (statsResult is Map<String, dynamic>) {
+          statsMap = statsResult;
+        } else if (statsResult is Map) {
+          statsMap = Map<String, dynamic>.from(statsResult);
+        }
+
+        if (statsMap != null) {
+          statsTotal = (statsMap['total'] as num?)?.toInt() ?? 0;
+          statsPending = (statsMap['pending'] as num?)?.toInt() ?? 0;
+          statsDelivered = (statsMap['delivered'] as num?)?.toInt() ?? 0;
+          statsArchived = (statsMap['archived'] as num?)?.toInt() ?? 0;
+        }
+      }
 
       final parcels = (dataRows as List).map<Parcel>((row) {
         final raw = row['perfil'];
@@ -219,30 +251,66 @@ class _PendingDeliveriesScreenState extends State<PendingDeliveriesScreen> {
 
       if (fetchId != _fetchId) return;
 
+      int totalFiltered = _totalFiltered;
+      if (fetchStats) {
+        _totalStat = statsTotal;
+        _pendingStat = statsPending;
+        _deliveredStat = statsDelivered;
+        _archivedStat = statsArchived;
+      }
+
+      switch (_filter) {
+        case _Filter.todos:
+          totalFiltered = _totalStat;
+          break;
+        case _Filter.aguardando:
+          totalFiltered = _pendingStat;
+          break;
+        case _Filter.entregues:
+          totalFiltered = _deliveredStat;
+          break;
+      }
+
       if (mounted) {
         setState(() {
           _parcels = parcels;
-          _totalFiltered = totalCount;
-          _pendingStat = pendingCount;
-          _deliveredStat = deliveredCount;
+          _totalFiltered = totalFiltered;
           _isLoading = false;
         });
       }
     } catch (e) {
+      debugPrint('[PendingDeliveriesScreen] Erro ao carregar encomendas: $e');
       if (fetchId == _fetchId && mounted) {
-        setState(() { _error = 'Erro ao carregar: $e'; _isLoading = false; });
+        String msg = 'Erro ao carregar encomendas: $e';
+        final errStr = e.toString().toLowerCase();
+        if (errStr.contains('57014') ||
+            errStr.contains('statement timeout') ||
+            (e is PostgrestException && e.code == '57014')) {
+          msg = 'A consulta demorou mais que o esperado devido ao volume de dados. Toque em "Tentar novamente" para recarregar.';
+        }
+        setState(() {
+          _error = msg;
+          _isLoading = false;
+        });
       }
+    } finally {
+      _isFetching = false;
     }
   }
 
   void _onFilterChanged({_Filter? filter, String? bloco, String? apto, bool resetApto = false}) {
+    final bool blocoChanged = bloco != null || resetApto;
+    final bool aptoChanged = apto != null || resetApto;
+    final bool structuralFilterChanged = (blocoChanged && bloco != _filterBloco) ||
+        (aptoChanged && (resetApto ? _filterApto != null : apto != _filterApto));
+
     setState(() {
       if (filter != null) _filter = filter;
       if (bloco != null || resetApto) _filterBloco = bloco;
       if (apto != null || resetApto) _filterApto = resetApto ? null : apto;
       _currentPage = 1;
     });
-    _fetchParcels();
+    _fetchParcels(fetchStats: structuralFilterChanged || _totalStat == 0);
   }
 
   int get _totalPages => (_totalFiltered / _itemsPerPage).ceil().clamp(1, 9999);
@@ -281,7 +349,7 @@ class _PendingDeliveriesScreenState extends State<PendingDeliveriesScreen> {
       body: Stack(
         children: [
           _error != null
-              ? Center(child: Text(_error!, style: const TextStyle(color: Colors.red)))
+              ? _buildErrorView()
               : _buildBody(),
           if (_fullscreenUrl != null) _buildFullscreen(),
         ],
@@ -323,12 +391,41 @@ class _PendingDeliveriesScreenState extends State<PendingDeliveriesScreen> {
     );
   }
 
-  Widget _buildBody() {
-    final total = _pendingStat + _deliveredStat;
+  Widget _buildErrorView() {
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 24),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(Icons.error_outline, size: 48, color: Colors.red.shade400),
+            const SizedBox(height: 16),
+            Text(
+              _error!,
+              textAlign: TextAlign.center,
+              style: const TextStyle(fontSize: 14, color: AppColors.textSecondary),
+            ),
+            const SizedBox(height: 16),
+            ElevatedButton.icon(
+              onPressed: _isLoading ? null : () => _fetchParcels(fetchStats: true),
+              icon: const Icon(Icons.refresh, size: 18),
+              label: const Text('Tentar novamente'),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: AppColors.primary,
+                foregroundColor: Colors.white,
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
 
+  Widget _buildBody() {
     return Column(children: [
       // ── Stats row
-      _buildStats(total, _pendingStat, _deliveredStat),
+      _buildStats(_totalStat, _pendingStat, _deliveredStat),
 
       // ── Filter chips + dropdowns
       _buildFilters(),
@@ -366,7 +463,7 @@ class _PendingDeliveriesScreenState extends State<PendingDeliveriesScreen> {
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
           child: Row(mainAxisAlignment: MainAxisAlignment.center, children: [
             IconButton(
-              onPressed: _currentPage > 1 ? () { setState(() => _currentPage--); _fetchParcels(); } : null,
+              onPressed: _currentPage > 1 ? () { setState(() => _currentPage--); _fetchParcels(fetchStats: false); } : null,
               icon: const Icon(Icons.chevron_left),
               color: AppColors.primary,
             ),
@@ -375,7 +472,7 @@ class _PendingDeliveriesScreenState extends State<PendingDeliveriesScreen> {
               style: TextStyle(fontSize: 13, color: AppColors.textSecondary, fontWeight: FontWeight.w500),
             ),
             IconButton(
-              onPressed: _currentPage < _totalPages ? () { setState(() => _currentPage++); _fetchParcels(); } : null,
+              onPressed: _currentPage < _totalPages ? () { setState(() => _currentPage++); _fetchParcels(fetchStats: false); } : null,
               icon: const Icon(Icons.chevron_right),
               color: AppColors.primary,
             ),
