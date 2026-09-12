@@ -439,6 +439,12 @@ export default function ParcelList({ initialParcels, isPorter, userId, condoId, 
 
       // Resolve resident names
       const parcelsData = (data ?? []) as Record<string, unknown>[]
+
+      // If the page returned empty but pageNum > 1, the page ceased to exist on the server (e.g. concurrent discharge)
+      if (parcelsData.length === 0 && pageNum > 1) {
+        setPage(p => Math.max(1, p - 1))
+        return
+      }
       const isUUID = (str: string) => /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(str)
       const validResidentUUIDs = [...new Set(parcelsData.map(p => p.resident_id as string).filter(id => id && isUUID(id)))]
       const perfilMap: Record<string, Perfil> = {}
@@ -555,6 +561,13 @@ export default function ParcelList({ initialParcels, isPorter, userId, condoId, 
     ? (totalKnown ? Math.max(1, Math.ceil(totalFiltered / PER_PAGE)) : (hasMore ? page + 1 : page))
     : Math.max(1, Math.ceil(filtered.length / PER_PAGE))
 
+  // Clamp page if totalFiltered drops below current page (e.g. stats updated or concurrent changes)
+  useEffect(() => {
+    if (isPorter && totalKnown && totalPages > 0 && page > totalPages) {
+      setPage(totalPages)
+    }
+  }, [isPorter, totalKnown, totalPages, page])
+
   const paginated = isPorter
     ? filtered  // Already paginated from server
     : filtered.slice((page - 1) * PER_PAGE, page * PER_PAGE)
@@ -562,6 +575,28 @@ export default function ParcelList({ initialParcels, isPorter, userId, condoId, 
   const pending   = isPorter ? pendingStat   : parcels.filter(p => p.status === 'pending').length
   const delivered  = isPorter ? deliveredStat : parcels.filter(p => p.status === 'delivered').length
   const total      = isPorter ? (pendingStat + deliveredStat) : parcels.length
+
+  // ── Post-discharge page recalculation & refresh ───────────────────────────
+
+  function refreshAfterDischarge() {
+    if (!isPorter) return
+
+    let targetPage = page
+    if (statusFilter === 'pending') {
+      const currentCount = totalKnown ? totalFiltered : ((page - 1) * PER_PAGE + parcels.length)
+      const newTotal = Math.max(0, currentCount - 1)
+      const maxValidPage = Math.max(1, Math.ceil(newTotal / PER_PAGE))
+      if (page > maxValidPage) {
+        targetPage = maxValidPage
+      }
+    }
+
+    if (targetPage !== page) {
+      setPage(targetPage)
+    } else {
+      fetchParcels(statusFilter, blocoFilter, aptoFilter, targetPage)
+    }
+  }
 
   // ── Dar Baixa confirm ──────────────────────────────────────────────────────
 
@@ -594,9 +629,9 @@ export default function ParcelList({ initialParcels, isPorter, userId, condoId, 
     ))
     setDeliveryModal(null)
 
-    // Refresh stats from server in porter mode
+    // Refresh stats from server in porter mode with page validation
     if (isPorter) {
-      fetchParcels(statusFilter, blocoFilter, aptoFilter, page)
+      refreshAfterDischarge()
     }
   }
 
@@ -627,7 +662,7 @@ export default function ParcelList({ initialParcels, isPorter, userId, condoId, 
     setSilentDischargeModal(null)
 
     if (isPorter) {
-      fetchParcels(statusFilter, blocoFilter, aptoFilter, page)
+      refreshAfterDischarge()
     }
   }
 
