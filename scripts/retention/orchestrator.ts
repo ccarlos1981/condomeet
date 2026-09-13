@@ -18,12 +18,26 @@ import { resolveAuditSemantics } from './types.js';
 
 const { Client } = pg;
 
-// ── Utilitário seguro para carregar variáveis locais sem expor segredos ──
-function loadSecureEnv(): { password: string | null; caPath: string | null } {
+export interface SecureEnvConfig {
+  host: string;
+  port: number;
+  user: string;
+  database: string;
+  password: string | null;
+  caPath: string | null;
+  mode: 'SESSION' | 'DIRECT';
+}
+
+// ── Utilitário seguro para carregar variáveis de ambiente sem expor segredos ──
+export function loadSecureEnv(): SecureEnvConfig {
+  let host = process.env.POSTGRES_HOST || null;
+  let portStr = process.env.POSTGRES_PORT || null;
+  let user = process.env.POSTGRES_USER || null;
+  let database = process.env.POSTGRES_DATABASE || null;
   let password = process.env.POSTGRES_PASSWORD || null;
   let caPath = process.env.SUPABASE_SSL_CA_PATH || null;
 
-  if (!password || !caPath) {
+  if (!password || !caPath || !host || !user) {
     const candidatePaths = [
       path.resolve(process.cwd(), 'web-app/.env.local'),
       path.resolve(process.cwd(), '.env.local')
@@ -33,15 +47,26 @@ function loadSecureEnv(): { password: string | null; caPath: string | null } {
         const content = fs.readFileSync(envPath, 'utf8');
         const passMatch = content.match(/^POSTGRES_PASSWORD=(.*)$/m);
         const caMatch = content.match(/^SUPABASE_SSL_CA_PATH=(.*)$/m);
-        if (passMatch && !password) {
-          password = passMatch[1].trim().replace(/^['"]|['"]$/g, '');
-        }
-        if (caMatch && !caPath) {
-          caPath = caMatch[1].trim().replace(/^['"]|['"]$/g, '');
-        }
+        const hostMatch = content.match(/^POSTGRES_HOST=(.*)$/m);
+        const portMatch = content.match(/^POSTGRES_PORT=(.*)$/m);
+        const userMatch = content.match(/^POSTGRES_USER=(.*)$/m);
+        const dbMatch = content.match(/^POSTGRES_DATABASE=(.*)$/m);
+
+        if (passMatch && !password) password = passMatch[1].trim().replace(/^['"]|['"]$/g, '');
+        if (caMatch && !caPath) caPath = caMatch[1].trim().replace(/^['"]|['"]$/g, '');
+        if (hostMatch && !host) host = hostMatch[1].trim().replace(/^['"]|['"]$/g, '');
+        if (portMatch && !portStr) portStr = portMatch[1].trim().replace(/^['"]|['"]$/g, '');
+        if (userMatch && !user) user = userMatch[1].trim().replace(/^['"]|['"]$/g, '');
+        if (dbMatch && !database) database = dbMatch[1].trim().replace(/^['"]|['"]$/g, '');
       }
     }
   }
+
+  const finalHost = host || 'db.avypyaxthvgaybplnwxu.supabase.co';
+  const finalPort = portStr ? parseInt(portStr, 10) : 5432;
+  const finalUser = user || 'postgres';
+  const finalDatabase = database || 'postgres';
+  const mode: 'SESSION' | 'DIRECT' = finalHost.includes('pooler') ? 'SESSION' : 'DIRECT';
 
   // Se caPath for relativo, resolver em relação ao diretório atual
   if (caPath && !path.isAbsolute(caPath)) {
@@ -56,7 +81,15 @@ function loadSecureEnv(): { password: string | null; caPath: string | null } {
     }
   }
 
-  return { password, caPath };
+  return {
+    host: finalHost,
+    port: finalPort,
+    user: finalUser,
+    database: finalDatabase,
+    password,
+    caPath,
+    mode
+  };
 }
 
 // ── Parser e Validação Estrita de Configuração ──
@@ -188,7 +221,7 @@ export function buildArchiveRpcQuery(config: OrchestratorConfig): { query: strin
 
 // ── Execução Principal do Orquestrador (Dry-Run ou Real) ──
 export async function runOrchestrator(config: OrchestratorConfig): Promise<ExecutionReport> {
-  const { password, caPath } = loadSecureEnv();
+  const { host, port, user, database, password, caPath, mode } = loadSecureEnv();
 
   if (!password) {
     throw new Error('POSTGRES_PASSWORD_MISSING: Senha do banco não localizada no ambiente local.');
@@ -201,10 +234,10 @@ export async function runOrchestrator(config: OrchestratorConfig): Promise<Execu
   const caCert = fs.readFileSync(caPath, 'utf8');
 
   const client = new Client({
-    host: 'db.avypyaxthvgaybplnwxu.supabase.co',
-    port: 5432,
-    user: 'postgres',
-    database: 'postgres',
+    host,
+    port,
+    user,
+    database,
     password: password,
     ssl: {
       rejectUnauthorized: true,
@@ -332,7 +365,11 @@ export async function runOrchestrator(config: OrchestratorConfig): Promise<Execu
         executedBy: audit.executedBy,
         archivedBy: audit.archivedBy,
         simulatedExecutedBy: audit.executedBy,
-        simulatedArchivedBy: audit.archivedBy
+        simulatedArchivedBy: audit.archivedBy,
+        connectionHost: host,
+        connectionPort: port,
+        connectionUser: user,
+        connectionMode: mode
       };
       return stopReport;
     }
@@ -373,7 +410,11 @@ export async function runOrchestrator(config: OrchestratorConfig): Promise<Execu
         executedBy: audit.executedBy,
         archivedBy: audit.archivedBy,
         simulatedExecutedBy: audit.executedBy,
-        simulatedArchivedBy: audit.archivedBy
+        simulatedArchivedBy: audit.archivedBy,
+        connectionHost: host,
+        connectionPort: port,
+        connectionUser: user,
+        connectionMode: mode
       };
       return dryReport;
     }
@@ -439,7 +480,11 @@ export async function runOrchestrator(config: OrchestratorConfig): Promise<Execu
       executedBy: audit.executedBy,
       archivedBy: audit.archivedBy,
       simulatedExecutedBy: audit.executedBy,
-      simulatedArchivedBy: audit.archivedBy
+      simulatedArchivedBy: audit.archivedBy,
+      connectionHost: host,
+      connectionPort: port,
+      connectionUser: user,
+      connectionMode: mode
     };
 
     return realReport;
@@ -455,7 +500,12 @@ export const runDryRun = runOrchestrator;
 export function formatReport(report: ExecutionReport): string {
   if (report.isDryRun) {
     const lines: string[] = [
-      '=== C4C.4-A DRY-RUN ===',
+      '=== C4C.20 RETENTION ORCHESTRATOR REPORT (DRY-RUN) ===',
+      '',
+      `connection_host = ${report.connectionHost || 'N/A'}`,
+      `connection_port = ${report.connectionPort || 5432}`,
+      `connection_mode = ${report.connectionMode || 'SESSION'}`,
+      `connection_user = ${report.connectionUser || report.user || 'N/A'}`,
       '',
       'PostgreSQL:',
       report.postgresStatus,
@@ -557,7 +607,12 @@ export function formatReport(report: ExecutionReport): string {
 
   // Relatório de Execução Real (isDryRun = false)
   const lines: string[] = [
-    '=== C4C.16 RETENTION EXECUTION REPORT (REAL) ===',
+    '=== C4C.20 RETENTION ORCHESTRATOR REPORT (REAL) ===',
+    '',
+    `connection_host = ${report.connectionHost || 'N/A'}`,
+    `connection_port = ${report.connectionPort || 5432}`,
+    `connection_mode = ${report.connectionMode || 'SESSION'}`,
+    `connection_user = ${report.connectionUser || report.user || 'N/A'}`,
     '',
     'Execution Mode: REAL / WRITE',
     '',

@@ -116,9 +116,11 @@ export interface ExecutionReport {
   executionSource: ExecutionSource;
   executedBy?: string;
   archivedBy?: string;
-  // Retrocompatibilidade para relatórios existentes
-  simulatedExecutedBy?: string;
-  simulatedArchivedBy?: string;
+  // Telemetria de Conectividade (C4C.20)
+  connectionHost?: string;
+  connectionPort?: number;
+  connectionUser?: string;
+  connectionMode?: 'SESSION' | 'DIRECT';
 }
 
 export type DryRunReport = ExecutionReport;

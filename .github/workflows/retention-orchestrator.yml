@@ -88,6 +88,9 @@ jobs:
 
       - name: "Executar Orquestrador de Retenção (Preflight / Dry-Run)"
         env:
+          POSTGRES_HOST: "aws-1-us-east-2.pooler.supabase.com"
+          POSTGRES_PORT: "5432"
+          POSTGRES_USER: "postgres.avypyaxthvgaybplnwxu"
           POSTGRES_PASSWORD: ${{ secrets.POSTGRES_PASSWORD }}
           SUPABASE_SSL_CA_PATH: "/tmp/certs/prod-ca-2021.crt"
           RETENTION_KILL_SWITCH: ${{ secrets.RETENTION_KILL_SWITCH || 'false' }}
