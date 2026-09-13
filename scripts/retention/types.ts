@@ -6,7 +6,7 @@
 
 export type PowerSyncState = 'SAFE' | 'WAIT' | 'CONSERVATIVE' | 'STOP';
 
-export type OrchestratorFinalState = 'DRY_RUN_READY' | 'STOP';
+export type OrchestratorFinalState = 'DRY_RUN_READY' | 'SUCCESS' | 'PARTIAL' | 'STOP' | 'FAILED';
 
 export interface ResolvedSlotInfo {
   slot_name: string;
@@ -76,7 +76,7 @@ export interface OrchestratorConfig {
   executionSource?: ExecutionSource;
 }
 
-export interface DryRunReport {
+export interface ExecutionReport {
   postgresStatus: 'CONNECTED' | 'FAILED';
   tlsStatus: 'VALIDATED' | 'FAILED';
   database: string;
@@ -99,13 +99,27 @@ export interface DryRunReport {
   elegiveisAtuais: number | null;
   batchSize: number;
   maxBatches: number;
-  archiveRpcStatus: 'DRY-RUN / NOT EXECUTED';
-  leaseStatus: 'SIMULATED / NOT EXECUTED';
-  databaseWrites: 'ZERO';
+  isDryRun?: boolean;
+  archiveRpcStatus: string;
+  leaseStatus: string;
+  databaseWrites: string;
   rowsArchived: number;
+  rowsDelivered10d?: number;
+  rowsPending3m?: number;
+  batchesProcessed?: number;
+  durationMs?: number;
+  batchId?: string | null;
+  rpcErrorMessage?: string | null;
+  postLagBytes?: number;
   finalState: OrchestratorFinalState;
   stopReason?: string;
   executionSource: ExecutionSource;
-  simulatedExecutedBy: string;
-  simulatedArchivedBy: string;
+  executedBy?: string;
+  archivedBy?: string;
+  // Retrocompatibilidade para relatórios existentes
+  simulatedExecutedBy?: string;
+  simulatedArchivedBy?: string;
 }
+
+export type DryRunReport = ExecutionReport;
+

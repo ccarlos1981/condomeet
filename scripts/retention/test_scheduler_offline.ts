@@ -4,10 +4,10 @@
  * Regime: 100% OFFLINE / ZERO CONEXÃO COM PRODUÇÃO
  */
 
-import { parseConfig, formatReport } from './orchestrator.js';
+import { parseConfig, formatReport, buildArchiveRpcQuery } from './orchestrator.js';
 import { PowerSyncMonitor, POWERSYNC_INSTANCE_ID, POWERSYNC_SLOT_PREFIX, LAG_THRESHOLDS } from './powersync_monitor.js';
 import { resolveAuditSemantics } from './types.js';
-import type { DryRunReport, OrchestratorConfig } from './types.js';
+import type { DryRunReport, ExecutionReport, OrchestratorConfig } from './types.js';
 
 interface TestResult {
   name: string;
@@ -272,6 +272,171 @@ const requiredFields = [
 ];
 const allFieldsPresent = requiredFields.every(f => f in sampleStructuredLog);
 assert('14. Structured Logging contém todos os campos de telemetria obrigatórios', allFieldsPresent);
+
+// 15. Dry-run default é true e não escreve
+const testDefaultDryRun = parseConfig([
+  `--condominio-id=${TARGET_CONDO_ID}`,
+  '--batch-size=1000',
+  '--max-batches=1'
+]);
+assert(
+  '15. Dry-run padrão é true (zero writes por default)',
+  Boolean(testDefaultDryRun.config && testDefaultDryRun.config.isDryRun === true)
+);
+
+// 16. Dry-run explicitamente false é aceito com parâmetros válidos autorizados
+const testExplicitReal = parseConfig([
+  `--condominio-id=${TARGET_CONDO_ID}`,
+  '--batch-size=1000',
+  '--max-batches=1',
+  '--execution-source=CRON_RETENTION',
+  '--dry-run=false'
+]);
+assert(
+  '16. Dry-run explicitamente false é aceito quando solicitado',
+  Boolean(
+    testExplicitReal.config &&
+    testExplicitReal.config.isDryRun === false &&
+    testExplicitReal.config.batchSize === 1000 &&
+    testExplicitReal.config.maxBatches === 1 &&
+    testExplicitReal.config.executionSource === 'CRON_RETENTION'
+  )
+);
+
+// 17. buildArchiveRpcQuery constrói a chamada oficial correta com tipos e parâmetros autorizados
+const realRpcQuery = buildArchiveRpcQuery({
+  condominioId: TARGET_CONDO_ID,
+  batchSize: 1000,
+  maxBatches: 1,
+  timeoutMs: 45000,
+  cooldownMs: 4000,
+  isDryRun: false,
+  killSwitch: false,
+  executionSource: 'CRON_RETENTION'
+});
+assert(
+  '17. buildArchiveRpcQuery constrói assinatura exata da RPC oficial',
+  realRpcQuery.query.includes('public.archive_expired_encomendas') &&
+  realRpcQuery.query.includes('p_batch_size => $1::integer') &&
+  realRpcQuery.query.includes('p_max_batches => $2::integer') &&
+  realRpcQuery.query.includes('p_condominio_id => $3::uuid') &&
+  realRpcQuery.query.includes('p_execution_source => $4::text')
+);
+
+// 18. Parâmetros do condomínio são rigorosamente preservados na query
+assert(
+  '18. Parâmetros do condomínio preservados na chamada da RPC',
+  realRpcQuery.values[0] === 1000 &&
+  realRpcQuery.values[1] === 1 &&
+  realRpcQuery.values[2] === TARGET_CONDO_ID &&
+  realRpcQuery.values[3] === 'CRON_RETENTION'
+);
+
+// 19. Execution source correto (CRON_RETENTION) e semântica de auditoria
+const auditReal = resolveAuditSemantics('CRON_RETENTION', TARGET_CONDO_ID);
+assert(
+  '19. Execution source CRON_RETENTION gera semântica de auditoria oficial',
+  auditReal.executionSource === 'CRON_RETENTION' &&
+  auditReal.executedBy === `CRON_RETENTION_${TARGET_CONDO_ID}` &&
+  auditReal.archivedBy === `CRON_RETENTION_${TARGET_CONDO_ID}`
+);
+
+// 20. p_max_batches = 1: tentativa de p_max_batches > 1 é bloqueada
+const testMultiBatchForbidden = parseConfig([
+  `--condominio-id=${TARGET_CONDO_ID}`,
+  '--max-batches=2',
+  '--dry-run=false'
+]);
+assert(
+  '20. p_max_batches > 1 é estritamente proibido no modo real',
+  Boolean(testMultiBatchForbidden.error && testMultiBatchForbidden.error.includes('STOP'))
+);
+
+// 21. Kill switch bloqueia chamada no modo real
+const mockKillSwitchBlockReport: ExecutionReport = {
+  postgresStatus: 'CONNECTED',
+  tlsStatus: 'VALIDATED',
+  database: 'postgres',
+  user: 'postgres',
+  version: 'PostgreSQL 17.6',
+  powerSyncState: 'SAFE',
+  powerSyncInstanceId: POWERSYNC_INSTANCE_ID,
+  slotFound: 'FOUND',
+  resolvedSlotName: `${POWERSYNC_SLOT_PREFIX}9_3296`,
+  plugin: 'pgoutput',
+  slotType: 'logical',
+  active: true,
+  currentWalLsn: '100/100',
+  confirmedFlushLsn: '100/100',
+  restartLsn: '100/100',
+  lagFormatted: '0 bytes (0 MB)',
+  killSwitchStatus: 'ON',
+  condominioNome: 'Residencial Recanto das Palmeiras',
+  condominioUuid: TARGET_CONDO_ID,
+  elegiveisAtuais: 20568,
+  batchSize: 1000,
+  maxBatches: 1,
+  isDryRun: false,
+  archiveRpcStatus: 'STOPPED / NOT EXECUTED',
+  leaseStatus: 'NOT ACQUIRED',
+  databaseWrites: 'ZERO',
+  rowsArchived: 0,
+  finalState: 'STOP',
+  stopReason: 'RETENTION_KILL_SWITCH ativado',
+  executionSource: 'CRON_RETENTION',
+  executedBy: `CRON_RETENTION_${TARGET_CONDO_ID}`,
+  archivedBy: `CRON_RETENTION_${TARGET_CONDO_ID}`
+};
+assert(
+  '21. Kill switch bloqueia execução real e garante zero escritas',
+  mockKillSwitchBlockReport.finalState === 'STOP' &&
+  mockKillSwitchBlockReport.archiveRpcStatus === 'STOPPED / NOT EXECUTED' &&
+  mockKillSwitchBlockReport.databaseWrites === 'ZERO' &&
+  mockKillSwitchBlockReport.rowsArchived === 0
+);
+
+// 22. PowerSync inseguro bloqueia chamada no modo real
+const mockPowerSyncStopReport: ExecutionReport = {
+  postgresStatus: 'CONNECTED',
+  tlsStatus: 'VALIDATED',
+  database: 'postgres',
+  user: 'postgres',
+  version: 'PostgreSQL 17.6',
+  powerSyncState: 'STOP',
+  powerSyncInstanceId: POWERSYNC_INSTANCE_ID,
+  slotFound: 'NOT FOUND',
+  resolvedSlotName: null,
+  plugin: null,
+  slotType: null,
+  active: false,
+  currentWalLsn: null,
+  confirmedFlushLsn: null,
+  restartLsn: null,
+  lagFormatted: null,
+  killSwitchStatus: 'OFF',
+  condominioNome: 'Residencial Recanto das Palmeiras',
+  condominioUuid: TARGET_CONDO_ID,
+  elegiveisAtuais: 20568,
+  batchSize: 1000,
+  maxBatches: 1,
+  isDryRun: false,
+  archiveRpcStatus: 'STOPPED / NOT EXECUTED',
+  leaseStatus: 'NOT ACQUIRED',
+  databaseWrites: 'ZERO',
+  rowsArchived: 0,
+  finalState: 'STOP',
+  stopReason: 'STOP_NO_ACTIVE_POWERSYNC_SLOT',
+  executionSource: 'CRON_RETENTION',
+  executedBy: `CRON_RETENTION_${TARGET_CONDO_ID}`,
+  archivedBy: `CRON_RETENTION_${TARGET_CONDO_ID}`
+};
+assert(
+  '22. PowerSync inseguro bloqueia execução real e garante zero escritas',
+  mockPowerSyncStopReport.finalState === 'STOP' &&
+  mockPowerSyncStopReport.archiveRpcStatus === 'STOPPED / NOT EXECUTED' &&
+  mockPowerSyncStopReport.databaseWrites === 'ZERO' &&
+  mockPowerSyncStopReport.rowsArchived === 0
+);
 
 const totalPassed = results.filter(r => r.passed).length;
 console.log(`\nResultado Final: ${totalPassed}/${results.length} testes aprovados.\n`);

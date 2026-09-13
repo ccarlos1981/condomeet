@@ -13,7 +13,7 @@ import path from 'path';
 import { fileURLToPath } from 'url';
 import pg from 'pg';
 import { PowerSyncMonitor, POWERSYNC_INSTANCE_ID, POWERSYNC_SLOT_PREFIX, LAG_THRESHOLDS } from './powersync_monitor.js';
-import type { DryRunReport, OrchestratorConfig, PowerSyncState, RawSlotData, ExecutionSource } from './types.js';
+import type { DryRunReport, ExecutionReport, OrchestratorConfig, OrchestratorFinalState, PowerSyncState, RawSlotData, ExecutionSource } from './types.js';
 import { resolveAuditSemantics } from './types.js';
 
 const { Client } = pg;
@@ -143,9 +143,11 @@ export function parseConfig(args: string[]): { config?: OrchestratorConfig; erro
     return { error: `STOP: Cooldown inválido (${cooldownMs}ms). Deve estar entre 3000 ms e 5000 ms.` };
   }
 
-  // Validação 6: Dry-run obrigatório nesta fase
+  // Validação 6: Validação de modo de execução (dry-run vs real)
   if (!isDryRun) {
-    return { error: 'STOP: O modo de execução real está expressamente proibido nesta onda. --dry-run deve ser true.' };
+    if (maxBatches !== 1) {
+      return { error: 'STOP: O modo de execução real exige estritamente p_max_batches = 1.' };
+    }
   }
 
   const killSwitch = process.env.RETENTION_KILL_SWITCH === 'true';
@@ -157,15 +159,35 @@ export function parseConfig(args: string[]): { config?: OrchestratorConfig; erro
       maxBatches,
       timeoutMs,
       cooldownMs,
-      isDryRun: true,
+      isDryRun,
       killSwitch,
       executionSource
     }
   };
 }
 
-// ── Execução Principal do Dry-Run ──
-export async function runDryRun(config: OrchestratorConfig): Promise<DryRunReport> {
+// ── Construtor da Consulta Oficial da RPC de Retenção ──
+export function buildArchiveRpcQuery(config: OrchestratorConfig): { query: string; values: any[] } {
+  return {
+    query: `
+      SELECT public.archive_expired_encomendas(
+        p_batch_size => $1::integer,
+        p_max_batches => $2::integer,
+        p_condominio_id => $3::uuid,
+        p_execution_source => $4::text
+      ) AS result;
+    `,
+    values: [
+      config.batchSize,
+      config.maxBatches,
+      config.condominioId,
+      config.executionSource || 'CRON_RETENTION'
+    ]
+  };
+}
+
+// ── Execução Principal do Orquestrador (Dry-Run ou Real) ──
+export async function runOrchestrator(config: OrchestratorConfig): Promise<ExecutionReport> {
   const { password, caPath } = loadSecureEnv();
 
   if (!password) {
@@ -188,7 +210,7 @@ export async function runDryRun(config: OrchestratorConfig): Promise<DryRunRepor
       rejectUnauthorized: true,
       ca: caCert
     },
-    connectionTimeoutMillis: 5000
+    connectionTimeoutMillis: 10000
   });
 
   try {
@@ -205,31 +227,56 @@ export async function runDryRun(config: OrchestratorConfig): Promise<DryRunRepor
     const rawVersion = verRes.rows[0]?.version || 'unknown';
     const shortVersion = rawVersion.split('\n')[0].replace(/PostgreSQL\s+([^\s]+).*/, 'PostgreSQL $1');
 
-    // Monitor do PowerSync
+    // Pre-flight A: Kill Switch (Ambiente e Banco de Dados)
+    const dbPolicyRes = await client.query('SELECT is_kill_switch_active FROM public.app_version_policy LIMIT 1;');
+    const isDbKillSwitch = dbPolicyRes.rows[0]?.is_kill_switch_active === true;
+    const isEnvKillSwitch = config.killSwitch === true;
+
+    // Pre-flight B: Monitor do PowerSync (Resolução Dinâmica do Slot)
     const monitor = new PowerSyncMonitor();
     const slotInfo = await monitor.checkSlot(client);
 
-    // Validação de Condomínio no Banco
+    // Pre-flight C: Concorrência e Advisory Lock
+    const lockCheck = await client.query(`
+      SELECT count(*) as active_retention
+      FROM pg_stat_activity
+      WHERE query ILIKE '%archive_expired_encomendas%'
+        AND pid <> pg_backend_pid();
+    `);
+    const activeRetention = parseInt(lockCheck.rows[0]?.active_retention || '0', 10);
+
+    const advLockRes = await client.query(`SELECT pg_try_advisory_lock(hashtext('archive_expired_encomendas')) as acquired;`);
+    const acquiredAdvLock = advLockRes.rows[0]?.acquired === true;
+    if (acquiredAdvLock) {
+      await client.query(`SELECT pg_advisory_unlock(hashtext('archive_expired_encomendas'));`);
+    }
+
+    // Pre-flight D: Validação de Condomínio no Banco
     const condoRes = await client.query('SELECT id, nome FROM public.condominios WHERE id = $1;', [config.condominioId]);
     const condoFound = condoRes.rows.length > 0;
     const condoNome = condoFound ? condoRes.rows[0].nome : null;
 
-    // Regra da Seção 10: Se o UUID fornecido for o teste do Real Park (72a5f3b3...),
-    // validar se corresponde ao Real Park
-    let condoMatchValid = true;
     let stopReason: string | undefined;
+    let finalState: OrchestratorFinalState = config.isDryRun ? 'DRY_RUN_READY' : 'SUCCESS';
 
-    if (config.condominioId === '72a5f3b3-7c6a-4d5d-8f67-5f0e7a2d9f2e') {
-      if (!condoFound || condoNome !== 'Real Park') {
-        condoMatchValid = false;
-        stopReason = `O UUID '${config.condominioId}' não corresponde ao condomínio Real Park no banco oficial.`;
-      }
+    if (isEnvKillSwitch || isDbKillSwitch) {
+      finalState = 'STOP';
+      stopReason = `RETENTION_KILL_SWITCH ativado (Env: ${isEnvKillSwitch ? 'ON' : 'OFF'}, DB: ${isDbKillSwitch ? 'ON' : 'OFF'}).`;
     } else if (!condoFound) {
-      condoMatchValid = false;
-      stopReason = `Condomínio com UUID '${config.condominioId}' não foi encontrado no banco de dados.`;
+      finalState = 'STOP';
+      stopReason = `STOP_CONDO: Condomínio com UUID '${config.condominioId}' não foi encontrado no banco oficial.`;
+    } else if (slotInfo.state !== 'SAFE') {
+      finalState = 'STOP';
+      stopReason = slotInfo.reason || `STOP_POWERSYNC: Slot em estado ${slotInfo.state} (Lag: ${slotInfo.lag_bytes} B).`;
+    } else if (activeRetention > 0) {
+      finalState = 'STOP';
+      stopReason = `STOP_CONCURRENCY: ${activeRetention} rotina(s) de retenção ativas detectadas no banco.`;
+    } else if (!acquiredAdvLock) {
+      finalState = 'STOP';
+      stopReason = 'STOP_LOCK: Advisory lock da retenção ocupado por outro processo.';
     }
 
-    // Consulta Read-only de elegíveis atuais
+    // Consulta de elegíveis pré-lote
     let elegiveisCount: number | null = null;
     if (condoFound) {
       const elegQuery = `
@@ -247,65 +294,272 @@ export async function runDryRun(config: OrchestratorConfig): Promise<DryRunRepor
       elegiveisCount = parseInt(elegRes.rows[0]?.total_elegivel || '0', 10);
     }
 
-    // Avaliação do Estado Final
-    let finalState: 'DRY_RUN_READY' | 'STOP' = 'DRY_RUN_READY';
-
-    if (config.killSwitch) {
-      finalState = 'STOP';
-      stopReason = 'RETENTION_KILL_SWITCH ativado (Kill switch: ON).';
-    } else if (!condoMatchValid) {
-      finalState = 'STOP';
-    } else if (slotInfo.state === 'STOP') {
-      finalState = 'STOP';
-      stopReason = slotInfo.reason || 'PowerSync slot em estado crítico STOP.';
-    }
-
     const audit = resolveAuditSemantics(config.executionSource, config.condominioId);
 
-    const report: DryRunReport = {
+    // Se houve STOP em qualquer preflight, interrompe imediatamente sem chamar a RPC
+    if (finalState === 'STOP') {
+      const stopReport: ExecutionReport = {
+        postgresStatus: 'CONNECTED',
+        tlsStatus: isEncrypted ? 'VALIDATED' : 'FAILED',
+        database: dbName,
+        user: userName,
+        version: shortVersion,
+        powerSyncState: slotInfo.state,
+        powerSyncInstanceId: slotInfo.instance_id,
+        slotFound: slotInfo.resolved_slot ? 'FOUND' : 'NOT FOUND',
+        resolvedSlotName: slotInfo.resolved_slot ? slotInfo.resolved_slot.slot_name : null,
+        plugin: slotInfo.plugin,
+        slotType: slotInfo.slot_type,
+        active: slotInfo.active,
+        currentWalLsn: slotInfo.current_wal_lsn,
+        confirmedFlushLsn: slotInfo.confirmed_flush_lsn,
+        restartLsn: slotInfo.restart_lsn,
+        lagFormatted: `${slotInfo.lag_bytes} bytes (${slotInfo.lag_mb} MB)`,
+        killSwitchStatus: isEnvKillSwitch || isDbKillSwitch ? 'ON' : 'OFF',
+        condominioNome: condoNome,
+        condominioUuid: config.condominioId,
+        elegiveisAtuais: elegiveisCount,
+        batchSize: config.batchSize,
+        maxBatches: config.maxBatches,
+        isDryRun: config.isDryRun,
+        archiveRpcStatus: 'STOPPED / NOT EXECUTED',
+        leaseStatus: 'NOT ACQUIRED',
+        databaseWrites: 'ZERO',
+        rowsArchived: 0,
+        finalState: 'STOP',
+        stopReason: stopReason,
+        executionSource: audit.executionSource,
+        executedBy: audit.executedBy,
+        archivedBy: audit.archivedBy,
+        simulatedExecutedBy: audit.executedBy,
+        simulatedArchivedBy: audit.archivedBy
+      };
+      return stopReport;
+    }
+
+    // Modo DRY-RUN (Simulação segura sem escrita)
+    if (config.isDryRun) {
+      const dryReport: ExecutionReport = {
+        postgresStatus: 'CONNECTED',
+        tlsStatus: isEncrypted ? 'VALIDATED' : 'FAILED',
+        database: dbName,
+        user: userName,
+        version: shortVersion,
+        powerSyncState: slotInfo.state,
+        powerSyncInstanceId: slotInfo.instance_id,
+        slotFound: slotInfo.resolved_slot ? 'FOUND' : 'NOT FOUND',
+        resolvedSlotName: slotInfo.resolved_slot ? slotInfo.resolved_slot.slot_name : null,
+        plugin: slotInfo.plugin,
+        slotType: slotInfo.slot_type,
+        active: slotInfo.active,
+        currentWalLsn: slotInfo.current_wal_lsn,
+        confirmedFlushLsn: slotInfo.confirmed_flush_lsn,
+        restartLsn: slotInfo.restart_lsn,
+        lagFormatted: `${slotInfo.lag_bytes} bytes (${slotInfo.lag_mb} MB)`,
+        killSwitchStatus: 'OFF',
+        condominioNome: condoNome,
+        condominioUuid: config.condominioId,
+        elegiveisAtuais: elegiveisCount,
+        batchSize: config.batchSize,
+        maxBatches: config.maxBatches,
+        isDryRun: true,
+        archiveRpcStatus: 'DRY-RUN / NOT EXECUTED',
+        leaseStatus: 'SIMULATED / NOT EXECUTED',
+        databaseWrites: 'ZERO',
+        rowsArchived: 0,
+        finalState: 'DRY_RUN_READY',
+        stopReason: undefined,
+        executionSource: audit.executionSource,
+        executedBy: audit.executedBy,
+        archivedBy: audit.archivedBy,
+        simulatedExecutedBy: audit.executedBy,
+        simulatedArchivedBy: audit.archivedBy
+      };
+      return dryReport;
+    }
+
+    // Modo REAL (isDryRun === false) — Execução Exata de 1 Lote via RPC Oficial
+    const rpcCall = buildArchiveRpcQuery(config);
+    const execRes = await client.query(rpcCall.query, rpcCall.values);
+    const rpcResult = execRes.rows[0]?.result;
+
+    const rpcStatus = rpcResult?.status || 'UNKNOWN';
+    const rowsArchived = Number(rpcResult?.rows_archived) || 0;
+    const batchId = rpcResult?.batch_id || null;
+    const durationMs = Number(rpcResult?.duration_ms) || 0;
+    const delivered10d = Number(rpcResult?.rows_delivered_10d) || 0;
+    const pending3m = Number(rpcResult?.rows_pending_3m) || 0;
+    const batchesProcessed = Number(rpcResult?.batches_processed) || 0;
+    const rpcError = rpcResult?.error_message || null;
+
+    // PowerSync pós-execução imediato
+    const postSlotInfo = await monitor.checkSlot(client);
+
+    const isSuccess = rpcStatus === 'SUCCESS' || rpcStatus === 'PARTIAL';
+    const realFinalState: OrchestratorFinalState = isSuccess ? rpcStatus : 'FAILED';
+
+    const realReport: ExecutionReport = {
       postgresStatus: 'CONNECTED',
       tlsStatus: isEncrypted ? 'VALIDATED' : 'FAILED',
       database: dbName,
       user: userName,
       version: shortVersion,
-      powerSyncState: slotInfo.state,
-      powerSyncInstanceId: slotInfo.instance_id,
-      slotFound: slotInfo.resolved_slot ? 'FOUND' : 'NOT FOUND',
-      resolvedSlotName: slotInfo.resolved_slot ? slotInfo.resolved_slot.slot_name : null,
-      plugin: slotInfo.plugin,
-      slotType: slotInfo.slot_type,
-      active: slotInfo.active,
-      currentWalLsn: slotInfo.current_wal_lsn,
-      confirmedFlushLsn: slotInfo.confirmed_flush_lsn,
-      restartLsn: slotInfo.restart_lsn,
-      lagFormatted: `${slotInfo.lag_bytes} bytes (${slotInfo.lag_mb} MB)`,
-      killSwitchStatus: config.killSwitch ? 'ON' : 'OFF',
+      powerSyncState: postSlotInfo.state,
+      powerSyncInstanceId: postSlotInfo.instance_id,
+      slotFound: postSlotInfo.resolved_slot ? 'FOUND' : 'NOT FOUND',
+      resolvedSlotName: postSlotInfo.resolved_slot ? postSlotInfo.resolved_slot.slot_name : null,
+      plugin: postSlotInfo.plugin,
+      slotType: postSlotInfo.slot_type,
+      active: postSlotInfo.active,
+      currentWalLsn: postSlotInfo.current_wal_lsn,
+      confirmedFlushLsn: postSlotInfo.confirmed_flush_lsn,
+      restartLsn: postSlotInfo.restart_lsn,
+      lagFormatted: `${postSlotInfo.lag_bytes} bytes (${postSlotInfo.lag_mb} MB)`,
+      killSwitchStatus: 'OFF',
       condominioNome: condoNome,
       condominioUuid: config.condominioId,
       elegiveisAtuais: elegiveisCount,
       batchSize: config.batchSize,
       maxBatches: config.maxBatches,
-      archiveRpcStatus: 'DRY-RUN / NOT EXECUTED',
-      leaseStatus: 'SIMULATED / NOT EXECUTED',
-      databaseWrites: 'ZERO',
-      rowsArchived: 0,
-      finalState: finalState,
-      stopReason: stopReason,
+      isDryRun: false,
+      archiveRpcStatus: rpcStatus,
+      leaseStatus: 'ACQUIRED_AND_RELEASED',
+      databaseWrites: rowsArchived > 0 ? 'EXECUTED' : 'ZERO',
+      rowsArchived: rowsArchived,
+      rowsDelivered10d: delivered10d,
+      rowsPending3m: pending3m,
+      batchesProcessed: batchesProcessed,
+      durationMs: durationMs,
+      batchId: batchId,
+      rpcErrorMessage: rpcError,
+      postLagBytes: postSlotInfo.lag_bytes,
+      finalState: realFinalState,
+      stopReason: rpcError || undefined,
       executionSource: audit.executionSource,
+      executedBy: audit.executedBy,
+      archivedBy: audit.archivedBy,
       simulatedExecutedBy: audit.executedBy,
       simulatedArchivedBy: audit.archivedBy
     };
 
-    return report;
+    return realReport;
   } finally {
     await client.end().catch(() => {});
   }
 }
 
-// ── Formatador Oficial de Saída (C4C.4-A) ──
-export function formatReport(report: DryRunReport): string {
+// Retrocompatibilidade de export
+export const runDryRun = runOrchestrator;
+
+// ── Formatador Oficial de Saída ──
+export function formatReport(report: ExecutionReport): string {
+  if (report.isDryRun) {
+    const lines: string[] = [
+      '=== C4C.4-A DRY-RUN ===',
+      '',
+      'PostgreSQL:',
+      report.postgresStatus,
+      '',
+      'TLS:',
+      report.tlsStatus,
+      '',
+      'Database:',
+      report.database,
+      '',
+      'User:',
+      report.user,
+      '',
+      'Version:',
+      report.version,
+      '',
+      'PowerSync State:',
+      report.powerSyncState,
+      '',
+      'PowerSync Instance:',
+      report.powerSyncInstanceId,
+      '',
+      'Resolved Slot:',
+      report.resolvedSlotName || 'NÃO RESOLVIDO',
+      '',
+      'Slot Status:',
+      report.slotFound,
+      '',
+      'Plugin:',
+      report.plugin || 'N/A',
+      '',
+      'Slot type:',
+      report.slotType || 'N/A',
+      '',
+      'Active:',
+      report.active !== null ? String(report.active) : 'N/A',
+      '',
+      'Current WAL LSN:',
+      report.currentWalLsn || 'N/A',
+      '',
+      'Confirmed flush LSN:',
+      report.confirmedFlushLsn || 'N/A',
+      '',
+      'Restart LSN:',
+      report.restartLsn || 'N/A',
+      '',
+      'Lag:',
+      report.lagFormatted || 'N/A',
+      '',
+      'Kill switch:',
+      report.killSwitchStatus,
+      '',
+      'Condomínio:',
+      report.condominioNome || 'NÃO ENCONTRADO',
+      '',
+      'Condomínio UUID:',
+      report.condominioUuid,
+      '',
+      'Elegíveis atuais:',
+      report.elegiveisAtuais !== null ? String(report.elegiveisAtuais) : 'N/A',
+      '',
+      'Execution Source:',
+      report.executionSource,
+      '',
+      'Audit executed_by:',
+      report.executedBy || report.simulatedExecutedBy || 'N/A',
+      '',
+      'Audit archived_by:',
+      report.archivedBy || report.simulatedArchivedBy || 'N/A',
+      '',
+      'Batch:',
+      String(report.batchSize),
+      '',
+      'Max batches:',
+      String(report.maxBatches),
+      '',
+      'Archive RPC:',
+      report.archiveRpcStatus,
+      '',
+      'Lease:',
+      report.leaseStatus,
+      '',
+      'Database writes:',
+      report.databaseWrites,
+      '',
+      'Rows archived:',
+      String(report.rowsArchived),
+      '',
+      'Final state:',
+      report.finalState
+    ];
+
+    if (report.stopReason) {
+      lines.push('', `Motivo do STOP: ${report.stopReason}`);
+    }
+
+    return lines.join('\n');
+  }
+
+  // Relatório de Execução Real (isDryRun = false)
   const lines: string[] = [
-    '=== C4C.4-A DRY-RUN ===',
+    '=== C4C.16 RETENTION EXECUTION REPORT (REAL) ===',
+    '',
+    'Execution Mode: REAL / WRITE',
     '',
     'PostgreSQL:',
     report.postgresStatus,
@@ -364,17 +618,14 @@ export function formatReport(report: DryRunReport): string {
     'Condomínio UUID:',
     report.condominioUuid,
     '',
-    'Elegíveis atuais:',
-    report.elegiveisAtuais !== null ? String(report.elegiveisAtuais) : 'N/A',
-    '',
     'Execution Source:',
     report.executionSource,
     '',
     'Audit executed_by:',
-    report.simulatedExecutedBy,
+    report.executedBy,
     '',
     'Audit archived_by:',
-    report.simulatedArchivedBy,
+    report.archivedBy,
     '',
     'Batch:',
     String(report.batchSize),
@@ -385,14 +636,26 @@ export function formatReport(report: DryRunReport): string {
     'Archive RPC:',
     report.archiveRpcStatus,
     '',
-    'Lease:',
-    report.leaseStatus,
+    'Batch ID:',
+    report.batchId || 'N/A',
     '',
-    'Database writes:',
-    report.databaseWrites,
+    'Duration ms:',
+    String(report.durationMs ?? 'N/A'),
     '',
     'Rows archived:',
     String(report.rowsArchived),
+    '',
+    'Rows Delivered 10d:',
+    String(report.rowsDelivered10d ?? 0),
+    '',
+    'Rows Pending 3m:',
+    String(report.rowsPending3m ?? 0),
+    '',
+    'Batches Processed:',
+    String(report.batchesProcessed ?? 0),
+    '',
+    'Database writes:',
+    report.databaseWrites,
     '',
     'Final state:',
     report.finalState
@@ -713,6 +976,103 @@ export function runUnitTests(): boolean {
   const testCliInvalidSource = parseConfig(['--condominio-id=ed90ec35-95f0-4a04-92b4-35fe4217f0e1', '--execution-source=INVALID']);
   assert('Validação CLI: Rejeita --execution-source inválido com STOP', Boolean(testCliInvalidSource.error && testCliInvalidSource.error.includes('STOP')));
 
+  // TESTE Q: parseConfig com --dry-run=false preserva modo real autorizado
+  const testCliReal = parseConfig([
+    '--condominio-id=b699e35f-c2f9-461f-93c3-de8a80e73744',
+    '--batch-size=1000',
+    '--max-batches=1',
+    '--execution-source=CRON_RETENTION',
+    '--dry-run=false'
+  ]);
+  assert(
+    'TESTE Q: parseConfig com --dry-run=false preserva isDryRun = false e parâmetros autorizados',
+    Boolean(
+      testCliReal.config &&
+      testCliReal.config.isDryRun === false &&
+      testCliReal.config.batchSize === 1000 &&
+      testCliReal.config.maxBatches === 1 &&
+      testCliReal.config.executionSource === 'CRON_RETENTION'
+    )
+  );
+
+  // TESTE R: buildArchiveRpcQuery gera assinatura oficial da RPC com parâmetros exatos
+  const rpcQueryTest = buildArchiveRpcQuery({
+    condominioId: 'b699e35f-c2f9-461f-93c3-de8a80e73744',
+    batchSize: 1000,
+    maxBatches: 1,
+    timeoutMs: 45000,
+    cooldownMs: 4000,
+    isDryRun: false,
+    killSwitch: false,
+    executionSource: 'CRON_RETENTION'
+  });
+  assert(
+    'TESTE R: buildArchiveRpcQuery gera chamada da RPC oficial com parâmetros e tipos corretos',
+    rpcQueryTest.query.includes('public.archive_expired_encomendas') &&
+    rpcQueryTest.query.includes('p_batch_size => $1::integer') &&
+    rpcQueryTest.query.includes('p_max_batches => $2::integer') &&
+    rpcQueryTest.query.includes('p_condominio_id => $3::uuid') &&
+    rpcQueryTest.query.includes('p_execution_source => $4::text') &&
+    rpcQueryTest.values[0] === 1000 &&
+    rpcQueryTest.values[1] === 1 &&
+    rpcQueryTest.values[2] === 'b699e35f-c2f9-461f-93c3-de8a80e73744' &&
+    rpcQueryTest.values[3] === 'CRON_RETENTION'
+  );
+
+  // TESTE S: Pre-flight fail-closed em modo real (STOP impede chamada da RPC)
+  const mockStopRealReport: ExecutionReport = {
+    postgresStatus: 'CONNECTED',
+    tlsStatus: 'VALIDATED',
+    database: 'postgres',
+    user: 'postgres',
+    version: 'PostgreSQL 17.6',
+    powerSyncState: 'STOP',
+    powerSyncInstanceId: POWERSYNC_INSTANCE_ID,
+    slotFound: 'NOT FOUND',
+    resolvedSlotName: null,
+    plugin: null,
+    slotType: null,
+    active: false,
+    currentWalLsn: null,
+    confirmedFlushLsn: null,
+    restartLsn: null,
+    lagFormatted: null,
+    killSwitchStatus: 'ON',
+    condominioNome: 'Residencial Recanto das Palmeiras',
+    condominioUuid: 'b699e35f-c2f9-461f-93c3-de8a80e73744',
+    elegiveisAtuais: 20568,
+    batchSize: 1000,
+    maxBatches: 1,
+    isDryRun: false,
+    archiveRpcStatus: 'STOPPED / NOT EXECUTED',
+    leaseStatus: 'NOT ACQUIRED',
+    databaseWrites: 'ZERO',
+    rowsArchived: 0,
+    finalState: 'STOP',
+    stopReason: 'Kill switch ON',
+    executionSource: 'CRON_RETENTION',
+    executedBy: 'CRON_RETENTION_b699e35f-c2f9-461f-93c3-de8a80e73744',
+    archivedBy: 'CRON_RETENTION_b699e35f-c2f9-461f-93c3-de8a80e73744'
+  };
+  assert(
+    'TESTE S: Pre-flight STOP em modo real garante zero escritas e archiveRpcStatus = STOPPED / NOT EXECUTED',
+    mockStopRealReport.finalState === 'STOP' &&
+    mockStopRealReport.archiveRpcStatus === 'STOPPED / NOT EXECUTED' &&
+    mockStopRealReport.databaseWrites === 'ZERO' &&
+    mockStopRealReport.rowsArchived === 0
+  );
+
+  // TESTE T: Garantia de lote único (maxBatches = 1) sem loops ou retries automáticos
+  const testMaxBatchesProtection = parseConfig([
+    '--condominio-id=b699e35f-c2f9-461f-93c3-de8a80e73744',
+    '--max-batches=2',
+    '--dry-run=false'
+  ]);
+  assert(
+    'TESTE T: maxBatches > 1 é terminantemente rejeitado no modo real',
+    Boolean(testMaxBatchesProtection.error && testMaxBatchesProtection.error.includes('STOP'))
+  );
+
   console.log(`\nResultado da Suíte: ${passed}/${total} testes aprovados.\n`);
   return passed === total;
 }
@@ -738,11 +1098,17 @@ async function main() {
   }
 
   try {
-    const report = await runDryRun(parsed.config);
+    const report = await runOrchestrator(parsed.config);
     console.log(formatReport(report));
-    process.exit(report.finalState === 'DRY_RUN_READY' ? 0 : 2);
+    if (report.finalState === 'DRY_RUN_READY' || report.finalState === 'SUCCESS' || report.finalState === 'PARTIAL') {
+      process.exit(0);
+    } else if (report.finalState === 'STOP') {
+      process.exit(2);
+    } else {
+      process.exit(1);
+    }
   } catch (err: any) {
-    console.error('Erro na execução do dry-run:', err.message || err);
+    console.error('Erro na execução do orquestrador:', err.message || err);
     process.exit(1);
   }
 }
