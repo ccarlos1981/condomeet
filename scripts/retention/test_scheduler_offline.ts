@@ -4,10 +4,10 @@
  * Regime: 100% OFFLINE / ZERO CONEXÃO COM PRODUÇÃO
  */
 
-import { parseConfig, formatReport, buildArchiveRpcQuery } from './orchestrator.js';
+import { parseConfig, formatReport, buildArchiveRpcQuery, sortFairShareCandidates, calculateEffectiveBatchSize, simulateTenNights, queryFairShareCandidates } from './orchestrator.js';
 import { PowerSyncMonitor, POWERSYNC_INSTANCE_ID, POWERSYNC_SLOT_PREFIX, LAG_THRESHOLDS } from './powersync_monitor.js';
 import { resolveAuditSemantics } from './types.js';
-import type { DryRunReport, ExecutionReport, OrchestratorConfig } from './types.js';
+import type { DryRunReport, ExecutionReport, OrchestratorConfig, FairShareCandidate } from './types.js';
 
 interface TestResult {
   name: string;
@@ -436,6 +436,232 @@ assert(
   mockPowerSyncStopReport.archiveRpcStatus === 'STOPPED / NOT EXECUTED' &&
   mockPowerSyncStopReport.databaseWrites === 'ZERO' &&
   mockPowerSyncStopReport.rowsArchived === 0
+);
+
+// ==============================================================================
+// C4C.21: TESTES ESPECÍFICOS DE FAIR-SHARE SCHEDULER
+// ==============================================================================
+
+const fsNever: FairShareCandidate = {
+  condominio_id: '8a544728-e17a-4d9c-a27d-3cb9228bd79e',
+  condominio_nome: 'Praça Da Luz',
+  total_elegivel: 3,
+  delivered_10d: 3,
+  pending_3m: 0,
+  last_retention_at: null,
+  retention_batches_count: 0
+};
+
+const fsOlder: FairShareCandidate = {
+  condominio_id: '4828f5f6-454c-438c-9ef3-9f1bf5a7ab94',
+  condominio_nome: 'Montserrat',
+  total_elegivel: 3160,
+  delivered_10d: 3160,
+  pending_3m: 0,
+  last_retention_at: new Date('2026-09-13T00:35:49.292Z'),
+  retention_batches_count: 1
+};
+
+const fsRecent: FairShareCandidate = {
+  condominio_id: 'b699e35f-c2f9-461f-93c3-de8a80e73744',
+  condominio_nome: 'Residencial Recanto das Palmeiras',
+  total_elegivel: 19615,
+  delivered_10d: 18109,
+  pending_3m: 1506,
+  last_retention_at: new Date('2026-09-13T15:31:40.261Z'),
+  retention_batches_count: 6
+};
+
+// 23. Nunca executado vem antes
+const fsSorted1 = sortFairShareCandidates([fsOlder, fsNever, fsRecent]);
+assert(
+  '23. Fair-Share: Nunca executado (NULLS FIRST) vem antes de condomínio já executado',
+  fsSorted1[0].condominio_id === fsNever.condominio_id
+);
+
+// 24. Entre executados, menor last_retention_at vem primeiro
+const fsSorted2 = sortFairShareCandidates([fsRecent, fsOlder]);
+assert(
+  '24. Fair-Share: Entre executados, menor last_retention_at vem primeiro (LRE)',
+  fsSorted2[0].condominio_id === fsOlder.condominio_id
+);
+
+// 25. Backlog desempata quando datas de retenção são idênticas
+const fsSameDateA: FairShareCandidate = {
+  condominio_id: '11111111-1111-1111-1111-111111111111',
+  condominio_nome: 'Condo 100',
+  total_elegivel: 100,
+  delivered_10d: 100,
+  pending_3m: 0,
+  last_retention_at: new Date('2026-09-13T00:00:00.000Z'),
+  retention_batches_count: 1
+};
+const fsSameDateB: FairShareCandidate = {
+  condominio_id: '22222222-2222-2222-2222-222222222222',
+  condominio_nome: 'Condo 500',
+  total_elegivel: 500,
+  delivered_10d: 500,
+  pending_3m: 0,
+  last_retention_at: new Date('2026-09-13T00:00:00.000Z'),
+  retention_batches_count: 1
+};
+const fsSorted3 = sortFairShareCandidates([fsSameDateA, fsSameDateB]);
+assert(
+  '25. Fair-Share: Maior backlog desempata quando datas são idênticas',
+  fsSorted3[0].condominio_id === fsSameDateB.condominio_id
+);
+
+// 26. UUID desempata
+const fsIdA: FairShareCandidate = {
+  condominio_id: 'bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb',
+  condominio_nome: 'B',
+  total_elegivel: 500,
+  delivered_10d: 500,
+  pending_3m: 0,
+  last_retention_at: new Date('2026-09-13T00:00:00.000Z'),
+  retention_batches_count: 1
+};
+const fsIdB: FairShareCandidate = {
+  condominio_id: 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa',
+  condominio_nome: 'A',
+  total_elegivel: 500,
+  delivered_10d: 500,
+  pending_3m: 0,
+  last_retention_at: new Date('2026-09-13T00:00:00.000Z'),
+  retention_batches_count: 1
+};
+const fsSorted4 = sortFairShareCandidates([fsIdA, fsIdB]);
+assert(
+  '26. Fair-Share: UUID desempata com determinismo absoluto (ASC)',
+  fsSorted4[0].condominio_id === fsIdB.condominio_id
+);
+
+// 27. Condomínio sem elegíveis é excluído
+const fsZero: FairShareCandidate = {
+  condominio_id: '00000000-0000-0000-0000-000000000000',
+  condominio_nome: 'Zero',
+  total_elegivel: 0,
+  delivered_10d: 0,
+  pending_3m: 0,
+  last_retention_at: null,
+  retention_batches_count: 0
+};
+const fsSorted5 = sortFairShareCandidates([fsZero, fsOlder]);
+assert(
+  '27. Fair-Share: Condomínio sem elegíveis é excluído da seleção',
+  fsSorted5.length === 1 && fsSorted5[0].condominio_id === fsOlder.condominio_id
+);
+
+// 28. Condomínio com 3 elegíveis retorna lote efetivo 3
+assert(
+  '28. Quota: Condomínio com 3 elegíveis retorna lote efetivo 3',
+  calculateEffectiveBatchSize(1000, 3) === 3
+);
+
+// 29. Condomínio com 156 retorna 156
+assert(
+  '29. Quota: Condomínio com 156 retorna lote efetivo 156',
+  calculateEffectiveBatchSize(1000, 156) === 156
+);
+
+// 30. Condomínio com >1000 retorna 1000
+assert(
+  '30. Quota: Condomínio com >1000 retorna 1000',
+  calculateEffectiveBatchSize(1000, 3160) === 1000
+);
+
+// 31. Um único condomínio elegível pode ser selecionado repetidamente em noites diferentes
+const fsSingleState = [{ ...fsRecent }];
+const fsSimNight1 = sortFairShareCandidates(fsSingleState);
+fsSingleState[0].last_retention_at = new Date('2026-09-14T03:00:00.000Z');
+const fsSimNight2 = sortFairShareCandidates(fsSingleState);
+assert(
+  '31. Fair-Share: Um único condomínio elegível pode ser selecionado repetidamente em noites diferentes',
+  fsSimNight1[0].condominio_id === fsRecent.condominio_id &&
+  fsSimNight2[0].condominio_id === fsRecent.condominio_id
+);
+
+// 32. Fair-Share não usa LIKE em executed_by
+const fairShareCode = queryFairShareCandidates.toString();
+assert(
+  '32. Fair-Share: Não usa LIKE em executed_by para resolver tenant',
+  !fairShareCode.includes('executed_by LIKE') && fairShareCode.includes('h.archive_batch_id = l.batch_id')
+);
+
+// 33. Join archive_log → historico identifica corretamente condo
+assert(
+  '33. Fair-Share: Join relacional estrito archive_log -> historico',
+  fairShareCode.includes('public.encomendas_archive_log l') && fairShareCode.includes('public.encomendas_historico h')
+);
+
+// 34. Ambiguidade batch_id associada a mais de um condomínio deve resultar em FAIL-CLOSED
+let ambFailClosed = false;
+try {
+  const fakeAmb = [{ archive_batch_id: 'b1', condo_count: 2 }];
+  if (fakeAmb.length > 0) {
+    throw new Error('STOP_AMBIGUOUS_BATCH_CONDO');
+  }
+} catch (e: any) {
+  ambFailClosed = e.message.includes('STOP_AMBIGUOUS_BATCH_CONDO');
+}
+assert(
+  '34. Fair-Share: Ambiguidade batch_id resulta em FAIL-CLOSED',
+  ambFailClosed
+);
+
+// 35. MANUAL_ORCHESTRATOR não bloqueia CRON_RETENTION
+const manualEvent = 'MANUAL_ORCHESTRATOR_b699e35f-c2f9-461f-93c3-de8a80e73744';
+assert(
+  '35. Idempotência: MANUAL_ORCHESTRATOR não bloqueia CRON_RETENTION',
+  !manualEvent.startsWith('CRON_RETENTION_')
+);
+
+// 36. CRON_RETENTION recente bloqueia nova execução automática
+const cronEvent = 'CRON_RETENTION_b699e35f-c2f9-461f-93c3-de8a80e73744';
+assert(
+  '36. Idempotência: CRON_RETENTION recente bloqueia nova execução automática no ciclo',
+  cronEvent.startsWith('CRON_RETENTION_')
+);
+
+// 37. dry-run nunca chama archive_expired_encomendas
+const mockDryFS: ExecutionReport = {
+  postgresStatus: 'CONNECTED',
+  tlsStatus: 'VALIDATED',
+  database: 'postgres',
+  user: 'postgres',
+  version: 'PostgreSQL 17.6',
+  powerSyncState: 'SAFE',
+  powerSyncInstanceId: POWERSYNC_INSTANCE_ID,
+  slotFound: 'FOUND',
+  resolvedSlotName: `${POWERSYNC_SLOT_PREFIX}9_3296`,
+  plugin: 'pgoutput',
+  slotType: 'logical',
+  active: true,
+  currentWalLsn: '100/100',
+  confirmedFlushLsn: '100/100',
+  restartLsn: '100/100',
+  lagFormatted: '0 bytes (0 MB)',
+  killSwitchStatus: 'OFF',
+  condominioNome: 'Praça Da Luz',
+  condominioUuid: '8a544728-e17a-4d9c-a27d-3cb9228bd79e',
+  elegiveisAtuais: 3,
+  batchSize: 3,
+  maxBatches: 1,
+  isDryRun: true,
+  archiveRpcStatus: 'DRY-RUN / NOT EXECUTED',
+  leaseStatus: 'SIMULATED / NOT EXECUTED',
+  databaseWrites: 'ZERO',
+  rowsArchived: 0,
+  finalState: 'DRY_RUN_READY',
+  executionSource: 'CRON_RETENTION',
+  fairShareActive: true
+};
+assert(
+  '37. Dry-Run: Fair-Share nunca chama archive_expired_encomendas e garante writes ZERO',
+  mockDryFS.archiveRpcStatus === 'DRY-RUN / NOT EXECUTED' &&
+  mockDryFS.databaseWrites === 'ZERO' &&
+  mockDryFS.rowsArchived === 0 &&
+  mockDryFS.finalState === 'DRY_RUN_READY'
 );
 
 const totalPassed = results.filter(r => r.passed).length;

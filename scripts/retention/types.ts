@@ -65,6 +65,23 @@ export function resolveAuditSemantics(source: ExecutionSource | string | undefin
   };
 }
 
+export interface FairShareCandidate {
+  condominio_id: string;
+  condominio_nome: string;
+  total_elegivel: number;
+  delivered_10d: number;
+  pending_3m: number;
+  last_retention_at: Date | string | null;
+  retention_batches_count: number;
+}
+
+export interface FairShareSelectionResult {
+  selected: FairShareCandidate | null;
+  candidates: FairShareCandidate[];
+  effectiveBatchSize: number;
+  selectionReason: string;
+}
+
 export interface OrchestratorConfig {
   condominioId: string;
   batchSize: number;
@@ -74,6 +91,7 @@ export interface OrchestratorConfig {
   isDryRun: boolean;
   killSwitch: boolean;
   executionSource?: ExecutionSource;
+  fairShare?: boolean;
 }
 
 export interface ExecutionReport {
@@ -116,12 +134,19 @@ export interface ExecutionReport {
   executionSource: ExecutionSource;
   executedBy?: string;
   archivedBy?: string;
+  simulatedExecutedBy?: string;
+  simulatedArchivedBy?: string;
   // Telemetria de Conectividade (C4C.20)
   connectionHost?: string;
   connectionPort?: number;
   connectionUser?: string;
   connectionMode?: 'SESSION' | 'DIRECT';
+  // Fair-Share Scheduler (C4C.21)
+  fairShareActive?: boolean;
+  selectionReason?: string;
+  totalCandidates?: number;
 }
 
 export type DryRunReport = ExecutionReport;
+
 

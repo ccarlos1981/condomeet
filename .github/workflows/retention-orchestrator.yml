@@ -17,9 +17,9 @@ on:
   workflow_dispatch:
     inputs:
       condominio_id:
-        description: "UUID do condomínio alvo (obrigatório)"
-        required: true
-        default: "b699e35f-c2f9-461f-93c3-de8a80e73744" # Recanto das Palmeiras
+        description: "UUID do condomínio alvo (opcional/debug; ignorado quando fair-share ativo)"
+        required: false
+        default: "auto"
       batch_size:
         description: "Tamanho do lote homologado"
         required: true
@@ -31,6 +31,11 @@ on:
           - "100"
       dry_run:
         description: "Modo dry-run (true para simulação segura sem escrita)"
+        required: true
+        type: boolean
+        default: true
+      fair_share:
+        description: "Seleção dinâmica Fair-Share (homologada no C4C.21)"
         required: true
         type: boolean
         default: true
@@ -82,8 +87,9 @@ jobs:
             echo "Aviso: SUPABASE_SSL_CA_CERT não configurado nos secrets do repositório."
           fi
 
-      - name: "Executar Suíte de Testes Offline"
+      - name: "Executar Suíte de Testes Obrigatórios"
         run: |
+          NODE_PATH=web-app/node_modules npx tsx scripts/retention/orchestrator.ts --test
           NODE_PATH=web-app/node_modules npx tsx scripts/retention/test_scheduler_offline.ts
 
       - name: "Executar Orquestrador de Retenção (Preflight / Dry-Run)"
@@ -95,13 +101,15 @@ jobs:
           SUPABASE_SSL_CA_PATH: "/tmp/certs/prod-ca-2021.crt"
           RETENTION_KILL_SWITCH: ${{ secrets.RETENTION_KILL_SWITCH || 'false' }}
         run: |
-          CONDO_ID="${{ github.event.inputs.condominio_id || 'b699e35f-c2f9-461f-93c3-de8a80e73744' }}"
+          CONDO_ID="${{ github.event.inputs.condominio_id || 'auto' }}"
           BATCH_SIZE="${{ github.event.inputs.batch_size || '1000' }}"
           DRY_RUN="${{ github.event.inputs.dry_run || 'true' }}"
+          FAIR_SHARE="${{ github.event.inputs.fair_share || 'true' }}"
           
           NODE_PATH=web-app/node_modules npx tsx scripts/retention/orchestrator.ts \
             --condominio-id="$CONDO_ID" \
             --batch-size="$BATCH_SIZE" \
             --max-batches=1 \
             --execution-source=CRON_RETENTION \
-            --dry-run="$DRY_RUN"
+            --dry-run="$DRY_RUN" \
+            --fair-share="$FAIR_SHARE"
