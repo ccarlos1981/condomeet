@@ -1,0 +1,104 @@
+name: "Retention Orchestrator (SCHEDULE DISABLED)"
+
+# ==============================================================================
+# CONDOMEET — C4C.15
+# WORKFLOW DO ORQUESTRADOR DE RETENÇÃO DE ENCOMENDAS (HARDENING FINAL)
+#
+# REGIME: PREPARAÇÃO / ZERO EXECUÇÃO AUTOMÁTICA
+# STATUS: O AGENDADOR AUTOMÁTICO (CRON) ENCONTRA-SE ESTRITAMENTE DESABILITADO.
+# ==============================================================================
+
+# Permissões mínimas de segurança (Princípio do Menor Privilégio)
+permissions:
+  contents: read
+
+on:
+  # Gatilho manual exclusivo para execução assistida controlada
+  workflow_dispatch:
+    inputs:
+      condominio_id:
+        description: "UUID do condomínio alvo (obrigatório)"
+        required: true
+        default: "b699e35f-c2f9-461f-93c3-de8a80e73744" # Recanto das Palmeiras
+      batch_size:
+        description: "Tamanho do lote homologado"
+        required: true
+        type: choice
+        default: "1000"
+        options:
+          - "1000"
+          - "500"
+          - "100"
+      dry_run:
+        description: "Modo dry-run (true para simulação segura sem escrita)"
+        required: true
+        type: boolean
+        default: true
+
+  # ============================================================================
+  # AGENDAMENTO AUTOMÁTICO: PERMANECE ESTRITAMENTE DESABILITADO (COMENTADO)
+  # Horário projetado: 03:00 BRT (06:00 UTC)
+  # A ativação deste bloco exigirá aprovação formal e início de ciclo assistido.
+  # ============================================================================
+  # schedule:
+  #   - cron: '0 6 * * *'
+
+concurrency:
+  # Concorrência singleton: impede execuções simultâneas e paralelas
+  group: retention-orchestrator-singleton
+  cancel-in-progress: false
+
+jobs:
+  retention-dry-run:
+    name: "Execute Retention Orchestrator (Controlled)"
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+
+    steps:
+      - name: "Checkout do Repositório"
+        uses: actions/checkout@v4
+
+      - name: "Setup Node.js 20"
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: "npm"
+          cache-dependency-path: "web-app/package-lock.json"
+
+      - name: "Instalar Dependências"
+        run: |
+          cd web-app
+          npm install --prefer-offline
+
+      - name: "Configurar Certificado CA SSL Oficial"
+        env:
+          CA_CERT_SECRET: ${{ secrets.SUPABASE_SSL_CA_CERT }}
+        run: |
+          mkdir -p /tmp/certs
+          if [ -n "$CA_CERT_SECRET" ]; then
+            echo "$CA_CERT_SECRET" > /tmp/certs/prod-ca-2021.crt
+            chmod 0600 /tmp/certs/prod-ca-2021.crt
+          else
+            echo "Aviso: SUPABASE_SSL_CA_CERT não configurado nos secrets do repositório."
+          fi
+
+      - name: "Executar Suíte de Testes Offline"
+        run: |
+          NODE_PATH=web-app/node_modules npx tsx scripts/retention/test_scheduler_offline.ts
+
+      - name: "Executar Orquestrador de Retenção (Preflight / Dry-Run)"
+        env:
+          POSTGRES_PASSWORD: ${{ secrets.POSTGRES_PASSWORD }}
+          SUPABASE_SSL_CA_PATH: "/tmp/certs/prod-ca-2021.crt"
+          RETENTION_KILL_SWITCH: ${{ secrets.RETENTION_KILL_SWITCH || 'false' }}
+        run: |
+          CONDO_ID="${{ github.event.inputs.condominio_id || 'b699e35f-c2f9-461f-93c3-de8a80e73744' }}"
+          BATCH_SIZE="${{ github.event.inputs.batch_size || '1000' }}"
+          DRY_RUN="${{ github.event.inputs.dry_run || 'true' }}"
+          
+          NODE_PATH=web-app/node_modules npx tsx scripts/retention/orchestrator.ts \
+            --condominio-id="$CONDO_ID" \
+            --batch-size="$BATCH_SIZE" \
+            --max-batches=1 \
+            --execution-source=CRON_RETENTION \
+            --dry-run="$DRY_RUN"
