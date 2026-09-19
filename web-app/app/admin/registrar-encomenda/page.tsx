@@ -4,6 +4,7 @@ import ParcelRegisterForm from '@/app/condo/registrar-encomenda/parcel-register-
 import { fetchAll } from '@/lib/supabase/utils'
 import type { UnitOption } from '@/app/condo/registrar-encomenda/page'
 import { isAdminRole } from '@/lib/roles'
+import { filterResidentialBlocos, filterResidentialAptos, isTechnicalAdminUnit } from '@/lib/labels'
 
 export const metadata = { title: 'Registrar Encomenda — Painel Admin' }
 
@@ -48,8 +49,8 @@ export default async function AdminRegistrarEncomendaPage() {
 
   const tipoEstrutura = condoResult.data?.tipo_estrutura ?? 'predio'
 
-  const allBlocosDesc = (blocos as any[]) ? (blocos as any[]).map((b: any) => b.nome_ou_numero as string) : []
-  const allAptosDesc = (rawAptos as any[]) ? (rawAptos as any[]).map((a: any) => a.numero as string) : []
+  const allBlocosDesc = filterResidentialBlocos((blocos as any[] ?? []).map((b: any) => b.nome_ou_numero as string))
+  const allAptosDesc = filterResidentialAptos((rawAptos as any[] ?? []).map((a: any) => a.numero as string))
 
   let units: UnitOption[] = []
 
@@ -83,19 +84,22 @@ export default async function AdminRegistrarEncomendaPage() {
         residentMap[key] = { id: p.id, nome: p.nome_completo }
       })
 
-      units = (unidades as any[]).map((u: any) => {
-        const blocoNome = blocoMap[u.bloco_id] ?? '?'
-        const aptoNumero = aptoMap[u.apartamento_id] ?? '?'
-        const resident = residentMap[`${blocoNome}|${aptoNumero}`]
-        return {
-          blocoNome,
-          aptoNumero,
-          residentId: resident?.id ?? null,
-          residentName: resident?.nome ?? null,
-        }
-      }).sort((a, b) =>
-        a.blocoNome.localeCompare(b.blocoNome, 'pt', { numeric: true }) || a.aptoNumero.localeCompare(b.aptoNumero, 'pt', { numeric: true })
-      )
+      units = (unidades as any[])
+        .map((u: any) => {
+          const blocoNome = blocoMap[u.bloco_id] ?? '?'
+          const aptoNumero = aptoMap[u.apartamento_id] ?? '?'
+          const resident = residentMap[`${blocoNome}|${aptoNumero}`]
+          return {
+            blocoNome,
+            aptoNumero,
+            residentId: resident?.id ?? null,
+            residentName: resident?.nome ?? null,
+          }
+        })
+        .filter(u => !isTechnicalAdminUnit(u.blocoNome, u.aptoNumero))
+        .sort((a, b) =>
+          a.blocoNome.localeCompare(b.blocoNome, 'pt', { numeric: true }) || a.aptoNumero.localeCompare(b.aptoNumero, 'pt', { numeric: true })
+        )
     }
   }
 
@@ -111,13 +115,16 @@ export default async function AdminRegistrarEncomendaPage() {
         .order('apto_txt')
     )
 
-    units = (perfis as any[] ?? []).map((p: any) => ({
-      blocoNome: p.bloco_txt ?? '?',
-      aptoNumero: p.apto_txt ?? '?',
-      residentId: p.id,
-      residentName: p.nome_completo,
-    }))
+    units = (perfis as any[] ?? [])
+      .filter((p: any) => !isTechnicalAdminUnit(p.bloco_txt, p.apto_txt))
+      .map((p: any) => ({
+        blocoNome: p.bloco_txt ?? '?',
+        aptoNumero: p.apto_txt ?? '?',
+        residentId: p.id,
+        residentName: p.nome_completo,
+      }))
   }
+
 
   return (
     <div className="p-6 lg:p-8 max-w-2xl">

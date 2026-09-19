@@ -2,6 +2,7 @@ import { createClient } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
 import ProfileForm from './profile-form'
 import { fetchAll } from '@/lib/supabase/utils'
+import { isTechnicalAdminUnit } from '@/lib/labels'
 
 export default async function EditProfilePage() {
   const supabase = await createClient()
@@ -12,7 +13,7 @@ export default async function EditProfilePage() {
   // Fetch profile
   const { data: profile } = await supabase
     .from('perfil')
-    .select('nome_completo, whatsapp, tipo_morador, bloco_txt, apto_txt, condominio_id')
+    .select('nome_completo, whatsapp, tipo_morador, bloco_txt, apto_txt, condominio_id, papel_sistema')
     .eq('id', user.id)
     .single()
 
@@ -37,7 +38,9 @@ export default async function EditProfilePage() {
       .order('nome_ou_numero')
   )
 
-  const blocos = (blocosData as any[] ?? []).map((b: any) => ({ id: b.id, nome_ou_numero: b.nome_ou_numero }))
+  const blocos = (blocosData as any[] ?? [])
+    .map((b: any) => ({ id: b.id, nome_ou_numero: b.nome_ou_numero }))
+    .filter((b: { id: string; nome_ou_numero: string }) => !isTechnicalAdminUnit(b.nome_ou_numero, ''))
 
   // Find current bloco
   const currentBloco = blocos.find(
@@ -68,7 +71,9 @@ export default async function EditProfilePage() {
           .order('numero')
       )
 
-      initialAptos = (aptosData as any[] ?? []).map((a: any) => ({ id: a.id, numero: String(a.numero) }))
+      initialAptos = (aptosData as any[] ?? [])
+        .map((a: any) => ({ id: a.id, numero: String(a.numero) }))
+        .filter((a: { id: string; numero: string }) => !isTechnicalAdminUnit('', a.numero))
       initialAptos.sort((a, b) => a.numero.localeCompare(b.numero, undefined, { numeric: true }))
 
       // Find current apto
@@ -94,6 +99,7 @@ export default async function EditProfilePage() {
       tipoEstrutura={tipoEstrutura}
       blocos={blocos}
       initialAptos={initialAptos}
+      currentPapel={profile.papel_sistema ?? ''}
     />
   )
 }

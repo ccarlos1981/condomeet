@@ -8,6 +8,7 @@ import {
 } from 'lucide-react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
+import { formatUnitDisplay } from '@/lib/labels'
 
 const TEMPLATES = [
   { name: 'condomeet_encomenda_recebida_v2', category: 'utility', vars: ['Morador', 'Condomínio', 'Tipo', 'Unidade', 'Rastreio', 'Limite'] },
@@ -332,7 +333,12 @@ export default function ChatPage() {
                     </span>
                   </div>
                   <p className="text-xs text-gray-500 mt-0.5 truncate">
-                    Unidade: {c.perfil?.bloco_txt && c.perfil?.apto_txt ? `${c.perfil.bloco_txt} - ${c.perfil.apto_txt}` : (c.perfil?.apto_txt || c.perfil?.bloco_txt || '-')} | {c.condominios?.nome || '-'}
+                    {formatUnitDisplay({
+                      bloco: c.perfil?.bloco_txt,
+                      apto: c.perfil?.apto_txt,
+                      fallback: 'Administrativo',
+                      separator: ' - '
+                    }) || '-'} | {c.condominios?.nome || '-'}
                   </p>
                   <p className="text-xs text-gray-400 mt-1 truncate italic">
                     {c.last_message_preview || 'Nenhuma mensagem recente'}

@@ -1,6 +1,7 @@
 import { createClient } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
 import AutorizarVisitantePortariaClient from './autorizar-visitante-portaria-client'
+import { filterResidentialBlocos, filterResidentialAptos, isTechnicalAdminUnit } from '@/lib/labels'
 
 export const metadata = { title: 'Autorização Visitante (Portaria) — Condomeet' }
 
@@ -53,10 +54,10 @@ export default async function AutorizarVisitantePortariaPage() {
       if (apto) aptosPerBloco[blocoName].add(apto)
     }
   }
-  const blocos = [...blocosSet].sort((a, z) => a.localeCompare(z, 'pt-BR', { numeric: true }))
+  const blocos = filterResidentialBlocos([...blocosSet]).sort((a, z) => a.localeCompare(z, 'pt-BR', { numeric: true }))
   const aptosMap: Record<string, string[]> = {}
   for (const b of blocos) {
-    aptosMap[b] = [...(aptosPerBloco[b] ?? [])].sort((a, z) => a.localeCompare(z, 'pt-BR', { numeric: true }))
+    aptosMap[b] = filterResidentialAptos([...(aptosPerBloco[b] ?? [])]).sort((a, z) => a.localeCompare(z, 'pt-BR', { numeric: true }))
   }
 
   // Fetch residents for unit lookup (who requested the visit)
@@ -70,6 +71,7 @@ export default async function AutorizarVisitantePortariaPage() {
   const residentsPerUnit: Record<string, { id: string; nome_completo: string }[]> = {}
   for (const m of moradores ?? []) {
     if (m.bloco_txt && m.apto_txt) {
+      if (isTechnicalAdminUnit(m.bloco_txt, m.apto_txt)) continue
       const unitKey = `${m.bloco_txt}__${m.apto_txt}`
       if (!residentsPerUnit[unitKey]) residentsPerUnit[unitKey] = []
       residentsPerUnit[unitKey].push({

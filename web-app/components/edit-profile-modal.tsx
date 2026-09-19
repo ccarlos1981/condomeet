@@ -1,9 +1,9 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useMemo } from 'react'
 import { X, User, Save, Bell, Key } from 'lucide-react'
 import { adminUpdateProfile, adminResetPassword } from '@/app/admin/actions'
-import { isTechnicalAdminRole, normalizeRoleForPersistence } from '@/lib/roles'
+import { isTechnicalAdminRole, normalizeRoleForPersistence, canPromoteToAdmin } from '@/lib/roles'
 
 export type EditProfileData = {
   id: string
@@ -41,11 +41,13 @@ export default function EditProfileModal({
   onClose,
   blocoLabel = 'Bloco',
   aptoLabel = 'Apto',
+  currentUserRole,
 }: {
   profile: EditProfileData
   onClose: () => void
   blocoLabel?: string
   aptoLabel?: string
+  currentUserRole?: string | null
 }) {
   const [loading, setLoading] = useState(false)
   const [resetting, setResetting] = useState(false)
@@ -64,8 +66,23 @@ export default function EditProfileModal({
 
   const isAdminSelected = isTechnicalAdminRole(formData.papel_sistema)
 
+  // Promotion to Admin is strictly restricted to Síndico and Admin
+  const canPromote = currentUserRole ? canPromoteToAdmin(currentUserRole) : true
+  const availableRoles = useMemo(() => {
+    if (canPromote) return STANDARD_PAPEL_SISTEMA
+    // If operator cannot promote, hide 'Admin' unless the profile was already an Admin
+    if (isTechnicalAdminRole(profile.papel_sistema)) {
+      return STANDARD_PAPEL_SISTEMA
+    }
+    return STANDARD_PAPEL_SISTEMA.filter(opt => opt.value !== 'Admin')
+  }, [canPromote, profile.papel_sistema])
+
   function handleRoleChange(newRole: string) {
     if (isTechnicalAdminRole(newRole)) {
+      if (!canPromote) {
+        setError('Permissão negada. Somente o Síndico ou Administrador podem atribuir a função de Admin.')
+        return
+      }
       setFormData(prev => ({
         ...prev,
         papel_sistema: 'Admin',
@@ -84,6 +101,7 @@ export default function EditProfileModal({
       })
     }
   }
+
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
@@ -219,12 +237,12 @@ export default function EditProfileModal({
                 <label className="block text-sm font-semibold text-gray-700 mb-1.5">{blocoLabel}</label>
                 <input 
                   type="text"
-                  value={isAdminSelected ? 'Admin' : formData.bloco_txt}
+                  value={isAdminSelected ? 'Não aplicável (Administrativo)' : formData.bloco_txt}
                   disabled={isAdminSelected}
                   onChange={e => setFormData({ ...formData, bloco_txt: e.target.value })}
                   className={`w-full px-4 py-2.5 rounded-xl border border-gray-200 transition-all ${
                     isAdminSelected 
-                      ? 'bg-gray-100 text-gray-500 cursor-not-allowed font-medium' 
+                      ? 'bg-amber-50/50 text-amber-800 border-amber-200 cursor-not-allowed font-medium text-xs sm:text-sm' 
                       : 'focus:ring-2 focus:ring-[#FC5931]/20 focus:border-[#FC5931] bg-gray-50/50'
                   }`}
                   placeholder="Ex: 1, A, Norte"
@@ -234,12 +252,12 @@ export default function EditProfileModal({
                 <label className="block text-sm font-semibold text-gray-700 mb-1.5">{aptoLabel}</label>
                 <input 
                   type="text"
-                  value={isAdminSelected ? 'Admin' : formData.apto_txt}
+                  value={isAdminSelected ? 'Não aplicável (Administrativo)' : formData.apto_txt}
                   disabled={isAdminSelected}
                   onChange={e => setFormData({ ...formData, apto_txt: e.target.value })}
                   className={`w-full px-4 py-2.5 rounded-xl border border-gray-200 transition-all ${
                     isAdminSelected 
-                      ? 'bg-gray-100 text-gray-500 cursor-not-allowed font-medium' 
+                      ? 'bg-amber-50/50 text-amber-800 border-amber-200 cursor-not-allowed font-medium text-xs sm:text-sm' 
                       : 'focus:ring-2 focus:ring-[#FC5931]/20 focus:border-[#FC5931] bg-gray-50/50'
                   }`}
                   placeholder="Ex: 101, 12, Casa 5"
@@ -248,8 +266,8 @@ export default function EditProfileModal({
             </div>
 
             {isAdminSelected && (
-              <p className="text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded-lg p-2.5">
-                🔐 <strong>Identidade Administrativa:</strong> Perfis de Administrador possuem identificação institucional técnica <code>Admin/Admin</code> e não ocupam unidade residencial.
+              <p className="text-xs text-amber-800 bg-amber-50 border border-amber-200 rounded-lg p-2.5">
+                🔐 <strong>Identidade Administrativa:</strong> Perfis de Administrador possuem acesso administrativo e não estão vinculados a uma unidade residencial.
               </p>
             )}
 
@@ -277,13 +295,18 @@ export default function EditProfileModal({
                   onChange={e => handleRoleChange(e.target.value)}
                   className="w-full px-4 py-2.5 rounded-xl border border-gray-200 focus:ring-2 focus:ring-[#FC5931]/20 focus:border-[#FC5931] transition-all bg-gray-50/50"
                 >
-                  {formData.papel_sistema && !STANDARD_PAPEL_SISTEMA.some(p => p.value === formData.papel_sistema) && !isTechnicalAdminRole(formData.papel_sistema) && (
+                  {formData.papel_sistema && !availableRoles.some(p => p.value === formData.papel_sistema) && !isTechnicalAdminRole(formData.papel_sistema) && (
                     <option value={formData.papel_sistema}>{formData.papel_sistema}</option>
                   )}
-                  {STANDARD_PAPEL_SISTEMA.map(opt => (
+                  {availableRoles.map(opt => (
                     <option key={opt.value} value={opt.value}>{opt.label}</option>
                   ))}
                 </select>
+                {currentUserRole && !canPromote && (
+                  <p className="text-[11px] text-gray-400 mt-1">
+                    * Atribuição de Administrador restrita a Síndico e Admin.
+                  </p>
+                )}
               </div>
             </div>
             

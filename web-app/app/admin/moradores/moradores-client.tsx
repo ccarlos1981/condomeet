@@ -2,7 +2,7 @@
 
 import { useState, useMemo } from 'react'
 import { Search, X, Home, Lock, Users, Shield, Building2, ChevronLeft, ChevronRight, Edit } from 'lucide-react'
-import { getBlocoLabel, getAptoLabel } from '@/lib/labels'
+import { getBlocoLabel, getAptoLabel, isTechnicalAdminUnit, filterResidentialBlocos, formatUnitDisplay } from '@/lib/labels'
 import EditProfileModal from '@/components/edit-profile-modal'
 import { isTechnicalAdminRole } from '@/lib/roles'
 
@@ -54,7 +54,15 @@ function getAvatarColor(id: string) {
   return AVATAR_COLORS[Math.abs(hash) % AVATAR_COLORS.length]
 }
 
-export default function MoradoresClient({ moradores, tipoEstrutura }: { moradores: Morador[]; tipoEstrutura?: string }) {
+export default function MoradoresClient({
+  moradores,
+  tipoEstrutura,
+  currentUserRole,
+}: {
+  moradores: Morador[]
+  tipoEstrutura?: string
+  currentUserRole?: string | null
+}) {
   const blocoLabel = getBlocoLabel(tipoEstrutura)
   const aptoLabel = getAptoLabel(tipoEstrutura)
   const [search, setSearch] = useState('')
@@ -69,7 +77,7 @@ export default function MoradoresClient({ moradores, tipoEstrutura }: { moradore
     const moradorCount = moradores.filter(m => m.papel_sistema?.includes('Morador')).length
     const portariaCount = moradores.filter(m => m.papel_sistema?.includes('Port')).length
     const sindicoCount = moradores.filter(m => m.papel_sistema?.toLowerCase().includes('sínd') || m.papel_sistema?.toLowerCase().includes('sind')).length
-    const blocosCount = new Set(moradores.map(m => m.bloco_txt).filter(b => Boolean(b) && b !== 'Admin')).size
+    const blocosCount = filterResidentialBlocos(moradores.map(m => m.bloco_txt)).length
     return { total, moradorCount, portariaCount, sindicoCount, blocosCount }
   }, [moradores])
 
@@ -79,11 +87,14 @@ export default function MoradoresClient({ moradores, tipoEstrutura }: { moradore
       
       if (search) {
         const q = search.toLowerCase()
+        const isTech = isTechnicalAdminRole(m.papel_sistema) || isTechnicalAdminUnit(m.bloco_txt, m.apto_txt)
         const matchesSearch = (
           (m.nome_completo ?? '').toLowerCase().includes(q) ||
           (m.papel_sistema ?? '').toLowerCase().includes(q) ||
-          (m.bloco_txt ?? '').toLowerCase().includes(q) ||
-          (m.apto_txt ?? '').toLowerCase().includes(q)
+          (!isTech && (
+            (m.bloco_txt ?? '').toLowerCase().includes(q) ||
+            (m.apto_txt ?? '').toLowerCase().includes(q)
+          ))
         )
         if (!matchesSearch) return false
       }
@@ -96,6 +107,7 @@ export default function MoradoresClient({ moradores, tipoEstrutura }: { moradore
       return true
     })
   }, [moradores, search, emailSearch, roleFilter])
+
 
   // Pagination
   const totalPages = Math.max(1, Math.ceil(filtered.length / ITEMS_PER_PAGE))
@@ -314,14 +326,14 @@ export default function MoradoresClient({ moradores, tipoEstrutura }: { moradore
                   {/* Footer */}
                   <div className="px-4 py-2.5 bg-gray-50/80 border-t border-gray-100 flex items-center justify-between">
                     <div className="flex items-center gap-1.5 text-xs text-gray-500">
-                      {isTechnicalAdminRole(m.papel_sistema) || m.bloco_txt === 'Admin' ? (
+                      {isTechnicalAdminRole(m.papel_sistema) || isTechnicalAdminUnit(m.bloco_txt, m.apto_txt) ? (
                         <span className="text-amber-700 font-medium flex items-center gap-1">
                           <Shield size={12} className="text-amber-500" /> Identidade Administrativa
                         </span>
                       ) : (
                         <>
                           <Home size={12} className="text-gray-400" />
-                          <span>{m.bloco_txt ? `${blocoLabel} ${m.bloco_txt}` : '—'}{m.apto_txt ? ` · ${aptoLabel} ${m.apto_txt}` : ''}</span>
+                          <span>{formatUnitDisplay({ bloco: m.bloco_txt, apto: m.apto_txt, role: m.papel_sistema, tipoEstrutura, fallback: '—' })}</span>
                         </>
                       )}
                     </div>
@@ -387,6 +399,7 @@ export default function MoradoresClient({ moradores, tipoEstrutura }: { moradore
           profile={editingProfile}
           blocoLabel={blocoLabel}
           aptoLabel={aptoLabel}
+          currentUserRole={currentUserRole}
           onClose={() => setEditingProfile(null)}
         />
       )}

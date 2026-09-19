@@ -10,7 +10,7 @@ export default async function ApprovalsPage() {
 
   const { data: profile } = await supabase
     .from('perfil')
-    .select('condominio_id')
+    .select('condominio_id, papel_sistema')
     .eq('id', user.id)
     .single()
 
@@ -46,5 +46,12 @@ export default async function ApprovalsPage() {
     )
   }
 
-  return <AprovacoesClient profiles={profiles ?? []} tipoEstrutura={tipoEstrutura} />
+  return (
+    <AprovacoesClient
+      profiles={profiles ?? []}
+      tipoEstrutura={tipoEstrutura}
+      currentUserRole={profile?.papel_sistema}
+    />
+  )
+
 }

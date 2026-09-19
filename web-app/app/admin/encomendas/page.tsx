@@ -2,6 +2,7 @@ import { createClient } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
 import ParcelList from '@/app/condo/encomendas/parcel-list'
 import { isAdminRole, isPorterRole } from '@/lib/roles'
+import { filterResidentialBlocos, filterResidentialAptos } from '@/lib/labels'
 
 export const metadata = { title: 'Encomendas do Condomínio — Painel Admin' }
 
@@ -41,13 +42,13 @@ export default async function AdminEncomendasPage() {
   ])
   const tipoEstrutura = condoResult.data?.tipo_estrutura ?? 'predio'
 
-  const numSort = (a: string, b: string) => a.localeCompare(b, 'pt', { numeric: true })
-  const allBlocos = [...new Set((blocosData.data ?? []).map(b => b.nome_ou_numero).filter(Boolean) as string[])].sort(numSort)
-  const allAptosArr = [...new Set((aptosData.data ?? []).map(a => a.numero).filter(Boolean) as string[])].sort(numSort)
+  const allBlocos = filterResidentialBlocos((blocosData.data ?? []).map(b => b.nome_ou_numero))
+  const allAptosArr = filterResidentialAptos((aptosData.data ?? []).map(a => a.numero))
   const allAptosMap: Record<string, string[]> = {}
   for (const bloco of allBlocos) {
     allAptosMap[bloco] = allAptosArr
   }
+
 
   // NOTE: parcels are now fetched client-side by ParcelList
 

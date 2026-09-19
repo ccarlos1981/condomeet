@@ -5,7 +5,7 @@ import { createClient } from '@/lib/supabase/client'
 import { useRouter } from 'next/navigation'
 import { Save, AlertTriangle, Loader2, Lock, Eye, EyeOff } from 'lucide-react'
 import { fetchAll } from '@/lib/supabase/utils'
-import { getBlocoLabel, getAptoLabel } from '@/lib/labels'
+import { getBlocoLabel, getAptoLabel, isTechnicalAdminRole, isTechnicalAdminUnit } from '@/lib/labels'
 
 const TIPOS_MORADOR = [
   'Proprietário (a)', 'Inquilino (a)', 'Cônjuge', 'Dependente',
@@ -30,6 +30,7 @@ interface ProfileFormProps {
   tipoEstrutura?: string
   blocos: Bloco[]
   initialAptos: Apto[]
+  currentPapel?: string
 }
 
 export default function ProfileForm({
@@ -39,9 +40,12 @@ export default function ProfileForm({
   currentBlocoId, currentAptoId,
   tipoEstrutura,
   blocos, initialAptos,
+  currentPapel,
 }: ProfileFormProps) {
   const supabase = createClient()
   const router = useRouter()
+
+  const isAdminUser = isTechnicalAdminRole(currentPapel) || isTechnicalAdminUnit(currentBlocoTxt, currentAptoTxt)
 
   const [nome, setNome] = useState(currentName)
   const [whatsapp, setWhatsapp] = useState(currentWhatsapp)
@@ -96,7 +100,9 @@ export default function ProfileForm({
             .order('numero')
         )
 
-        const mapped: Apto[] = (aptosData as any[] ?? []).map((a: any) => ({ id: a.id, numero: String(a.numero) }))
+        const mapped: Apto[] = (aptosData as any[] ?? [])
+          .map((a: any) => ({ id: a.id, numero: String(a.numero) }))
+          .filter((a: Apto) => !isTechnicalAdminUnit('', a.numero))
         mapped.sort((a, b) => a.numero.localeCompare(b.numero, undefined, { numeric: true }))
         setAptos(mapped)
       }
@@ -215,32 +221,47 @@ export default function ProfileForm({
         </div>
       </div>
 
-      {/* Minha Unidade */}
+      {/* Minha Unidade / Identidade Administrativa */}
       <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6 mb-6">
-        <h2 className="text-lg font-semibold text-gray-700 mb-2">Minha Unidade</h2>
-        <p className="text-sm text-gray-400 mb-4">Atualmente: {getBlocoLabel(tipoEstrutura)} {currentBlocoTxt || '?'} / {getAptoLabel(tipoEstrutura)} {currentAptoTxt || '?'}</p>
-        <div className="space-y-4">
-          <div>
-            <label className="block text-sm font-medium text-gray-600 mb-1">{getBlocoLabel(tipoEstrutura)}</label>
-            <select value={selectedBlocoId} onChange={e => handleBlocoChange(e.target.value)} className="w-full px-4 py-2.5 rounded-xl border border-gray-200 focus:ring-2 focus:ring-[#FC5931]/20 focus:border-[#FC5931] outline-none bg-white">
-              <option value="">Selecione o {getBlocoLabel(tipoEstrutura).toLowerCase()}</option>
-              {blocos.map(b => <option key={b.id} value={b.id}>{getBlocoLabel(tipoEstrutura)} {b.nome_ou_numero}</option>)}
-            </select>
+        <h2 className="text-lg font-semibold text-gray-700 mb-2">
+          {isAdminUser ? 'Identidade Institucional' : 'Minha Unidade'}
+        </h2>
+        {isAdminUser ? (
+          <div className="p-4 bg-purple-50 border border-purple-200 rounded-xl">
+            <p className="text-sm font-semibold text-purple-900">Identidade Administrativa</p>
+            <p className="text-xs text-purple-700 mt-1">
+              Este perfil possui função administrativa ({currentPapel || 'Admin'}) no condomínio e não está vinculado a uma unidade residencial.
+            </p>
           </div>
-          <div>
-            <label className="block text-sm font-medium text-gray-600 mb-1">{getAptoLabel(tipoEstrutura)}</label>
-            <select value={selectedAptoId} onChange={e => handleAptoChange(e.target.value)} disabled={loadingAptos} className="w-full px-4 py-2.5 rounded-xl border border-gray-200 focus:ring-2 focus:ring-[#FC5931]/20 focus:border-[#FC5931] outline-none bg-white disabled:opacity-50">
-              <option value="">{loadingAptos ? 'Carregando...' : `Selecione o ${getAptoLabel(tipoEstrutura).toLowerCase()}`}</option>
-              {aptos.map(a => <option key={a.id} value={a.id}>{getAptoLabel(tipoEstrutura)} {a.numero}</option>)}
-            </select>
-          </div>
-          {aptChanged && (
-            <div className="flex items-start gap-3 bg-orange-50 border border-orange-200 rounded-xl p-4">
-              <AlertTriangle className="text-orange-500 flex-shrink-0 mt-0.5" size={20} />
-              <p className="text-sm text-orange-700">Ao mudar de unidade, seu acesso será bloqueado até o síndico aprovar novamente.</p>
+        ) : (
+          <>
+            <p className="text-sm text-gray-400 mb-4">
+              Atualmente: {getBlocoLabel(tipoEstrutura)} {currentBlocoTxt || '?'} / {getAptoLabel(tipoEstrutura)} {currentAptoTxt || '?'}
+            </p>
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-600 mb-1">{getBlocoLabel(tipoEstrutura)}</label>
+                <select value={selectedBlocoId} onChange={e => handleBlocoChange(e.target.value)} className="w-full px-4 py-2.5 rounded-xl border border-gray-200 focus:ring-2 focus:ring-[#FC5931]/20 focus:border-[#FC5931] outline-none bg-white">
+                  <option value="">Selecione o {getBlocoLabel(tipoEstrutura).toLowerCase()}</option>
+                  {blocos.map(b => <option key={b.id} value={b.id}>{getBlocoLabel(tipoEstrutura)} {b.nome_ou_numero}</option>)}
+                </select>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-600 mb-1">{getAptoLabel(tipoEstrutura)}</label>
+                <select value={selectedAptoId} onChange={e => handleAptoChange(e.target.value)} disabled={loadingAptos} className="w-full px-4 py-2.5 rounded-xl border border-gray-200 focus:ring-2 focus:ring-[#FC5931]/20 focus:border-[#FC5931] outline-none bg-white disabled:opacity-50">
+                  <option value="">{loadingAptos ? 'Carregando...' : `Selecione o ${getAptoLabel(tipoEstrutura).toLowerCase()}`}</option>
+                  {aptos.map(a => <option key={a.id} value={a.id}>{getAptoLabel(tipoEstrutura)} {a.numero}</option>)}
+                </select>
+              </div>
+              {aptChanged && (
+                <div className="flex items-start gap-3 bg-orange-50 border border-orange-200 rounded-xl p-4">
+                  <AlertTriangle className="text-orange-500 flex-shrink-0 mt-0.5" size={20} />
+                  <p className="text-sm text-orange-700">Ao mudar de unidade, seu acesso será bloqueado até o síndico aprovar novamente.</p>
+                </div>
+              )}
             </div>
-          )}
-        </div>
+          </>
+        )}
       </div>
 
       {/* Segurança */}

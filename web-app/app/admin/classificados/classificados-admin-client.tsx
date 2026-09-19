@@ -7,7 +7,7 @@ import {
   ChevronDown, ChevronUp, ArrowLeft
 } from 'lucide-react'
 import Link from 'next/link'
-import { getBlocoLabel, getAptoLabel } from '@/lib/labels'
+import { getBlocoLabel, getAptoLabel, formatUnitDisplay } from '@/lib/labels'
 
 interface Perfil {
   nome_completo: string
@@ -180,7 +180,12 @@ export default function ClassificadosAdminClient({
                       <strong>Dono:</strong> {c.perfil?.nome_completo ?? 'N/A'}
                     </p>
                     <p className="text-sm text-gray-500">
-                      {blocoLabel}: {c.perfil?.bloco_txt ?? '?'} · {aptoLabel}: {c.perfil?.apto_txt ?? '?'}
+                      {formatUnitDisplay({
+                        bloco: c.perfil?.bloco_txt,
+                        apto: c.perfil?.apto_txt,
+                        tipoEstrutura,
+                        fallback: 'Identidade Administrativa'
+                      })}
                     </p>
                     <div className="flex items-center gap-3 mt-1">
                       {c.preco && (

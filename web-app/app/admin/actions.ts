@@ -4,7 +4,7 @@ import { createClient } from '@/lib/supabase/server'
 import { createClient as createSupabaseClient } from '@supabase/supabase-js'
 import { revalidatePath } from 'next/cache'
 
-import { isAdminRole, isTechnicalAdminRole, normalizeRoleForPersistence } from '@/lib/roles'
+import { isAdminRole, isTechnicalAdminRole, normalizeRoleForPersistence, canPromoteToAdmin } from '@/lib/roles'
 
 export async function adminUpdateProfile(data: {
   id: string
@@ -53,12 +53,16 @@ export async function adminUpdateProfile(data: {
     let canonicalPapel = normalizeRoleForPersistence(data.papel_sistema)
 
     if (isTargetAdmin) {
+      if (!canPromoteToAdmin(adminProfile?.papel_sistema)) {
+        return { error: 'Permissão negada. Somente o Síndico ou Administrador podem atribuir a função de Admin.' }
+      }
       canonicalPapel = 'Admin'
       finalBloco = 'Admin'
       finalApto = 'Admin'
     } else if (finalBloco.toLowerCase() === 'admin' || finalApto.toLowerCase() === 'admin') {
       return { error: 'Moradores e síndicos devem possuir unidade residencial válida, não podendo utilizar a identificação técnica Admin.' }
     }
+
 
     // 4. Update the Perfil
     const profileUpdate: Record<string, any> = {

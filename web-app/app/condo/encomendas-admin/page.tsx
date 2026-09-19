@@ -1,6 +1,7 @@
 import { createClient } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
 import ParcelList from '../encomendas/parcel-list'
+import { filterResidentialBlocos, filterResidentialAptos } from '@/lib/labels'
 
 export const metadata = { title: 'Encomendas do Condomínio — Condomeet' }
 
@@ -48,14 +49,14 @@ export default async function EncomendasAdminPage() {
   ])
   const tipoEstrutura = condoResult.data?.tipo_estrutura ?? 'predio'
 
-  const numSort = (a: string, b: string) => a.localeCompare(b, 'pt', { numeric: true })
-  const allBlocos = [...new Set((blocosData.data ?? []).map(b => b.nome_ou_numero).filter(Boolean) as string[])].sort(numSort)
-  const allAptosArr = [...new Set((aptosData.data ?? []).map(a => a.numero).filter(Boolean) as string[])].sort(numSort)
+  const allBlocos = filterResidentialBlocos((blocosData.data ?? []).map(b => b.nome_ou_numero))
+  const allAptosArr = filterResidentialAptos((aptosData.data ?? []).map(a => a.numero))
   // Map: every bloco gets the same set of aptos (standard structure)
   const allAptosMap: Record<string, string[]> = {}
   for (const bloco of allBlocos) {
     allAptosMap[bloco] = allAptosArr
   }
+
 
   // NOTE: parcels are now fetched client-side by ParcelList with server-side
   // filtering + pagination (10/page). No need to preload here.

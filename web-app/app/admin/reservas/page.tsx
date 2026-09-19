@@ -1,6 +1,7 @@
 import { createClient } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
 import ReservasAdminClient from './reservas-admin-client'
+import { filterResidentialBlocos, filterResidentialAptos } from '@/lib/labels'
 
 export default async function ReservasAdminPage() {
   const supabase = await createClient()
@@ -41,19 +42,22 @@ export default async function ReservasAdminPage() {
     .not('bloco_txt', 'is', null)
     .not('apto_txt', 'is', null)
 
-  const blocos = [...new Set((perfisCondo ?? []).map((p: { bloco_txt?: string }) => p.bloco_txt?.trim()).filter(Boolean) as string[])].sort()
+  const rawBlocos = [...new Set((perfisCondo ?? []).map((p: { bloco_txt?: string }) => p.bloco_txt?.trim()).filter(Boolean) as string[])].sort()
+  const blocos = filterResidentialBlocos(rawBlocos)
   const aptosPorBloco: Record<string, string[]> = {}
   for (const b of blocos) {
-    aptosPorBloco[b] = [...new Set(
+    const rawAptos = [...new Set(
       (perfisCondo ?? [])
         .filter((p: { bloco_txt?: string }) => p.bloco_txt?.trim() === b)
         .map((p: { apto_txt?: string }) => p.apto_txt?.trim())
         .filter(Boolean) as string[]
     )].sort((a, b) => a.localeCompare(b, undefined, { numeric: true }))
+    aptosPorBloco[b] = filterResidentialAptos(rawAptos)
   }
-  const todosAptos = [...new Set(
+  const rawTodosAptos = [...new Set(
     (perfisCondo ?? []).map((p: { apto_txt?: string }) => p.apto_txt?.trim()).filter(Boolean) as string[]
   )].sort((a, b) => a.localeCompare(b, undefined, { numeric: true }))
+  const todosAptos = filterResidentialAptos(rawTodosAptos)
 
   // Load reservas
   const { data: reservas } = await supabase

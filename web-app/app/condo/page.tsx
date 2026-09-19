@@ -2,7 +2,7 @@ import { createClient } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
 import Link from 'next/link'
 import { UserCheck, Package, QrCode, ArrowRight, Bell, Calendar, Clock, Wrench } from 'lucide-react'
-import { getBlocoLabel, getAptoLabel } from '@/lib/labels'
+import { getBlocoLabel, getAptoLabel, formatUnitDisplay } from '@/lib/labels'
 import { isAdminRole, isPorterRole } from '@/lib/roles'
 
 export default async function CondoDashboard() {
@@ -118,11 +118,26 @@ export default async function CondoDashboard() {
       <div className="mb-5">
         <p className="text-sm text-gray-500 font-medium uppercase tracking-wider">Bem-vindo de volta</p>
         <h1 className="text-3xl font-bold text-gray-900">{firstName} 👋</h1>
-        {profile?.bloco_txt && (
-          <p className="text-gray-500 text-sm mt-1">
-            Unidade: <span className="font-medium text-gray-700">{getBlocoLabel(tipoEstrutura)} {profile.bloco_txt} / {getAptoLabel(tipoEstrutura)} {profile.apto_txt}</span>
-          </p>
-        )}
+        {(() => {
+          const unitStr = formatUnitDisplay({
+            bloco: profile?.bloco_txt,
+            apto: profile?.apto_txt,
+            role: profile?.papel_sistema,
+            tipoEstrutura,
+            hideIfAdmin: true,
+          })
+          return unitStr ? (
+            <p className="text-gray-500 text-sm mt-1">
+              Unidade: <span className="font-medium text-gray-700">{unitStr}</span>
+            </p>
+          ) : (
+            <p className="text-gray-500 text-sm mt-1">
+              <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold bg-purple-100 text-purple-700 border border-purple-200">
+                Identidade Administrativa ({profile?.papel_sistema || 'Admin'})
+              </span>
+            </p>
+          )
+        })()}
       </div>
 
       {/* Quick Actions */}

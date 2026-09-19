@@ -17,6 +17,7 @@ export type SuporteChat = {
     nome_completo: string
     bloco_txt: string | null
     apto_txt: string | null
+    papel_sistema?: string | null
   } | null
   condominio: {
     nome: string
@@ -49,15 +50,15 @@ export default async function SuporteSistemaAdminPage() {
   const residentIds = [...new Set((chats ?? []).map((t: { resident_id: string }) => t.resident_id).filter(Boolean))]
   const condoIds = [...new Set((chats ?? []).map((t: { condominio_id: string }) => t.condominio_id).filter(Boolean))]
   
-  const perfilMap: Record<string, { nome_completo: string; bloco_txt: string | null; apto_txt: string | null }> = {}
+  const perfilMap: Record<string, { nome_completo: string; bloco_txt: string | null; apto_txt: string | null; papel_sistema?: string | null }> = {}
   const condoMap: Record<string, { nome: string }> = {}
 
   if (residentIds.length > 0) {
     const { data: perfis } = await supabase
       .from('perfil')
-      .select('id, nome_completo, bloco_txt, apto_txt')
+      .select('id, nome_completo, bloco_txt, apto_txt, papel_sistema')
       .in('id', residentIds)
-    ;(perfis ?? []).forEach((p: { id: string; nome_completo: string; bloco_txt: string | null; apto_txt: string | null }) => { perfilMap[p.id] = p })
+    ;(perfis ?? []).forEach((p: { id: string; nome_completo: string; bloco_txt: string | null; apto_txt: string | null; papel_sistema?: string | null }) => { perfilMap[p.id] = p })
   }
 
   if (condoIds.length > 0) {

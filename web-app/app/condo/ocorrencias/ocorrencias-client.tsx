@@ -2,6 +2,7 @@
 
 import { useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
+import { formatUnitDisplay } from '@/lib/labels'
 
 type Perfil = {
   nome_completo: string
@@ -82,8 +83,16 @@ function OccurrenceCard({
     setTimeout(() => setSaved(false), 3000)
   }
 
+  const unitStr = occ.perfil ? formatUnitDisplay({
+    bloco: occ.perfil.bloco_txt,
+    apto: occ.perfil.apto_txt,
+    fallback: 'Administrativo',
+    includeLabels: false,
+    separator: '/',
+  }) : ''
+
   const residentLabel = occ.perfil
-    ? `${occ.perfil.nome_completo}${occ.perfil.bloco_txt ? ` · ${occ.perfil.bloco_txt}/${occ.perfil.apto_txt}` : ''}`
+    ? `${occ.perfil.nome_completo}${unitStr ? ` · ${unitStr}` : ''}`
     : 'Morador'
 
   return (

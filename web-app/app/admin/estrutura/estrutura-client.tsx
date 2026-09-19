@@ -5,7 +5,7 @@ import { createClient } from '@/lib/supabase/client'
 import { useRouter } from 'next/navigation'
 import { Building2, Home, Grid3X3, Plus, Trash2, Sparkles, X, AlertCircle } from 'lucide-react'
 import GenerateDialog from './generate-dialog'
-import { getBlocoLabel, getAptoLabel } from '@/lib/labels'
+import { getBlocoLabel, getAptoLabel, isTechnicalAdminUnit } from '@/lib/labels'
 
 type Bloco = { id: string; nome_ou_numero: string }
 type Apartamento = { id: string; numero: string }
@@ -48,6 +48,10 @@ export default function EstruturaClient({ condoId, tipoEstrutura, blocos, aparta
 
   async function addBloco() {
     if (!addValue.trim()) return
+    if (isTechnicalAdminUnit(addValue.trim(), '')) {
+      setError(`O nome "${addValue.trim()}" é reservado para funções administrativas e não pode ser usado como unidade residencial.`)
+      return
+    }
     setLoading(true)
     setError(null)
     try {
@@ -84,6 +88,10 @@ export default function EstruturaClient({ condoId, tipoEstrutura, blocos, aparta
 
   async function addApto() {
     if (!addValue.trim()) return
+    if (isTechnicalAdminUnit('', addValue.trim())) {
+      setError(`O número "${addValue.trim()}" é reservado para funções administrativas e não pode ser usado como unidade residencial.`)
+      return
+    }
     setLoading(true)
     setError(null)
     try {

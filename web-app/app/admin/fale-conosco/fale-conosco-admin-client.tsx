@@ -3,7 +3,7 @@
 import { useState, useEffect, useRef, useMemo } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { MessageSquare, Send, Search, CheckCircle, Layers } from 'lucide-react'
-import { getBlocoLabel, getAptoLabel } from '@/lib/labels'
+import { getBlocoLabel, getAptoLabel, formatUnitDisplay } from '@/lib/labels'
 
 type AdminThread = {
   id: string
@@ -159,9 +159,13 @@ function ThreadGroupListItem({
   const tipo = TIPO_CONFIG[group.tipo] ?? TIPO_CONFIG.duvida
   const status = STATUS_CONFIG[group.status] ?? STATUS_CONFIG.aberto
   const residentName = group.perfil?.nome_completo?.split(' ')[0] ?? 'Morador'
-  const unidade = group.perfil?.bloco_txt
-    ? `${group.perfil.bloco_txt} / ${group.perfil.apto_txt}`
-    : ''
+  const unidade = formatUnitDisplay({
+    bloco: group.perfil?.bloco_txt,
+    apto: group.perfil?.apto_txt,
+    fallback: 'Administrativo',
+    includeLabels: false,
+    separator: ' / ',
+  })
   const count = group.threads.length
 
   return (
@@ -471,7 +475,15 @@ export default function FaleConoscoAdminClient({
                 </div>
                 <p className="text-xs text-gray-500">
                   {selectedGroup.perfil?.nome_completo ?? 'Morador'}
-                  {selectedGroup.perfil?.bloco_txt ? ` · ${blocoLabel} ${selectedGroup.perfil.bloco_txt} / ${aptoLabel} ${selectedGroup.perfil.apto_txt}` : ''}
+                  {(() => {
+                    const formatted = formatUnitDisplay({
+                      bloco: selectedGroup.perfil?.bloco_txt,
+                      apto: selectedGroup.perfil?.apto_txt,
+                      fallback: 'Administrativo',
+                      separator: ' / ',
+                    })
+                    return formatted ? ` · ${formatted}` : ''
+                  })()}
                   {' · '}{selectedTipo.label}
                 </p>
               </div>

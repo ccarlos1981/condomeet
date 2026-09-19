@@ -4,6 +4,7 @@ import React, { useState, useEffect, useRef, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { AssembleiaVideoStream } from '@/components/assembleias/AssembleiaVideoStream'
+import { isTechnicalAdminUnit } from '@/lib/labels'
 import { 
   Video, Mic, MicOff, VideoOff, Settings, 
   MessageSquare, BarChart3, Users, Play, Power, 
@@ -480,6 +481,7 @@ export default function LiveDashboard({ assembleia, pautas: initialPautas, userI
           const votoUnidades = voto.unidades as { bloco?: { nome_ou_numero?: string }, apartamento?: { numero?: string } }
           const bloco = (votoUnidades?.bloco?.nome_ou_numero as string) || ''
           const apto = (votoUnidades?.apartamento?.numero as string) || ''
+          if (isTechnicalAdminUnit(bloco, apto)) return
           const unidadeNome = `${bloco}-${apto}`
           if (bloco && apto) uniqueUnitsSet.add(unidadeNome)
         })

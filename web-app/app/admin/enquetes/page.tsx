@@ -1,6 +1,7 @@
 import { createClient } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
 import EnquetesAdminClient from './enquetes-admin-client'
+import { isTechnicalAdminUnit } from '@/lib/labels'
 
 export default async function EnquetesAdminPage() {
   const supabase = await createClient()
@@ -43,7 +44,9 @@ export default async function EnquetesAdminPage() {
     .not('apto_txt', 'is', null)
 
   const uniqueUnits = new Set(
-    (unitsRaw ?? []).map(u => `${u.bloco_txt}-${u.apto_txt}`)
+    (unitsRaw ?? [])
+      .filter(u => !isTechnicalAdminUnit(u.bloco_txt, u.apto_txt))
+      .map(u => `${u.bloco_txt}-${u.apto_txt}`)
   )
 
   // For each enquete, count unique responding units (bloco+apto)
@@ -61,6 +64,7 @@ export default async function EnquetesAdminPage() {
     const enqueteUnitSets: Record<string, Set<string>> = {}
     for (const r of (allRespostas ?? [])) {
       if (!r.bloco || !r.apto) continue
+      if (isTechnicalAdminUnit(r.bloco, r.apto)) continue
       if (!enqueteUnitSets[r.enquete_id]) {
         enqueteUnitSets[r.enquete_id] = new Set()
       }

@@ -2,6 +2,7 @@
 
 import { useState, useMemo } from 'react'
 import { Car, Clock, Star, DollarSign, Building2, Calendar, CheckCircle, XCircle, AlertCircle, Search, Filter, TrendingUp, HelpCircle, X, Route } from 'lucide-react'
+import { formatUnitDisplay } from '@/lib/labels'
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
 
@@ -277,7 +278,13 @@ export default function GaragemAdminClient({
                     <td className="px-4 py-3">
                       <p className="text-gray-900">{g.perfil?.nome_completo ?? '—'}</p>
                       <p className="text-xs text-gray-400">
-                        {g.perfil?.bloco_txt ? `Bl ${g.perfil.bloco_txt}` : ''} {g.perfil?.apto_txt ? `Ap ${g.perfil.apto_txt}` : ''}
+                        {formatUnitDisplay({
+                          bloco: g.perfil?.bloco_txt,
+                          apto: g.perfil?.apto_txt,
+                          role: g.perfil?.papel_sistema,
+                          fallback: 'Administrativo',
+                          separator: ' ',
+                        })}
                       </p>
                     </td>
                     <td className="px-4 py-3 text-gray-600">{g.condominios?.nome ?? '—'}</td>
@@ -346,7 +353,13 @@ export default function GaragemAdminClient({
                     <td className="px-4 py-3">
                       <p className="text-gray-900 font-medium">{r.renter?.nome_completo ?? '—'}</p>
                       <p className="text-xs text-gray-400">
-                        {r.renter?.bloco_txt ? `Bl ${r.renter.bloco_txt}` : ''} {r.renter?.apto_txt ? `Ap ${r.renter.apto_txt}` : ''}
+                        {formatUnitDisplay({
+                          bloco: r.renter?.bloco_txt,
+                          apto: r.renter?.apto_txt,
+                          role: r.renter?.papel_sistema,
+                          fallback: 'Administrativo',
+                          separator: ' ',
+                        })}
                       </p>
                     </td>
                     <td className="px-4 py-3 text-gray-600">{r.garage?.spot_identifier ?? '—'}</td>

@@ -12,6 +12,7 @@ import {
 } from 'lucide-react';
 
 import DashboardFilter from './dashboard-filter';
+import { isTechnicalAdminUnit } from '@/lib/labels';
 
 export default async function GlobalAssembleiasDashboard(props: { searchParams: Promise<{ assembleia?: string }> }) {
   const searchParams = await props.searchParams;
@@ -49,7 +50,9 @@ export default async function GlobalAssembleiasDashboard(props: { searchParams: 
     .not('apto_txt', 'is', null);
 
   const uniqueUnits = new Set(
-    (unitsRaw ?? []).map((u: { bloco_txt: string | null; apto_txt: string | null }) => `${u.bloco_txt}-${u.apto_txt}`)
+    (unitsRaw ?? [])
+      .filter((u: { bloco_txt: string | null; apto_txt: string | null }) => !isTechnicalAdminUnit(u.bloco_txt, u.apto_txt))
+      .map((u: { bloco_txt: string | null; apto_txt: string | null }) => `${u.bloco_txt}-${u.apto_txt}`)
   );
   const totalUnidades = uniqueUnits.size;
 
@@ -80,6 +83,7 @@ export default async function GlobalAssembleiasDashboard(props: { searchParams: 
   globalVotes?.forEach((voto: any) => {
     const bloco = voto.unidades?.bloco?.nome_ou_numero || '';
     const apto = voto.unidades?.apartamento?.numero || '';
+    if (isTechnicalAdminUnit(bloco, apto)) return;
     const unidadeNome = `${bloco}-${apto}`;
     if (bloco && apto) {
       if (!unitEngagement[unidadeNome]) {

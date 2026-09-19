@@ -10,7 +10,7 @@ export default async function MoradoresPage() {
 
   const { data: profile } = await supabase
     .from('perfil')
-    .select('condominio_id')
+    .select('condominio_id, papel_sistema')
     .eq('id', user.id)
     .single()
 
@@ -43,5 +43,12 @@ export default async function MoradoresPage() {
     )
   }
 
-  return <MoradoresClient moradores={moradores ?? []} tipoEstrutura={tipoEstrutura} />
+  return (
+    <MoradoresClient
+      moradores={moradores ?? []}
+      tipoEstrutura={tipoEstrutura}
+      currentUserRole={profile?.papel_sistema}
+    />
+  )
+
 }

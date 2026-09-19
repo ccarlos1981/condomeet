@@ -8,7 +8,8 @@ import {
   Camera, Package, CheckCircle2, ChevronLeft, Loader2,
   Box, Mail, ShoppingBag, FileText, X, RefreshCw, Video, Upload
 } from 'lucide-react'
-import { getBlocoLabel, getAptoLabel } from '@/lib/labels'
+import { getBlocoLabel, getAptoLabel, filterResidentialBlocos, filterResidentialAptos } from '@/lib/labels'
+
 
 interface Props {
   condoId: string
@@ -62,15 +63,16 @@ export default function ParcelRegisterForm({ condoId, registeredById, units, tip
   const fileInputRef = useRef<HTMLInputElement>(null)
 
   // Derived lists from units and structural tables
-  const blocos = allBlocos && allBlocos.length > 0
+  const rawBlocos = allBlocos && allBlocos.length > 0
     ? [...allBlocos].sort((a, b) => a.localeCompare(b, 'pt', { numeric: true }))
     : [...new Set(units.map(u => u.blocoNome))].sort((a, b) => a.localeCompare(b, 'pt', { numeric: true }))
+  const blocos = filterResidentialBlocos(rawBlocos)
 
   const aptosList = allAptos && allAptos.length > 0
     ? allAptos
     : units.filter(u => (!blocoSel || u.blocoNome === blocoSel)).map(u => u.aptoNumero)
 
-  const uniqueAptos = [...new Set(aptosList)].sort((a, b) => a.localeCompare(b, 'pt', { numeric: true }))
+  const uniqueAptos = filterResidentialAptos([...new Set(aptosList)]).sort((a, b) => a.localeCompare(b, 'pt', { numeric: true }))
 
   const selectedUnit = units.find(u => u.blocoNome === blocoSel && u.aptoNumero === aptoSel)
 

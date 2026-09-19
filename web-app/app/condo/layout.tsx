@@ -1,6 +1,7 @@
 import { createClient } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
 import Sidebar from '@/components/sidebar'
+import { formatUnitDisplay } from '@/lib/labels'
 
 export default async function CondoLayout({ children }: { children: React.ReactNode }) {
   const supabase = await createClient()
@@ -26,7 +27,14 @@ export default async function CondoLayout({ children }: { children: React.ReactN
     .eq('id', profile?.condominio_id ?? '')
     .single()
 
-  const unidade = [profile?.bloco_txt, profile?.apto_txt].filter(Boolean).join(' / ') || '—'
+  const unidade = formatUnitDisplay({
+    bloco: profile?.bloco_txt,
+    apto: profile?.apto_txt,
+    role: profile?.papel_sistema,
+    fallback: 'Administrativo',
+    separator: ' / ',
+    includeLabels: false,
+  }) || '—'
 
   return (
     <div className="flex min-h-screen bg-[#f3f4f8]">

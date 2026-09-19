@@ -6,7 +6,7 @@ import {
   CheckCircle2, Calendar, BookOpen
 } from 'lucide-react'
 import type { AreaComum } from './page'
-import { getBlocoLabel, getAptoLabel } from '@/lib/labels'
+import { getBlocoLabel, getAptoLabel, formatUnitDisplay } from '@/lib/labels'
 
 interface Props {
   areas: AreaComum[]
@@ -345,7 +345,15 @@ function BookingModal({
                       {r.perfil && (
                         <p className="text-[11px] text-gray-500">
                           Reservado por: <span className="font-semibold text-gray-700">{r.perfil.nome_completo?.split(' ')[0]}</span>
-                          {' '} ({getBlocoLabel(tipoEstrutura)} {r.perfil.bloco_txt}, {getAptoLabel(tipoEstrutura)} {r.perfil.apto_txt})
+                          {(() => {
+                            const unitDisplay = formatUnitDisplay({
+                              bloco: r.perfil.bloco_txt,
+                              apto: r.perfil.apto_txt,
+                              tipoEstrutura,
+                              fallback: 'Administrativo',
+                            })
+                            return unitDisplay ? ` (${unitDisplay})` : ''
+                          })()}
                         </p>
                       )}
                       {area.tipo_reserva === 'por_hora' && r.areas_comuns_horarios && (

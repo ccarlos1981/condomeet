@@ -7,7 +7,8 @@ import {
   Box, Mail, ShoppingBag, FileText, ChevronDown, UserCheck, RefreshCw,
   Camera, PenTool, PackageCheck, AlertTriangle
 } from 'lucide-react'
-import { getBlocoLabel, getAptoLabel } from '@/lib/labels'
+import { getBlocoLabel, getAptoLabel, filterResidentialBlocos, filterResidentialAptos, isTechnicalAdminUnit, formatUnitDisplay } from '@/lib/labels'
+
 
 // ── Types ────────────────────────────────────────────────────────────────────
 
@@ -165,7 +166,7 @@ function DeliveryModal({ parcel, condoId, tipoEstrutura, onClose, onConfirm }: D
             <div className="min-w-0">
               <p className="font-semibold text-gray-900">{tipoInfo.label}</p>
               <p className="text-sm text-gray-500">
-                {getBlocoLabel(tipoEstrutura)} {bloco ?? '?'} / {getAptoLabel(tipoEstrutura)} {apto ?? '?'}
+                {formatUnitDisplay({ bloco, apto, tipoEstrutura, fallback: 'Identidade Administrativa', separator: ' / ' })}
                 {parcel.tracking_code && <span className="ml-2 font-mono text-xs">· {parcel.tracking_code}</span>}
               </p>
               {parcel.observacao && (
@@ -380,17 +381,18 @@ export default function ParcelList({ initialParcels, isPorter, userId, condoId, 
   const numSort = (a: string, b: string) => a.localeCompare(b, 'pt', { numeric: true })
 
   // Use server-provided blocos/aptos when available, fallback to parcel-derived
-  const uniqueBlocos = (allBlocos && allBlocos.length > 0) ? allBlocos : [...new Set(
-    parcels.map(p => p.bloco ?? p.perfil?.bloco_txt).filter(Boolean) as string[]
-  )].sort(numSort)
-  const uniqueAptos = (blocoFilter && allAptosMap?.[blocoFilter] && allAptosMap[blocoFilter].length > 0)
+  const uniqueBlocos = filterResidentialBlocos(
+    allBlocos && allBlocos.length > 0
+      ? allBlocos
+      : parcels.map(p => p.bloco ?? p.perfil?.bloco_txt)
+  )
+  const rawAptos = (blocoFilter && allAptosMap?.[blocoFilter] && allAptosMap[blocoFilter].length > 0)
     ? allAptosMap[blocoFilter]
-    : [...new Set(
-        parcels
-          .filter(p => !blocoFilter || (p.bloco ?? p.perfil?.bloco_txt) === blocoFilter)
-          .map(p => p.apto ?? p.perfil?.apto_txt)
-          .filter(Boolean) as string[]
-      )].sort(numSort)
+    : parcels
+        .filter(p => !blocoFilter || (p.bloco ?? p.perfil?.bloco_txt) === blocoFilter)
+        .map(p => p.apto ?? p.perfil?.apto_txt)
+  const uniqueAptos = filterResidentialAptos(rawAptos)
+
 
   // ── Server-side fetch (porter/admin mode) ───────────────────────────────────
 
@@ -813,7 +815,13 @@ export default function ParcelList({ initialParcels, isPorter, userId, condoId, 
                     </div>
                     <div>
                       <p className={`font-bold text-sm ${isDelivered ? 'text-gray-900' : 'text-white'}`}>
-                        {getBlocoLabel(tipoEstrutura)} {p.bloco ?? p.perfil?.bloco_txt ?? '?'} / {getAptoLabel(tipoEstrutura)} {p.apto ?? p.perfil?.apto_txt ?? '?'}
+                        {formatUnitDisplay({
+                          bloco: p.bloco ?? p.perfil?.bloco_txt,
+                          apto: p.apto ?? p.perfil?.apto_txt,
+                          tipoEstrutura,
+                          fallback: 'Identidade Administrativa',
+                          separator: ' / '
+                        })}
                       </p>
                       <p className={`text-xs ${isDelivered ? 'text-gray-500' : 'text-white/70'}`}>
                         {p.perfil?.nome_completo ?? 'Sem morador'}

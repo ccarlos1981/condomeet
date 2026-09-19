@@ -7,6 +7,7 @@ import {
   Users, Gift, TrendingUp, Crown, Plus, Trash2, ToggleLeft, ToggleRight,
   Copy, Check, Ticket, Settings2, Save, Star, X, HelpCircle, Route, CheckCircle2
 } from 'lucide-react'
+import { formatUnitDisplay } from '@/lib/labels'
 
 type Plano = {
   plano: string
@@ -415,7 +416,13 @@ export default function DingloAdminClient({
                       {p.perfil?.nome_completo ?? 'Desconhecido'}
                     </td>
                     <td className="px-5 py-3 text-gray-500">
-                      {p.perfil ? `${p.perfil.bloco_txt ?? ''} / ${p.perfil.apto_txt ?? ''}` : '—'}
+                      {p.perfil ? formatUnitDisplay({
+                        bloco: p.perfil.bloco_txt,
+                        apto: p.perfil.apto_txt,
+                        fallback: 'Administrativo',
+                        includeLabels: false,
+                        separator: ' / '
+                      }) : '—'}
                     </td>
                     <td className="px-5 py-3">
                       <span className={`px-2.5 py-1 rounded-full text-xs font-bold ${planColor(p.plano)}`}>

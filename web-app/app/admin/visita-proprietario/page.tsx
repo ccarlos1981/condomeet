@@ -2,6 +2,7 @@ import { createClient } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
 import VisitaProprietarioAdminClient from './visita-proprietario-admin-client'
 import { isAdminRole } from '@/lib/roles'
+import { filterResidentialBlocos, filterResidentialAptos, isTechnicalAdminUnit } from '@/lib/labels'
 
 export const metadata = {
   title: 'Visita Proprietário — Admin — Condomeet',
@@ -45,6 +46,7 @@ export default async function VisitaProprietarioAdminPage() {
 
   for (const m of moradores ?? []) {
     if (m.bloco_txt) {
+      if (isTechnicalAdminUnit(m.bloco_txt, m.apto_txt)) continue
       blocosSet.add(m.bloco_txt)
       if (!aptosPerBloco[m.bloco_txt]) aptosPerBloco[m.bloco_txt] = new Set()
       if (m.apto_txt) {
@@ -59,10 +61,10 @@ export default async function VisitaProprietarioAdminPage() {
     }
   }
 
-  const blocos = [...blocosSet].sort((a, b) => a.localeCompare(b, 'pt-BR', { numeric: true }))
+  const blocos = filterResidentialBlocos([...blocosSet]).sort((a, b) => a.localeCompare(b, 'pt-BR', { numeric: true }))
   const aptosMap: Record<string, string[]> = {}
   for (const b of blocos) {
-    aptosMap[b] = [...(aptosPerBloco[b] ?? [])].sort((a, z) =>
+    aptosMap[b] = filterResidentialAptos([...(aptosPerBloco[b] ?? [])]).sort((a, z) =>
       a.localeCompare(z, 'pt-BR', { numeric: true })
     )
   }

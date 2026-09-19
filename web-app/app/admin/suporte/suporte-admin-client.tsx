@@ -4,6 +4,7 @@ import { useState, useEffect, useRef } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { SuporteChat } from './page'
 import { CheckCheck, Send } from 'lucide-react'
+import { formatUnitDisplay } from '@/lib/labels'
 
 type Message = {
   id: string
@@ -183,9 +184,13 @@ export default function SuporteAdminClient({ initialChats, adminId }: Props) {
               const isUnread = chat.unread_admin > 0
               
               const displayName = chat.perfil?.nome_completo || 'Sem Nome'
-              const aptTxt = chat.perfil?.apto_txt ? `Apto ${chat.perfil.apto_txt}` : ''
-              const blcTxt = chat.perfil?.bloco_txt ? `Bl ${chat.perfil.bloco_txt}` : ''
-              const detailLine = [aptTxt, blcTxt].filter(Boolean).join(' - ')
+              const detailLine = formatUnitDisplay({
+                bloco: chat.perfil?.bloco_txt,
+                apto: chat.perfil?.apto_txt,
+                role: chat.perfil?.papel_sistema,
+                fallback: 'Administrativo',
+                separator: ' - ',
+              })
 
               return (
                 <div
@@ -241,11 +246,18 @@ export default function SuporteAdminClient({ initialChats, adminId }: Props) {
                   </div>
                   <div className="flex flex-col">
                      <span className="font-semibold text-gray-800">{activeChat?.perfil?.nome_completo}</span>
-                     <span className="text-xs text-gray-500 font-medium">
-                         Condomínio: {activeChat?.condominio?.nome} 
-                         {activeChat?.perfil?.bloco_txt && ` | Bloco ${activeChat.perfil.bloco_txt}`}
-                         {activeChat?.perfil?.apto_txt && ` | Apto ${activeChat.perfil.apto_txt}`}
-                     </span>
+                      <span className="text-xs text-gray-500 font-medium">
+                          Condomínio: {activeChat?.condominio?.nome} 
+                          {(() => {
+                            const unitStr = formatUnitDisplay({
+                              bloco: activeChat?.perfil?.bloco_txt,
+                              apto: activeChat?.perfil?.apto_txt,
+                              role: activeChat?.perfil?.papel_sistema,
+                              fallback: 'Administrativo',
+                            })
+                            return unitStr ? ` | ${unitStr}` : ''
+                          })()}
+                      </span>
                   </div>
                </div>
 

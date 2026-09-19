@@ -4,7 +4,8 @@ import { useState, useMemo } from 'react'
 import { User, Clock, CheckCircle, XCircle, Lock, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, Edit } from 'lucide-react'
 import ApproveButton from './approve-button'
 import EditProfileModal from '@/components/edit-profile-modal'
-import { getBlocoLabel, getAptoLabel } from '@/lib/labels'
+import { getBlocoLabel, getAptoLabel, filterResidentialBlocos, filterResidentialAptos, isTechnicalAdminUnit, formatUnitDisplay } from '@/lib/labels'
+import { isTechnicalAdminRole } from '@/lib/roles'
 
 type Profile = {
   id: string
@@ -23,7 +24,15 @@ type Filter = 'pendente' | 'aprovado' | 'bloqueado' | 'rejeitado' | 'todos'
 
 const PAGE_SIZE = 20
 
-export default function AprovacoesClient({ profiles, tipoEstrutura }: { profiles: Profile[]; tipoEstrutura?: string }) {
+export default function AprovacoesClient({
+  profiles,
+  tipoEstrutura,
+  currentUserRole,
+}: {
+  profiles: Profile[]
+  tipoEstrutura?: string
+  currentUserRole?: string | null
+}) {
   const [filter, setFilter] = useState<Filter>('pendente')
   const [filterBloco, setFilterBloco] = useState<string>('')
   const [filterApto, setFilterApto] = useState<string>('')
@@ -33,16 +42,14 @@ export default function AprovacoesClient({ profiles, tipoEstrutura }: { profiles
   const blocoLabel = getBlocoLabel(tipoEstrutura)
   const aptoLabel = getAptoLabel(tipoEstrutura)
 
-  const blocos = Array.from(new Set(profiles.map(p => p.bloco_txt).filter(b => Boolean(b) && b !== 'Admin') as string[]))
-  blocos.sort((a, b) => a.localeCompare(b, undefined, { numeric: true }))
+  const blocos = filterResidentialBlocos(profiles.map(p => p.bloco_txt))
 
-  const aptos = Array.from(new Set(
+  const aptos = filterResidentialAptos(
     profiles
       .filter(p => !filterBloco || p.bloco_txt === filterBloco)
       .map(p => p.apto_txt)
-      .filter(Boolean) as string[]
-  ))
-  aptos.sort((a, b) => a.localeCompare(b, undefined, { numeric: true }))
+  )
+
 
   function isPending(p: Profile)  { return !p.status_aprovacao || p.status_aprovacao === 'pendente' }
   function isApproved(p: Profile) { return p.status_aprovacao === 'aprovado' }
@@ -208,10 +215,10 @@ export default function AprovacoesClient({ profiles, tipoEstrutura }: { profiles
                       )}
                       {p.bloco_txt && (
                         <span className="text-xs text-gray-500">
-                          {p.papel_sistema === 'Admin' || p.bloco_txt === 'Admin' ? (
+                          {isTechnicalAdminRole(p.papel_sistema) || isTechnicalAdminUnit(p.bloco_txt, p.apto_txt) ? (
                             '🔐 Identidade Administrativa'
                           ) : (
-                            `🏠 ${blocoLabel} ${p.bloco_txt}${p.apto_txt ? ` / ${aptoLabel} ${p.apto_txt}` : ''}`
+                            `🏠 ${formatUnitDisplay({ bloco: p.bloco_txt, apto: p.apto_txt, role: p.papel_sistema, tipoEstrutura, fallback: 'Administrativo', separator: ' / ' })}`
                           )}
                         </span>
                       )}
@@ -333,6 +340,7 @@ export default function AprovacoesClient({ profiles, tipoEstrutura }: { profiles
           profile={editingProfile}
           blocoLabel={blocoLabel}
           aptoLabel={aptoLabel}
+          currentUserRole={currentUserRole}
           onClose={() => setEditingProfile(null)}
         />
       )}

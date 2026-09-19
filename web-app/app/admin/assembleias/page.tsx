@@ -1,6 +1,7 @@
 import { createClient } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
 import AssembleiasClient from './assembleias-client'
+import { isTechnicalAdminUnit } from '@/lib/labels'
 
 export default async function AssembleiasAdminPage() {
   const supabase = await createClient()
@@ -48,7 +49,9 @@ export default async function AssembleiasAdminPage() {
     .not('apto_txt', 'is', null)
 
   const uniqueUnits = new Set(
-    (unitsRaw ?? []).map(u => `${u.bloco_txt}-${u.apto_txt}`)
+    (unitsRaw ?? [])
+      .filter(u => !isTechnicalAdminUnit(u.bloco_txt, u.apto_txt))
+      .map(u => `${u.bloco_txt}-${u.apto_txt}`)
   )
 
   return (

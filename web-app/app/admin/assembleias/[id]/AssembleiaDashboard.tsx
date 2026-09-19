@@ -2,6 +2,7 @@
 
 import React from 'react'
 import { CheckCircle2, BarChart3, Users, Printer } from 'lucide-react'
+import { isTechnicalAdminUnit } from '@/lib/labels'
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
 
@@ -45,6 +46,7 @@ export default function AssembleiaDashboard({ pautas, votos, totalUnidades = 0 }
     const votoUnidades = voto.unidades as any
     const bloco = (votoUnidades?.bloco?.nome_ou_numero as string) || ''
     const apto = (votoUnidades?.apartamento?.numero as string) || ''
+    if (isTechnicalAdminUnit(bloco, apto)) return
     const unidadeNome = `${bloco}-${apto}`
     if (bloco && apto) uniqueUnitsSet.add(unidadeNome)
   })

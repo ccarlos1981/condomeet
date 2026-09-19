@@ -126,3 +126,25 @@ export function isTechnicalAdminRole(role?: string | null): boolean {
   const r = role.trim().toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '')
   return r === 'admin' || r === 'administrador' || r === 'administradora'
 }
+
+/**
+ * Valida de forma canônica se o operador possui autoridade para promover outro usuário para Admin.
+ * 
+ * REGRA CANÔNICA CONDOMEET:
+ * SOMENTE:
+ * - Síndico
+ * - Admin
+ * 
+ * TODOS OS DEMAIS PERFIS DEVEM SER BLOQUEADOS:
+ * - Subsíndico, Porteiro, Funcionário, Morador, Locatário, Proprietário, Dependente, Master, SuperAdmin.
+ * NÃO conceder exceções automáticas para Master ou SuperAdmin no contexto do condomínio.
+ */
+export function canPromoteToAdmin(role?: string | null): boolean {
+  if (!role) return false
+  const r = role.trim().toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+  if (r.includes('sub')) return false
+  if (r === 'admin' || r === 'administrador' || r === 'administradora') return true
+  if (r.includes('sindico')) return true
+  return false
+}
+

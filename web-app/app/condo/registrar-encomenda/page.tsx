@@ -2,6 +2,8 @@ import { createClient } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
 import ParcelRegisterForm from './parcel-register-form'
 import { fetchAll } from '@/lib/supabase/utils'
+import { isAdminRole, isPorterRole } from '@/lib/roles'
+import { filterResidentialBlocos, filterResidentialAptos, isTechnicalAdminUnit } from '@/lib/labels'
 
 export const metadata = { title: 'Registrar Encomenda — Condomeet' }
 
@@ -23,13 +25,7 @@ export default async function RegistrarEncomendaPage() {
     .eq('id', user.id)
     .single()
 
-  const role = profile?.papel_sistema ?? ''
-  const isPorter =
-    role.toLowerCase().includes('portaria') ||
-    role.toLowerCase().includes('porteiro') ||
-    role.toLowerCase().includes('síndico') ||
-    role.toLowerCase().includes('sindico') ||
-    role === 'admin'
+  const isPorter = isAdminRole(profile?.papel_sistema) || isPorterRole(profile?.papel_sistema)
 
   if (!isPorter) redirect('/condo')
 
@@ -60,8 +56,9 @@ export default async function RegistrarEncomendaPage() {
 
   const tipoEstrutura = condoResult.data?.tipo_estrutura ?? 'predio'
 
-  const allBlocosDesc = (blocos as any[]) ? (blocos as any[]).map((b: any) => b.nome_ou_numero).filter((b: string) => b !== 'Admin' && b !== '0') : []
-  const allAptosDesc = (rawAptos as any[]) ? (rawAptos as any[]).map((a: any) => a.numero).filter((a: string) => a !== 'Admin' && a !== '0') : []
+  const allBlocosDesc = filterResidentialBlocos((blocos as any[] ?? []).map((b: any) => b.nome_ou_numero))
+  const allAptosDesc = filterResidentialAptos((rawAptos as any[] ?? []).map((a: any) => a.numero))
+
 
   let units: UnitOption[] = []
 
@@ -110,7 +107,7 @@ export default async function RegistrarEncomendaPage() {
             residentName: resident?.nome ?? null,
           }
         })
-        .filter(u => u.blocoNome !== 'Admin' && u.aptoNumero !== 'Admin' && u.blocoNome !== '0' && u.aptoNumero !== '0')
+        .filter(u => !isTechnicalAdminUnit(u.blocoNome, u.aptoNumero))
         .sort((a, b) =>
           a.blocoNome.localeCompare(b.blocoNome, 'pt', { numeric: true }) || a.aptoNumero.localeCompare(b.aptoNumero, 'pt', { numeric: true })
         )
@@ -132,7 +129,7 @@ export default async function RegistrarEncomendaPage() {
     )
 
     units = (perfis as any[] ?? [])
-      .filter((p: any) => p.bloco_txt !== 'Admin' && p.apto_txt !== 'Admin')
+      .filter((p: any) => !isTechnicalAdminUnit(p.bloco_txt, p.apto_txt))
       .map((p: any) => ({
         blocoNome: p.bloco_txt ?? '?',
         aptoNumero: p.apto_txt ?? '?',

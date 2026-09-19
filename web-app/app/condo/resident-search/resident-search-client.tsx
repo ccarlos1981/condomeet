@@ -6,7 +6,9 @@ import {
   Search, X, Phone, Mail, MessageCircle, Users, UserSearch,
   Building2, Home, Shield, ChevronRight, ExternalLink
 } from 'lucide-react'
-import { getBlocoLabel, getAptoLabel } from '@/lib/labels'
+import { getBlocoLabel, getAptoLabel, isTechnicalAdminUnit, formatUnitDisplay } from '@/lib/labels'
+import { isTechnicalAdminRole } from '@/lib/roles'
+
 
 interface Resident {
   id: string
@@ -113,12 +115,14 @@ export default function ResidentSearchClient({ condoId, tipoEstrutura }: Props) 
     const normalizedQ = normalize(q)
     const filtered = (data ?? []).filter(r => {
       const name = normalize(r.nome_completo ?? '')
-      const unit = (r.apto_txt ?? '').toLowerCase()
-      const block = (r.bloco_txt ?? '').toLowerCase()
+      const isTech = isTechnicalAdminRole(r.papel_sistema) || isTechnicalAdminUnit(r.bloco_txt, r.apto_txt)
+      const unit = isTech ? '' : (r.apto_txt ?? '').toLowerCase()
+      const block = isTech ? '' : (r.bloco_txt ?? '').toLowerCase()
       return name.includes(normalizedQ) ||
-        unit.includes(q.toLowerCase()) ||
-        block.includes(q.toLowerCase())
+        (unit && unit.includes(q.toLowerCase())) ||
+        (block && block.includes(q.toLowerCase()))
     })
+
 
     setResidents(filtered)
     setLoading(false)
@@ -248,15 +252,14 @@ export default function ResidentSearchClient({ condoId, tipoEstrutura }: Props) 
                     </p>
                     <div className="flex items-center gap-2 mt-0.5">
                       <span className="text-xs text-gray-500 flex items-center gap-1">
-                        {r.papel_sistema === 'Admin' || r.bloco_txt === 'Admin' ? (
+                        {isTechnicalAdminRole(r.papel_sistema) || isTechnicalAdminUnit(r.bloco_txt, r.apto_txt) ? (
                           <span className="text-amber-700 font-medium flex items-center gap-1">
                             <Shield size={11} className="text-amber-500" /> Identidade Administrativa
                           </span>
                         ) : (
                           <>
                             <Home size={11} className="text-gray-400" />
-                            {r.bloco_txt ? `${blocoLabel} ${r.bloco_txt}` : '–'}
-                            {r.apto_txt ? ` · ${aptoLabel} ${r.apto_txt}` : ''}
+                            <span>{formatUnitDisplay({ bloco: r.bloco_txt, apto: r.apto_txt, role: r.papel_sistema, tipoEstrutura, fallback: '—' })}</span>
                           </>
                         )}
                       </span>
@@ -306,15 +309,14 @@ export default function ResidentSearchClient({ condoId, tipoEstrutura }: Props) 
                 </div>
                 <h2 className="text-lg font-bold text-gray-900">{selectedResident.nome_completo || '—'}</h2>
                 <div className="text-sm text-gray-500 mt-0.5 flex items-center justify-center gap-1">
-                  {selectedResident.papel_sistema === 'Admin' || selectedResident.bloco_txt === 'Admin' ? (
+                  {isTechnicalAdminRole(selectedResident.papel_sistema) || isTechnicalAdminUnit(selectedResident.bloco_txt, selectedResident.apto_txt) ? (
                     <span className="text-amber-700 font-medium flex items-center gap-1">
                       <Shield size={13} className="text-amber-500" /> Identidade Administrativa
                     </span>
                   ) : (
                     <>
                       <Building2 size={13} />
-                      {selectedResident.bloco_txt ? `${blocoLabel} ${selectedResident.bloco_txt}` : '–'}
-                      {selectedResident.apto_txt ? ` · ${aptoLabel} ${selectedResident.apto_txt}` : ''}
+                      <span>{formatUnitDisplay({ bloco: selectedResident.bloco_txt, apto: selectedResident.apto_txt, role: selectedResident.papel_sistema, tipoEstrutura, fallback: '—' })}</span>
                     </>
                   )}
                 </div>

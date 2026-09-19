@@ -16,7 +16,7 @@ import {
   Building,
   Info,
 } from 'lucide-react'
-import { getBlocoLabel, getAptoLabel } from '@/lib/labels'
+import { getBlocoLabel, getAptoLabel, formatUnitDisplay } from '@/lib/labels'
 import type { AreaItem, ReservaRow } from './page'
 
 // ──────────────────────────────────────────────────────────────────────────────
@@ -576,7 +576,7 @@ export default function ReservasAdminClient({
                           {r.perfil?.nome_completo ?? '—'}
                         </td>
                         <td className="px-4 py-3 text-center text-gray-600">
-                          {r.perfil ? `${r.perfil.apto_txt} / ${r.perfil.bloco_txt}` : '—'}
+                          {r.perfil ? formatUnitDisplay({ bloco: r.perfil.bloco_txt, apto: r.perfil.apto_txt, role: r.perfil.papel_sistema, tipoEstrutura, fallback: 'Identidade Administrativa', includeLabels: false, separator: ' / ' }) : '—'}
                         </td>
                         <td className="px-4 py-3 text-right font-medium text-gray-900">
                           {r.valor_reserva && Number(r.valor_reserva) > 0 
@@ -724,7 +724,7 @@ export default function ReservasAdminClient({
                           </div>
                           <div className="flex items-center gap-2">
                             <Building size={13} className="text-gray-400" />
-                            <span>Unidade: <strong>{res.perfil?.bloco_txt ?? '—'} / {res.perfil?.apto_txt ?? '—'}</strong></span>
+                            <span>Unidade: <strong>{formatUnitDisplay({ bloco: res.perfil?.bloco_txt, apto: res.perfil?.apto_txt, role: res.perfil?.papel_sistema, tipoEstrutura, fallback: 'Identidade Administrativa' }) || '—'}</strong></span>
                           </div>
                           <div className="flex items-center gap-2">
                             <Clock size={13} className="text-gray-400" />

@@ -4,6 +4,7 @@ import { createClient } from '@/lib/supabase/client'
 import { useRouter } from 'next/navigation'
 import { Search, ChevronLeft, Building2, Mail, Lock, User, Phone, Eye, EyeOff, Check, Loader2, AlertTriangle } from 'lucide-react'
 import { fetchAll } from '@/lib/supabase/utils'
+import { isTechnicalAdminUnit } from '@/lib/labels'
 
 const TIPO_USUARIO_OPTIONS = [
   'Proprietário (a)',
@@ -124,7 +125,7 @@ export default function RegisterPage() {
         .eq('condominio_id', condoId)
         .order('nome_ou_numero')
     )
-    setBlocos((data as any[] || []).filter((b: any) => b.nome_ou_numero !== '0'))
+    setBlocos((data as any[] || []).filter((b: any) => !isTechnicalAdminUnit(b.nome_ou_numero, '')))
     setSelectedBlocoId('')
     setSelectedAptoId('')
     setApartamentos([])
@@ -149,7 +150,7 @@ export default function RegisterPage() {
         numero = String((aptoData as { numero: string }).numero)
       }
       return { id: e.apartamento_id, numero }
-    }).filter((e: any) => e.numero !== '0')
+    }).filter((e: any) => !isTechnicalAdminUnit('', e.numero))
 
     setApartamentos(aptos)
     setSelectedAptoId('')

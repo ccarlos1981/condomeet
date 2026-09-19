@@ -2,6 +2,7 @@ import { createClient } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
 import EstruturaClient from './estrutura-client'
 import { fetchAll } from '@/lib/supabase/utils'
+import { isTechnicalAdminUnit } from '@/lib/labels'
 
 export default async function EstruturaPage() {
   const supabase = await createClient()
@@ -48,20 +49,28 @@ export default async function EstruturaPage() {
     ),
   ])
 
+  const filteredBlocos = (blocosData as { id: string; nome_ou_numero: string }[])
+    .filter(b => !isTechnicalAdminUnit(b.nome_ou_numero, ''))
+  const filteredApartamentos = (aptosData as { id: string; numero: string }[])
+    .filter(a => !isTechnicalAdminUnit('', a.numero))
+  const filteredUnidades = (unidadesData as any[])
+    .map((u: any) => ({
+      id: u.id as string,
+      bloco_id: u.bloco_id as string,
+      apartamento_id: u.apartamento_id as string,
+      bloqueada: u.bloqueada as boolean,
+      bloco_nome: (u.blocos as Record<string, string>)?.nome_ou_numero ?? '?',
+      apto_numero: (u.apartamentos as Record<string, string>)?.numero ?? '?',
+    }))
+    .filter(u => !isTechnicalAdminUnit(u.bloco_nome, u.apto_numero))
+
   return (
     <EstruturaClient
       condoId={condoId}
       tipoEstrutura={tipoEstrutura}
-      blocos={blocosData as { id: string; nome_ou_numero: string }[]}
-      apartamentos={aptosData as { id: string; numero: string }[]}
-      unidades={unidadesData.map((u: any) => ({
-        id: u.id as string,
-        bloco_id: u.bloco_id as string,
-        apartamento_id: u.apartamento_id as string,
-        bloqueada: u.bloqueada as boolean,
-        bloco_nome: (u.blocos as Record<string, string>)?.nome_ou_numero ?? '?',
-        apto_numero: (u.apartamentos as Record<string, string>)?.numero ?? '?',
-      }))}
+      blocos={filteredBlocos}
+      apartamentos={filteredApartamentos}
+      unidades={filteredUnidades}
     />
   )
 }
