@@ -4,6 +4,7 @@ import { useState, useMemo } from 'react'
 import { Search, X, Home, Lock, Users, Shield, Building2, ChevronLeft, ChevronRight, Edit } from 'lucide-react'
 import { getBlocoLabel, getAptoLabel } from '@/lib/labels'
 import EditProfileModal from '@/components/edit-profile-modal'
+import { isTechnicalAdminRole } from '@/lib/roles'
 
 type Morador = {
   id: string
@@ -25,6 +26,7 @@ const ROLE_CONFIG: Record<string, { bg: string; text: string; border: string; ic
   'Síndico (a)':  { bg: 'bg-amber-50',   text: 'text-amber-700',  border: 'border-amber-200',  icon: '⭐' },
   'síndico':      { bg: 'bg-amber-50',   text: 'text-amber-700',  border: 'border-amber-200',  icon: '⭐' },
   'Admin':        { bg: 'bg-rose-50',    text: 'text-rose-700',   border: 'border-rose-200',   icon: '🔐' },
+  'Administrador':{ bg: 'bg-rose-50',    text: 'text-rose-700',   border: 'border-rose-200',   icon: '🔐' },
 }
 const defaultRole = { bg: 'bg-gray-50', text: 'text-gray-600', border: 'border-gray-200', icon: '👤' }
 
@@ -312,7 +314,7 @@ export default function MoradoresClient({ moradores, tipoEstrutura }: { moradore
                   {/* Footer */}
                   <div className="px-4 py-2.5 bg-gray-50/80 border-t border-gray-100 flex items-center justify-between">
                     <div className="flex items-center gap-1.5 text-xs text-gray-500">
-                      {m.papel_sistema === 'Admin' || m.bloco_txt === 'Admin' ? (
+                      {isTechnicalAdminRole(m.papel_sistema) || m.bloco_txt === 'Admin' ? (
                         <span className="text-amber-700 font-medium flex items-center gap-1">
                           <Shield size={12} className="text-amber-500" /> Identidade Administrativa
                         </span>

@@ -3,6 +3,7 @@
 import { useState } from 'react'
 import { X, User, Save, Bell, Key } from 'lucide-react'
 import { adminUpdateProfile, adminResetPassword } from '@/app/admin/actions'
+import { isTechnicalAdminRole, normalizeRoleForPersistence } from '@/lib/roles'
 
 export type EditProfileData = {
   id: string
@@ -57,23 +58,23 @@ export default function EditProfileModal({
     whatsapp: profile.whatsapp ?? '',
     bloco_txt: profile.bloco_txt ?? '',
     apto_txt: profile.apto_txt ?? '',
-    papel_sistema: profile.papel_sistema ?? 'Morador',
+    papel_sistema: isTechnicalAdminRole(profile.papel_sistema) ? 'Admin' : (profile.papel_sistema ?? 'Morador'),
     tipo_morador: profile.tipo_morador ?? 'Proprietário (a)',
   })
 
-  const isAdminSelected = formData.papel_sistema === 'Admin'
+  const isAdminSelected = isTechnicalAdminRole(formData.papel_sistema)
 
   function handleRoleChange(newRole: string) {
-    if (newRole === 'Admin') {
+    if (isTechnicalAdminRole(newRole)) {
       setFormData(prev => ({
         ...prev,
-        papel_sistema: newRole,
+        papel_sistema: 'Admin',
         bloco_txt: 'Admin',
         apto_txt: 'Admin',
       }))
     } else {
       setFormData(prev => {
-        const wasAdmin = prev.papel_sistema === 'Admin' || prev.bloco_txt === 'Admin'
+        const wasAdmin = isTechnicalAdminRole(prev.papel_sistema) || prev.bloco_txt === 'Admin'
         return {
           ...prev,
           papel_sistema: newRole,
@@ -91,14 +92,15 @@ export default function EditProfileModal({
     setLoading(true)
 
     try {
+      const isRoleAdmin = isTechnicalAdminRole(formData.papel_sistema)
       const res = await adminUpdateProfile({
         id: profile.id,
         nome_completo: formData.nome_completo,
         email: formData.email,
         whatsapp: formData.whatsapp,
-        bloco_txt: isAdminSelected ? 'Admin' : formData.bloco_txt,
-        apto_txt: isAdminSelected ? 'Admin' : formData.apto_txt,
-        papel_sistema: formData.papel_sistema,
+        bloco_txt: isRoleAdmin ? 'Admin' : formData.bloco_txt,
+        apto_txt: isRoleAdmin ? 'Admin' : formData.apto_txt,
+        papel_sistema: isRoleAdmin ? 'Admin' : normalizeRoleForPersistence(formData.papel_sistema),
         tipo_morador: formData.tipo_morador,
       })
       
@@ -271,11 +273,11 @@ export default function EditProfileModal({
               <div>
                 <label className="block text-sm font-semibold text-gray-700 mb-1.5">Papel no Sistema (Permissão)</label>
                 <select
-                  value={formData.papel_sistema}
+                  value={isTechnicalAdminRole(formData.papel_sistema) ? 'Admin' : formData.papel_sistema}
                   onChange={e => handleRoleChange(e.target.value)}
                   className="w-full px-4 py-2.5 rounded-xl border border-gray-200 focus:ring-2 focus:ring-[#FC5931]/20 focus:border-[#FC5931] transition-all bg-gray-50/50"
                 >
-                  {formData.papel_sistema && !STANDARD_PAPEL_SISTEMA.some(p => p.value === formData.papel_sistema) && (
+                  {formData.papel_sistema && !STANDARD_PAPEL_SISTEMA.some(p => p.value === formData.papel_sistema) && !isTechnicalAdminRole(formData.papel_sistema) && (
                     <option value={formData.papel_sistema}>{formData.papel_sistema}</option>
                   )}
                   {STANDARD_PAPEL_SISTEMA.map(opt => (

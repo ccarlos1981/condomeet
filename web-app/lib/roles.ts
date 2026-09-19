@@ -103,3 +103,26 @@ export function normalizeRoleKey(role?: string | null): string {
 
   return r.replace(/[^a-z0-9]/g, '_').replace(/_+/g, '_').replace(/^_|_$/g, '') || 'morador'
 }
+
+/**
+ * Normaliza o papel para o valor canônico de persistência no banco de dados.
+ * Garante que qualquer variação de administrador ('Administrador', 'administradora', 'admin', etc.)
+ * seja persistida SEMPRE como 'Admin'.
+ */
+export function normalizeRoleForPersistence(role?: string | null): string {
+  if (!role) return 'Morador'
+  const r = role.trim().toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+  if (r === 'admin' || r === 'administrador' || r === 'administradora') {
+    return 'Admin'
+  }
+  return role.trim()
+}
+
+/**
+ * Valida se um papel representa uma identidade administrativa técnica sem unidade residencial ('Admin').
+ */
+export function isTechnicalAdminRole(role?: string | null): boolean {
+  if (!role) return false
+  const r = role.trim().toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+  return r === 'admin' || r === 'administrador' || r === 'administradora'
+}

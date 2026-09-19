@@ -4,7 +4,7 @@ import { createClient } from '@/lib/supabase/server'
 import { createClient as createSupabaseClient } from '@supabase/supabase-js'
 import { revalidatePath } from 'next/cache'
 
-import { isAdminRole } from '@/lib/roles'
+import { isAdminRole, isTechnicalAdminRole, normalizeRoleForPersistence } from '@/lib/roles'
 
 export async function adminUpdateProfile(data: {
   id: string
@@ -48,9 +48,12 @@ export async function adminUpdateProfile(data: {
     // 3. Normalize fields based on canonical roles
     let finalBloco = data.bloco_txt?.trim() ?? ''
     let finalApto = data.apto_txt?.trim() ?? ''
-    const isTargetAdmin = data.papel_sistema === 'Admin'
+    const isTargetAdmin = isTechnicalAdminRole(data.papel_sistema)
+
+    let canonicalPapel = normalizeRoleForPersistence(data.papel_sistema)
 
     if (isTargetAdmin) {
+      canonicalPapel = 'Admin'
       finalBloco = 'Admin'
       finalApto = 'Admin'
     } else if (finalBloco.toLowerCase() === 'admin' || finalApto.toLowerCase() === 'admin') {
@@ -64,7 +67,7 @@ export async function adminUpdateProfile(data: {
       email: data.email,
       bloco_txt: finalBloco,
       apto_txt: finalApto,
-      papel_sistema: data.papel_sistema,
+      papel_sistema: canonicalPapel,
     }
 
     if (data.tipo_morador !== undefined) {
