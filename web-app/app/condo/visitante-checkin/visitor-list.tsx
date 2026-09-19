@@ -235,14 +235,14 @@ export default function VisitorList({ initialInvitations, initialTotal, condoId,
     await supabase
       .from('convites')
       .update({
-        visitante_compareceu: 1,
+        visitante_compareceu: true,
         liberado_por: userId,
         liberado_em: new Date().toISOString(),
       })
       .eq('id', inv.id)
     // Optimistic update local state
     setInvitations(prev =>
-      prev.map(i => i.id === inv.id ? { ...i, visitante_compareceu: 1, liberado_em: new Date().toISOString() } : i)
+      prev.map(i => i.id === inv.id ? { ...i, visitante_compareceu: true, liberado_em: new Date().toISOString() } : i)
     )
     setApproving(null)
   }

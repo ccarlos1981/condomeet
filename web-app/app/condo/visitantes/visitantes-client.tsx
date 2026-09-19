@@ -37,9 +37,9 @@ function formatDate(dateStr: string) {
 
 function ConviteCard({ convite }: { convite: Convite }) {
   const chegou = Boolean(convite.visitante_compareceu)
-  const dateOnly = convite.validity_date?.includes('T') ? convite.validity_date.split('T')[0] : convite.validity_date
-  const validDate = new Date(dateOnly + 'T00:00:00')
-  const isExpired = validDate < new Date() && !chegou
+  const dateOnly = convite.validity_date ? convite.validity_date.split(/[\sT]/)[0] : ''
+  const validDate = new Date(dateOnly + 'T23:59:59.999')
+  const isExpired = !isNaN(validDate.getTime()) && validDate < new Date() && !chegou
   // Show short code: for long codes like CONDOMEET_INV_xxx, show last 3 chars
   const rawCode = convite.qr_data ? convite.qr_data.toUpperCase() : '—'
   const code = rawCode.length > 6 ? rawCode.slice(-3) : rawCode
