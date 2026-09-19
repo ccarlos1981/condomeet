@@ -2,6 +2,7 @@ import { createClient } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
 import ParcelList from '../encomendas/parcel-list'
 import { filterResidentialBlocos, filterResidentialAptos } from '@/lib/labels'
+import { isAdminRole, isPorterRole, isFeatureVisible } from '@/lib/roles'
 
 export const metadata = { title: 'Encomendas do Condomínio — Condomeet' }
 
@@ -16,24 +17,23 @@ export default async function EncomendasAdminPage() {
     .eq('id', user.id)
     .single()
 
-  const role = (profile?.papel_sistema ?? '').toLowerCase()
-  const isAdmin =
-    role.includes('admin') ||
-    role.includes('portaria') ||
-    role.includes('porteiro') ||
-    role.includes('síndico') ||
-    role.includes('sindico') ||
-    role.includes('sub') ||
-    role.includes('zelador') ||
-    role.includes('funcionario')
+  const rawRole = profile?.papel_sistema
+  const isSysAdmin = isAdminRole(rawRole)
+  const isPorter = isPorterRole(rawRole)
+  const roleLower = (rawRole ?? '').toLowerCase()
+  const isStaffLegacy = roleLower.includes('zelador') || roleLower.includes('funcionario')
+
+  if (!isSysAdmin && !isPorter && !isStaffLegacy) {
+    redirect('/condo')
+  }
 
   const condoId = profile?.condominio_id ?? ''
 
-  // Fetch tipo_estrutura, blocos and apartamentos in parallel (independent queries)
+  // Fetch tipo_estrutura, features_config, blocos and apartamentos in parallel
   const [condoResult, blocosData, aptosData] = await Promise.all([
     supabase
       .from('condominios')
-      .select('tipo_estrutura')
+      .select('tipo_estrutura, features_config')
       .eq('id', condoId)
       .single(),
     supabase
@@ -49,6 +49,18 @@ export default async function EncomendasAdminPage() {
   ])
   const tipoEstrutura = condoResult.data?.tipo_estrutura ?? 'predio'
 
+  // Se for Portaria (sem privilégio de admin), só acessa se o módulo estiver liberado no features_config
+  if (isPorter && !isSysAdmin) {
+    const featuresConfig = condoResult.data?.features_config
+    const canAccessParcels =
+      isFeatureVisible('pending_del', rawRole, featuresConfig) ||
+      isFeatureVisible('parcels', rawRole, featuresConfig)
+
+    if (!canAccessParcels) {
+      redirect('/condo')
+    }
+  }
+
   const allBlocos = filterResidentialBlocos((blocosData.data ?? []).map(b => b.nome_ou_numero))
   const allAptosArr = filterResidentialAptos((aptosData.data ?? []).map(a => a.numero))
   // Map: every bloco gets the same set of aptos (standard structure)
@@ -61,6 +73,8 @@ export default async function EncomendasAdminPage() {
   // NOTE: parcels are now fetched client-side by ParcelList with server-side
   // filtering + pagination (10/page). No need to preload here.
 
+  const canRegister = isSysAdmin || isPorter
+
   return (
     <div className="p-6 lg:p-8 max-w-5xl">
       <div className="mb-6 flex items-center justify-between flex-wrap gap-3">
@@ -72,7 +86,7 @@ export default async function EncomendasAdminPage() {
             Encomendas do Condomínio
           </h1>
         </div>
-        {isAdmin && (
+        {canRegister && (
           <a
             href="/condo/registrar-encomenda"
             className="flex items-center gap-2 bg-[#FC5931] text-white text-sm font-semibold px-5 py-2.5 rounded-xl hover:bg-[#D42F1D] transition-colors shadow-sm"
@@ -84,7 +98,7 @@ export default async function EncomendasAdminPage() {
 
       <ParcelList
         initialParcels={[]}
-        isPorter={isAdmin}
+        isPorter={isSysAdmin || isPorter}
         userId={user.id}
         condoId={condoId}
         tipoEstrutura={tipoEstrutura}

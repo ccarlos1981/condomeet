@@ -2,7 +2,7 @@ import { createClient } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
 import ParcelRegisterForm from './parcel-register-form'
 import { fetchAll } from '@/lib/supabase/utils'
-import { isAdminRole, isPorterRole } from '@/lib/roles'
+import { isAdminRole, isPorterRole, isFeatureVisible } from '@/lib/roles'
 import { filterResidentialBlocos, filterResidentialAptos, isTechnicalAdminUnit } from '@/lib/labels'
 
 export const metadata = { title: 'Registrar Encomenda — Condomeet' }
@@ -12,6 +12,30 @@ export interface UnitOption {
   aptoNumero: string
   residentId: string | null
   residentName: string | null
+}
+
+interface BlocoRow {
+  id: string
+  nome_ou_numero: string
+}
+
+interface AptoRow {
+  id: string
+  numero: string
+}
+
+interface UnidadeRow {
+  id: string
+  bloco_id: string
+  apartamento_id: string
+}
+
+interface PerfilRow {
+  id: string
+  nome_completo: string
+  bloco_txt: string | null
+  apto_txt: string | null
+  papel_sistema?: string | null
 }
 
 export default async function RegistrarEncomendaPage() {
@@ -25,17 +49,19 @@ export default async function RegistrarEncomendaPage() {
     .eq('id', user.id)
     .single()
 
-  const isPorter = isAdminRole(profile?.papel_sistema) || isPorterRole(profile?.papel_sistema)
+  const role = profile?.papel_sistema
+  const isAdmin = isAdminRole(role)
+  const isPorter = isPorterRole(role)
 
-  if (!isPorter) redirect('/condo')
+  if (!isAdmin && !isPorter) redirect('/condo')
 
   const condoId = profile?.condominio_id ?? ''
 
-  // Fetch tipo_estrutura, blocos and apartamentos in parallel (independent queries)
+  // Fetch tipo_estrutura, features_config, blocos and apartamentos in parallel
   const [condoResult, blocos, rawAptos] = await Promise.all([
     supabase
       .from('condominios')
-      .select('tipo_estrutura')
+      .select('tipo_estrutura, features_config')
       .eq('id', condoId)
       .single(),
     fetchAll(
@@ -54,17 +80,31 @@ export default async function RegistrarEncomendaPage() {
     ),
   ])
 
+  // Portaria só pode registrar encomenda se o módulo estiver explicitamente liberado no features_config
+  if (isPorter && !isAdmin) {
+    const featuresConfig = condoResult.data?.features_config
+    const canAccessParcels =
+      isFeatureVisible('pending_del', role, featuresConfig) ||
+      isFeatureVisible('parcels', role, featuresConfig)
+
+    if (!canAccessParcels) {
+      redirect('/condo')
+    }
+  }
+
   const tipoEstrutura = condoResult.data?.tipo_estrutura ?? 'predio'
 
-  const allBlocosDesc = filterResidentialBlocos((blocos as any[] ?? []).map((b: any) => b.nome_ou_numero))
-  const allAptosDesc = filterResidentialAptos((rawAptos as any[] ?? []).map((a: any) => a.numero))
+  const rawBlocos = (blocos as unknown as BlocoRow[]) ?? []
+  const rawApartamentos = (rawAptos as unknown as AptoRow[]) ?? []
 
+  const allBlocosDesc = filterResidentialBlocos(rawBlocos.map(b => b.nome_ou_numero))
+  const allAptosDesc = filterResidentialAptos(rawApartamentos.map(a => a.numero))
 
   let units: UnitOption[] = []
 
-  if (blocos && blocos.length > 0) {
+  if (rawBlocos.length > 0) {
     const blocoMap: Record<string, string> = {}
-    ;(blocos as any[]).forEach((b: any) => { blocoMap[b.id] = b.nome_ou_numero })
+    rawBlocos.forEach(b => { blocoMap[b.id] = b.nome_ou_numero })
 
     const unidades = await fetchAll(
       supabase
@@ -72,11 +112,12 @@ export default async function RegistrarEncomendaPage() {
         .select('id, bloco_id, apartamento_id')
         .eq('condominio_id', condoId)
     )
+    const rawUnidades = (unidades as unknown as UnidadeRow[]) ?? []
 
-    if (unidades && unidades.length > 0) {
-      // Reuse rawAptos instead of fetching apartamentos again (eliminates duplicate query)
+    if (rawUnidades.length > 0) {
+      // Reuse rawApartamentos instead of fetching apartamentos again (eliminates duplicate query)
       const aptoMap: Record<string, string> = {}
-      ;(rawAptos as any[] ?? []).forEach((a: any) => { aptoMap[a.id] = a.numero })
+      rawApartamentos.forEach(a => { aptoMap[a.id] = a.numero })
 
       // Fetch residents to map bloco_txt+apto_txt → profile (excluding technical Admin)
       const perfis = await fetchAll(
@@ -88,15 +129,16 @@ export default async function RegistrarEncomendaPage() {
           .neq('bloco_txt', 'Admin')
           .not('apto_txt', 'is', null)
       )
+      const rawPerfis = (perfis as unknown as PerfilRow[]) ?? []
 
       const residentMap: Record<string, { id: string; nome: string }> = {}
-      ;(perfis as any[] ?? []).forEach((p: any) => {
+      rawPerfis.forEach(p => {
         const key = `${p.bloco_txt}|${p.apto_txt}`
         residentMap[key] = { id: p.id, nome: p.nome_completo }
       })
 
-      units = (unidades as any[])
-        .map((u: any) => {
+      units = rawUnidades
+        .map(u => {
           const blocoNome = blocoMap[u.bloco_id] ?? '?'
           const aptoNumero = aptoMap[u.apartamento_id] ?? '?'
           const resident = residentMap[`${blocoNome}|${aptoNumero}`]
@@ -127,10 +169,11 @@ export default async function RegistrarEncomendaPage() {
         .order('bloco_txt')
         .order('apto_txt')
     )
+    const rawPerfisFallback = (perfis as unknown as PerfilRow[]) ?? []
 
-    units = (perfis as any[] ?? [])
-      .filter((p: any) => !isTechnicalAdminUnit(p.bloco_txt, p.apto_txt))
-      .map((p: any) => ({
+    units = rawPerfisFallback
+      .filter(p => !isTechnicalAdminUnit(p.bloco_txt, p.apto_txt))
+      .map(p => ({
         blocoNome: p.bloco_txt ?? '?',
         aptoNumero: p.apto_txt ?? '?',
         residentId: p.id,

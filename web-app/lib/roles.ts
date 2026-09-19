@@ -148,3 +148,58 @@ export function canPromoteToAdmin(role?: string | null): boolean {
   return false
 }
 
+interface FeatureFunctionItem {
+  id?: string
+  roles?: Record<string, { visible?: boolean }>
+}
+
+interface FeaturesConfigDoc {
+  functions?: FeatureFunctionItem[]
+}
+
+/**
+ * Valida de forma canônica e dinâmica se uma funcionalidade está habilitada
+ * para um papel específico no features_config do condomínio.
+ *
+ * @param featureId ID da função em features_config (ex: 'guest_checkin', 'parcels', 'pending_del')
+ * @param role Papel do usuário (papel_sistema)
+ * @param featuresConfig Objeto ou string JSON de condominios.features_config
+ * @param defaultIfNoConfig Fallback caso o condomínio não possua features_config configurado
+ */
+export function isFeatureVisible(
+  featureId: string,
+  role?: string | null,
+  featuresConfig?: unknown,
+  defaultIfNoConfig: boolean = false
+): boolean {
+  if (!featuresConfig) return defaultIfNoConfig
+
+  let config: FeaturesConfigDoc | null = null
+  if (typeof featuresConfig === 'string') {
+    try {
+      config = JSON.parse(featuresConfig) as FeaturesConfigDoc
+    } catch {
+      return defaultIfNoConfig
+    }
+  } else if (typeof featuresConfig === 'object' && featuresConfig !== null) {
+    config = featuresConfig as FeaturesConfigDoc
+  }
+
+  if (!config || !Array.isArray(config.functions) || config.functions.length === 0) {
+    return defaultIfNoConfig
+  }
+
+  const roleKey = normalizeRoleKey(role)
+  const fn = config.functions.find((f: FeatureFunctionItem) => f && f.id === featureId)
+  if (!fn) return false
+
+  const roleData = fn.roles?.[roleKey]
+  if (roleData && typeof roleData.visible === 'boolean') {
+    return roleData.visible
+  }
+
+  return false
+}
+
+
+
