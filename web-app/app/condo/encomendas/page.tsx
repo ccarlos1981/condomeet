@@ -1,6 +1,7 @@
 import { createClient } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
 import ParcelList from './parcel-list'
+import { isAdminRole, isFeatureVisible } from '@/lib/roles'
 
 export const metadata = { title: 'Minhas Encomendas — Condomeet' }
 
@@ -16,13 +17,21 @@ export default async function EncomendasPage() {
     .single()
 
   const condoId = profile?.condominio_id ?? ''
+  const rawRole = profile?.papel_sistema
 
   const { data: condoData } = await supabase
     .from('condominios')
-    .select('tipo_estrutura')
+    .select('tipo_estrutura, features_config')
     .eq('id', condoId)
     .single()
   const tipoEstrutura = condoData?.tipo_estrutura ?? 'predio'
+
+  const isSysAdmin = isAdminRole(rawRole)
+  const canAccess = isSysAdmin || isFeatureVisible('parcels', rawRole, condoData?.features_config, true)
+
+  if (!canAccess) {
+    redirect('/condo')
+  }
 
   // Always filter by unit (bloco + apto) — this is "Minhas Encomendas"
   let query = supabase

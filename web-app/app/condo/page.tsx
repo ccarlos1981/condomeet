@@ -40,7 +40,7 @@ export default async function CondoDashboard() {
   // Permissões dinâmicas por funcionalidade baseadas no features_config do condomínio
   const canGuestCheckin = isFeatureVisible('guest_checkin', role, featuresConfig, isPorter)
   const canVisitorApproval = isFeatureVisible('visitor_approval', role, featuresConfig, false)
-  const canPendingDel = isFeatureVisible('pending_del', role, featuresConfig, isAdmin)
+  const canPendingDel = isAdmin || isFeatureVisible('pending_del', role, featuresConfig, isPorter)
   const canParcels = isFeatureVisible('parcels', role, featuresConfig, !isPorter)
   const canAuthorizeVisitor = isFeatureVisible('authorize_visitor', role, featuresConfig, !isPorter)
   const canPortariaAuthorize = isFeatureVisible('portaria_authorize', role, featuresConfig, isAdmin)
@@ -61,25 +61,28 @@ export default async function CondoDashboard() {
     pendingCount = recentInvitations?.filter(i => !i.visitante_compareceu).length ?? 0
   }
 
-  // Fetch pending parcels count only if the user/role has parcels/pending_del feature enabled
-  const shouldQueryParcels = (isPorter || isAdmin) ? (canPendingDel || canParcels) : canParcels
+  // Fetch pending parcels count for condo strictly according to canPendingDel
   let pendingParcelsCount = 0
-
-  if (shouldQueryParcels) {
-    let pendingParcelsQuery = supabase
+  if (canPendingDel) {
+    const { count } = await supabase
       .from('encomendas')
       .select('*', { count: 'exact', head: true })
       .eq('condominio_id', profile?.condominio_id ?? '')
       .eq('status', 'pending')
-
-    if (!isPorter && !isAdmin) {
-      pendingParcelsQuery = pendingParcelsQuery
-        .eq('bloco', profile?.bloco_txt ?? '')
-        .eq('apto', profile?.apto_txt ?? '')
-    }
-
-    const { count } = await pendingParcelsQuery
     pendingParcelsCount = count ?? 0
+  }
+
+  // Fetch resident pending parcels count strictly according to canParcels
+  let myParcelsCount = 0
+  if (canParcels) {
+    const { count } = await supabase
+      .from('encomendas')
+      .select('*', { count: 'exact', head: true })
+      .eq('condominio_id', profile?.condominio_id ?? '')
+      .eq('status', 'pending')
+      .eq('bloco', profile?.bloco_txt ?? '')
+      .eq('apto', profile?.apto_txt ?? '')
+    myParcelsCount = count ?? 0
   }
 
   // Fetch invitations this month count only if not porter and authorized
@@ -127,7 +130,7 @@ export default async function CondoDashboard() {
         iconBg: 'bg-orange-500/10',
       })
     }
-    if (canPendingDel || canParcels) {
+    if (canPendingDel) {
       quickActions.push({
         label: 'Registrar Encomenda',
         sub: 'Novo pacote recebido',
@@ -136,9 +139,27 @@ export default async function CondoDashboard() {
         iconColor: 'text-blue-500',
         iconBg: 'bg-blue-500/10',
       })
+      quickActions.push({
+        label: 'Encomendas do Condomínio',
+        sub: `${pendingParcelsCount} pendente${pendingParcelsCount !== 1 ? 's' : ''}`,
+        icon: Package,
+        href: '/condo/encomendas-admin',
+        iconColor: 'text-blue-500',
+        iconBg: 'bg-blue-500/10',
+      })
+    }
+    if (canParcels) {
+      quickActions.push({
+        label: 'Minhas Encomendas',
+        sub: 'Ver entregas',
+        icon: Package,
+        href: '/condo/encomendas',
+        iconColor: 'text-blue-500',
+        iconBg: 'bg-blue-500/10',
+      })
     }
   } else {
-    // Morador / Admin / Síndico
+    // Morador / Admin / Síndico / Zelador / Funcionário
     if (isAdmin && canPortariaAuthorize) {
       quickActions.push({
         label: 'Autorização Visit. (Port.)',
@@ -156,6 +177,25 @@ export default async function CondoDashboard() {
         href: '/condo/visitantes',
         iconColor: 'text-orange-500',
         iconBg: 'bg-orange-500/10',
+      })
+    }
+
+    if (canPendingDel) {
+      quickActions.push({
+        label: 'Registrar Encomenda',
+        sub: 'Novo pacote recebido',
+        icon: Package,
+        href: '/condo/registrar-encomenda',
+        iconColor: 'text-blue-500',
+        iconBg: 'bg-blue-500/10',
+      })
+      quickActions.push({
+        label: 'Encomendas do Condomínio',
+        sub: `${pendingParcelsCount} pendente${pendingParcelsCount !== 1 ? 's' : ''}`,
+        icon: Package,
+        href: '/condo/encomendas-admin',
+        iconColor: 'text-blue-500',
+        iconBg: 'bg-blue-500/10',
       })
     }
 
@@ -214,10 +254,21 @@ export default async function CondoDashboard() {
     })
   }
 
-  if (shouldQueryParcels) {
+  if (canPendingDel) {
+    statsItems.push({
+      label: 'Encomendas Pendentes',
+      value: pendingParcelsCount,
+      icon: Package,
+      iconColor: 'text-blue-500',
+      iconBg: 'bg-blue-500/10',
+      accentColor: 'border-blue-200',
+    })
+  }
+
+  if (canParcels) {
     statsItems.push({
       label: 'Encomendas a Retirar',
-      value: pendingParcelsCount,
+      value: myParcelsCount,
       icon: Package,
       iconColor: 'text-blue-500',
       iconBg: 'bg-blue-500/10',

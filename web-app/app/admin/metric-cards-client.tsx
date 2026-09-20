@@ -56,7 +56,7 @@ export default function MetricCardsClient({ counts }: { counts: MetricCounts }) 
 
   // 1. "Os 4 cards da primeira fileira, seriam: Encomendas pendentes, Pendente de aprovação, Fale conosco, Ocorrencias abertas"
   const top4Metrics: MetricDef[] = [
-    { label: 'Encom. Pendentes', value: counts.encomendasPendentes, subtitle: `${counts.encomendasMes} este mês`, icon: Package, color: 'orange', href: '/admin/encomendas' },
+    { label: 'Encom. Pendentes', value: counts.encomendasPendentes, subtitle: `${counts.encomendasMes} este mês`, icon: Package, color: 'orange', href: '/condo/encomendas-admin' },
     { label: 'Pend. Aprovação', value: counts.pendingApprovals, icon: ClipboardCheck, color: 'amber', alert: counts.pendingApprovals > 0, href: '/admin/aprovacoes' },
     { label: 'Fale Conosco', value: counts.faleConoscoAbertos, icon: MessageSquare, color: 'purple', alert: counts.faleConoscoAbertos > 0, href: '/admin/fale-conosco' },
     { label: 'Ocorrências Abertas', value: counts.ocorrenciasAbertas, icon: AlertCircle, color: 'red', alert: counts.ocorrenciasAbertas > 0, href: '/admin/ocorrencias' },

@@ -2,7 +2,7 @@ import { createClient } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
 import ParcelList from '../encomendas/parcel-list'
 import { filterResidentialBlocos, filterResidentialAptos } from '@/lib/labels'
-import { isAdminRole, isPorterRole, isFeatureVisible } from '@/lib/roles'
+import { isAdminRole, isFeatureVisible } from '@/lib/roles'
 
 export const metadata = { title: 'Encomendas do Condomínio — Condomeet' }
 
@@ -19,14 +19,6 @@ export default async function EncomendasAdminPage() {
 
   const rawRole = profile?.papel_sistema
   const isSysAdmin = isAdminRole(rawRole)
-  const isPorter = isPorterRole(rawRole)
-  const roleLower = (rawRole ?? '').toLowerCase()
-  const isStaffLegacy = roleLower.includes('zelador') || roleLower.includes('funcionario')
-
-  if (!isSysAdmin && !isPorter && !isStaffLegacy) {
-    redirect('/condo')
-  }
-
   const condoId = profile?.condominio_id ?? ''
 
   // Fetch tipo_estrutura, features_config, blocos and apartamentos in parallel
@@ -48,17 +40,16 @@ export default async function EncomendasAdminPage() {
       .gt('numero', '0'),
   ])
   const tipoEstrutura = condoResult.data?.tipo_estrutura ?? 'predio'
+  const featuresConfig = condoResult.data?.features_config
 
-  // Se for Portaria (sem privilégio de admin), só acessa se o módulo estiver liberado no features_config
-  if (isPorter && !isSysAdmin) {
-    const featuresConfig = condoResult.data?.features_config
-    const canAccessParcels =
-      isFeatureVisible('pending_del', rawRole, featuresConfig) ||
-      isFeatureVisible('parcels', rawRole, featuresConfig)
+  // O síndico define no features_config quem pode acessar pending_del ("Encomendas do Cond.")
+  // Admin e Síndico possuem acesso nativo; demais perfis dependem da autorização dinâmica do síndico
+  const canAccessParcels =
+    isSysAdmin ||
+    isFeatureVisible('pending_del', rawRole, featuresConfig)
 
-    if (!canAccessParcels) {
-      redirect('/condo')
-    }
+  if (!canAccessParcels) {
+    redirect('/condo')
   }
 
   const allBlocos = filterResidentialBlocos((blocosData.data ?? []).map(b => b.nome_ou_numero))
@@ -69,11 +60,10 @@ export default async function EncomendasAdminPage() {
     allAptosMap[bloco] = allAptosArr
   }
 
-
   // NOTE: parcels are now fetched client-side by ParcelList with server-side
   // filtering + pagination (10/page). No need to preload here.
 
-  const canRegister = isSysAdmin || isPorter
+  const canRegister = canAccessParcels
 
   return (
     <div className="p-6 lg:p-8 max-w-5xl">
@@ -98,7 +88,7 @@ export default async function EncomendasAdminPage() {
 
       <ParcelList
         initialParcels={[]}
-        isPorter={isSysAdmin || isPorter}
+        isPorter={canAccessParcels}
         userId={user.id}
         condoId={condoId}
         tipoEstrutura={tipoEstrutura}

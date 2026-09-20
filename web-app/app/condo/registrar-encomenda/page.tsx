@@ -2,7 +2,7 @@ import { createClient } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
 import ParcelRegisterForm from './parcel-register-form'
 import { fetchAll } from '@/lib/supabase/utils'
-import { isAdminRole, isPorterRole, isFeatureVisible } from '@/lib/roles'
+import { isAdminRole, isFeatureVisible } from '@/lib/roles'
 import { filterResidentialBlocos, filterResidentialAptos, isTechnicalAdminUnit } from '@/lib/labels'
 
 export const metadata = { title: 'Registrar Encomenda — Condomeet' }
@@ -51,10 +51,6 @@ export default async function RegistrarEncomendaPage() {
 
   const role = profile?.papel_sistema
   const isAdmin = isAdminRole(role)
-  const isPorter = isPorterRole(role)
-
-  if (!isAdmin && !isPorter) redirect('/condo')
-
   const condoId = profile?.condominio_id ?? ''
 
   // Fetch tipo_estrutura, features_config, blocos and apartamentos in parallel
@@ -80,16 +76,15 @@ export default async function RegistrarEncomendaPage() {
     ),
   ])
 
-  // Portaria só pode registrar encomenda se o módulo estiver explicitamente liberado no features_config
-  if (isPorter && !isAdmin) {
-    const featuresConfig = condoResult.data?.features_config
-    const canAccessParcels =
-      isFeatureVisible('pending_del', role, featuresConfig) ||
-      isFeatureVisible('parcels', role, featuresConfig)
+  const featuresConfig = condoResult.data?.features_config
+  // O síndico define no features_config quem pode registrar encomendas (pending_del)
+  // Admin e Síndico possuem acesso nativo; demais perfis dependem da autorização dinâmica do síndico
+  const canAccessParcels =
+    isAdmin ||
+    isFeatureVisible('pending_del', role, featuresConfig)
 
-    if (!canAccessParcels) {
-      redirect('/condo')
-    }
+  if (!canAccessParcels) {
+    redirect('/condo')
   }
 
   const tipoEstrutura = condoResult.data?.tipo_estrutura ?? 'predio'
