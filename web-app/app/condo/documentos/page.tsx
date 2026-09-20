@@ -2,6 +2,7 @@ import { createClient } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
 import { FolderOpen, FileText, Download, Eye, CheckCircle2 } from 'lucide-react'
 import { getCategoriaBadge } from '@/app/admin/documentos/constants'
+import { isAdminRole, isFeatureVisible } from '@/lib/roles'
 
 export const metadata = { title: 'Documentos — Condomeet' }
 
@@ -11,12 +12,33 @@ export default async function CondoDocumentosPage() {
   if (!user) redirect('/login')
 
   const { data: profile } = await supabase
-  .from('perfil')
-  .select('condominio_id')
-  .eq('id', user.id)
-  .single()
+    .from('perfil')
+    .select('condominio_id, papel_sistema')
+    .eq('id', user.id)
+    .single()
 
   const condoId = profile?.condominio_id ?? ''
+  const rawRole = profile?.papel_sistema
+
+  // Query features_config to validate dynamic feature permission
+  const { data: condo } = await supabase
+    .from('condominios')
+    .select('features_config')
+    .eq('id', condoId)
+    .single()
+
+  const featuresConfig = condo?.features_config
+  const isSysAdmin = isAdminRole(rawRole)
+
+  // Validate dynamic permission with safe fallback for legacy condominios
+  const canAccess =
+    isSysAdmin ||
+    isFeatureVisible('documents', rawRole, featuresConfig, true)
+
+  if (!canAccess) {
+    redirect('/condo')
+  }
+
 
   // Fetch docs visible to residents
   const { data: docs } = await supabase

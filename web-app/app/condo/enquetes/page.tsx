@@ -1,5 +1,6 @@
 import { createClient } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
+import { isAdminRole, isFeatureVisible } from '@/lib/roles'
 import EnquetesMoradorClient from './enquetes-morador-client'
 
 export default async function EnquetesMoradorPage() {
@@ -9,13 +10,34 @@ export default async function EnquetesMoradorPage() {
 
   const { data: profile } = await supabase
     .from('perfil')
-    .select('condominio_id, bloco_txt, apto_txt')
+    .select('condominio_id, bloco_txt, apto_txt, papel_sistema')
     .eq('id', user.id)
     .single()
 
   const condoId = profile?.condominio_id ?? ''
   const bloco = profile?.bloco_txt ?? ''
   const apto = profile?.apto_txt ?? ''
+  const rawRole = profile?.papel_sistema
+
+  // Query features_config to validate dynamic feature permission
+  const { data: condo } = await supabase
+    .from('condominios')
+    .select('features_config')
+    .eq('id', condoId)
+    .single()
+
+  const featuresConfig = condo?.features_config
+  const isSysAdmin = isAdminRole(rawRole)
+
+  // Validate dynamic permission with safe fallback for legacy condominios
+  const canAccess =
+    isSysAdmin ||
+    isFeatureVisible('enquetes', rawRole, featuresConfig, true)
+
+  if (!canAccess) {
+    redirect('/condo')
+  }
+
 
   // All active enquetes with options
   const { data: enquetes } = await supabase

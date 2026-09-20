@@ -1,5 +1,6 @@
 import { createClient } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
+import { isAdminRole, isPorterRole, isFeatureVisible } from '@/lib/roles'
 import LiberarVisitanteClient from './liberar-visitante-client'
 
 export default async function LiberarVisitantePage() {
@@ -9,19 +10,32 @@ export default async function LiberarVisitantePage() {
 
   const { data: profile } = await supabase
     .from('perfil')
-    .select('condominio_id')
+    .select('condominio_id, papel_sistema')
     .eq('id', user.id)
     .single()
 
   const condoId = profile?.condominio_id ?? ''
 
-  // Fetch tipo_estrutura
+  // Fetch tipo_estrutura and features_config from condominios
   const { data: condo } = await supabase
     .from('condominios')
-    .select('tipo_estrutura')
+    .select('tipo_estrutura, features_config')
     .eq('id', condoId)
     .single()
   const tipoEstrutura = condo?.tipo_estrutura ?? 'predio'
+  const featuresConfig = condo?.features_config
+
+  const role = profile?.papel_sistema
+  const isSysAdmin = isAdminRole(role)
+  const isPorter = isPorterRole(role)
+
+  const canAccess =
+    isSysAdmin ||
+    isFeatureVisible('visitor_approval', role, featuresConfig, isPorter)
+
+  if (!canAccess) {
+    redirect('/condo')
+  }
 
   // Fetch registered visitors (most recent 100)
   const { data: visitantes } = await supabase

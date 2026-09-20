@@ -1,5 +1,6 @@
 import { createClient } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
+import { isAdminRole, isPorterRole, isFeatureVisible } from '@/lib/roles'
 import RegistroTurnoPorteiroClient from './registro-turno-porteiro-client'
 
 export const metadata = { title: 'Registro de Turno — Condomeet' }
@@ -16,6 +17,26 @@ export default async function RegistroTurnoPage() {
     .single()
 
   const condoId = profile?.condominio_id ?? ''
+
+  // Fetch features_config from condominios
+  const { data: condo } = await supabase
+    .from('condominios')
+    .select('features_config')
+    .eq('id', condoId)
+    .single()
+  const featuresConfig = condo?.features_config
+
+  const rawRole = profile?.papel_sistema
+  const isSysAdmin = isAdminRole(rawRole)
+  const isPorter = isPorterRole(rawRole)
+
+  const canAccess =
+    isSysAdmin ||
+    isFeatureVisible('registro_turno', rawRole, featuresConfig, isPorter)
+
+  if (!canAccess) {
+    redirect('/condo')
+  }
 
   // Load inventory items
   const { data: inventario } = await supabase

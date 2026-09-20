@@ -1,5 +1,6 @@
 import { createClient } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
+import { isAdminRole, isPorterRole, isFeatureVisible } from '@/lib/roles'
 import AutorizarVisitantePortariaClient from './autorizar-visitante-portaria-client'
 import { filterResidentialBlocos, filterResidentialAptos, isTechnicalAdminUnit } from '@/lib/labels'
 
@@ -18,13 +19,26 @@ export default async function AutorizarVisitantePortariaPage() {
 
   const condoId = profile?.condominio_id ?? ''
 
-  // Get condo name
+  // Get condo name, tipo_estrutura and features_config
   const { data: condo } = await supabase
     .from('condominios')
-    .select('nome, tipo_estrutura')
+    .select('nome, tipo_estrutura, features_config')
     .eq('id', condoId)
     .single()
   const tipoEstrutura = condo?.tipo_estrutura ?? 'predio'
+  const featuresConfig = condo?.features_config
+
+  const role = profile?.papel_sistema
+  const isSysAdmin = isAdminRole(role)
+  const isPorter = isPorterRole(role)
+
+  const canAccess =
+    isSysAdmin ||
+    isFeatureVisible('portaria_authorize', role, featuresConfig, isPorter)
+
+  if (!canAccess) {
+    redirect('/condo')
+  }
 
   // Fetch structural blocks and apartments
   const { data: structuralData } = await supabase

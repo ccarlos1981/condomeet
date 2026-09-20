@@ -1,5 +1,6 @@
 import { createClient } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
+import { isAdminRole, isPorterRole, isFeatureVisible } from '@/lib/roles'
 import RegistrarVisitanteClient from './registrar-visitante-client'
 
 export const metadata = { title: 'Registrar Visitante — Condomeet' }
@@ -17,13 +18,26 @@ export default async function RegistrarVisitantePage() {
 
   const condoId = profile?.condominio_id ?? ''
 
-  // Fetch tipo_estrutura from condominios
+  // Fetch tipo_estrutura and features_config from condominios
   const { data: condo } = await supabase
     .from('condominios')
-    .select('tipo_estrutura')
+    .select('tipo_estrutura, features_config')
     .eq('id', condoId)
     .single()
   const tipoEstrutura = condo?.tipo_estrutura ?? 'predio'
+  const featuresConfig = condo?.features_config
+
+  const role = profile?.papel_sistema
+  const isSysAdmin = isAdminRole(role)
+  const isPorter = isPorterRole(role)
+
+  const canAccess =
+    isSysAdmin ||
+    isFeatureVisible('visitor_register', role, featuresConfig, isPorter)
+
+  if (!canAccess) {
+    redirect('/condo')
+  }
 
   // Recent visitors (last 50)
   const { data: visitantes } = await supabase

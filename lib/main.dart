@@ -197,13 +197,30 @@ class AuthRootGate extends StatefulWidget {
   State<AuthRootGate> createState() => _AuthRootGateState();
 }
 
-class _AuthRootGateState extends State<AuthRootGate> {
+class _AuthRootGateState extends State<AuthRootGate> with WidgetsBindingObserver {
   VersionGateResult? _gateResult;
 
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     _checkVersion();
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    // Ao voltar da loja para o app, reavalia a versão instalada.
+    // Só desbloqueia se a nova versão efetivamente atender à política.
+    if (state == AppLifecycleState.resumed && _gateResult?.isBlocked == true) {
+      debugPrint('🔄 [AuthRootGate] App retornou ao primeiro plano com bloqueio ativo: reavaliando versão instalada...');
+      _checkVersion();
+    }
   }
 
   Future<void> _checkVersion() async {
@@ -240,7 +257,7 @@ class _AuthRootGateState extends State<AuthRootGate> {
       return const SplashScreen();
     }
 
-    // 2. Se a build instalada for menor que a versão mínima, intercepta e bloqueia
+    // 2. Se a versão instalada for menor que a versão mínima, intercepta e bloqueia com popup
     if (_gateResult!.isBlocked) {
       return ForceUpdateScreen(
         gateResult: _gateResult!,

@@ -100,6 +100,7 @@ export function normalizeRoleKey(role?: string | null): string {
   if (r.includes('propriet') && r.includes('nao')) return 'proprietario_nao_morador'
   if (r.includes('propriet')) return 'proprietario'
   if (r.includes('funcionar')) return 'funcionario'
+  if (r.includes('morador')) return 'morador'
 
   return r.replace(/[^a-z0-9]/g, '_').replace(/_+/g, '_').replace(/^_|_$/g, '') || 'morador'
 }

@@ -1,5 +1,7 @@
 import 'dart:async';
+import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:package_info_plus/package_info_plus.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:condomeet/core/services/version_check_service.dart';
 
@@ -55,18 +57,76 @@ class FakeSupabaseClient extends Fake implements SupabaseClient {
       FakeQueryBuilder(dataToReturn: dataToReturn, shouldThrow: shouldThrow);
 }
 
+class InMemorySecureStorage extends Fake implements FlutterSecureStorage {
+  final Map<String, String> _data = {};
+
+  @override
+  Future<void> write({
+    required String key,
+    required String? value,
+    AppleOptions? iOptions,
+    AndroidOptions? aOptions,
+    LinuxOptions? lOptions,
+    WebOptions? webOptions,
+    MacOsOptions? mOptions,
+    WindowsOptions? wOptions,
+  }) async {
+    if (value != null) {
+      _data[key] = value;
+    } else {
+      _data.remove(key);
+    }
+  }
+
+  @override
+  Future<String?> read({
+    required String key,
+    AppleOptions? iOptions,
+    AndroidOptions? aOptions,
+    LinuxOptions? lOptions,
+    WebOptions? webOptions,
+    MacOsOptions? mOptions,
+    WindowsOptions? wOptions,
+  }) async {
+    return _data[key];
+  }
+}
+
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
+  setUp(() {
+    PackageInfo.setMockInitialValues(
+      appName: 'Condomeet',
+      packageName: 'br.com.condod.wwwc',
+      version: '3.9.4',
+      buildNumber: '104',
+      buildSignature: '',
+    );
+  });
+
+  group('SemVer Comparator - Unit Tests', () {
+    test('compareSemver evaluates versions accurately', () {
+      expect(compareSemver('3.9.4', '3.9.3'), greaterThan(0));
+      expect(compareSemver('3.9.4', '3.9.5'), lessThan(0));
+      expect(compareSemver('3.9.4', '3.10.0'), lessThan(0));
+      expect(compareSemver('3.10.0', '3.9.4'), greaterThan(0));
+      expect(compareSemver('3.9.4', '3.9.4'), equals(0));
+      expect(compareSemver('3.9.4+104', '3.9.4'), equals(0));
+    });
+  });
+
   group('VersionPolicyData - Model Tests', () {
-    test('fromMap parses valid payload with default fallbacks', () {
+    test('fromMap parses valid payload with optional null versions', () {
       final map = {
         'min_android_build': 102,
         'min_ios_build': 102,
-        'latest_android_version': '3.9.3',
-        'latest_ios_version': '3.9.3',
+        'min_android_version': null,
+        'min_ios_version': null,
+        'latest_android_version': '3.9.4',
+        'latest_ios_version': '3.9.4',
         'force_update_title': 'Atualização Obrigatória',
-        'force_update_message': 'Por favor atualize.',
+        'force_update_message': 'Você precisa atualizar o aplicativo para continuar.',
         'store_url_android': 'https://play.google.com/store/apps/details?id=br.com.condod.wwwc',
         'store_url_ios': 'https://apps.apple.com/app/condomeet/id6740927806',
         'is_kill_switch_active': false,
@@ -75,79 +135,145 @@ void main() {
       final policy = VersionPolicyData.fromMap(map);
       expect(policy.minAndroidBuild, 102);
       expect(policy.minIosBuild, 102);
-      expect(policy.latestAndroidVersion, '3.9.3');
-      expect(policy.latestIosVersion, '3.9.3');
-      expect(policy.title, 'Atualização Obrigatória');
+      expect(policy.minAndroidVersion, isNull);
+      expect(policy.minIosVersion, isNull);
+      expect(policy.message, 'Você precisa atualizar o aplicativo para continuar.');
       expect(policy.isKillSwitchActive, false);
     });
 
-    test('fromMap handles null values with safe defaults', () {
+    test('fromMap leaves min_versions as null without hardcoded defaults', () {
       final policy = VersionPolicyData.fromMap({});
-      expect(policy.minAndroidBuild, 101);
-      expect(policy.minIosBuild, 101);
-      expect(policy.latestAndroidVersion, '3.9.3');
+      expect(policy.minAndroidBuild, isNull);
+      expect(policy.minIosBuild, isNull);
+      expect(policy.minAndroidVersion, isNull);
+      expect(policy.minIosVersion, isNull);
       expect(policy.isKillSwitchActive, false);
     });
   });
 
-  group('VersionCheckService - Unit Tests (T01 a T20)', () {
-    test('T01, T02, T03: When policy min_build = 101, installed >= 101 is ALLOWED', () async {
+  group('VersionCheckService - Decision & Priority Tests', () {
+    test('Priority Rule: When min_build is set, it takes precedence over min_version', () async {
+      // Installed: build 104, version 3.9.4
+      // Policy: min_build = 103 (smaller than installed), min_version = 3.9.9 (higher)
+      // Because min_build is present, SemVer is NOT checked, so it is ALLOWED.
       final client = FakeSupabaseClient(dataToReturn: {
-        'min_android_build': 101,
-        'min_ios_build': 101,
-        'latest_android_version': '3.9.3',
-        'latest_ios_version': '3.9.3',
-        'force_update_title': 'Atualização Necessária',
-        'force_update_message': 'Atualize o app.',
+        'min_android_build': 103,
+        'min_ios_build': 103,
+        'min_android_version': '3.9.9',
+        'min_ios_version': '3.9.9',
+        'latest_android_version': '3.9.9',
+        'latest_ios_version': '3.9.9',
+        'force_update_title': 'Atualização',
+        'force_update_message': 'Você precisa atualizar o aplicativo para continuar.',
         'store_url_android': 'https://play.google.com/store/apps/details?id=br.com.condod.wwwc',
         'store_url_ios': 'https://apps.apple.com/app/condomeet/id6740927806',
         'is_kill_switch_active': false,
       });
 
-      final service = VersionCheckService(client);
-      final result = await service.checkVersionGate();
-
-      expect(result.status, anyOf(VersionGateStatus.allow, VersionGateStatus.offlineAllowed));
-      expect(result.isBlocked, isFalse);
-    });
-
-    test('T08: When Kill Switch is active, service returns killSwitchBypass and allows access', () async {
-      final client = FakeSupabaseClient(dataToReturn: {
-        'min_android_build': 999,
-        'min_ios_build': 999,
-        'latest_android_version': '4.0.0',
-        'latest_ios_version': '4.0.0',
-        'force_update_title': 'Atualização',
-        'force_update_message': 'Msg',
-        'store_url_android': 'https://play.google.com/store',
-        'store_url_ios': 'https://apple.com/store',
-        'is_kill_switch_active': true,
-      });
-
-      final service = VersionCheckService(client);
-      final result = await service.checkVersionGate();
-
-      expect(result.status, anyOf(VersionGateStatus.killSwitchBypass, VersionGateStatus.allow));
-      expect(result.isBlocked, isFalse);
-    });
-
-    test('T09, T10: When database query throws error or times out, Fail-Open returns offlineAllowed and allows access', () async {
-      final client = FakeSupabaseClient(shouldThrow: true);
-
-      final service = VersionCheckService(client);
-      final result = await service.checkVersionGate();
-
-      expect(result.status, anyOf(VersionGateStatus.offlineAllowed, VersionGateStatus.allow));
-      expect(result.isBlocked, isFalse);
-    });
-
-    test('T11: When database returns null (empty table), Fail-Open returns allow', () async {
-      final client = FakeSupabaseClient(dataToReturn: null);
-
-      final service = VersionCheckService(client);
+      final storage = InMemorySecureStorage();
+      final service = VersionCheckService(client, storage: storage);
       final result = await service.checkVersionGate();
 
       expect(result.status, VersionGateStatus.allow);
+      expect(result.isBlocked, isFalse);
+    });
+
+    test('Priority Rule: When min_build is higher than installed, app is BLOCKED', () async {
+      // Installed: build 104
+      // Policy: min_build = 105
+      final client = FakeSupabaseClient(dataToReturn: {
+        'min_android_build': 105,
+        'min_ios_build': 105,
+        'min_android_version': null,
+        'min_ios_version': null,
+        'latest_android_version': '3.9.5',
+        'latest_ios_version': '3.9.5',
+        'force_update_title': 'Atualização Obrigatória',
+        'force_update_message': 'Você precisa atualizar o aplicativo para continuar.',
+        'store_url_android': 'https://play.google.com/store/apps/details?id=br.com.condod.wwwc',
+        'store_url_ios': 'https://apps.apple.com/app/condomeet/id6740927806',
+        'is_kill_switch_active': false,
+      });
+
+      final storage = InMemorySecureStorage();
+      final service = VersionCheckService(client, storage: storage);
+      final result = await service.checkVersionGate();
+
+      expect(result.status, VersionGateStatus.updateRequired);
+      expect(result.isBlocked, isTrue);
+      expect(result.message, 'Você precisa atualizar o aplicativo para continuar.');
+    });
+
+    test('SemVer Rule: When min_build is null, SemVer is checked and BLOCKS if installed < min_version', () async {
+      // Installed: version 3.9.4
+      // Policy: min_build = null, min_version = 3.9.5
+      final client = FakeSupabaseClient(dataToReturn: {
+        'min_android_build': null,
+        'min_ios_build': null,
+        'min_android_version': '3.9.5',
+        'min_ios_version': '3.9.5',
+        'latest_android_version': '3.9.5',
+        'latest_ios_version': '3.9.5',
+        'force_update_title': 'Atualização Obrigatória',
+        'force_update_message': 'Você precisa atualizar o aplicativo para continuar.',
+        'store_url_android': 'https://play.google.com/store/apps/details?id=br.com.condod.wwwc',
+        'store_url_ios': 'https://apps.apple.com/app/condomeet/id6740927806',
+        'is_kill_switch_active': false,
+      });
+
+      final storage = InMemorySecureStorage();
+      final service = VersionCheckService(client, storage: storage);
+      final result = await service.checkVersionGate();
+
+      expect(result.status, VersionGateStatus.updateRequired);
+      expect(result.isBlocked, isTrue);
+    });
+
+    test('Kill Switch: When active, bypasses block regardless of versions', () async {
+      final client = FakeSupabaseClient(dataToReturn: {
+        'min_android_build': 999,
+        'min_ios_build': 999,
+        'latest_android_version': '9.0.0',
+        'latest_ios_version': '9.0.0',
+        'is_kill_switch_active': true,
+      });
+
+      final storage = InMemorySecureStorage();
+      final service = VersionCheckService(client, storage: storage);
+      final result = await service.checkVersionGate();
+
+      expect(result.status, VersionGateStatus.killSwitchBypass);
+      expect(result.isBlocked, isFalse);
+    });
+
+    test('Network Failure with Cached Policy: enforces cached policy block', () async {
+      final storage = InMemorySecureStorage();
+      // Pre-seed storage with a blocking policy
+      await storage.write(
+        key: 'cached_app_version_policy',
+        value: '{"min_android_build": 105, "min_ios_build": 105, "is_kill_switch_active": false}',
+      );
+
+      // Client throws on network
+      final client = FakeSupabaseClient(shouldThrow: true);
+      final service = VersionCheckService(client, storage: storage);
+
+      final result = await service.checkVersionGate();
+
+      // Uses cached policy -> still blocked!
+      expect(result.status, VersionGateStatus.updateRequired);
+      expect(result.isBlocked, isTrue);
+    });
+
+    test('Network Failure without Cached Policy: Fail-Open allows access temporarily', () async {
+      final storage = InMemorySecureStorage();
+      final client = FakeSupabaseClient(shouldThrow: true);
+      final service = VersionCheckService(client, storage: storage);
+
+      final result = await service.checkVersionGate();
+
+      // No cache -> Fail-Open
+      expect(result.status, VersionGateStatus.offlineAllowed);
       expect(result.isBlocked, isFalse);
     });
   });

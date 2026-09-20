@@ -1376,15 +1376,29 @@ export function evaluateCongestionMode(
   };
 }
 
+export interface BotConversaRolloutConfig {
+  enabled: boolean;
+  disableReason?: string | null;
+  rolloutPercent: number;
+  rolloutStrategy: "CONDOMINIUM_HASH" | "GLOBAL_HASH" | "MESSAGE_HASH" | string;
+  cooldownSeconds: number;
+  dailyLimit: number;
+  dailySentToday: number;
+  observationMode: boolean;
+  allowedMessageTypes: string[];
+}
+
 export function calculateWarmupRoute(params: {
   messageId: string;
   perfilId?: string | null;
+  condominioId?: string | null;
   messageType?: string | null;
-  warmupMode: boolean;
-  canSendWarmup: boolean;
+  warmupMode?: boolean;
+  canSendWarmup?: boolean;
   welcomePilotEnabled?: boolean;
   welcomePilotPercentage?: number;
   evolutionConnected?: boolean;
+  botconversaRolloutConfig?: BotConversaRolloutConfig;
 }): {
   provider: "META" | "BOTCONVERSA" | "EVOLUTION";
   partition: number;
@@ -1394,32 +1408,25 @@ export function calculateWarmupRoute(params: {
   if (params.messageType === "DUAL_NUMBER_NOTICE") {
     return {
       provider: "BOTCONVERSA",
-      partition: getDeterministicPartition(params.perfilId || params.messageId),
+      partition: getDeterministicPartition(params.condominioId || params.perfilId || params.messageId),
       reason: "DUAL_NUMBER_NOTICE_EXCLUSIVE_BC"
-    };
-  }
-
-  // Regra 1c (elevada): NOTICE sempre 100% BotConversa (mesmo durante failover emergencial — suspenso sem template Meta)
-  if (params.messageType === "NOTICE") {
-    return {
-      provider: "BOTCONVERSA",
-      partition: getDeterministicPartition(params.perfilId || params.messageId),
-      reason: "NOTICE_NO_TEMPLATE_BC"
     };
   }
 
   // ╔══════════════════════════════════════════════════════════════════════════╗
   // ║ FASE 7.19.1.1 — Contingência: META 100% (estrito flag === "true")        ║
   // ║ Flag: WHATSAPP_META_100_CONTINGENCY_ENABLED (default: false)              ║
-  // ║ Quando ativo:                                                            ║
-  // ║ - MessageTypes elegíveis → META 100% (partição ignorada, sem 99/1)       ║
-  // ║ - VISITOR_AUTHORIZED → META 100% (ao invés de 50/50)                     ║
-  // ║ - WELCOME (approval-notify) → META 100% (condomeet_boas_vindas_v1)      ║
-  // ║ - NOTICE e DUAL_NUMBER_NOTICE → Protegidos (Meta BLOQUEADA)              ║
-  // ║ - BotConversa = 0%, Evolution = 0%, UAZAP = 0%                           ║
+  // ║ NOTICE e DUAL_NUMBER_NOTICE → Protegidos (Meta BLOQUEADA sem template)   ║
   // ╚══════════════════════════════════════════════════════════════════════════╝
   if (isMeta100ContingencyActive()) {
-    const partition = getDeterministicPartition(params.perfilId || params.messageId);
+    if (params.messageType === "NOTICE") {
+      return {
+        provider: "BOTCONVERSA",
+        partition: getDeterministicPartition(params.condominioId || params.perfilId || params.messageId),
+        reason: "NOTICE_NO_TEMPLATE_BC"
+      };
+    }
+    const partition = getDeterministicPartition(params.condominioId || params.perfilId || params.messageId);
     return {
       provider: "META",
       partition,
@@ -1430,16 +1437,17 @@ export function calculateWarmupRoute(params: {
   // ╔══════════════════════════════════════════════════════════════════════════╗
   // ║ FASE 7.18 — Emergency Failover BotConversa → Meta Cloud API           ║
   // ║ Flag: WHATSAPP_META_EMERGENCY_FAILOVER_ENABLED (default: false)        ║
-  // ║ Quando ativo: Todos os tipos compatíveis → META 100%                  ║
-  // ║ WELCOME (approval-notify) → META com template condomeet_boas_vindas_v1║
-  // ║ VISITOR_AUTHORIZED → META 100% (ao invés de 50/50)                    ║
-  // ║ Demais tipos já compatíveis → META 100% (ao invés de 99/1 warmup)     ║
-  // ║ REVERSÍVEL: Basta desligar a env var para retornar ao comportamento    ║
-  // ║ normal sem necessidade de deploy.                                       ║
   // ╚══════════════════════════════════════════════════════════════════════════╝
   const emergencyFailoverEnabled = (typeof Deno !== "undefined" && Deno.env?.get("WHATSAPP_META_EMERGENCY_FAILOVER_ENABLED") === "true");
   if (emergencyFailoverEnabled) {
-    const partition = getDeterministicPartition(params.perfilId || params.messageId);
+    if (params.messageType === "NOTICE") {
+      return {
+        provider: "BOTCONVERSA",
+        partition: getDeterministicPartition(params.condominioId || params.perfilId || params.messageId),
+        reason: "NOTICE_NO_TEMPLATE_BC"
+      };
+    }
+    const partition = getDeterministicPartition(params.condominioId || params.perfilId || params.messageId);
     return {
       provider: "META",
       partition,
@@ -1447,7 +1455,117 @@ export function calculateWarmupRoute(params: {
     };
   }
 
-  // Regra 1b: WELCOME — Roteado exclusivamente pelo calculateWelcomePilotRoute (Evolution Piloto ou BotConversa)
+  // ╔══════════════════════════════════════════════════════════════════════════╗
+  // ║ FASE 7.20 — Rollout Controlado BotConversa (Operação Assistida)         ║
+  // ║ Estratégia Determinística por Condomínio + Separação de Configuração   ║
+  // ╚══════════════════════════════════════════════════════════════════════════╝
+  if (params.botconversaRolloutConfig) {
+    const config = params.botconversaRolloutConfig;
+    const msgType = params.messageType || "";
+
+    // 1. Resolução Determinística da Partição pela Estratégia Configurada
+    let partitionKey: string = params.condominioId || params.perfilId || params.messageId;
+    if (config.rolloutStrategy === "CONDOMINIUM_HASH") {
+      partitionKey = params.condominioId || params.perfilId || params.messageId;
+    } else if (config.rolloutStrategy === "GLOBAL_HASH") {
+      partitionKey = params.perfilId || params.condominioId || params.messageId;
+    } else if (config.rolloutStrategy === "MESSAGE_HASH") {
+      partitionKey = params.messageId;
+    }
+    const partition = getDeterministicPartition(partitionKey);
+
+    // 2. Verificação de Desativação Operacional (botconversa_enabled = false)
+    if (!config.enabled) {
+      if (msgType === "NOTICE") {
+        return {
+          provider: "BOTCONVERSA",
+          partition,
+          reason: "NOTICE_NO_TEMPLATE_BC"
+        };
+      }
+      const disableMotivo = config.disableReason 
+        ? `BOTCONVERSA_DISABLED: ${config.disableReason}` 
+        : "BOTCONVERSA_DISABLED";
+      return {
+        provider: "META",
+        partition,
+        reason: disableMotivo
+      };
+    }
+
+    // 3. Verificação de Limite Diário (daily_sent_count >= daily_limit)
+    if (config.dailySentToday >= config.dailyLimit) {
+      if (msgType === "NOTICE") {
+        return {
+          provider: "BOTCONVERSA",
+          partition,
+          reason: "NOTICE_NO_TEMPLATE_BC"
+        };
+      }
+      return {
+        provider: "META",
+        partition,
+        reason: "DAILY_LIMIT_REACHED"
+      };
+    }
+
+    // 4. Verificação de Tipos Elegíveis na Fase 1 (allowed_message_types)
+    const allowedTypes = Array.isArray(config.allowedMessageTypes) 
+      ? config.allowedMessageTypes 
+      : ["WELCOME", "NOTICE", "VISITOR_INVITE", "DUAL_NUMBER_NOTICE"];
+
+    const isTypeAllowed = allowedTypes.includes(msgType);
+
+    if (!isTypeAllowed) {
+      // Demais tipos (ex: PARCEL, PARCEL_DELIVERED, RESERVATION, VISITOR_AUTHORIZED) -> 100% Meta na Fase 1
+      return {
+        provider: "META",
+        partition,
+        reason: "MESSAGE_TYPE_PHASE1_META_EXCLUSIVE"
+      };
+    }
+
+    // Se for NOTICE, respeitar o comportamento de não ter template Meta aprovado
+    if (msgType === "NOTICE") {
+      return {
+        provider: "BOTCONVERSA",
+        partition,
+        reason: "NOTICE_NO_TEMPLATE_BC"
+      };
+    }
+
+    // 5. Partição Determinística pelo percentual configurado (ex: 5% = partições 95..99)
+    const rolloutPercent = Math.max(0, Math.min(100, config.rolloutPercent));
+    const isElectedBotConversa = rolloutPercent > 0 && partition >= (100 - rolloutPercent);
+
+    if (isElectedBotConversa) {
+      return {
+        provider: "BOTCONVERSA",
+        partition,
+        reason: `CONTROLLED_ROLLOUT_BC_${rolloutPercent}PCT`
+      };
+    } else {
+      return {
+        provider: "META",
+        partition,
+        reason: `CONTROLLED_ROLLOUT_META_${100 - rolloutPercent}PCT`
+      };
+    }
+  }
+
+  // ╔══════════════════════════════════════════════════════════════════════════╗
+  // ║ COMPORTAMENTO LEGADO (Fases Anteriores — Retrocompatibilidade Estrita)   ║
+  // ╚══════════════════════════════════════════════════════════════════════════╝
+  // Regra 1c legada: NOTICE sempre 100% BotConversa
+  if (params.messageType === "NOTICE") {
+    return {
+      provider: "BOTCONVERSA",
+      partition: getDeterministicPartition(params.condominioId || params.perfilId || params.messageId),
+      reason: "NOTICE_NO_TEMPLATE_BC"
+    };
+  }
+
+  // Regra 1b legada: WELCOME — Roteado pelo calculateWelcomePilotRoute
   if (params.messageType === "WELCOME") {
     const welcomeRoute = calculateWelcomePilotRoute({
       perfilId: params.perfilId,
@@ -1463,7 +1581,7 @@ export function calculateWarmupRoute(params: {
     };
   }
 
-  // Regra 1d: VISITOR_AUTHORIZED — Roteamento Balanceado 50% Meta / 50% BotConversa / 0% Evolution (Fase 7.13.1)
+  // Regra 1d legada: VISITOR_AUTHORIZED — Roteamento Balanceado 50% Meta / 50% BotConversa
   if (params.messageType === "VISITOR_AUTHORIZED") {
     const partitionKey = params.perfilId || params.messageId;
     const partition = getDeterministicPartition(partitionKey);
@@ -1475,7 +1593,7 @@ export function calculateWarmupRoute(params: {
     };
   }
 
-  // Regra 2: Se WARMUP_MODE estiver desligado, volta 100% para BotConversa First
+  // Regra 2 legada: Se WARMUP_MODE estiver desligado, volta 100% para BotConversa First
   if (!params.warmupMode) {
     return {
       provider: "BOTCONVERSA",
@@ -1486,7 +1604,7 @@ export function calculateWarmupRoute(params: {
 
   const partition = getDeterministicPartition(params.messageId);
 
-  // Regra 3: Se a partição for 99 (1%) E o teto diário permitir -> BotConversa Warmup
+  // Regra 3 legada: Se a partição for 99 (1%) E o teto diário permitir -> BotConversa Warmup
   if (partition >= 99) {
     if (params.canSendWarmup) {
       return {
@@ -1503,7 +1621,7 @@ export function calculateWarmupRoute(params: {
     }
   }
 
-  // Regra 4: Partições 0..98 (99%) -> Meta Primary
+  // Regra 4 legada: Partições 0..98 (99%) -> Meta Primary
   return {
     provider: "META",
     partition,

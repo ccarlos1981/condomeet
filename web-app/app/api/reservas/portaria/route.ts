@@ -1,5 +1,6 @@
 import { createClient } from '@/lib/supabase/server'
 import { NextRequest, NextResponse } from 'next/server'
+import { isAdminRole, isPorterRole, isFeatureVisible } from '@/lib/roles'
 
 export async function POST(req: NextRequest) {
   const supabase = await createClient()
@@ -15,9 +16,22 @@ export async function POST(req: NextRequest) {
 
   if (!profile?.condominio_id) return NextResponse.json({ error: 'Perfil não encontrado' }, { status: 404 })
 
-  const role = (profile.papel_sistema ?? '').toLowerCase()
-  const allowedRoles = ['portaria', 'porteiro', 'síndico', 'sindico', 'sub', 'admin']
-  if (!allowedRoles.some(r => role.includes(r))) {
+  // Fetch features_config
+  const { data: condo } = await supabase
+    .from('condominios')
+    .select('features_config')
+    .eq('id', profile.condominio_id)
+    .single()
+
+  const rawRole = profile.papel_sistema
+  const isSysAdmin = isAdminRole(rawRole)
+  const isPorter = isPorterRole(rawRole)
+
+  const canAccess =
+    isSysAdmin ||
+    isFeatureVisible('reservas_portaria', rawRole, condo?.features_config, isPorter)
+
+  if (!canAccess) {
     return NextResponse.json({ error: 'Acesso negado' }, { status: 403 })
   }
 

@@ -1,5 +1,6 @@
 import { createClient } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
+import { isAdminRole, isPorterRole, isFeatureVisible } from '@/lib/roles'
 import VisitorList from './visitor-list'
 
 export default async function VisitanteCheckinPage() {
@@ -9,19 +10,32 @@ export default async function VisitanteCheckinPage() {
 
   const { data: profile } = await supabase
     .from('perfil')
-    .select('condominio_id, id')
+    .select('condominio_id, id, papel_sistema')
     .eq('id', user.id)
     .single()
 
   const condoId = profile?.condominio_id ?? ''
 
-  // Fetch tipo_estrutura from condominios
+  // Fetch tipo_estrutura and features_config from condominios
   const { data: condo } = await supabase
     .from('condominios')
-    .select('tipo_estrutura')
+    .select('tipo_estrutura, features_config')
     .eq('id', condoId)
     .single()
   const tipoEstrutura = condo?.tipo_estrutura ?? 'predio'
+  const featuresConfig = condo?.features_config
+
+  const rawRole = profile?.papel_sistema
+  const isSysAdmin = isAdminRole(rawRole)
+  const isPorter = isPorterRole(rawRole)
+
+  const canAccess =
+    isSysAdmin ||
+    isFeatureVisible('guest_checkin', rawRole, featuresConfig, isPorter)
+
+  if (!canAccess) {
+    redirect('/condo')
+  }
 
   // Cutoff: 7 days ago at 00:00 — convites older than this are hidden
   const cutoff = new Date()

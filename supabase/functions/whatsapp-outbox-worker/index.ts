@@ -512,6 +512,8 @@ export async function handleOutboxWorker(
       let primaryError: string | null = null
       let enterDispatchedGuard = false
       let fallbackAfterStr: string | null = null
+      let lastRouteResult: any = null
+      let lastBcOperationalConfig: any = null
 
       // 3d. Routing Resolution: WARMUP_MODE (99% Meta / 1% BotConversa) vs BotConversa First vs Evolution WELCOME Pilot vs UAZAPI
       let selectedProvider: "META" | "BOTCONVERSA" | "EVOLUTION" | "UAZAPI" = "BOTCONVERSA"
@@ -541,6 +543,17 @@ export async function handleOutboxWorker(
             console.error("[Worker Warmup] Erro ao checar warmup cap:", wErr.message)
           }
 
+          // FASE 7.20 — Carregar Configuração Operacional do BotConversa (Desacoplada)
+          let bcOperationalConfig: any = null
+          try {
+            const { data: bcConfigData, error: bcConfigErr } = await supabase.rpc("get_botconversa_operational_config")
+            if (!bcConfigErr && bcConfigData) {
+              bcOperationalConfig = bcConfigData
+            }
+          } catch (bcConfErr: any) {
+            console.error("[Worker] Erro ao carregar botconversa_operational_config:", bcConfErr.message)
+          }
+
           // Checar status da Evolution caso o piloto esteja ativo
           let isEvolutionConnected = true
           if (EVOLUTION_WELCOME_PILOT_ENABLED) {
@@ -559,16 +572,30 @@ export async function handleOutboxWorker(
           const routeResult = calculateWarmupRoute({
             messageId: msg.id,
             perfilId: msg.perfil_id,
+            condominioId: msg.condominio_id,
             messageType: msg.message_type,
             warmupMode,
             canSendWarmup,
             welcomePilotEnabled: EVOLUTION_WELCOME_PILOT_ENABLED,
             welcomePilotPercentage: EVOLUTION_WELCOME_PERCENTAGE,
-            evolutionConnected: isEvolutionConnected
+            evolutionConnected: isEvolutionConnected,
+            botconversaRolloutConfig: bcOperationalConfig ? {
+              enabled: bcOperationalConfig.enabled,
+              disableReason: bcOperationalConfig.disable_reason,
+              rolloutPercent: bcOperationalConfig.rollout_percent,
+              rolloutStrategy: bcOperationalConfig.rollout_strategy,
+              cooldownSeconds: bcOperationalConfig.cooldown_seconds,
+              dailyLimit: bcOperationalConfig.daily_limit,
+              dailySentToday: bcOperationalConfig.daily_sent_today,
+              observationMode: bcOperationalConfig.observation_mode,
+              allowedMessageTypes: bcOperationalConfig.allowed_message_types
+            } : undefined
           })
 
           selectedProvider = routeResult.provider
-          console.log(`[Worker Router] Rota calculada para msg id=${msg.id}: ${selectedProvider} (partição=${routeResult.partition}, motivo=${routeResult.reason})`)
+          lastRouteResult = routeResult
+          lastBcOperationalConfig = bcOperationalConfig
+          console.log(`[Worker Router] Rota calculada para msg id=${msg.id}: ${selectedProvider} (partição=${routeResult.partition}, motivo=${routeResult.reason}, estratégia=${bcOperationalConfig?.rollout_strategy || "LEGADO"})`)
         }
       } else {
         selectedProvider = "META"
@@ -664,27 +691,82 @@ export async function handleOutboxWorker(
               isPermanent: false,
             }
           } else {
-            // Enforce Global Rate Limiter (3 consecutive msgs -> 13-27s cooldown)
-            let slotAllowed = false
-            while (!slotAllowed) {
-              const { data: slot, error: slotErr } = await supabase.rpc("acquire_botconversa_slot", {
-                p_instance_id: instanceId
-              })
+            // Enforce Global Rate Limiter & Cooldown Não-Bloqueante (FASE 7.20)
+            const { data: slot, error: slotErr } = await supabase.rpc("acquire_botconversa_slot", {
+              p_instance_id: instanceId
+            })
 
-              if (slotErr || !slot) {
-                console.error("[Worker RateLimiter Fail-Closed] Erro ao invocar acquire_botconversa_slot:", slotErr || "Resposta nula do limiter")
-                await new Promise((r) => setTimeout(r, 13000))
-                await renewLease()
+            if (slotErr || !slot) {
+              console.error("[Worker RateLimiter Fail-Closed] Erro ao invocar acquire_botconversa_slot:", slotErr || "Resposta nula do limiter")
+              const retryAt = new Date(Date.now() + 15000).toISOString()
+              await supabase
+                .from("whatsapp_outbox")
+                .update({
+                  status: "pending",
+                  next_attempt_at: retryAt,
+                  processing_started_at: null,
+                  locked_by: null,
+                  updated_at: new Date().toISOString()
+                })
+                .eq("id", msg.id)
+              continue
+            }
+
+            if (!slot.allowed) {
+              if (slot.reason === "COOLDOWN_ACTIVE") {
+                // DESACOPLAMENTO TOTAL NÃO-BLOQUEANTE:
+                // A fila da Meta NUNCA pode ser bloqueada pelo cooldown do BotConversa!
+                // Mensagem reagendada na outbox e worker liberado imediatamente para a próxima mensagem.
+                const waitMs = Math.max(slot.wait_ms || 60000, 500)
+                const nextAttemptAt = slot.cooldown_until || new Date(Date.now() + waitMs).toISOString()
+
+                await supabase
+                  .from("whatsapp_outbox")
+                  .update({
+                    status: "pending",
+                    next_attempt_at: nextAttemptAt,
+                    processing_started_at: null,
+                    locked_by: null,
+                    delivery_result: {
+                      provider: "BOTCONVERSA",
+                      reason: "COOLDOWN_ACTIVE_RESCHEDULED",
+                      cooldown_until: nextAttemptAt,
+                      wait_ms: waitMs,
+                      cooldown_remaining_sec: slot.cooldown_remaining_sec
+                    },
+                    updated_at: new Date().toISOString()
+                  })
+                  .eq("id", msg.id)
+
+                if (slot.observation_mode || lastBcOperationalConfig?.observation_mode) {
+                  console.log(`[Worker Observation Audit] BotConversa em cooldown (${slot.cooldown_remaining_sec}s restante). Mensagem id=${msg.id} reagendada para ${nextAttemptAt}. Worker liberado imediatamente para fila Meta.`)
+                }
                 continue
-              }
-
-              if (slot?.allowed) {
-                slotAllowed = true
-              } else {
-                const waitMs = Math.min(Math.max(slot?.wait_ms || 13000, 500), 27000)
-                console.log(`[Worker RateLimiter] BotConversa em cooldown global (${waitMs}ms restante). Aguardando...`)
-                await new Promise((r) => setTimeout(r, waitMs))
-                await renewLease()
+              } else if (slot.reason === "DAILY_LIMIT_REACHED" || slot.reason === "BOTCONVERSA_DISABLED") {
+                if (msg.message_type !== "DUAL_NUMBER_NOTICE" && msg.message_type !== "NOTICE") {
+                  console.warn(`[Worker Fallback] BotConversa ${slot.reason} (${slot.disable_reason || ""}). Desviando msg id=${msg.id} para META_CLOUD_API.`)
+                  selectedProvider = "META"
+                  fallbackTriggered = true
+                  fallbackReason = slot.reason
+                } else {
+                  const tomorrowAt = new Date(Date.now() + 86400000).toISOString()
+                  await supabase
+                    .from("whatsapp_outbox")
+                    .update({
+                      status: "pending",
+                      next_attempt_at: tomorrowAt,
+                      processing_started_at: null,
+                      locked_by: null,
+                      delivery_result: {
+                        provider: "BOTCONVERSA",
+                        reason: slot.reason,
+                        rescheduled_for: tomorrowAt
+                      },
+                      updated_at: new Date().toISOString()
+                    })
+                    .eq("id", msg.id)
+                  continue
+                }
               }
             }
 
@@ -752,10 +834,41 @@ export async function handleOutboxWorker(
               finalProviderUsed = "BOTCONVERSA"
               console.log(`[Worker] Requisição aceita com sucesso pelo BotConversa (HTTP 200) para id=${msg.id}.`)
 
+              let confirmData: any = null
               try {
-                await supabase.rpc("confirm_botconversa_sent", { p_instance_id: instanceId })
+                const { data: cData, error: confirmErr } = await supabase.rpc("confirm_botconversa_sent", { p_instance_id: instanceId })
+                if (confirmErr) {
+                  console.error("[Worker RateLimiter] Erro ao confirmar envio BotConversa:", confirmErr)
+                } else {
+                  confirmData = cData
+                }
               } catch (confirmErr) {
                 console.error("[Worker RateLimiter] Erro ao confirmar envio BotConversa:", confirmErr)
+              }
+
+              // FASE 7.20 — Auditoria Operacional Estruturada em Runtime
+              if (lastBcOperationalConfig?.observation_mode || slot?.observation_mode) {
+                console.log(`[Worker Observation Audit] ${JSON.stringify({
+                  event: "BOTCONVERSA_DISPATCH_SUCCESS",
+                  timestamp: new Date().toISOString(),
+                  message_id: msg.id,
+                  message_hash: msg.message_hash,
+                  message_type: msg.message_type,
+                  condominio_id: msg.condominio_id,
+                  provider: "BOTCONVERSA",
+                  routing_reason: lastRouteResult?.reason || "BOTCONVERSA_PRIMARY",
+                  rollout_strategy: lastBcOperationalConfig?.rollout_strategy || "CONDOMINIUM_HASH",
+                  rollout_percent: lastBcOperationalConfig?.rollout_percent ?? 5,
+                  botconversa_enabled: lastBcOperationalConfig?.enabled ?? true,
+                  daily_sent_today: confirmData?.daily_sent_count ?? 1,
+                  daily_limit: lastBcOperationalConfig?.daily_limit ?? 50,
+                  daily_remaining: confirmData?.daily_remaining ?? 49,
+                  last_sent_at: confirmData?.last_sent_at || new Date().toISOString(),
+                  next_allowed_at: confirmData?.cooldown_until,
+                  cooldown_applied_sec: confirmData?.cooldown_sec ?? (lastBcOperationalConfig?.cooldown_seconds || 60),
+                  time_since_last_sec: slot?.time_since_last_sec ?? null,
+                  status: "dispatched"
+                })}`)
               }
 
               // Calcular Janela de Guarda por MessageType (FASE 4.17 / FASE 4.19)
@@ -990,6 +1103,26 @@ export async function handleOutboxWorker(
         is_permanent_error: primaryResult.isPermanent,
         resolved_subscriber_id: resolvedSubscriberId,
         provider_message_id: providerMessageId,
+        routing_reason: lastRouteResult?.reason || null,
+        rollout_strategy: lastBcOperationalConfig?.rollout_strategy || null,
+        rollout_percent: lastBcOperationalConfig?.rollout_percent || null,
+        observation_mode: lastBcOperationalConfig?.observation_mode ?? null
+      }
+
+      if (lastBcOperationalConfig?.observation_mode && finalProviderUsed === "META_CLOUD_API" && sentSuccessfully) {
+        console.log(`[Worker Observation Audit] ${JSON.stringify({
+          event: "META_DISPATCH_SUCCESS",
+          timestamp: nowStr,
+          message_id: msg.id,
+          message_hash: msg.message_hash,
+          message_type: msg.message_type,
+          condominio_id: msg.condominio_id,
+          provider: "META_CLOUD_API",
+          routing_reason: lastRouteResult?.reason || "META_PRIMARY",
+          rollout_strategy: lastBcOperationalConfig?.rollout_strategy,
+          rollout_percent: lastBcOperationalConfig?.rollout_percent,
+          status: "sent"
+        })}`)
       }
 
       if (fallbackTriggered) {

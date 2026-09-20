@@ -1,5 +1,6 @@
 import { createClient } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
+import { isAdminRole, isPorterRole, isFeatureVisible } from '@/lib/roles'
 import VisitaProprietarioClient from './visita-proprietario-client'
 import { filterResidentialBlocos, filterResidentialAptos, isTechnicalAdminUnit } from '@/lib/labels'
 
@@ -18,13 +19,26 @@ export default async function VisitaProprietarioPage() {
 
   const condoId = profile?.condominio_id ?? ''
 
-  // Fetch tipo_estrutura from condominios
+  // Fetch tipo_estrutura and features_config from condominios
   const { data: condo } = await supabase
     .from('condominios')
-    .select('tipo_estrutura')
+    .select('tipo_estrutura, features_config')
     .eq('id', condoId)
     .single()
   const tipoEstrutura = condo?.tipo_estrutura ?? 'predio'
+  const featuresConfig = condo?.features_config
+
+  const rawRole = profile?.papel_sistema
+  const isSysAdmin = isAdminRole(rawRole)
+  const isPorter = isPorterRole(rawRole)
+
+  const canAccess =
+    isSysAdmin ||
+    isFeatureVisible('visita_proprietario', rawRole, featuresConfig, isPorter)
+
+  if (!canAccess) {
+    redirect('/condo')
+  }
 
   // Recent visitas (last 100)
   const { data: visitas } = await supabase

@@ -1,5 +1,6 @@
 import { createClient } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
+import { isAdminRole, isPorterRole, isFeatureVisible } from '@/lib/roles'
 import ReservasPortariaClient from './reservas-portaria-client'
 import { filterResidentialBlocos, filterResidentialAptos, isTechnicalAdminUnit } from '@/lib/labels'
 
@@ -21,10 +22,23 @@ export default async function ReservasPortariaPage() {
   // Get condo info
   const { data: condo } = await supabase
     .from('condominios')
-    .select('nome, tipo_estrutura')
+    .select('nome, tipo_estrutura, features_config')
     .eq('id', condoId)
     .single()
   const tipoEstrutura = condo?.tipo_estrutura ?? 'predio'
+  const featuresConfig = condo?.features_config
+
+  const rawRole = profile?.papel_sistema
+  const isSysAdmin = isAdminRole(rawRole)
+  const isPorter = isPorterRole(rawRole)
+
+  const canAccess =
+    isSysAdmin ||
+    isFeatureVisible('reservas_portaria', rawRole, featuresConfig, isPorter)
+
+  if (!canAccess) {
+    redirect('/condo')
+  }
 
   // Fetch structural blocks and apartments
   const { data: structuralData } = await supabase
