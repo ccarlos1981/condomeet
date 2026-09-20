@@ -1048,26 +1048,28 @@ class _IndicacoesScreenState extends State<IndicacoesScreen> {
           Expanded(
             child: _loading
                 ? const Center(child: CircularProgressIndicator(color: AppColors.primary))
-                : _filtered.isEmpty
-                    ? Center(
-                        child: Column(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            const Text('🌟', style: TextStyle(fontSize: 48)),
-                            const SizedBox(height: 12),
-                            const Text('Nenhuma indicação ainda',
-                                style: TextStyle(fontWeight: FontWeight.bold, color: Colors.black54)),
-                            const SizedBox(height: 4),
-                            Text('Seja o primeiro a indicar!',
-                                style: TextStyle(color: Colors.grey.shade400, fontSize: 13)),
-                          ],
-                        ),
-                      )
-                    : ListView.builder(
-                        padding: const EdgeInsets.all(16),
-                        itemCount: _filtered.length,
-                        itemBuilder: (ctx, i) => _buildCard(_filtered[i]),
-                      ),
+                : CondoPullToRefresh(
+                    onRefresh: _loadData,
+                    isEmpty: _filtered.isEmpty,
+                    emptyWidget: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        const Text('🌟', style: TextStyle(fontSize: 48)),
+                        const SizedBox(height: 12),
+                        const Text('Nenhuma indicação ainda',
+                            style: TextStyle(fontWeight: FontWeight.bold, color: Colors.black54)),
+                        const SizedBox(height: 4),
+                        Text('Seja o primeiro a indicar!',
+                            style: TextStyle(color: Colors.grey.shade400, fontSize: 13)),
+                      ],
+                    ),
+                    child: ListView.builder(
+                      physics: const AlwaysScrollableScrollPhysics(),
+                      padding: const EdgeInsets.all(16),
+                      itemCount: _filtered.length,
+                      itemBuilder: (ctx, i) => _buildCard(_filtered[i]),
+                    ),
+                  ),
           ),
         ],
       ),

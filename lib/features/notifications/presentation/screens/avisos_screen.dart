@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:condomeet/core/design_system/app_colors.dart';
+import 'package:condomeet/core/design_system/widgets/condo_pull_to_refresh.dart';
 import 'package:condomeet/core/di/injection_container.dart';
 
 class AvisosScreen extends StatefulWidget {
@@ -111,29 +112,31 @@ class _AvisosScreenState extends State<AvisosScreen> {
       ),
       body: _loading
           ? const Center(child: CircularProgressIndicator(color: AppColors.primary))
-          : RefreshIndicator(
-              color: AppColors.primary,
+          : CondoPullToRefresh(
               onRefresh: _load,
-              child: (_naoLidos.isEmpty && _lidos.isEmpty)
-                  ? _buildEmpty()
-                  : _buildList(),
+              isEmpty: _naoLidos.isEmpty && _lidos.isEmpty,
+              emptyWidget: _buildEmpty(),
+              child: _buildList(),
             ),
     );
   }
 
   Widget _buildEmpty() {
-    return ListView(children: [
-      const SizedBox(height: 80),
-      const Icon(Icons.notifications_none_rounded, size: 56, color: AppColors.disabledIcon),
-      const SizedBox(height: 16),
-      const Text('Nenhum aviso do condomínio ainda',
-          textAlign: TextAlign.center,
-          style: TextStyle(color: AppColors.textHint, fontSize: 14)),
-    ]);
+    return const Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Icon(Icons.notifications_none_rounded, size: 56, color: AppColors.disabledIcon),
+        SizedBox(height: 16),
+        Text('Nenhum aviso do condomínio ainda',
+            textAlign: TextAlign.center,
+            style: TextStyle(color: AppColors.textHint, fontSize: 14)),
+      ],
+    );
   }
 
   Widget _buildList() {
     return ListView(
+      physics: const AlwaysScrollableScrollPhysics(),
       padding: const EdgeInsets.all(16),
       children: [
         // ── Não lidos ──

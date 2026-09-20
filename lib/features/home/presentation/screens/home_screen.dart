@@ -8,6 +8,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:get_it/get_it.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:condomeet/core/design_system/app_colors.dart';
+import 'package:condomeet/core/design_system/widgets/condo_pull_to_refresh.dart';
 import 'package:condomeet/features/auth/presentation/bloc/auth_bloc.dart';
 import 'package:condomeet/features/auth/presentation/bloc/auth_state.dart';
 import 'package:condomeet/features/auth/presentation/bloc/auth_event.dart';
@@ -65,6 +66,36 @@ class _HomeScreenState extends State<HomeScreen> {
         context.read<ParcelBloc>().add(
           WatchPendingParcelsRequested(authState.userId!),
         );
+      }
+    }
+  }
+
+  Future<void> _refreshData() async {
+    final authState = context.read<AuthBloc>().state;
+    await Future.wait([
+      _loadFotoUrl(authState.userId),
+      _loadPropaganda(authState.condominiumId),
+      _loadPartnersChecklistState(),
+    ]);
+
+    if (mounted) {
+      setState(() => _initStream(authState.condominiumId));
+      if (authState.userId != null) {
+        final role = (authState.role ?? '').toLowerCase();
+        final isPorterOrAdmin = role.contains('porteiro') ||
+            role.contains('portaria') ||
+            role.contains('síndico') ||
+            role.contains('sindico') ||
+            role == 'admin';
+        if (isPorterOrAdmin && authState.condominiumId != null) {
+          context.read<ParcelBloc>().add(
+            WatchAllPendingParcelsRequested(authState.condominiumId!),
+          );
+        } else {
+          context.read<ParcelBloc>().add(
+            WatchPendingParcelsRequested(authState.userId!),
+          );
+        }
       }
     }
   }
@@ -379,21 +410,25 @@ class _HomeScreenState extends State<HomeScreen> {
                         children: [
                           _buildHeader(authState, condominiumName: condominium.name),
                           Expanded(
-                            child: SingleChildScrollView(
-                              dragStartBehavior: DragStartBehavior.down,
-                              padding: const EdgeInsets.only(bottom: 24),
-                              child: Column(
-                                children: [
-                                  _buildSelfieBanner(),
-                                  if (menuItems.isNotEmpty)
-                                    _buildMenuSection(context, menuItems),
-                                  _buildParcelCard(authState),
-                                  _buildPartnersSection(),
-                                  _buildFeaturedSection(),
-                                  const SizedBox(
-                                    height: 80,
-                                  ), // Space for bottom nav
-                                ],
+                            child: CondoPullToRefresh(
+                              onRefresh: _refreshData,
+                              child: SingleChildScrollView(
+                                physics: const AlwaysScrollableScrollPhysics(),
+                                dragStartBehavior: DragStartBehavior.down,
+                                padding: const EdgeInsets.only(bottom: 24),
+                                child: Column(
+                                  children: [
+                                    _buildSelfieBanner(),
+                                    if (menuItems.isNotEmpty)
+                                      _buildMenuSection(context, menuItems),
+                                    _buildParcelCard(authState),
+                                    _buildPartnersSection(),
+                                    _buildFeaturedSection(),
+                                    const SizedBox(
+                                      height: 80,
+                                    ), // Space for bottom nav
+                                  ],
+                                ),
                               ),
                             ),
                           ),

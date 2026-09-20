@@ -252,37 +252,34 @@ class _DocumentsScreenState extends State<DocumentsScreen> {
 
   Widget _buildBody() {
     if (_loading) {
-      return const Center(child: CircularProgressIndicator());
+      return const Center(child: CircularProgressIndicator(color: AppColors.primary));
     }
     final docs = _filtered;
-    if (docs.isEmpty) {
-      return Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(Icons.folder_open_outlined, size: 64, color: Colors.grey.shade300),
-            const SizedBox(height: 12),
-            Text(
-              _allDocs.isEmpty ? 'Nenhum documento disponível' : 'Nenhum documento encontrado',
-              style: TextStyle(color: Colors.grey.shade500, fontSize: 14),
-            ),
-            if (_allDocs.isEmpty)
-              Padding(
-                padding: const EdgeInsets.only(top: 6),
-                child: Text(
-                  'Os documentos publicados pela administração\naparecerão aqui.',
-                  style: TextStyle(color: Colors.grey.shade400, fontSize: 12),
-                  textAlign: TextAlign.center,
-                ),
-              ),
-          ],
-        ),
-      );
-    }
-    return RefreshIndicator(
+    return CondoPullToRefresh(
       onRefresh: _load,
-      color: AppColors.primary,
+      isEmpty: docs.isEmpty,
+      emptyWidget: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(Icons.folder_open_outlined, size: 64, color: Colors.grey.shade300),
+          const SizedBox(height: 12),
+          Text(
+            _allDocs.isEmpty ? 'Nenhum documento disponível' : 'Nenhum documento encontrado',
+            style: TextStyle(color: Colors.grey.shade500, fontSize: 14),
+          ),
+          if (_allDocs.isEmpty)
+            Padding(
+              padding: const EdgeInsets.only(top: 6),
+              child: Text(
+                'Os documentos publicados pela administração\naparecerão aqui.',
+                style: TextStyle(color: Colors.grey.shade400, fontSize: 12),
+                textAlign: TextAlign.center,
+              ),
+            ),
+        ],
+      ),
       child: ListView.separated(
+        physics: const AlwaysScrollableScrollPhysics(),
         padding: const EdgeInsets.all(12),
         itemCount: docs.length,
         separatorBuilder: (_, __) => const SizedBox(height: 8),

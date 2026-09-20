@@ -447,13 +447,17 @@ class _PendingDeliveriesScreenState extends State<PendingDeliveriesScreen> {
       Expanded(
         child: _isLoading
             ? const Center(child: CircularProgressIndicator(color: AppColors.primary))
-            : _parcels.isEmpty
-                ? _buildEmpty()
-                : ListView.builder(
-                    padding: const EdgeInsets.all(16),
-                    itemCount: _parcels.length,
-                    itemBuilder: (_, i) => _buildCard(_parcels[i]),
-                  ),
+            : CondoPullToRefresh(
+                onRefresh: () => _fetchParcels(fetchStats: true),
+                isEmpty: _parcels.isEmpty,
+                emptyWidget: _buildEmpty(),
+                child: ListView.builder(
+                  physics: const AlwaysScrollableScrollPhysics(),
+                  padding: const EdgeInsets.all(16),
+                  itemCount: _parcels.length,
+                  itemBuilder: (_, i) => _buildCard(_parcels[i]),
+                ),
+              ),
       ),
 
       // ── Pagination controls

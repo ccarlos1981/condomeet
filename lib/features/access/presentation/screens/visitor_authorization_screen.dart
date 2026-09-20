@@ -61,6 +61,21 @@ class _VisitorAuthorizationScreenState extends State<VisitorAuthorizationScreen>
     }
   }
 
+  Future<void> _handleRefresh() async {
+    final authState = context.read<AuthBloc>().state;
+    if (authState.userId != null) {
+      final bloc = context.read<InvitationBloc>();
+      bloc.add(
+        LoadResidentInvitationsPaginated(residentId: authState.userId!, isRefresh: true),
+      );
+      try {
+        await bloc.stream
+            .firstWhere((s) => s is! InvitationLoading)
+            .timeout(const Duration(seconds: 4));
+      } catch (_) {}
+    }
+  }
+
   @override
   void dispose() {
     _nameController.dispose();
@@ -259,12 +274,16 @@ class _VisitorAuthorizationScreenState extends State<VisitorAuthorizationScreen>
           centerTitle: true,
         ),
         body: ExcludeSemantics(
-          child: SingleChildScrollView(
-            child: Column(
-              children: [
-                _buildForm(authState),
-                _buildInvitationsList(authState),
-              ],
+          child: CondoPullToRefresh(
+            onRefresh: _handleRefresh,
+            child: SingleChildScrollView(
+              physics: const AlwaysScrollableScrollPhysics(),
+              child: Column(
+                children: [
+                  _buildForm(authState),
+                  _buildInvitationsList(authState),
+                ],
+              ),
             ),
           ),
         ),

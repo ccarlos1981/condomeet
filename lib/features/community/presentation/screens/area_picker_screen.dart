@@ -195,47 +195,47 @@ class _AreaPickerScreenState extends State<AreaPickerScreen>
 
   Widget _buildDisponiveis() {
     if (_loading) return const Center(child: CircularProgressIndicator(color: AppColors.primary));
-    return RefreshIndicator(
-      color: AppColors.primary,
+    return CondoPullToRefresh(
       onRefresh: _load,
-      child: _areas.isEmpty
-          ? ListView(children: const [
-              SizedBox(height: 80),
-              Icon(Icons.event_available, size: 56, color: AppColors.disabledIcon),
-              SizedBox(height: 16),
-              Text(
-                'Nenhuma área disponível para reserva.',
-                textAlign: TextAlign.center,
-                style: TextStyle(color: AppColors.textHint, fontSize: 14),
-              ),
-            ])
-          : ListView.builder(
-              padding: const EdgeInsets.all(16),
-              itemCount: _areas.length,
-              itemBuilder: (context, i) => _buildCard(_areas[i]),
-            ),
+      isEmpty: _areas.isEmpty,
+      emptyWidget: const Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          SizedBox(height: 40),
+          Icon(Icons.event_available, size: 56, color: AppColors.disabledIcon),
+          SizedBox(height: 16),
+          Text(
+            'Nenhuma área disponível para reserva.',
+            textAlign: TextAlign.center,
+            style: TextStyle(color: AppColors.textHint, fontSize: 14),
+          ),
+        ],
+      ),
+      child: ListView.builder(
+        physics: const AlwaysScrollableScrollPhysics(),
+        padding: const EdgeInsets.all(16),
+        itemCount: _areas.length,
+        itemBuilder: (context, i) => _buildCard(_areas[i]),
+      ),
     );
   }
 
   Widget _buildMeusAgendamentos() {
     if (_loadingReservas) return const Center(child: CircularProgressIndicator(color: AppColors.primary));
-    if (_reservas.isEmpty) {
-      return Center(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(Icons.calendar_today_outlined, size: 56, color: Colors.grey.shade300),
-            const SizedBox(height: 16),
-            Text('Você ainda não tem agendamentos.',
-              style: TextStyle(color: Colors.grey.shade400, fontSize: 14)),
-          ],
-        ),
-      );
-    }
-    return RefreshIndicator(
-      color: AppColors.primary,
+    return CondoPullToRefresh(
       onRefresh: _loadReservas,
+      isEmpty: _reservas.isEmpty,
+      emptyWidget: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(Icons.calendar_today_outlined, size: 56, color: Colors.grey.shade300),
+          const SizedBox(height: 16),
+          Text('Você ainda não tem agendamentos.',
+            style: TextStyle(color: Colors.grey.shade400, fontSize: 14)),
+        ],
+      ),
       child: ListView.builder(
+        physics: const AlwaysScrollableScrollPhysics(),
         padding: const EdgeInsets.all(16),
         itemCount: _reservas.length,
         itemBuilder: (_, i) => _buildReservaCard(_reservas[i]),
