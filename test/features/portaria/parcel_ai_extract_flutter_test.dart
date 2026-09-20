@@ -3,6 +3,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:condomeet/core/errors/result.dart';
 import 'package:condomeet/features/portaria/domain/entities/parcel.dart';
 import 'package:condomeet/features/portaria/domain/repositories/parcel_repository.dart';
+import 'package:condomeet/features/portaria/domain/services/parcel_address_normalizer.dart';
 
 // ── Mock Parcel Repository for Contract Verification ────────────────────────
 
@@ -103,6 +104,23 @@ class AiParcelExtractionEngine {
       };
     }
 
+    final isAmbiguous = responseData['ambiguo'] == true;
+    if (isAmbiguous) {
+      final sugestoes = responseData['sugestoes'] is List ? (responseData['sugestoes'] as List) : [];
+      final sugText = sugestoes.isNotEmpty
+          ? sugestoes.map((s) => 'Bloco ${s['bloco']} - Apto ${s['apartamento']}').join(' ou ')
+          : '';
+      return {
+        'aiCalled': true,
+        'success': false,
+        'selectedBloco': null,
+        'selectedApto': null,
+        'message': sugText.isNotEmpty
+            ? '⚠️ Ambiguidade detectada na foto ($sugText). Selecione manualmente.'
+            : '⚠️ Ambiguidade detectada na foto. Selecione a unidade manualmente.',
+      };
+    }
+
     final leituraOk = responseData['leitura_ok'] == true;
     final rawBloco = responseData['bloco']?.toString().trim();
     final rawApto = responseData['apartamento']?.toString().trim();
@@ -121,13 +139,24 @@ class AiParcelExtractionEngine {
     // CENÁRIO 2: Bloco preenchido manualmente, Apto vazio
     if (hasBloco && !hasApto) {
       final blocoId = initialBloco['id'].toString();
+      final blocoNome = initialBloco['nome_ou_numero'].toString().trim().toLowerCase();
       final aptosForBloco = aptosByBlocoId[blocoId] ?? [];
 
       if (rawApto != null) {
-        final matchingApto = aptosForBloco.cast<Map<String, dynamic>>().firstWhere(
+        var matchingApto = aptosForBloco.cast<Map<String, dynamic>>().firstWhere(
           (a) => a['numero'].toString().trim().toLowerCase() == rawApto.toLowerCase(),
           orElse: () => <String, dynamic>{},
         );
+
+        if (matchingApto.isEmpty) {
+          final dec = ParcelAddressNormalizer.decompose(rawApto);
+          if (dec != null && dec.bloco.toLowerCase() == blocoNome) {
+            matchingApto = aptosForBloco.cast<Map<String, dynamic>>().firstWhere(
+              (a) => a['numero'].toString().trim().toLowerCase() == dec.apto.toLowerCase(),
+              orElse: () => <String, dynamic>{},
+            );
+          }
+        }
 
         if (matchingApto.isNotEmpty) {
           return {
@@ -162,9 +191,17 @@ class AiParcelExtractionEngine {
     if (!hasBloco && hasApto) {
       final manualAptoNum = initialApto['numero'].toString().trim().toLowerCase();
 
-      if (rawBloco != null) {
+      var candidateBloco = rawBloco;
+      if (candidateBloco == null && rawApto != null) {
+        final dec = ParcelAddressNormalizer.decompose(rawApto);
+        if (dec != null) {
+          candidateBloco = dec.bloco;
+        }
+      }
+
+      if (candidateBloco != null) {
         final matchingBloco = blocos.cast<Map<String, dynamic>>().firstWhere(
-          (b) => b['nome_ou_numero'].toString().trim().toLowerCase() == rawBloco.toLowerCase(),
+          (b) => b['nome_ou_numero'].toString().trim().toLowerCase() == candidateBloco!.toLowerCase(),
           orElse: () => <String, dynamic>{},
         );
 
@@ -216,21 +253,34 @@ class AiParcelExtractionEngine {
     }
 
     // CENÁRIO 4: Ambos vazios (!hasBloco && !hasApto)
-    if (rawBloco == null && rawApto != null) {
+    String? targetBloco = rawBloco;
+    String? targetApto = rawApto;
+
+    if (rawApto != null) {
+      final dec = ParcelAddressNormalizer.decompose(rawApto);
+      if (dec != null) {
+        targetBloco ??= dec.bloco;
+        targetApto = dec.apto;
+      }
+    }
+
+    if (targetBloco == null && targetApto != null) {
       return {
         'aiCalled': true,
         'success': false,
         'selectedBloco': null,
         'selectedApto': null,
         'message':
-            '⚠️ Apartamento $rawApto identificado, mas o bloco não está visível na foto. Selecione o bloco manualmente.',
+            '⚠️ Apartamento $targetApto identificado, mas o bloco não está visível na foto. Selecione o bloco manualmente.',
       };
     }
 
-    final matchingBloco = blocos.cast<Map<String, dynamic>>().firstWhere(
-      (b) => b['nome_ou_numero'].toString().trim().toLowerCase() == rawBloco!.toLowerCase(),
-      orElse: () => <String, dynamic>{},
-    );
+    final matchingBloco = targetBloco != null
+        ? blocos.cast<Map<String, dynamic>>().firstWhere(
+            (b) => b['nome_ou_numero'].toString().trim().toLowerCase() == targetBloco!.toLowerCase(),
+            orElse: () => <String, dynamic>{},
+          )
+        : <String, dynamic>{};
 
     if (matchingBloco.isEmpty) {
       return {
@@ -246,9 +296,12 @@ class AiParcelExtractionEngine {
     final blocoId = matchingBloco['id'].toString();
     final aptosForBloco = aptosByBlocoId[blocoId] ?? [];
 
-    if (rawApto != null) {
+    if (targetApto != null) {
       final matchingApto = aptosForBloco.cast<Map<String, dynamic>>().firstWhere(
-        (a) => a['numero'].toString().trim().toLowerCase() == rawApto.toLowerCase(),
+        (a) {
+          final numStr = a['numero'].toString().trim().toLowerCase();
+          return numStr == targetApto!.toLowerCase() || (rawApto != null && numStr == rawApto.toLowerCase());
+        },
         orElse: () => <String, dynamic>{},
       );
 
@@ -484,6 +537,215 @@ void main() {
     );
 
     expect(resultA['ignored'], true);
+  });
+
+  // ── GRUPO MONTSERRAT: ESTRUTURA REAL (BLOCOS A E B, APTO 301 NO BLOCO B) ───
+  group('CONDOMÍNIO MONTSERRAT — IDENTIFICAÇÃO PÓS-OCR & BUSCA DE UNIDADES', () {
+    final List<Map<String, dynamic>> montserratBlocos = [
+      <String, dynamic>{'id': 'bloco-a', 'nome_ou_numero': 'A'},
+      <String, dynamic>{'id': 'bloco-b', 'nome_ou_numero': 'B'},
+    ];
+
+    final Map<String, List<Map<String, dynamic>>> montserratAptos = {
+      'bloco-a': [
+        <String, dynamic>{'id': 'apto-101', 'numero': '101'},
+        <String, dynamic>{'id': 'apto-301', 'numero': '301'},
+      ],
+      'bloco-b': [
+        <String, dynamic>{'id': 'apto-102', 'numero': '102'},
+        <String, dynamic>{'id': 'apto-301', 'numero': '301'},
+        <String, dynamic>{'id': 'apto-302', 'numero': '302'},
+      ],
+    };
+
+    late AiParcelExtractionEngine montserratEngine;
+
+    setUp(() {
+      montserratEngine = AiParcelExtractionEngine(
+        blocos: montserratBlocos,
+        aptosByBlocoId: montserratAptos,
+      );
+    });
+
+    test('01. MONTSERRAT: Apto 301B (bloco null da IA) -> Identifica Bloco B e Apto 301', () {
+      final res = montserratEngine.analyzeWithManualPriority(
+        initialBloco: null,
+        initialApto: null,
+        requestId: 1,
+        latestRequestId: 1,
+        isMounted: true,
+        aiCaller: () => {
+          'leitura_ok': true,
+          'bloco': null,
+          'apartamento': '301B',
+          'confianca': 0.98,
+        },
+      );
+      expect(res['success'], true);
+      expect(res['selectedBloco']['nome_ou_numero'], 'B');
+      expect(res['selectedApto']['numero'], '301');
+      expect(res['message'], '✓ Unidade identificada automaticamente pela foto');
+    });
+
+    test('02. MONTSERRAT: 301/B manuscrito (bloco null da IA) -> Identifica Bloco B e Apto 301', () {
+      final res = montserratEngine.analyzeWithManualPriority(
+        initialBloco: null,
+        initialApto: null,
+        requestId: 1,
+        latestRequestId: 1,
+        isMounted: true,
+        aiCaller: () => {
+          'leitura_ok': true,
+          'bloco': null,
+          'apartamento': '301/B',
+          'confianca': 0.95,
+        },
+      );
+      expect(res['success'], true);
+      expect(res['selectedBloco']['nome_ou_numero'], 'B');
+      expect(res['selectedApto']['numero'], '301');
+    });
+
+    test('03. MONTSERRAT: 301-B -> Identifica Bloco B e Apto 301', () {
+      final res = montserratEngine.analyzeWithManualPriority(
+        initialBloco: null,
+        initialApto: null,
+        requestId: 1,
+        latestRequestId: 1,
+        isMounted: true,
+        aiCaller: () => {
+          'leitura_ok': true,
+          'bloco': null,
+          'apartamento': '301-B',
+          'confianca': 0.96,
+        },
+      );
+      expect(res['success'], true);
+      expect(res['selectedBloco']['nome_ou_numero'], 'B');
+      expect(res['selectedApto']['numero'], '301');
+    });
+
+    test('04. MONTSERRAT: B301 -> Identifica Bloco B e Apto 301', () {
+      final res = montserratEngine.analyzeWithManualPriority(
+        initialBloco: null,
+        initialApto: null,
+        requestId: 1,
+        latestRequestId: 1,
+        isMounted: true,
+        aiCaller: () => {
+          'leitura_ok': true,
+          'bloco': null,
+          'apartamento': 'B301',
+          'confianca': 0.97,
+        },
+      );
+      expect(res['success'], true);
+      expect(res['selectedBloco']['nome_ou_numero'], 'B');
+      expect(res['selectedApto']['numero'], '301');
+    });
+
+    test('05. MONTSERRAT: B 301 -> Identifica Bloco B e Apto 301', () {
+      final res = montserratEngine.analyzeWithManualPriority(
+        initialBloco: null,
+        initialApto: null,
+        requestId: 1,
+        latestRequestId: 1,
+        isMounted: true,
+        aiCaller: () => {
+          'leitura_ok': true,
+          'bloco': null,
+          'apartamento': 'B 301',
+          'confianca': 0.95,
+        },
+      );
+      expect(res['success'], true);
+      expect(res['selectedBloco']['nome_ou_numero'], 'B');
+      expect(res['selectedApto']['numero'], '301');
+    });
+
+    test('06. MONTSERRAT: Bloco B Apto 301 (Explícito) -> Identifica Bloco B e Apto 301', () {
+      final res = montserratEngine.analyzeWithManualPriority(
+        initialBloco: null,
+        initialApto: null,
+        requestId: 1,
+        latestRequestId: 1,
+        isMounted: true,
+        aiCaller: () => {
+          'leitura_ok': true,
+          'bloco': null,
+          'apartamento': 'Bloco B Apto 301',
+          'confianca': 0.99,
+        },
+      );
+      expect(res['success'], true);
+      expect(res['selectedBloco']['nome_ou_numero'], 'B');
+      expect(res['selectedApto']['numero'], '301');
+    });
+
+    test('07. MONTSERRAT: Apto 301 Bloco B (Invertido) -> Identifica Bloco B e Apto 301', () {
+      final res = montserratEngine.analyzeWithManualPriority(
+        initialBloco: null,
+        initialApto: null,
+        requestId: 1,
+        latestRequestId: 1,
+        isMounted: true,
+        aiCaller: () => {
+          'leitura_ok': true,
+          'bloco': null,
+          'apartamento': 'Apto 301 Bloco B',
+          'confianca': 0.99,
+        },
+      );
+      expect(res['success'], true);
+      expect(res['selectedBloco']['nome_ou_numero'], 'B');
+      expect(res['selectedApto']['numero'], '301');
+    });
+
+    test('08. MONTSERRAT: Bloco B pré-selecionado e foto com 301B -> Identifica Apto 301', () {
+      final res = montserratEngine.analyzeWithManualPriority(
+        initialBloco: montserratBlocos[1], // Bloco B
+        initialApto: null,
+        requestId: 1,
+        latestRequestId: 1,
+        isMounted: true,
+        aiCaller: () => {
+          'leitura_ok': true,
+          'bloco': null,
+          'apartamento': '301B',
+          'confianca': 0.95,
+        },
+      );
+      expect(res['success'], true);
+      expect(res['selectedBloco']['nome_ou_numero'], 'B');
+      expect(res['selectedApto']['numero'], '301');
+    });
+
+    test('09. MONTSERRAT AMBIGUIDADE: Impresso 301B e Manuscrito 402A -> Não sobrescreve, exibe sugestões', () {
+      final res = montserratEngine.analyzeWithManualPriority(
+        initialBloco: null,
+        initialApto: null,
+        requestId: 1,
+        latestRequestId: 1,
+        isMounted: true,
+        aiCaller: () => {
+          'leitura_ok': false,
+          'ambiguo': true,
+          'sugestoes': [
+            {'bloco': 'B', 'apartamento': '301'},
+            {'bloco': 'A', 'apartamento': '402'},
+          ],
+          'bloco': null,
+          'apartamento': null,
+          'confianca': 0.90,
+        },
+      );
+      expect(res['success'], false);
+      expect(res['selectedBloco'], null);
+      expect(res['selectedApto'], null);
+      expect(res['message'], contains('Ambiguidade detectada'));
+      expect(res['message'], contains('Bloco B - Apto 301'));
+      expect(res['message'], contains('Bloco A - Apto 402'));
+    });
   });
 
   test('CADASTRO FINAL: registerParcel() persiste com sucesso', () async {

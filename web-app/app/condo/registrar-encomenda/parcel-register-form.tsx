@@ -9,6 +9,7 @@ import {
   Box, Mail, ShoppingBag, FileText, X, RefreshCw, Video, Upload
 } from 'lucide-react'
 import { getBlocoLabel, getAptoLabel, filterResidentialBlocos, filterResidentialAptos } from '@/lib/labels'
+import { matchParcelUnit, decomposeAlphanumeric } from '@/lib/parcel-unit-matcher'
 
 
 interface Props {
@@ -109,7 +110,10 @@ export default function ParcelRegisterForm({ condoId, registeredById, units, tip
       const base64Image = await blobToBase64(blob)
 
       const { data, error: invokeError } = await supabase.functions.invoke('parcel-ai-extract', {
-        body: { image_base64: base64Image },
+        body: {
+          image_base64: base64Image,
+          known_blocos: blocos,
+        },
       })
 
       // Race condition check
@@ -128,7 +132,9 @@ export default function ParcelRegisterForm({ condoId, registeredById, units, tip
 
       if (!leituraOk || (!rawBloco && !rawApto)) {
         setIsAnalyzingPhoto(false)
-        setAiFeedbackMessage('⚠️ Não foi possível identificar a unidade pela foto. Preencha manualmente.')
+        setAiFeedbackMessage(data.ambiguo && data.sugestoes?.length
+          ? `⚠️ Leitura com ambiguidade detectada na foto. Por favor, confirme a unidade manualmente.`
+          : '⚠️ Não foi possível identificar a unidade pela foto. Preencha manualmente.')
         setAiFeedbackSuccess(false)
         return
       }
@@ -140,9 +146,18 @@ export default function ParcelRegisterForm({ condoId, registeredById, units, tip
             .filter(u => u.blocoNome.toLowerCase() === blocoSel.toLowerCase())
             .map(u => u.aptoNumero)
 
-          const matchingApto = availableAptos.find(
+          let matchingApto = availableAptos.find(
             a => a.trim().toLowerCase() === rawApto.toLowerCase()
           )
+
+          if (!matchingApto) {
+            const dec = decomposeAlphanumeric(rawApto)
+            if (dec && dec.bloco.toLowerCase() === blocoSel.toLowerCase()) {
+              matchingApto = availableAptos.find(
+                a => a.trim().toLowerCase() === dec.apto.toLowerCase()
+              )
+            }
+          }
 
           if (matchingApto) {
             setAptoSel(matchingApto)
@@ -164,9 +179,15 @@ export default function ParcelRegisterForm({ condoId, registeredById, units, tip
 
       // CENÁRIO 3: Bloco vazio, Apartamento preenchido manualmente
       if (!hasBloco && hasApto) {
-        if (rawBloco) {
+        let candidateBloco = rawBloco
+        if (!candidateBloco && rawApto) {
+          const dec = decomposeAlphanumeric(rawApto)
+          if (dec) candidateBloco = dec.bloco
+        }
+
+        if (candidateBloco) {
           const matchingBloco = blocos.find(
-            b => b.trim().toLowerCase() === rawBloco.toLowerCase()
+            b => b.trim().toLowerCase() === candidateBloco!.toLowerCase()
           )
 
           if (matchingBloco) {
@@ -202,50 +223,36 @@ export default function ParcelRegisterForm({ condoId, registeredById, units, tip
       }
 
       // CENÁRIO 4: Ambos vazios (!hasBloco && !hasApto)
-      if (!rawBloco && rawApto) {
+      const matchResult = matchParcelUnit({
+        rawBloco,
+        rawApto,
+        units,
+        blocos,
+        aiAmbiguous: Boolean(data.ambiguo),
+        aiSuggestions: Array.isArray(data.sugestoes) ? data.sugestoes : [],
+        tipoEstrutura,
+      })
+
+      if (matchResult.success && matchResult.bloco && matchResult.apto) {
+        setBlocoSel(matchResult.bloco)
+        setAptoSel(matchResult.apto)
         setIsAnalyzingPhoto(false)
-        setAiFeedbackMessage(`⚠️ Apartamento ${rawApto} identificado, mas o ${getBlocoLabel(tipoEstrutura).toLowerCase()} não está visível na foto. Selecione o ${getBlocoLabel(tipoEstrutura).toLowerCase()} manualmente.`)
+        setAiFeedbackMessage(matchResult.message)
+        setAiFeedbackSuccess(true)
+        return
+      }
+
+      if (matchResult.bloco && !matchResult.apto) {
+        setBlocoSel(matchResult.bloco)
+        setIsAnalyzingPhoto(false)
+        setAiFeedbackMessage(matchResult.message)
         setAiFeedbackSuccess(false)
         return
       }
 
-      const matchingBloco = blocos.find(
-        b => b.trim().toLowerCase() === rawBloco!.toLowerCase()
-      )
-
-      if (!matchingBloco) {
-        setIsAnalyzingPhoto(false)
-        setAiFeedbackMessage('⚠️ A unidade identificada na foto não foi encontrada neste condomínio. Confira os dados manualmente.')
-        setAiFeedbackSuccess(false)
-        return
-      }
-
-      setBlocoSel(matchingBloco)
-
-      if (rawApto) {
-        const availableAptos = units
-          .filter(u => u.blocoNome.toLowerCase() === matchingBloco.toLowerCase())
-          .map(u => u.aptoNumero)
-
-        const matchingApto = availableAptos.find(
-          a => a.trim().toLowerCase() === rawApto.toLowerCase()
-        )
-
-        if (matchingApto) {
-          setAptoSel(matchingApto)
-          setIsAnalyzingPhoto(false)
-          setAiFeedbackMessage('✓ Unidade identificada automaticamente pela foto')
-          setAiFeedbackSuccess(true)
-        } else {
-          setIsAnalyzingPhoto(false)
-          setAiFeedbackMessage('⚠️ A unidade identificada na foto não foi encontrada neste condomínio. Confira os dados manualmente.')
-          setAiFeedbackSuccess(false)
-        }
-      } else {
-        setIsAnalyzingPhoto(false)
-        setAiFeedbackMessage(`✓ ${getBlocoLabel(tipoEstrutura)} identificado. Selecione o ${getAptoLabel(tipoEstrutura).toLowerCase()} manualmente.`)
-        setAiFeedbackSuccess(false)
-      }
+      setIsAnalyzingPhoto(false)
+      setAiFeedbackMessage(matchResult.message)
+      setAiFeedbackSuccess(false)
     } catch {
       if (currentReqId !== analysisRequestId.current) return
       setIsAnalyzingPhoto(false)

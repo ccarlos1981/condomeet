@@ -14,6 +14,7 @@ import '../../domain/repositories/parcel_repository.dart';
 import '../../../auth/presentation/bloc/auth_bloc.dart';
 import 'package:condomeet/core/di/injection_container.dart';
 import 'package:condomeet/core/utils/error_sanitizer.dart';
+import '../../domain/services/parcel_address_normalizer.dart';
 
 const _tipoOptions = [
   {'value': 'caixa', 'label': '📦 Caixa'},
@@ -188,7 +189,10 @@ class _ParcelRegistrationScreenState extends State<ParcelRegistrationScreen> {
       // Call Edge Function parcel-ai-extract
       final response = await _supabase.functions.invoke(
         'parcel-ai-extract',
-        body: {'image_base64': base64Image},
+        body: {
+          'image_base64': base64Image,
+          'known_blocos': _blocos.map((b) => b['nome_ou_numero'].toString()).toList(),
+        },
       );
 
       // Check race condition & mounted
@@ -208,8 +212,24 @@ class _ParcelRegistrationScreenState extends State<ParcelRegistrationScreen> {
           : jsonDecode(response.data.toString()) as Map<String, dynamic>;
 
       final leituraOk = data['leitura_ok'] == true;
+      final isAmbiguous = data['ambiguo'] == true;
       final rawBloco = data['bloco']?.toString().trim();
       final rawApto = data['apartamento']?.toString().trim();
+
+      if (isAmbiguous) {
+        final sugestoes = data['sugestoes'] is List ? (data['sugestoes'] as List) : [];
+        final sugText = sugestoes.isNotEmpty
+            ? sugestoes.map((s) => 'Bloco ${s['bloco']} - Apto ${s['apartamento']}').join(' ou ')
+            : '';
+        setState(() {
+          _isAnalyzingPhoto = false;
+          _aiFeedbackMessage = sugText.isNotEmpty
+              ? '⚠️ Ambiguidade detectada na foto ($sugText). Selecione manualmente.'
+              : '⚠️ Ambiguidade detectada na foto. Selecione a unidade manualmente.';
+          _aiFeedbackSuccess = false;
+        });
+        return;
+      }
 
       if (!leituraOk || (rawBloco == null && rawApto == null)) {
         setState(() {
@@ -223,10 +243,24 @@ class _ParcelRegistrationScreenState extends State<ParcelRegistrationScreen> {
       // CENÁRIO 2: Bloco preenchido manualmente, Apto vazio
       if (hasBloco && !hasApto) {
         if (rawApto != null) {
-          final matchingApto = _aptos.firstWhere(
+          final blocoNome = _selectedBloco!['nome_ou_numero'].toString().trim().toLowerCase();
+
+          // 1. Tenta match direto
+          var matchingApto = _aptos.firstWhere(
             (a) => a['numero'].toString().trim().toLowerCase() == rawApto.toLowerCase(),
             orElse: () => {},
           );
+
+          // 2. Se não encontrou, tenta decomposição alfanumérica (ex: "301B" no Bloco B -> Apto "301")
+          if (matchingApto.isEmpty) {
+            final dec = ParcelAddressNormalizer.decompose(rawApto);
+            if (dec != null && dec.bloco.toLowerCase() == blocoNome) {
+              matchingApto = _aptos.firstWhere(
+                (a) => a['numero'].toString().trim().toLowerCase() == dec.apto.toLowerCase(),
+                orElse: () => {},
+              );
+            }
+          }
 
           if (matchingApto.isNotEmpty) {
             await _onAptoSelected(matchingApto);
@@ -259,9 +293,17 @@ class _ParcelRegistrationScreenState extends State<ParcelRegistrationScreen> {
         final manualApto = _selectedApto!;
         final manualAptoNum = manualApto['numero'].toString().trim().toLowerCase();
 
-        if (rawBloco != null) {
+        var candidateBloco = rawBloco;
+        if (candidateBloco == null && rawApto != null) {
+          final dec = ParcelAddressNormalizer.decompose(rawApto);
+          if (dec != null) {
+            candidateBloco = dec.bloco;
+          }
+        }
+
+        if (candidateBloco != null) {
           final matchingBloco = _blocos.firstWhere(
-            (b) => b['nome_ou_numero'].toString().trim().toLowerCase() == rawBloco.toLowerCase(),
+            (b) => b['nome_ou_numero'].toString().trim().toLowerCase() == candidateBloco!.toLowerCase(),
             orElse: () => {},
           );
 
@@ -310,19 +352,32 @@ class _ParcelRegistrationScreenState extends State<ParcelRegistrationScreen> {
       }
 
       // CENÁRIO 4: Ambos vazios (!hasBloco && !hasApto)
-      if (rawBloco == null && rawApto != null) {
+      String? targetBloco = rawBloco;
+      String? targetApto = rawApto;
+
+      if (rawApto != null) {
+        final dec = ParcelAddressNormalizer.decompose(rawApto);
+        if (dec != null) {
+          targetBloco ??= dec.bloco;
+          targetApto = dec.apto;
+        }
+      }
+
+      if (targetBloco == null && targetApto != null) {
         setState(() {
           _isAnalyzingPhoto = false;
-          _aiFeedbackMessage = '⚠️ Apartamento $rawApto identificado, mas o bloco não está visível na foto. Selecione o bloco manualmente.';
+          _aiFeedbackMessage = '⚠️ Apartamento $targetApto identificado, mas o bloco não está visível na foto. Selecione o bloco manualmente.';
           _aiFeedbackSuccess = false;
         });
         return;
       }
 
-      final matchingBloco = _blocos.firstWhere(
-        (b) => b['nome_ou_numero'].toString().trim().toLowerCase() == rawBloco!.toLowerCase(),
-        orElse: () => {},
-      );
+      final matchingBloco = targetBloco != null
+          ? _blocos.firstWhere(
+              (b) => b['nome_ou_numero'].toString().trim().toLowerCase() == targetBloco!.toLowerCase(),
+              orElse: () => {},
+            )
+          : <String, dynamic>{};
 
       if (matchingBloco.isEmpty) {
         setState(() {
@@ -333,14 +388,16 @@ class _ParcelRegistrationScreenState extends State<ParcelRegistrationScreen> {
         return;
       }
 
-      // Block exists in condominium! Load aptos for this block
+      // Bloco encontrado! Carrega apartamentos deste bloco
       await _onBlocoSelected(matchingBloco);
       if (!mounted || currentReqId != _analysisRequestId) return;
 
-      // If apartment was also extracted, look for it in _aptos
-      if (rawApto != null) {
+      if (targetApto != null) {
         final matchingApto = _aptos.firstWhere(
-          (a) => a['numero'].toString().trim().toLowerCase() == rawApto.toLowerCase(),
+          (a) {
+            final numStr = a['numero'].toString().trim().toLowerCase();
+            return numStr == targetApto!.toLowerCase() || (rawApto != null && numStr == rawApto.toLowerCase());
+          },
           orElse: () => {},
         );
 
@@ -363,7 +420,6 @@ class _ParcelRegistrationScreenState extends State<ParcelRegistrationScreen> {
           return;
         }
       } else {
-        // Only block found
         setState(() {
           _isAnalyzingPhoto = false;
           _aiFeedbackMessage = '✓ Bloco identificado. Selecione o apartamento manualmente.';

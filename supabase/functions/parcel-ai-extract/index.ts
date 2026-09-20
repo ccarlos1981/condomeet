@@ -1,5 +1,6 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { normalizeUnitExtraction, sanitizeField } from "./normalizer.ts";
 
 // ── CORS Headers ─────────────────────────────────────────────────────────────
 const corsHeaders = {
@@ -15,43 +16,46 @@ const GEMINI_TIMEOUT_MS = 15000; // 15 seconds timeout
 // ── System Prompt & Strict Extraction Rules ──────────────────────────────────
 const SYSTEM_PROMPT = `Você é um extrator óptico de dados (OCR) de alta precisão especializado em interpretar identificações de unidades residenciais (Bloco/Torre/Quadra e Apartamento/Casa/Lote) em etiquetas de encomendas e pacotes residenciais.
 
-Sua tarefa é extrair exclusivamente o BLOCO e o APARTAMENTO/UNIDADE presentes na imagem, interpretando a estrutura visual e textual da etiqueta mesmo quando não constarem palavras explícitas como "Bloco" ou "Apto".
+Sua tarefa é extrair o BLOCO e o APARTAMENTO/UNIDADE presentes na imagem, interpretando a estrutura visual e textual da etiqueta mesmo quando não constarem palavras explícitas como "Bloco" ou "Apto". Além disso, você deve extrair o texto integral observado (impresso e manuscrito) para pós-processamento determinístico.
 
 ============================================================
 HIERARQUIA DE LEITURA E INTERPRETAÇÃO SEMÂNTICA
 ============================================================
 
-1. PRIORIDADE 1 — IDENTIFICAÇÃO EXPLÍCITA:
+1. PRIORIDADE 1 — IDENTIFICAÇÃO EXPLÍCITA E COMPLEMENTOS:
    Quando houver identificadores claros (Bloco, Bl., BL, Torre, Apto, Apt, Ap, Apartamento, Unidade, Un., Casa, Quadra, Qd., Q, Lote, Lt., L), extraia os dados limpos:
    - "Bloco B Apto 301" -> bloco: "B", apartamento: "301"
+   - "Apto 301 Bloco B" -> bloco: "B", apartamento: "301"
    - "BL 36 AP 302" -> bloco: "36", apartamento: "302"
    - "TORRE ALFA AP 201" -> bloco: "Alfa", apartamento: "201"
    - "QUADRA 12 LOTE 04" -> bloco: "12", apartamento: "4"
 
-2. PRIORIDADE 2 — PADRÕES ALFANUMÉRICOS CONCATENADOS (E-COMMERCE):
+2. PRIORIDADE 2 — PADRÕES ALFANUMÉRICOS CONCATENADOS (E-COMMERCE & NOTAS):
    Reconheça combinações onde o número do apartamento e a letra do bloco estejam unidos por sufixo, prefixo ou separador:
-   - "301B", "301-B", "301/B", "301 B" -> bloco: "B", apartamento: "301"
-   - "B301", "B-301", "B/301", "B 301" -> bloco: "B", apartamento: "301"
+   - "301B", "301-B", "301/B", "301 B", "301.B" -> bloco: "B", apartamento: "301"
+   - "B301", "B-301", "B/301", "B 301", "B.301" -> bloco: "B", apartamento: "301"
+   - "Apto 301B", "Ap 301/B", "Apto B301" -> bloco: "B", apartamento: "301"
    - Extraia a letra como bloco e o número como apartamento.
 
-3. PRIORIDADE 3 — BLOCO NOMINAL / TEXTUAL:
+3. PRIORIDADE 3 — FONTES COMPLEMENTARES (IMPRESSO E MANUSCRITO):
+   Considere o texto impresso na etiqueta e eventuais anotações manuscritas (feitas à caneta/marcador) como fontes complementares de informação, priorizando os dados de entrega e o endereço do destinatário:
+   - Exemplo: Etiqueta impressa com "Apto 301B" e anotação à caneta "301/B" -> Ambos confirmam Bloco B e Apto 301.
+   - Retorne o texto impresso no campo "texto_impresso" e as anotações manuscritas no campo "texto_manuscrito".
+
+4. PRIORIDADE 4 — BLOCO NOMINAL / TEXTUAL:
    Blocos podem ser palavras ou nomes (ex: Alfa, Gama, Sul, Norte, Flores).
    - "ALFA 201", "ALFA / 201", "BL ALFA 201" -> bloco: "Alfa", apartamento: "201"
    - Extraia a palavra como bloco e o número como apartamento.
 
-4. PRIORIDADE 4 — CONDOMÍNIO HORIZONTAL (QUADRA E LOTE/CASA):
+5. PRIORIDADE 5 — CONDOMÍNIO HORIZONTAL (QUADRA E LOTE/CASA):
    Em loteamentos e condomínios de casas:
    - "QD 12 LT 4", "Q12 L04", "Casa 15 Quadra 2" -> bloco: "12" (Quadra), apartamento: "4" (Lote/Casa)
 
-5. PRIORIDADE 5 — PADRÕES PURAMENTE NUMÉRICOS (EXIGE CONTEXTO SEGURO):
+6. PRIORIDADE 6 — PADRÕES PURAMENTE NUMÉRICOS (EXIGE CONTEXTO SEGURO):
    NÃO interprete automaticamente qualquer par de números aleatórios como Bloco + Apartamento.
    Apenas interprete pares numéricos (ex: "36 302", "36/302", "36-302") quando houver contexto claro de endereço/complemento residencial na etiqueta (ex: campo "Complemento", linha de endereço ou delimitador claro).
    - Com contexto seguro: "36/302" ou "Complemento: 36 302" -> bloco: "36", apartamento: "302".
    - Sem contexto de unidade ou ambíguo: NÃO assuma bloco.
-
-6. LEITURA DE ENDEREÇO E COMPLEMENTO:
-   Analise com atenção os campos "Complemento", "Dados de Entrega", "Observações", linhas próximas ao destinatário e o final da linha de endereço.
-   - Exemplo: "Complemento: 301B" -> bloco: "B", apartamento: "301".
 
 ============================================================
 REGRAS ABSOLUTAS DE NÃO-INVENÇÃO (ZERO ALUCINAÇÃO)
@@ -86,6 +90,21 @@ const RESPONSE_SCHEMA = {
       type: "NUMBER",
       description: "Grau de certeza da leitura visual, variando de 0.0 a 1.0.",
     },
+    raw_text: {
+      type: "STRING",
+      nullable: true,
+      description: "Texto visível completo identificado na etiqueta (destinatário, endereço, complementos impressos e anotações).",
+    },
+    texto_impresso: {
+      type: "STRING",
+      nullable: true,
+      description: "Texto impresso referente ao endereço/destinatário e dados de entrega.",
+    },
+    texto_manuscrito: {
+      type: "STRING",
+      nullable: true,
+      description: "Anotações manuscritas à caneta/marcador encontradas na etiqueta ou pacote.",
+    },
   },
   required: ["leitura_ok", "confianca"],
 };
@@ -99,24 +118,6 @@ function jsonResponse(status: number, body: Record<string, unknown>): Response {
       "Content-Type": "application/json",
     },
   });
-}
-
-// ── Helper: Sanitize Strings ─────────────────────────────────────────────────
-function sanitizeField(val: unknown): string | null {
-  if (typeof val !== "string") return null;
-  const trimmed = val.trim();
-  if (
-    !trimmed ||
-    trimmed.toLowerCase() === "null" ||
-    trimmed.toLowerCase() === "none" ||
-    trimmed.toLowerCase() === "n/a" ||
-    trimmed.toLowerCase() === "indefinido" ||
-    trimmed === "?" ||
-    trimmed === "-"
-  ) {
-    return null;
-  }
-  return trimmed;
 }
 
 // ── Main Handler ─────────────────────────────────────────────────────────────
@@ -356,15 +357,24 @@ Deno.serve(async (req: Request) => {
       });
     }
 
-    // 8. Sanitize & Structure Output
-    const bloco = sanitizeField(parsedResult.bloco);
-    const apartamento = sanitizeField(parsedResult.apartamento);
-    let confianca = typeof parsedResult.confianca === "number" ? parsedResult.confianca : 0.0;
-    confianca = Math.max(0.0, Math.min(1.0, confianca));
+    // 8. Normalize & Structure Output with Post-OCR Engine
+    const normalized = normalizeUnitExtraction({
+      bloco: parsedResult.bloco as string | null,
+      apartamento: parsedResult.apartamento as string | null,
+      confianca: parsedResult.confianca as number,
+      leitura_ok: parsedResult.leitura_ok as boolean,
+      rawText: (parsedResult.raw_text as string) || rawText,
+      textoImpresso: parsedResult.texto_impresso as string | null,
+      textoManuscrito: parsedResult.texto_manuscrito as string | null,
+      knownBlocos: Array.isArray(parsedBody.known_blocos) ? (parsedBody.known_blocos as string[]) : undefined,
+    });
 
-    // Determine leitura_ok strictly
-    const hasAnyField = bloco !== null || apartamento !== null;
-    const leituraOk = Boolean(parsedResult.leitura_ok) && hasAnyField && confianca >= 0.35;
+    const bloco = normalized.bloco;
+    const apartamento = normalized.apartamento;
+    const confianca = normalized.confianca;
+    const leituraOk = normalized.leitura_ok;
+    const ambiguo = normalized.ambiguo;
+    const sugestoes = normalized.sugestoes;
 
     // Tokens & Performance Metrics
     const latencyMs = Date.now() - startTime;
@@ -377,7 +387,7 @@ Deno.serve(async (req: Request) => {
 
     // Structured Log (Sanitized — zero sensitive data or image contents)
     console.log(
-      `[parcel-ai-extract] Concluído em ${latencyMs}ms | status=200 | leitura_ok=${leituraOk} | bloco=${bloco ?? "null"} | apto=${apartamento ?? "null"} | confianca=${confianca.toFixed(2)} | tokens_in=${tokens.prompt} | tokens_out=${tokens.candidates}`
+      `[parcel-ai-extract] Concluído em ${latencyMs}ms | status=200 | leitura_ok=${leituraOk} | bloco=${bloco ?? "null"} | apto=${apartamento ?? "null"} | confianca=${confianca.toFixed(2)} | ambiguo=${ambiguo} | tokens_in=${tokens.prompt} | tokens_out=${tokens.candidates}`
     );
 
     return jsonResponse(200, {
@@ -385,6 +395,9 @@ Deno.serve(async (req: Request) => {
       bloco: bloco,
       apartamento: apartamento,
       confianca: Number(confianca.toFixed(2)),
+      ambiguo: ambiguo,
+      sugestoes: sugestoes,
+      raw_text: normalized.raw_text,
       latency_ms: latencyMs,
       tokens,
     });
