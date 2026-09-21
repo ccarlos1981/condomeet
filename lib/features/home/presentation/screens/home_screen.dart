@@ -406,33 +406,27 @@ class _HomeScreenState extends State<HomeScreen> {
                       authState.role ?? 'resident',
                     );
 
-                      return Column(
-                        children: [
-                          _buildHeader(authState, condominiumName: condominium.name),
-                          Expanded(
-                            child: CondoPullToRefresh(
-                              onRefresh: _refreshData,
-                              child: SingleChildScrollView(
-                                physics: const AlwaysScrollableScrollPhysics(),
-                                dragStartBehavior: DragStartBehavior.down,
-                                padding: const EdgeInsets.only(bottom: 24),
-                                child: Column(
-                                  children: [
-                                    _buildSelfieBanner(),
-                                    if (menuItems.isNotEmpty)
-                                      _buildMenuSection(context, menuItems),
-                                    _buildParcelCard(authState),
-                                    _buildPartnersSection(),
-                                    _buildFeaturedSection(),
-                                    const SizedBox(
-                                      height: 80,
-                                    ), // Space for bottom nav
-                                  ],
-                                ),
-                              ),
-                            ),
+                      return CondoPullToRefresh(
+                        onRefresh: _refreshData,
+                        child: SingleChildScrollView(
+                          physics: const AlwaysScrollableScrollPhysics(),
+                          dragStartBehavior: DragStartBehavior.down,
+                          padding: const EdgeInsets.only(bottom: 24),
+                          child: Column(
+                            children: [
+                              _buildHeader(authState, condominiumName: condominium.name),
+                              _buildSelfieBanner(),
+                              if (menuItems.isNotEmpty)
+                                _buildMenuSection(context, menuItems),
+                              _buildParcelCard(authState),
+                              _buildPartnersSection(),
+                              _buildFeaturedSection(),
+                              const SizedBox(
+                                height: 80,
+                              ), // Space for bottom nav
+                            ],
                           ),
-                        ],
+                        ),
                       );
                     },
                   ),
@@ -508,6 +502,7 @@ class _HomeScreenState extends State<HomeScreen> {
 
     Widget _buildHeader(AuthState authState, {String? condominiumName}) {
       return Container(
+        width: double.infinity,
         color: Colors.white,
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
         child: Row(

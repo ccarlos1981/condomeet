@@ -141,12 +141,12 @@ PODS:
   - printing (1.0.0):
     - Flutter
   - PromisesObjC (2.4.0)
-  - purchases_flutter (9.16.1):
+  - purchases_flutter (10.13.1):
     - Flutter
-    - PurchasesHybridCommon (= 17.55.1)
-  - PurchasesHybridCommon (17.55.1):
-    - RevenueCat (= 5.67.1)
-  - RevenueCat (5.67.1)
+    - PurchasesHybridCommon (= 19.2.0)
+  - PurchasesHybridCommon (19.2.0):
+    - RevenueCat (= 5.90.1)
+  - RevenueCat (5.90.1)
   - SDWebImage (5.21.7):
     - SDWebImage/Core (= 5.21.7)
   - SDWebImage/Core (5.21.7)
@@ -342,9 +342,9 @@ SPEC CHECKSUMS:
   powersync_flutter_libs: 20381b877038d27d8fa918f8c3fff08bfc3925d0
   printing: 54ff03f28fe9ba3aa93358afb80a8595a071dd07
   PromisesObjC: f5707f49cb48b9636751c5b2e7d227e43fba9f47
-  purchases_flutter: b44fcb4ff5e68a4dfe53fd0c339683803b04dd2c
-  PurchasesHybridCommon: ecd9d7c586287625f1225b8de5e24c1021502270
-  RevenueCat: 9357239a9f0978285e68983637b8a602e65c94f0
+  purchases_flutter: e6d8940221d596f33a25f789a76b63d0ec8c0dd3
+  PurchasesHybridCommon: d3ac1e960252e66c535d5bde6ac6dc7c9716d7eb
+  RevenueCat: fafa0b7c0c2f6b04333f4a2c81624723c672f38e
   SDWebImage: e9fc87c1aab89a8ab1bbd74eba378c6f53be8abf
   share_plus: 50da8cb520a8f0f65671c6c6a99b3617ed10a58a
   shared_preferences_foundation: 7036424c3d8ec98dfe75ff1667cb0cd531ec82bb
@@ -357,6 +357,6 @@ SPEC CHECKSUMS:
   wakelock_plus: e29112ab3ef0b318e58cfa5c32326458be66b556
   webview_flutter_wkwebview: 8ebf4fded22593026f7dbff1fbff31ea98573c8d
 
-PODFILE CHECKSUM: d2f18fbd8eeb581b09c9e741a3752934bea1fd23
+PODFILE CHECKSUM: 80415db4990297b43f11d4d7f1d036436c4f4d13
 
 COCOAPODS: 1.16.2
