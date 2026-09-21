@@ -96,30 +96,9 @@ Deno.serve(async (req) => {
     else if (image_base64.startsWith("iVBOR")) mimeType = "image/png"
     else if (image_base64.startsWith("R0lGOD")) mimeType = "image/gif"
 
-    // --- Dynamically find an available model ---
-    const listRes = await fetch(`https://generativelanguage.googleapis.com/v1beta/models?key=${geminiKey}`);
-    if (!listRes.ok) {
-      throw new Error(`Failed to list Gemini models: ${await listRes.text()}`);
-    }
-    const listData = await listRes.json();
-    const availableModels = listData.models || [];
-    
-    // Prefer flash, then pro-vision, then just fallback to anything that supports generateContent
-    let targetModel = availableModels.find((m: any) => m.name.includes("flash") && m.supportedGenerationMethods?.includes("generateContent"));
-    if (!targetModel) {
-      targetModel = availableModels.find((m: any) => m.name.includes("pro-vision") && m.supportedGenerationMethods?.includes("generateContent"));
-    }
-    if (!targetModel) {
-       targetModel = availableModels.find((m: any) => m.supportedGenerationMethods?.includes("generateContent"));
-    }
-
-    if (!targetModel) {
-      throw new Error(`No compatible Gemini models found. Available: ${availableModels.map((m:any) => m.name).join(", ")}`);
-    }
-
-    // Ensure it has the "models/" prefix
-    const modelName = targetModel.name.startsWith("models/") ? targetModel.name : `models/${targetModel.name}`;
-    console.log(`[OCR] Dynamically selected Gemini model: ${modelName}`);
+    // --- Official Gemini 3.6 Flash model ---
+    const modelName = "models/gemini-3.6-flash";
+    console.log(`[OCR] Using fixed Gemini model: ${modelName}`);
 
     // --- Call Gemini API ---
     const geminiRes = await fetch(

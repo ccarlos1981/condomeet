@@ -9,7 +9,7 @@ const corsHeaders = {
 };
 
 // ── Configuration ────────────────────────────────────────────────────────────
-const MODEL_ID = "gemini-2.5-flash-lite";
+const MODEL_ID = "gemini-3.6-flash";
 const MAX_PAYLOAD_BYTES = 7 * 1024 * 1024; // ~7MB base64 string (~5MB binary image)
 const GEMINI_TIMEOUT_MS = 15000; // 15 seconds timeout
 
@@ -275,26 +275,7 @@ Deno.serve(async (req: Request) => {
       },
     };
 
-    let selectedModel = "models/gemini-2.5-flash";
-    let availableModelNames: string[] = [];
-    try {
-      const listRes = await fetch(`https://generativelanguage.googleapis.com/v1beta/models?key=${geminiKey}`);
-      if (listRes.ok) {
-        const listData = await listRes.json();
-        const availableModels: Array<{ name: string; supportedGenerationMethods?: string[] }> = listData.models || [];
-        availableModelNames = availableModels.map((m) => m.name);
-        const preferred = availableModels.find(
-          (m) =>
-            m.supportedGenerationMethods?.includes("generateContent") &&
-            (m.name.includes("flash") || m.name.includes("gemini"))
-        );
-        if (preferred) {
-          selectedModel = preferred.name.startsWith("models/") ? preferred.name : `models/${preferred.name}`;
-        }
-      }
-    } catch (listErr) {
-      console.warn("[parcel-ai-extract] Model list warning, using default:", listErr);
-    }
+    const selectedModel = "models/gemini-3.6-flash";
 
     const geminiEndpoint = `https://generativelanguage.googleapis.com/v1beta/${selectedModel}:generateContent?key=${geminiKey}`;
     const controller = new AbortController();

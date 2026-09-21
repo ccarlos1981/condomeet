@@ -137,9 +137,9 @@ Regras de Redação da ATA:
 7. Não adicione linhas pontilhadas para assinatura, pois a nossa tela geradora de PDF cuidará da parte visual das assinaturas. Retorne APENAS a redação contínua da ATA.
 8. Formate em texto simples contínuo com quebras de linha normais entre os parágrafos (apenas \n). Não use formatações markdown exóticas (*, #, etc).`;
 
-    const geminiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${GEMINI_API_KEY}`;
+    const geminiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-3.6-flash:generateContent?key=${GEMINI_API_KEY}`;
     
-    // Invocando o Gemini 2.5 Flash
+    // Invocando o Gemini 3.6 Flash
     const geminiResponse = await fetch(geminiUrl, {
       method: "POST",
       headers: { "Content-Type": "application/json" },

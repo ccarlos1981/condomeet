@@ -38,7 +38,7 @@ Deno.serve(async (req: Request) => {
     const mimeType = imageResponse.headers.get("content-type") || "image/jpeg";
 
     // Call Gemini Vision API
-    const geminiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${GEMINI_API_KEY}`;
+    const geminiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-3.6-flash:generateContent?key=${GEMINI_API_KEY}`;
 
     const prompt = `Você é um inspetor especializado em vistorias de imóveis e bens.
 Analise esta foto do item "${item_name || "item de vistoria"}" e forneça uma avaliação técnica.
@@ -124,10 +124,10 @@ Seja preciso e objetivo. Analise sinais de desgaste, danos, manchas, rachaduras,
       JSON.stringify({ success: true, analysis }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
-  } catch (error) {
+  } catch (error: any) {
     console.error("Error:", error);
     return new Response(
-      JSON.stringify({ error: error.message }),
+      JSON.stringify({ error: error?.message || String(error) }),
       { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
   }
