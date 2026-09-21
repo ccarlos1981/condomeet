@@ -39,17 +39,38 @@ class _ParcelDashboardScreenState extends State<ParcelDashboardScreen>
   String? _fullscreenPhotoUrl;
   int _historyPage = 1;
 
+  String get _effectiveResidentId {
+    final authId = context.read<AuthBloc>().state.userId;
+    if (authId != null && authId.trim().isNotEmpty) {
+      return authId.trim();
+    }
+    final supabaseId = Supabase.instance.client.auth.currentUser?.id;
+    if (supabaseId != null && supabaseId.trim().isNotEmpty) {
+      return supabaseId.trim();
+    }
+    if (widget.residentId.trim().isNotEmpty) {
+      return widget.residentId.trim();
+    }
+    return '';
+  }
+
   @override
   void initState() {
     super.initState();
     _tabController = TabController(length: 2, vsync: this);
-    context.read<ParcelBloc>().add(WatchPendingParcelsRequested(widget.residentId));
-    final condoId = context.read<AuthBloc>().state.condominiumId;
-    if (condoId != null) {
-      context.read<ParcelBloc>().add(FetchParcelHistoryRequested(
-        residentId: widget.residentId,
-        condominiumId: condoId,
-      ));
+    final residentId = _effectiveResidentId;
+    if (residentId.isNotEmpty) {
+      context.read<ParcelBloc>().add(WatchPendingParcelsRequested(residentId));
+      final condoId = context.read<AuthBloc>().state.condominiumId;
+      if (condoId != null && condoId.isNotEmpty) {
+        context.read<ParcelBloc>().add(FetchParcelHistoryRequested(
+          residentId: residentId,
+          condominiumId: condoId,
+        ));
+      }
+    } else {
+      // Fail-closed: se vazio, NÃO consultar o condomínio!
+      context.read<ParcelBloc>().add(const WatchPendingParcelsRequested(''));
     }
   }
 
@@ -69,13 +90,16 @@ class _ParcelDashboardScreenState extends State<ParcelDashboardScreen>
         parcel: parcel,
         onConfirmed: () {
           // Refresh list
-          context.read<ParcelBloc>().add(WatchPendingParcelsRequested(widget.residentId));
-          final condoId = context.read<AuthBloc>().state.condominiumId;
-          if (condoId != null) {
-            context.read<ParcelBloc>().add(FetchParcelHistoryRequested(
-              residentId: widget.residentId,
-              condominiumId: condoId,
-            ));
+          final residentId = _effectiveResidentId;
+          if (residentId.isNotEmpty) {
+            context.read<ParcelBloc>().add(WatchPendingParcelsRequested(residentId));
+            final condoId = context.read<AuthBloc>().state.condominiumId;
+            if (condoId != null && condoId.isNotEmpty) {
+              context.read<ParcelBloc>().add(FetchParcelHistoryRequested(
+                residentId: residentId,
+                condominiumId: condoId,
+              ));
+            }
           }
         },
       ),
@@ -112,11 +136,21 @@ class _ParcelDashboardScreenState extends State<ParcelDashboardScreen>
   }
 
   Widget _buildPendingTab() {
+    if (_effectiveResidentId.isEmpty) {
+      return _buildEmptyState(
+        icon: Icons.inventory_2_outlined,
+        title: 'Tudo limpo!',
+        message: 'Nenhuma encomenda aguardando você.',
+      );
+    }
     return BlocBuilder<ParcelBloc, ParcelState>(
       builder: (context, state) {
         if (state is ParcelLoading) return const Center(child: CircularProgressIndicator(color: AppColors.primary));
         if (state is ParcelError) return Center(child: Text(state.message, style: const TextStyle(color: Colors.red)));
         if (state is ParcelLoaded) {
+          if (!state.isPersonal) {
+            return const Center(child: CircularProgressIndicator(color: AppColors.primary));
+          }
           final parcels = state.pendingParcels;
           if (parcels.isEmpty) return _buildEmptyState(icon: Icons.inventory_2_outlined, title: 'Tudo limpo!', message: 'Nenhuma encomenda aguardando você.');
           return _buildParcelList(parcels, isPending: true);
@@ -127,10 +161,20 @@ class _ParcelDashboardScreenState extends State<ParcelDashboardScreen>
   }
 
   Widget _buildHistoryTab() {
+    if (_effectiveResidentId.isEmpty) {
+      return _buildEmptyState(
+        icon: Icons.history,
+        title: 'Histórico vazio',
+        message: 'Suas encomendas entregues aparecerão aqui.',
+      );
+    }
     return BlocBuilder<ParcelBloc, ParcelState>(
       builder: (context, state) {
         if (state is ParcelLoading) return const Center(child: CircularProgressIndicator(color: AppColors.primary));
         if (state is ParcelLoaded) {
+          if (!state.isPersonal) {
+            return const Center(child: CircularProgressIndicator(color: AppColors.primary));
+          }
           final parcels = state.historyParcels;
           if (parcels.isEmpty) return _buildEmptyState(icon: Icons.history, title: 'Histórico vazio', message: 'Suas encomendas entregues aparecerão aqui.');
           final totalPages = (parcels.length / _itemsPerPage).ceil().clamp(1, 9999);

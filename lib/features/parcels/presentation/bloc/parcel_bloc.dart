@@ -21,19 +21,29 @@ class ParcelBloc extends Bloc<ParcelEvent, ParcelState> {
     WatchPendingParcelsRequested event,
     Emitter<ParcelState> emit,
   ) async {
-    // Skip if empty residentId — don't cancel a working subscription
-    if (event.residentId.isEmpty) return;
-    
-    // Only show loading spinner on first load; preserve existing data on refresh
-    if (state is! ParcelLoaded) {
-      emit(ParcelLoading());
-    }
     await _parcelsSubscription?.cancel();
-    
+    _parcelsSubscription = null;
+
+    final residentId = event.residentId.trim();
+    if (residentId.isEmpty) {
+      // Fail-closed: se residentId estiver vazio, emitir lista pessoal vazia e abortar
+      emit(const ParcelLoaded(
+        pendingParcels: [],
+        historyParcels: [],
+        isPersonal: true,
+      ));
+      return;
+    }
+
+    // No início de uma nova consulta pessoal: emitir estado de Loading/limpeza
+    // para impedir que um ParcelLoaded anterior contendo encomendas condominiais
+    // seja reutilizado na tela pessoal.
+    emit(ParcelLoading());
+
     _parcelsSubscription = _parcelRepository
-        .watchPendingParcelsForUnit(event.residentId)
+        .watchPendingParcelsForUnit(residentId)
         .listen((parcels) {
-      add(_UpdatePendingParcels(parcels));
+      add(_UpdatePendingParcels(parcels, isPersonal: true));
     });
   }
 
@@ -42,10 +52,16 @@ class ParcelBloc extends Bloc<ParcelEvent, ParcelState> {
     Emitter<ParcelState> emit,
   ) {
     final currentState = state;
-    if (currentState is ParcelLoaded) {
-      emit(currentState.copyWith(pendingParcels: event.parcels));
+    if (currentState is ParcelLoaded && currentState.isPersonal == event.isPersonal) {
+      emit(currentState.copyWith(
+        pendingParcels: event.parcels,
+        isPersonal: event.isPersonal,
+      ));
     } else {
-      emit(ParcelLoaded(pendingParcels: event.parcels));
+      emit(ParcelLoaded(
+        pendingParcels: event.parcels,
+        isPersonal: event.isPersonal,
+      ));
     }
   }
 
@@ -53,13 +69,24 @@ class ParcelBloc extends Bloc<ParcelEvent, ParcelState> {
     WatchAllPendingParcelsRequested event,
     Emitter<ParcelState> emit,
   ) async {
-    emit(ParcelLoading());
     await _parcelsSubscription?.cancel();
-    
+    _parcelsSubscription = null;
+
+    final condoId = event.condominiumId.trim();
+    if (condoId.isEmpty) {
+      emit(const ParcelLoaded(
+        pendingParcels: [],
+        isPersonal: false,
+      ));
+      return;
+    }
+
+    emit(ParcelLoading());
+
     _parcelsSubscription = _parcelRepository
-        .watchAllPendingParcels(event.condominiumId)
+        .watchAllPendingParcels(condoId)
         .listen((parcels) {
-      add(_UpdatePendingParcels(parcels));
+      add(_UpdatePendingParcels(parcels, isPersonal: false));
     });
   }
 
@@ -80,11 +107,24 @@ class ParcelBloc extends Bloc<ParcelEvent, ParcelState> {
     FetchParcelHistoryRequested event,
     Emitter<ParcelState> emit,
   ) async {
+    final residentId = event.residentId?.trim();
+    if (residentId == null || residentId.isEmpty) {
+      // Se residentId estiver vazio/null: emitir histórico vazio e abortar.
+      // NUNCA manter silenciosamente o estado anterior ou buscar do condomínio.
+      final currentState = state;
+      if (currentState is ParcelLoaded) {
+        emit(currentState.copyWith(historyParcels: []));
+      } else {
+        emit(const ParcelLoaded(historyParcels: [], isPersonal: true));
+      }
+      return;
+    }
+
     final result = await _parcelRepository.getParcelHistory(
-      residentId: event.residentId,
+      residentId: residentId,
       condominiumId: event.condominiumId,
     );
-    
+
     result.fold(
       (error) => emit(ParcelError(error.message)),
       (history) {
@@ -92,7 +132,7 @@ class ParcelBloc extends Bloc<ParcelEvent, ParcelState> {
         if (currentState is ParcelLoaded) {
           emit(currentState.copyWith(historyParcels: history));
         } else {
-          emit(ParcelLoaded(historyParcels: history));
+          emit(ParcelLoaded(historyParcels: history, isPersonal: true));
         }
       },
     );
@@ -108,8 +148,9 @@ class ParcelBloc extends Bloc<ParcelEvent, ParcelState> {
 /// Internal event to update the state from the stream
 class _UpdatePendingParcels extends ParcelEvent {
   final List<Parcel> parcels;
-  const _UpdatePendingParcels(this.parcels);
+  final bool isPersonal;
+  const _UpdatePendingParcels(this.parcels, {this.isPersonal = true});
 
   @override
-  List<Object?> get props => [parcels];
+  List<Object?> get props => [parcels, isPersonal];
 }

@@ -57,8 +57,8 @@ class _HomeScreenState extends State<HomeScreen> {
 
     if (authState.userId != null) {
       final role = (authState.role ?? '').toLowerCase();
-      final isPorterOrAdmin = role.contains('porteiro') || role.contains('portaria') || role.contains('síndico') || role.contains('sindico') || role == 'admin';
-      if (isPorterOrAdmin && authState.condominiumId != null) {
+      final isPorter = role.contains('porteiro') || role.contains('portaria');
+      if (isPorter && authState.condominiumId != null) {
         context.read<ParcelBloc>().add(
           WatchAllPendingParcelsRequested(authState.condominiumId!),
         );
@@ -82,12 +82,8 @@ class _HomeScreenState extends State<HomeScreen> {
       setState(() => _initStream(authState.condominiumId));
       if (authState.userId != null) {
         final role = (authState.role ?? '').toLowerCase();
-        final isPorterOrAdmin = role.contains('porteiro') ||
-            role.contains('portaria') ||
-            role.contains('síndico') ||
-            role.contains('sindico') ||
-            role == 'admin';
-        if (isPorterOrAdmin && authState.condominiumId != null) {
+        final isPorter = role.contains('porteiro') || role.contains('portaria');
+        if (isPorter && authState.condominiumId != null) {
           context.read<ParcelBloc>().add(
             WatchAllPendingParcelsRequested(authState.condominiumId!),
           );
@@ -357,8 +353,8 @@ class _HomeScreenState extends State<HomeScreen> {
             setState(() => _initStream(state.condominiumId));
             if (state.userId != null) {
               final role = (state.role ?? '').toLowerCase();
-              final isPorterOrAdmin = role.contains('porteiro') || role.contains('portaria') || role.contains('síndico') || role.contains('sindico') || role == 'admin';
-              if (isPorterOrAdmin && state.condominiumId != null) {
+              final isPorter = role.contains('porteiro') || role.contains('portaria');
+              if (isPorter && state.condominiumId != null) {
                 context.read<ParcelBloc>().add(
                   WatchAllPendingParcelsRequested(state.condominiumId!),
                 );
@@ -697,14 +693,19 @@ class _HomeScreenState extends State<HomeScreen> {
         List<Parcel> pendingParcels = [];
         if (state is ParcelLoaded) {
           if (isPorter) {
-            // Para Portaria: todas as encomendas pendentes do condomínio
-            pendingParcels = state.pendingParcels;
+            // Para Portaria: todas as encomendas pendentes do condomínio (somente se escopo condominial)
+            pendingParcels = state.isPersonal ? [] : state.pendingParcels;
           } else {
             // Para Morador / Síndico: encomendas pendentes pessoais dos últimos 7 dias
-            final sevenDaysAgo = DateTime.now().subtract(const Duration(days: 7));
-            pendingParcels = state.pendingParcels
-                .where((p) => p.arrivalTime.isAfter(sevenDaysAgo))
-                .toList();
+            // Regra inviolável: nunca renderizar estado condominial como pessoal
+            if (state.isPersonal) {
+              final sevenDaysAgo = DateTime.now().subtract(const Duration(days: 7));
+              pendingParcels = state.pendingParcels
+                  .where((p) => p.arrivalTime.isAfter(sevenDaysAgo))
+                  .toList();
+            } else {
+              pendingParcels = [];
+            }
           }
         }
         final pendingCount = pendingParcels.length;

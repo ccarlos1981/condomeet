@@ -44,6 +44,9 @@ import 'package:condomeet/features/security/presentation/screens/occurrence_admi
 import 'package:condomeet/features/security/presentation/screens/sos_screen.dart';
 import 'package:condomeet/features/security/presentation/screens/sos_contatos_screen.dart';
 import 'package:condomeet/features/notifications/presentation/screens/avisos_screen.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:supabase_flutter/supabase_flutter.dart' hide AuthState;
+import 'package:condomeet/features/auth/presentation/bloc/auth_bloc.dart';
 import 'package:condomeet/features/auth/presentation/bloc/auth_state.dart';
 import 'package:condomeet/features/dev/presentation/screens/design_system_showcase.dart';
 import 'package:condomeet/features/home/presentation/screens/home_screen.dart';
@@ -120,7 +123,11 @@ class AppRouter {
       '/ocr-scanner': (context) => const OcrScannerScreen(),
       '/parcel-registration': (context) => const ParcelRegistrationScreen(),
       '/parcel-dashboard': (context) {
-        return ParcelDashboardScreen(residentId: state.userId ?? '');
+        final authUserId = context.read<AuthBloc>().state.userId;
+        final effectiveUserId = (authUserId != null && authUserId.isNotEmpty)
+            ? authUserId
+            : (Supabase.instance.client.auth.currentUser?.id ?? '');
+        return ParcelDashboardScreen(residentId: effectiveUserId);
       },
       '/pending-deliveries': (context) => const PendingDeliveriesScreen(),
       '/visitor-registration': (context) => const VisitorRegistrationScreen(),
@@ -129,8 +136,11 @@ class AppRouter {
       '/enquete-admin': (context) => const EnqueteAdminScreen(),
       '/enquetes': (context) => const EnqueteVotingScreen(),
       '/parcel-history': (context) {
-        final residentId = (ModalRoute.of(context)!.settings.arguments as String?) ?? state.userId;
-        return ParcelHistoryScreen(residentId: residentId);
+        final authUserId = context.read<AuthBloc>().state.userId;
+        final effectiveUserId = (authUserId != null && authUserId.isNotEmpty)
+            ? authUserId
+            : (Supabase.instance.client.auth.currentUser?.id ?? '');
+        return ParcelHistoryScreen(residentId: effectiveUserId);
       },
       '/invitation-generator': (context) {
         return BlockedAccessOverlay(

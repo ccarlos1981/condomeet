@@ -15,22 +15,26 @@ class ParcelLoading extends ParcelState {}
 class ParcelLoaded extends ParcelState {
   final List<Parcel> pendingParcels;
   final List<Parcel> historyParcels;
+  final bool isPersonal;
 
   const ParcelLoaded({
     this.pendingParcels = const [],
     this.historyParcels = const [],
+    this.isPersonal = true,
   });
 
   @override
-  List<Object?> get props => [pendingParcels, historyParcels];
+  List<Object?> get props => [pendingParcels, historyParcels, isPersonal];
 
   ParcelLoaded copyWith({
     List<Parcel>? pendingParcels,
     List<Parcel>? historyParcels,
+    bool? isPersonal,
   }) {
     return ParcelLoaded(
       pendingParcels: pendingParcels ?? this.pendingParcels,
       historyParcels: historyParcels ?? this.historyParcels,
+      isPersonal: isPersonal ?? this.isPersonal,
     );
   }
 }

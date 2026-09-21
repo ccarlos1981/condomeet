@@ -7,10 +7,11 @@ import '../../../parcels/presentation/bloc/parcel_event.dart';
 import '../../../parcels/presentation/bloc/parcel_state.dart';
 import '../../../portaria/domain/entities/parcel.dart';
 
+import 'package:supabase_flutter/supabase_flutter.dart' hide AuthState;
 import 'package:condomeet/features/auth/presentation/bloc/auth_bloc.dart';
 
 class ParcelHistoryScreen extends StatefulWidget {
-  final String? residentId; // Null means Porter view (all history)
+  final String? residentId;
 
   const ParcelHistoryScreen({super.key, this.residentId});
 
@@ -19,14 +20,32 @@ class ParcelHistoryScreen extends StatefulWidget {
 }
 
 class _ParcelHistoryScreenState extends State<ParcelHistoryScreen> {
+  String get _effectiveResidentId {
+    final authId = context.read<AuthBloc>().state.userId;
+    if (authId != null && authId.trim().isNotEmpty) {
+      return authId.trim();
+    }
+    final supabaseId = Supabase.instance.client.auth.currentUser?.id;
+    if (supabaseId != null && supabaseId.trim().isNotEmpty) {
+      return supabaseId.trim();
+    }
+    return '';
+  }
+
   @override
   void initState() {
     super.initState();
+    final residentId = _effectiveResidentId;
     final condoId = context.read<AuthBloc>().state.condominiumId;
-    if (condoId != null) {
+    if (residentId.isNotEmpty && condoId != null && condoId.isNotEmpty) {
       context.read<ParcelBloc>().add(FetchParcelHistoryRequested(
-        residentId: widget.residentId,
+        residentId: residentId,
         condominiumId: condoId,
+      ));
+    } else {
+      context.read<ParcelBloc>().add(FetchParcelHistoryRequested(
+        residentId: '',
+        condominiumId: condoId ?? '',
       ));
     }
   }
@@ -43,6 +62,10 @@ class _ParcelHistoryScreenState extends State<ParcelHistoryScreen> {
       ),
       body: BlocBuilder<ParcelBloc, ParcelState>(
         builder: (context, state) {
+          if (_effectiveResidentId.isEmpty) {
+            return _buildEmptyState();
+          }
+
           if (state is ParcelLoading) {
             return const Center(child: CircularProgressIndicator(color: AppColors.primary));
           }
@@ -52,6 +75,9 @@ class _ParcelHistoryScreenState extends State<ParcelHistoryScreen> {
           }
 
           if (state is ParcelLoaded) {
+            if (!state.isPersonal) {
+              return const Center(child: CircularProgressIndicator(color: AppColors.primary));
+            }
             final parcels = state.historyParcels;
             if (parcels.isEmpty) {
               return _buildEmptyState();
