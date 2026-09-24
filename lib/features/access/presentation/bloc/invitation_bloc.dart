@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:condomeet/core/services/live_activity_service.dart';
 import '../../domain/models/invitation.dart';
 import '../../domain/repositories/invitation_repository.dart';
 import 'invitation_event.dart';
@@ -8,6 +9,9 @@ import 'invitation_state.dart';
 class InvitationBloc extends Bloc<InvitationEvent, InvitationState> {
   final InvitationRepository _invitationRepository;
   StreamSubscription? _invitationsSubscription;
+  final List<Invitation> _cachedResidentInvitations = [];
+
+  List<Invitation> get cachedResidentInvitations => List.unmodifiable(_cachedResidentInvitations);
 
   InvitationBloc({required InvitationRepository invitationRepository})
       : _invitationRepository = invitationRepository,
@@ -39,12 +43,28 @@ class InvitationBloc extends Bloc<InvitationEvent, InvitationState> {
 
     if (result.isSuccess) {
       final newInvitations = result.successData;
-      final currentInvitations = state is InvitationLoaded && !event.isRefresh
-          ? (state as InvitationLoaded).invitations
-          : <Invitation>[];
-      
+      if (event.isRefresh) {
+        _cachedResidentInvitations.clear();
+      }
+      for (final inv in newInvitations) {
+        final existingIdx = _cachedResidentInvitations.indexWhere((i) => i.id == inv.id);
+        if (existingIdx >= 0) {
+          _cachedResidentInvitations[existingIdx] = inv;
+        } else {
+          _cachedResidentInvitations.add(inv);
+        }
+      }
+
+      // Sincronizar Live Activity com as autorizações abertas consolidadas
+      final openList = _cachedResidentInvitations.where(LiveActivityService.isInvitationOpen).toList();
+      unawaited(LiveActivityService.syncActiveInvitationsState(
+        openInvitations: openList,
+        moradorNome: LiveActivityService.cachedMoradorNome ?? 'Morador',
+        condominioNome: LiveActivityService.cachedCondominioNome ?? 'Condomínio',
+      ));
+
       emit(InvitationLoaded(
-        invitations: [...currentInvitations, ...newInvitations],
+        invitations: List.from(_cachedResidentInvitations),
         hasMore: newInvitations.length == event.limit,
         offset: event.offset + newInvitations.length,
       ));
@@ -113,8 +133,6 @@ class InvitationBloc extends Bloc<InvitationEvent, InvitationState> {
     CreateInvitationRequested event,
     Emitter<InvitationState> emit,
   ) async {
-    // We don't necessarily emit Loading here if we want a seamless creation, 
-    // but for now it's fine.
     final result = await _invitationRepository.createInvitation(
       residentId: event.residentId,
       guestName: event.guestName,
@@ -130,9 +148,20 @@ class InvitationBloc extends Bloc<InvitationEvent, InvitationState> {
     );
 
     if (result.isSuccess) {
-      emit(InvitationCreated(result.successData));
-      // Re-trigger load to update list if needed, or simply let the watch handle it.
-      // Since we have a watch, it might update automatically.
+      final created = result.successData;
+      // Inserir convite criado no início da coleção consolidada
+      _cachedResidentInvitations.removeWhere((i) => i.id == created.id);
+      _cachedResidentInvitations.insert(0, created);
+
+      // Recalcular as autorizações abertas usando a fonte de verdade única
+      final openList = _cachedResidentInvitations.where(LiveActivityService.isInvitationOpen).toList();
+      unawaited(LiveActivityService.syncActiveInvitationsState(
+        openInvitations: openList,
+        moradorNome: LiveActivityService.cachedMoradorNome ?? 'Morador',
+        condominioNome: LiveActivityService.cachedCondominioNome ?? 'Condomínio',
+      ));
+
+      emit(InvitationCreated(created));
     } else {
       emit(InvitationError(result.failureMessage));
     }
@@ -155,6 +184,44 @@ class InvitationBloc extends Bloc<InvitationEvent, InvitationState> {
     final result = await _invitationRepository.cancelInvitation(event.invitationId);
     if (result.isFailure) {
       emit(InvitationError(result.failureMessage));
+    } else {
+      // Atualizar status para 'cancelled' na coleção consolidada
+      final idx = _cachedResidentInvitations.indexWhere((i) => i.id == event.invitationId);
+      if (idx >= 0) {
+        final old = _cachedResidentInvitations[idx];
+        _cachedResidentInvitations[idx] = Invitation(
+          id: old.id,
+          residentId: old.residentId,
+          condominiumId: old.condominiumId,
+          guestName: old.guestName,
+          validityDate: old.validityDate,
+          qrData: old.qrData,
+          status: 'cancelled',
+          visitanteCompareceu: old.visitanteCompareceu,
+          liberadoPor: old.liberadoPor,
+          liberadoEm: old.liberadoEm,
+          residentName: old.residentName,
+          blocoTxt: old.blocoTxt,
+          aptoTxt: old.aptoTxt,
+          createdAt: old.createdAt,
+          updatedAt: DateTime.now(),
+          visitorType: old.visitorType,
+          visitorPhone: old.visitorPhone,
+          observation: old.observation,
+          validUntil: old.validUntil,
+          parentId: old.parentId,
+        );
+      }
+
+      final remainingOpen = _cachedResidentInvitations
+          .where(LiveActivityService.isInvitationOpen)
+          .toList();
+
+      unawaited(LiveActivityService.syncActiveInvitationsState(
+        openInvitations: remainingOpen,
+        moradorNome: LiveActivityService.cachedMoradorNome ?? 'Morador',
+        condominioNome: LiveActivityService.cachedCondominioNome ?? 'Condomínio',
+      ));
     }
   }
 
@@ -162,9 +229,19 @@ class InvitationBloc extends Bloc<InvitationEvent, InvitationState> {
     _UpdateInvitations event,
     Emitter<InvitationState> emit,
   ) {
+    _cachedResidentInvitations.clear();
+    _cachedResidentInvitations.addAll(event.invitations);
+
+    final openList = _cachedResidentInvitations.where(LiveActivityService.isInvitationOpen).toList();
+    unawaited(LiveActivityService.syncActiveInvitationsState(
+      openInvitations: openList,
+      moradorNome: LiveActivityService.cachedMoradorNome ?? 'Morador',
+      condominioNome: LiveActivityService.cachedCondominioNome ?? 'Condomínio',
+    ));
+
     emit(InvitationLoaded(
-      invitations: event.invitations.cast<Invitation>(),
-      hasMore: false, // Watch is usually for active ones, not full history
+      invitations: List.from(_cachedResidentInvitations),
+      hasMore: false,
       offset: 0,
     ));
   }

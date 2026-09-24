@@ -4,4 +4,15 @@
          to allow setting breakpoints, to provide hot reload, etc.
     -->
     <uses-permission android:name="android.permission.INTERNET"/>
+    <application>
+        <!-- Test harness exclusivo de homologação DEBUG via adb shell am broadcast -->
+        <receiver
+            android:name="br.app.condomeet.home.EntryCredentialTestReceiver"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="br.app.condomeet.TEST_CREDENTIAL" />
+            </intent-filter>
+        </receiver>
+    </application>
 </manifest>
+

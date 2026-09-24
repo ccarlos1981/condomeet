@@ -1,4 +1,7 @@
 import 'package:condomeet/core/design_system/design_system.dart';
+import 'package:condomeet/core/services/live_activity_service.dart';
+import 'package:condomeet/shared/repositories/condominium_repository.dart';
+import 'package:get_it/get_it.dart';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -22,6 +25,19 @@ class _InvitationGeneratorScreenState extends State<InvitationGeneratorScreen> {
   final _nameController = TextEditingController();
   DateTime _selectedDate = DateTime.now();
   bool _isGenerating = false;
+
+  @override
+  void initState() {
+    super.initState();
+    final authState = context.read<AuthBloc>().state;
+    if (authState.condominiumId != null) {
+      GetIt.I<CondominiumRepository>().getCondominiumById(authState.condominiumId!).then((condo) {
+        if (mounted && condo != null) {
+          LiveActivityService.cacheNames(condominioNome: condo.name);
+        }
+      });
+    }
+  }
 
   @override
   void dispose() {
@@ -60,11 +76,20 @@ class _InvitationGeneratorScreenState extends State<InvitationGeneratorScreen> {
 
     setState(() => _isGenerating = true);
     
+    final effectiveValidityDate = DateTime(
+      _selectedDate.year,
+      _selectedDate.month,
+      _selectedDate.day,
+      23,
+      59,
+      59,
+    );
+
     context.read<InvitationBloc>().add(CreateInvitationRequested(
       residentId: authState.userId!,
       condominiumId: authState.condominiumId!,
       guestName: _nameController.text.trim(),
-      validityDate: _selectedDate,
+      validityDate: effectiveValidityDate,
     ));
   }
 

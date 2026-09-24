@@ -1,6 +1,11 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:supabase_flutter/supabase_flutter.dart' hide AuthState;
 import 'package:condomeet/core/design_system/design_system.dart';
+import 'package:condomeet/core/services/live_activity_service.dart';
+import 'package:condomeet/shared/repositories/condominium_repository.dart';
+import 'package:get_it/get_it.dart';
 import 'package:condomeet/features/auth/presentation/bloc/auth_bloc.dart';
 import 'package:condomeet/features/auth/presentation/bloc/auth_state.dart';
 import 'package:condomeet/features/access/presentation/bloc/invitation_bloc.dart';
@@ -50,15 +55,113 @@ class _VisitorAuthorizationScreenState extends State<VisitorAuthorizationScreen>
     'Outros',
   ];
 
+  StreamSubscription<String>? _deepLinkSubscription;
+  bool _highlightHandled = false;
+
   @override
   void initState() {
     super.initState();
     final authState = context.read<AuthBloc>().state;
+    LiveActivityService.cacheNames(moradorNome: authState.userName);
     if (authState.userId != null) {
       context.read<InvitationBloc>().add(
         LoadResidentInvitationsPaginated(residentId: authState.userId!, isRefresh: true),
       );
     }
+    if (authState.condominiumId != null) {
+      GetIt.I<CondominiumRepository>().getCondominiumById(authState.condominiumId!).then((condo) {
+        if (mounted && condo != null) {
+          LiveActivityService.cacheNames(condominioNome: condo.name);
+        }
+      });
+    }
+
+    _deepLinkSubscription = LiveActivityService.deepLinkStream.listen((invitationId) {
+      if (mounted && invitationId.isNotEmpty && invitationId != 'list' && invitationId != '__list__') {
+        _processHighlightInvitation(invitationId);
+      }
+    });
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (!_highlightHandled) {
+      final args = ModalRoute.of(context)?.settings.arguments;
+      if (args is Map && args['highlightInvitationId'] is String) {
+        _highlightHandled = true;
+        final highlightId = args['highlightInvitationId'] as String;
+        if (highlightId.isNotEmpty && highlightId != 'list' && highlightId != '__list__') {
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            _processHighlightInvitation(highlightId);
+          });
+        }
+      }
+    }
+  }
+
+  Future<void> _processHighlightInvitation(String invitationId) async {
+    final authState = context.read<AuthBloc>().state;
+    if (authState.userId == null) return;
+
+    Invitation? targetInvitation;
+
+    // 1. Buscar no estado atual carregado em memória pelo BLoC
+    final blocState = context.read<InvitationBloc>().state;
+    if (blocState is InvitationLoaded) {
+      for (final inv in blocState.invitations) {
+        if (inv.id == invitationId) {
+          targetInvitation = inv;
+          break;
+        }
+      }
+    }
+
+    // 2. Se não estiver no lote de 5 da tela, buscar no banco mantendo RLS e filtro estrito por residente e condomínio
+    if (targetInvitation == null) {
+      try {
+        final data = await Supabase.instance.client
+            .from('convites')
+            .select()
+            .eq('id', invitationId)
+            .eq('resident_id', authState.userId!)
+            .eq('condominio_id', authState.condominiumId ?? '')
+            .maybeSingle();
+
+        if (data != null) {
+          targetInvitation = Invitation.fromMap(data);
+        }
+      } catch (e) {
+        debugPrint('⚠️ [VisitorAuthorizationScreen] Erro ao buscar autorização para deep link: $e');
+      }
+    }
+
+    if (!mounted) return;
+
+    // 3. Validação de segurança: autorização inexistente, inválida ou de outro morador
+    if (targetInvitation == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Autorização não encontrada ou indisponível para este morador.'),
+          backgroundColor: Colors.redAccent,
+        ),
+      );
+      return;
+    }
+
+    // 4. Avaliar status de cancelamento e expiração
+    final isCancelled = targetInvitation.status == 'cancelled';
+    final now = DateTime.now();
+    final isExpired = targetInvitation.validityDate.isBefore(
+      DateTime(now.year, now.month, now.day),
+    );
+
+    _showInvitationDetailsModal(
+      context,
+      targetInvitation,
+      isCancelled: isCancelled,
+      isExpired: isExpired,
+    );
   }
 
   Future<void> _handleRefresh() async {
@@ -78,6 +181,7 @@ class _VisitorAuthorizationScreenState extends State<VisitorAuthorizationScreen>
 
   @override
   void dispose() {
+    _deepLinkSubscription?.cancel();
     _nameController.dispose();
     _phoneController.dispose();
     _obsController.dispose();
@@ -166,13 +270,24 @@ class _VisitorAuthorizationScreenState extends State<VisitorAuthorizationScreen>
     final isTypeValid = _visitorType != null;
     if (!isTypeValid) setState(() => _showTypeError = true);
     if (_formKey.currentState!.validate() && isTypeValid) {
+      // Regra de produto: a autorização de visita é válida para a data selecionada
+      // até o fim daquele dia (23:59:59), alinhado com a portaria (visitDayEnd).
+      final effectiveValidityDate = DateTime(
+        _selectedDate.year,
+        _selectedDate.month,
+        _selectedDate.day,
+        23,
+        59,
+        59,
+      );
+
       final authState = context.read<AuthBloc>().state;
       context.read<InvitationBloc>().add(
         CreateInvitationRequested(
           residentId: authState.userId!,
           condominiumId: authState.condominiumId!,
           guestName: _nameController.text,
-          validityDate: _selectedDate,
+          validityDate: effectiveValidityDate,
           visitorType: _visitorType,
           visitorPhone: _phoneController.text,
           observation: _obsController.text,
@@ -187,12 +302,14 @@ class _VisitorAuthorizationScreenState extends State<VisitorAuthorizationScreen>
 
   void _handleQuickAuthorize(String type) {
     final authState = context.read<AuthBloc>().state;
+    final now = DateTime.now();
+    final effectiveValidityDate = DateTime(now.year, now.month, now.day, 23, 59, 59);
     context.read<InvitationBloc>().add(
       CreateInvitationRequested(
         residentId: authState.userId!,
         condominiumId: authState.condominiumId!,
         guestName: type,
-        validityDate: DateTime.now(),
+        validityDate: effectiveValidityDate,
         visitorType: type,
         visitorPhone: '',
         observation: '',
@@ -695,9 +812,14 @@ class _VisitorAuthorizationScreenState extends State<VisitorAuthorizationScreen>
   }
 
   Widget _buildInvitationCard(Invitation inv) {
+    final bool isCancelled = inv.status == 'cancelled';
+    final now = DateTime.now();
+    final bool isExpired = inv.validityDate.isBefore(
+      DateTime(now.year, now.month, now.day),
+    );
+
     return Container(
       margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-      padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(16),
@@ -710,116 +832,176 @@ class _VisitorAuthorizationScreenState extends State<VisitorAuthorizationScreen>
           ),
         ],
       ),
-      child: Row(
-        children: [
-          Container(
-            padding: const EdgeInsets.all(10),
-            decoration: BoxDecoration(
-              color: Colors.red.shade50,
-              shape: BoxShape.circle,
-            ),
-            child: Icon(Icons.person_outline, color: AppColors.primary),
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          borderRadius: BorderRadius.circular(16),
+          onTap: () => _showInvitationDetailsModal(
+            context,
+            inv,
+            isCancelled: isCancelled,
+            isExpired: isExpired,
           ),
-          const SizedBox(width: 16),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
+          child: Padding(
+            padding: const EdgeInsets.all(16),
+            child: Row(
               children: [
-                Text(inv.guestName, style: AppTypography.h3),
-                const SizedBox(height: 2),
-                Text(
-                  '${inv.visitorType ?? 'Visita'} · ${inv.validUntil != null ? 'de ${DateFormat('dd/MM/yyyy').format(inv.validityDate)} até ${DateFormat('dd/MM/yyyy').format(inv.validUntil!)}' : DateFormat('dd/MM/yyyy').format(inv.validityDate)}',
-                  style: AppTypography.bodySmall.copyWith(color: Colors.grey.shade600),
-                ),
-                const SizedBox(height: 4),
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                  padding: const EdgeInsets.all(10),
                   decoration: BoxDecoration(
-                    color: AppColors.primary.withValues(alpha: 0.1),
-                    borderRadius: BorderRadius.circular(6),
-                    border: Border.all(color: AppColors.primary.withValues(alpha: 0.3)),
+                    color: isCancelled ? Colors.grey.shade100 : Colors.red.shade50,
+                    shape: BoxShape.circle,
                   ),
-                  child: Text(
-                    '🔑 ${inv.qrData.length > 3 ? inv.qrData.substring(inv.qrData.length - 3).toUpperCase() : inv.qrData.toUpperCase()}',
-                    style: const TextStyle(
-                      color: AppColors.primary,
-                      fontWeight: FontWeight.w800,
-                      fontSize: 13,
-                      letterSpacing: 2,
+                  child: Icon(
+                    Icons.person_outline,
+                    color: isCancelled ? Colors.grey : AppColors.primary,
+                  ),
+                ),
+                const SizedBox(width: 16),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(inv.guestName, style: AppTypography.h3),
+                      const SizedBox(height: 2),
+                      Text(
+                        '${inv.visitorType ?? 'Visita'} · ${inv.validUntil != null ? 'de ${DateFormat('dd/MM/yyyy').format(inv.validityDate)} até ${DateFormat('dd/MM/yyyy').format(inv.validUntil!)}' : DateFormat('dd/MM/yyyy').format(inv.validityDate)}',
+                        style: AppTypography.bodySmall.copyWith(color: Colors.grey.shade600),
+                      ),
+                      const SizedBox(height: 4),
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                        decoration: BoxDecoration(
+                          color: (isCancelled ? Colors.grey : AppColors.primary).withValues(alpha: 0.1),
+                          borderRadius: BorderRadius.circular(6),
+                          border: Border.all(color: (isCancelled ? Colors.grey : AppColors.primary).withValues(alpha: 0.3)),
+                        ),
+                        child: Text(
+                          '🔑 ${inv.qrData.length > 3 ? inv.qrData.substring(inv.qrData.length - 3).toUpperCase() : inv.qrData.toUpperCase()}',
+                          style: TextStyle(
+                            color: isCancelled ? Colors.grey : AppColors.primary,
+                            fontWeight: FontWeight.w800,
+                            fontSize: 13,
+                            letterSpacing: 2,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                IconButton(
+                  icon: const Icon(Icons.qr_code, color: Colors.grey),
+                  onPressed: () => _showInvitationDetailsModal(
+                    context,
+                    inv,
+                    isCancelled: isCancelled,
+                    isExpired: isExpired,
+                  ),
+                ),
+                const Icon(Icons.chevron_right, color: Colors.grey),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  void _showInvitationDetailsModal(
+    BuildContext context,
+    Invitation inv, {
+    bool isCancelled = false,
+    bool isExpired = false,
+  }) {
+    final shortCode = inv.qrData.length > 3
+        ? inv.qrData.substring(inv.qrData.length - 3).toUpperCase()
+        : inv.qrData.toUpperCase();
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      builder: (ctx) => ExcludeSemantics(
+        child: SingleChildScrollView(
+          child: Padding(
+            padding: const EdgeInsets.all(24),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Container(
+                  width: 40,
+                  height: 4,
+                  decoration: BoxDecoration(
+                    color: Colors.grey.shade300,
+                    borderRadius: BorderRadius.circular(2),
+                  ),
+                ),
+                const SizedBox(height: 12),
+                Text('Autorização de Acesso', style: AppTypography.h2),
+                const SizedBox(height: 4),
+                if (isCancelled)
+                  Container(
+                    margin: const EdgeInsets.symmetric(vertical: 6),
+                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                    decoration: BoxDecoration(
+                      color: Colors.red.shade50,
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(color: Colors.red.shade200),
                     ),
+                    child: Text('⚠️ Esta autorização foi cancelada',
+                        style: TextStyle(color: Colors.red.shade700, fontWeight: FontWeight.bold, fontSize: 12)),
+                  )
+                else if (isExpired)
+                  Container(
+                    margin: const EdgeInsets.symmetric(vertical: 6),
+                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                    decoration: BoxDecoration(
+                      color: Colors.amber.shade50,
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(color: Colors.amber.shade200),
+                    ),
+                    child: Text('⏳ Esta autorização expirou',
+                        style: TextStyle(color: Colors.amber.shade800, fontWeight: FontWeight.bold, fontSize: 12)),
+                  ),
+                Text(inv.guestName, style: AppTypography.h3.copyWith(color: Colors.grey.shade600)),
+                Text('Código: $shortCode',
+                    style: TextStyle(
+                      color: isCancelled ? Colors.grey : AppColors.primary,
+                      fontWeight: FontWeight.bold,
+                      fontSize: 20,
+                      letterSpacing: 1.5,
+                    )),
+                const SizedBox(height: 12),
+                RepaintBoundary(
+                  child: QrImageView(
+                    data: inv.qrData,
+                    version: QrVersions.auto,
+                    size: 180.0,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  'Data da visita: ${inv.validUntil != null ? 'de ${DateFormat('dd/MM/yyyy').format(inv.validityDate)} até ${DateFormat('dd/MM/yyyy').format(inv.validUntil!)}' : DateFormat('dd/MM/yyyy').format(inv.validityDate)}',
+                  style: AppTypography.bodySmall.copyWith(color: Colors.grey.shade500),
+                ),
+                const SizedBox(height: 16),
+                SizedBox(
+                  width: double.infinity,
+                  child: ElevatedButton(
+                    onPressed: () => Navigator.pop(ctx),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: isCancelled ? Colors.grey : AppColors.primary,
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                      padding: const EdgeInsets.symmetric(vertical: 14),
+                    ),
+                    child: const Text('Fechar', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
                   ),
                 ),
               ],
             ),
           ),
-          IconButton(
-            icon: const Icon(Icons.qr_code, color: Colors.grey),
-            onPressed: () {
-              final shortCode = inv.qrData.length > 3
-                  ? inv.qrData.substring(inv.qrData.length - 3).toUpperCase()
-                  : inv.qrData.toUpperCase();
-              showModalBottomSheet(
-                context: context,
-                shape: const RoundedRectangleBorder(
-                  borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
-                ),
-                builder: (ctx) => ExcludeSemantics(
-                  child: SingleChildScrollView(
-                    child: Padding(
-                      padding: const EdgeInsets.all(24),
-                      child: Column(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Container(
-                            width: 40, height: 4,
-                            decoration: BoxDecoration(
-                              color: Colors.grey.shade300,
-                              borderRadius: BorderRadius.circular(2),
-                            ),
-                          ),
-                          const SizedBox(height: 12),
-                          Text('Autorização de Acesso', style: AppTypography.h2),
-                          const SizedBox(height: 4),
-                          Text(inv.guestName, style: AppTypography.h3.copyWith(color: Colors.grey.shade600)),
-                          Text('Código: $shortCode', style: TextStyle(
-                            color: AppColors.primary, fontWeight: FontWeight.bold, fontSize: 18,
-                          )),
-                          const SizedBox(height: 12),
-                          RepaintBoundary(
-                            child: QrImageView(
-                              data: inv.qrData,
-                              version: QrVersions.auto,
-                              size: 180.0,
-                            ),
-                          ),
-                          const SizedBox(height: 8),
-                          Text(
-                            'Data da visita: ${inv.validUntil != null ? 'de ${DateFormat('dd/MM/yyyy').format(inv.validityDate)} até ${DateFormat('dd/MM/yyyy').format(inv.validUntil!)}' : DateFormat('dd/MM/yyyy').format(inv.validityDate)}',
-                            style: AppTypography.bodySmall.copyWith(color: Colors.grey.shade500),
-                          ),
-                          const SizedBox(height: 16),
-                          SizedBox(
-                            width: double.infinity,
-                            child: ElevatedButton(
-                              onPressed: () => Navigator.pop(ctx),
-                              style: ElevatedButton.styleFrom(
-                                backgroundColor: AppColors.primary,
-                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                                padding: const EdgeInsets.symmetric(vertical: 14),
-                              ),
-                              child: const Text('Fechar', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
-                ),
-              );
-            },
-          ),
-          const Icon(Icons.chevron_right, color: Colors.grey),
-        ],
+        ),
       ),
     );
   }

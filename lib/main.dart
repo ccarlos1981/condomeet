@@ -24,12 +24,16 @@ import 'package:condomeet/core/errors/global_error_handler.dart';
 import 'package:condomeet/core/services/version_check_service.dart';
 import 'package:condomeet/core/design_system/widgets/force_update_screen.dart';
 import 'package:condomeet/core/design_system/widgets/condo_error_screen.dart';
+import 'dart:async';
+import 'package:condomeet/core/services/live_activity_service.dart';
 import 'package:condomeet/core/design_system/widgets/connectivity_banner.dart';
 
 import 'package:firebase_core/firebase_core.dart';
 import 'package:condomeet/core/services/notification_service.dart';
 import 'package:condomeet/features/parcels/presentation/bloc/parcel_bloc.dart';
 import 'package:condomeet/features/access/presentation/bloc/invitation_bloc.dart';
+import 'package:condomeet/features/access/presentation/bloc/invitation_event.dart';
+import 'package:condomeet/features/access/presentation/bloc/invitation_state.dart';
 import 'package:condomeet/firebase_options.dart';
 
 import 'package:condomeet/features/security/presentation/bloc/sos_bloc.dart';
@@ -199,27 +203,148 @@ class AuthRootGate extends StatefulWidget {
 
 class _AuthRootGateState extends State<AuthRootGate> with WidgetsBindingObserver {
   VersionGateResult? _gateResult;
+  StreamSubscription<String>? _deepLinkSubscription;
 
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
+    LiveActivityService.initializeDeepLinking();
+    _deepLinkSubscription = LiveActivityService.deepLinkStream.listen(_handleDeepLinkNavigation);
     _checkVersion();
   }
 
   @override
   void dispose() {
+    _deepLinkSubscription?.cancel();
     WidgetsBinding.instance.removeObserver(this);
     super.dispose();
+  }
+
+  Future<void> _handleDeepLinkNavigation(String target) async {
+    if (!mounted) return;
+    final authState = context.read<AuthBloc>().state;
+    if (authState.status == AuthStatus.authenticated && _gateResult != null && !_gateResult!.isBlocked) {
+      LiveActivityService.clearPendingInvitationId();
+
+      // Deep link agregado: navega diretamente para a lista de autorizações do morador
+      if (target == 'list' || target == '__list__' || target.isEmpty) {
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          AppRouter.navigatorKey.currentState?.pushNamed('/invitation-generator');
+        });
+        return;
+      }
+
+      // Deep link individual: Guardrail de ownership pré-navegação
+      // Deep Link -> autenticação -> validação do invitationId -> resident_id = usuário autenticado -> condomínio do usuário -> consulta protegida por RLS -> somente depois navegação/renderização
+      final userId = authState.userId;
+      final condoId = authState.condominiumId;
+      if (userId == null) {
+        debugPrint('⚠️ [AuthRootGate] Deep link retido: usuário não identificado.');
+        return;
+      }
+
+      bool isValidOwner = false;
+
+      // 1. Checar coleção em memória no BLoC (já autenticado e filtrado)
+      try {
+        final bloc = context.read<InvitationBloc>();
+        final found = bloc.cachedResidentInvitations.any((inv) => inv.id == target && inv.residentId == userId);
+        if (found) {
+          isValidOwner = true;
+        } else if (bloc.state is InvitationLoaded) {
+          final foundInState = (bloc.state as InvitationLoaded).invitations.any((inv) => inv.id == target && inv.residentId == userId);
+          if (foundInState) isValidOwner = true;
+        }
+      } catch (e) {
+        debugPrint('⚠️ [AuthRootGate] Erro ao checar BLoC para ownership do deep link: $e');
+      }
+
+      // 2. Se não estiver em memória, consulta no Supabase protegida por RLS
+      if (!isValidOwner) {
+        try {
+          final response = await Supabase.instance.client
+              .from('convites')
+              .select('id')
+              .eq('id', target)
+              .eq('resident_id', userId)
+              .eq('condominio_id', condoId ?? '')
+              .maybeSingle();
+
+          if (response != null && response['id'] == target) {
+            isValidOwner = true;
+          }
+        } catch (e) {
+          debugPrint('⚠️ [AuthRootGate] Erro na consulta RLS de ownership do deep link: $e');
+        }
+      }
+
+      // Se a autorização não pertencer ao usuário:
+      // - não exibir dados;
+      // - não exibir código;
+      // - não abrir credencial;
+      // - informar "Autorização não encontrada ou indisponível".
+      if (!isValidOwner) {
+        debugPrint('⛔ [AuthRootGate] Deep link bloqueado por ownership/RLS: $target');
+        final scaffoldContext = AppRouter.navigatorKey.currentContext;
+        if (scaffoldContext != null && scaffoldContext.mounted) {
+          ScaffoldMessenger.of(scaffoldContext).showSnackBar(
+            const SnackBar(
+              content: Text('Autorização não encontrada ou indisponível.'),
+              backgroundColor: Colors.redAccent,
+            ),
+          );
+        }
+        return;
+      }
+
+      // Validação de ownership concluída com sucesso: somente agora navega e renderiza
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        AppRouter.navigatorKey.currentState?.pushNamed(
+          '/invitation-generator',
+          arguments: {'highlightInvitationId': target},
+        );
+      });
+    } else {
+      debugPrint('⏳ [AuthRootGate] Deep link retido aguardando autenticação completa: $target');
+    }
   }
 
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
     // Ao voltar da loja para o app, reavalia a versão instalada.
     // Só desbloqueia se a nova versão efetivamente atender à política.
-    if (state == AppLifecycleState.resumed && _gateResult?.isBlocked == true) {
-      debugPrint('🔄 [AuthRootGate] App retornou ao primeiro plano com bloqueio ativo: reavaliando versão instalada...');
-      _checkVersion();
+    if (state == AppLifecycleState.resumed) {
+      if (_gateResult?.isBlocked == true) {
+        debugPrint('🔄 [AuthRootGate] App retornou ao primeiro plano com bloqueio ativo: reavaliando versão instalada...');
+        _checkVersion();
+      }
+      _reconcileLiveActivityOnForeground();
+    }
+  }
+
+  void _reconcileLiveActivityOnForeground() {
+    try {
+      final authState = context.read<AuthBloc>().state;
+      if (authState.status == AuthStatus.authenticated && authState.userId != null) {
+        if (authState.userName != null) {
+          LiveActivityService.cacheNames(moradorNome: authState.userName);
+        }
+        final bloc = context.read<InvitationBloc>();
+        final cached = bloc.cachedResidentInvitations;
+        if (cached.isNotEmpty) {
+          final openList = cached.where(LiveActivityService.isInvitationOpen).toList();
+          LiveActivityService.syncActiveInvitationsState(
+            openInvitations: openList,
+            moradorNome: authState.userName ?? (LiveActivityService.cachedMoradorNome ?? 'Morador'),
+            condominioNome: LiveActivityService.cachedCondominioNome ?? 'Condomínio',
+          );
+        } else {
+          bloc.add(LoadResidentInvitationsPaginated(residentId: authState.userId!, isRefresh: true));
+        }
+      }
+    } catch (e) {
+      debugPrint('⚠️ [AuthRootGate] Falha ao reconciliar Live Activity no foreground: $e');
     }
   }
 
@@ -230,6 +355,10 @@ class _AuthRootGateState extends State<AuthRootGate> with WidgetsBindingObserver
         setState(() {
           _gateResult = result;
         });
+        final pending = LiveActivityService.pendingInvitationId;
+        if (pending != null && pending.isNotEmpty) {
+          _handleDeepLinkNavigation(pending);
+        }
       }
     } catch (e) {
       debugPrint('⚠️ [AuthRootGate] Erro inesperado ao checar versão (Fail-Open): $e');
@@ -246,6 +375,10 @@ class _AuthRootGateState extends State<AuthRootGate> with WidgetsBindingObserver
             message: '',
           );
         });
+        final pending = LiveActivityService.pendingInvitationId;
+        if (pending != null && pending.isNotEmpty) {
+          _handleDeepLinkNavigation(pending);
+        }
       }
     }
   }
@@ -271,6 +404,12 @@ class _AuthRootGateState extends State<AuthRootGate> with WidgetsBindingObserver
           previous.status != current.status || previous.isUnitBlocked != current.isUnitBlocked,
       listener: (context, state) {
         debugPrint('🔄 AuthRootGate: Status = ${state.status} | Profile = ${state.profileStatus}');
+        if (state.status == AuthStatus.authenticated) {
+          final pending = LiveActivityService.pendingInvitationId;
+          if (pending != null && pending.isNotEmpty) {
+            _handleDeepLinkNavigation(pending);
+          }
+        }
       },
       builder: (context, state) {
         switch (state.status) {
