@@ -235,7 +235,7 @@ class _AdminScreenState extends State<AdminScreen> {
               _buildAdminItem(
                 context: context,
                 icon: Icons.image_outlined,
-                label: 'Fotos / evento do cond.',
+                label: 'Comunicados',
                 onTap: () => Navigator.of(context).pushNamed('/admin-album-fotos'),
               ),
               _buildAdminItem(

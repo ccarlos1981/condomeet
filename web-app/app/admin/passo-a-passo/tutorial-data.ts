@@ -109,12 +109,12 @@ export const tutorials: Tutorial[] = [
   },
   {
     id: 'album-fotos',
-    title: 'Álbum de Fotos',
-    emoji: '📷',
+    title: 'Comunicados',
+    emoji: '📢',
     section: 'Comunicação',
     steps: [
-      { emoji: '➕', title: 'Criar álbum', description: 'Clique em "+ Novo Álbum" para criar uma galeria de fotos do condomínio.' },
-      { emoji: '📸', title: 'Adicionar fotos', description: 'Arraste fotos ou clique para fazer upload. Você pode enviar várias de uma vez.' },
+      { emoji: '➕', title: 'Criar comunicado', description: 'Clique em "Criar comunicado" para compartilhar comunicados com fotos com os moradores.' },
+      { emoji: '📸', title: 'Adicionar fotos', description: 'Arraste fotos ou clique para fazer upload. Você pode enviar até 5 fotos.' },
       { emoji: '📝', title: 'Descrição', description: 'Dê um título e descrição para que os moradores saibam do que se trata.' },
     ],
   },

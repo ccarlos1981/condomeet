@@ -121,13 +121,13 @@ export const tutorials: Tutorial[] = [
   },
   {
     id: 'album-fotos',
-    title: 'Álbum de Fotos',
-    emoji: '📷',
+    title: 'Comunicados',
+    emoji: '📢',
     section: 'Comunicação',
     steps: [
-      { emoji: '📸', title: 'Ver álbuns', description: 'Clique em "Álbum de Fotos" para ver todas as galerias de fotos do condomínio.' },
-      { emoji: '👀', title: 'Navegar', description: 'Clique em um álbum para abrir e ver todas as fotos. Você pode ampliar clicando na imagem.' },
-      { emoji: '📅', title: 'Eventos', description: 'Os álbuns geralmente registram eventos, obras, reformas e momentos do condomínio.' },
+      { emoji: '📢', title: 'Ver comunicados', description: 'Clique em "Comunicados" para ver todos os comunicados e avisos do condomínio.' },
+      { emoji: '👀', title: 'Navegar', description: 'Veja as fotos, curta e comente nos comunicados publicados.' },
+      { emoji: '📅', title: 'Eventos e Avisos', description: 'Os comunicados trazem avisos, manutenções, reuniões e eventos do condomínio.' },
     ],
   },
 

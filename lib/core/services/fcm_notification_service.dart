@@ -1,9 +1,11 @@
+import 'dart:convert';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:condomeet/core/services/notification_service.dart';
 import 'package:logger/logger.dart';
 import 'package:flutter/foundation.dart';
 import 'package:condomeet/core/navigation/app_router.dart';
+
 class FcmNotificationService implements NotificationService {
   FirebaseMessaging? _fcmInstance;
   FirebaseMessaging get _fcm {
@@ -17,6 +19,9 @@ class FcmNotificationService implements NotificationService {
   final Logger _logger = Logger();
   final FlutterLocalNotificationsPlugin _localNotifications =
       FlutterLocalNotificationsPlugin();
+
+  String? _lastHandledEventKey;
+  DateTime? _lastHandledTime;
 
   /// Android notification channel matching the FCM channel_id "avisos"
   static const AndroidNotificationChannel _channel = AndroidNotificationChannel(
@@ -47,8 +52,7 @@ class FcmNotificationService implements NotificationService {
           AuthorizationStatus.provisional) {
         _logger.i('User granted provisional notification permission');
       } else {
-        _logger.w(
-            'User declined or has not accepted notification permission');
+        _logger.w('User declined or has not accepted notification permission');
       }
 
       // ── iOS: show notification banners even when app is in foreground ──
@@ -66,7 +70,9 @@ class FcmNotificationService implements NotificationService {
       // Handle interaction when app is opened from a terminated state (cold start)
       final initialMessage = await _fcm.getInitialMessage();
       if (initialMessage != null) {
-        _logger.i('App opened from terminated state via notification: ${initialMessage.data}');
+        _logger.i(
+          'App opened from terminated state via notification: ${initialMessage.data}',
+        );
         // Delay execution to ensure UI and AppRouter are fully mounted
         Future.delayed(const Duration(milliseconds: 800), () {
           _handleNotificationClick(initialMessage.data);
@@ -78,8 +84,9 @@ class FcmNotificationService implements NotificationService {
   }
 
   Future<void> _initLocalNotifications() async {
-    const androidSettings =
-        AndroidInitializationSettings('@mipmap/ic_launcher');
+    const androidSettings = AndroidInitializationSettings(
+      '@mipmap/ic_launcher',
+    );
     const iosSettings = DarwinInitializationSettings(
       requestAlertPermission: false,
       requestBadgePermission: false,
@@ -90,14 +97,47 @@ class FcmNotificationService implements NotificationService {
       iOS: iosSettings,
     );
 
-    await _localNotifications.initialize(settings: initSettings);
+    await _localNotifications.initialize(
+      settings: initSettings,
+      onDidReceiveNotificationResponse: _onSelectNotification,
+    );
 
     // Create the Android channel (idempotent)
-    final androidPlugin =
-        _localNotifications.resolvePlatformSpecificImplementation<
-            AndroidFlutterLocalNotificationsPlugin>();
+    final androidPlugin = _localNotifications
+        .resolvePlatformSpecificImplementation<
+          AndroidFlutterLocalNotificationsPlugin
+        >();
     if (androidPlugin != null) {
       await androidPlugin.createNotificationChannel(_channel);
+    }
+  }
+
+  void _onSelectNotification(NotificationResponse response) {
+    final payload = response.payload;
+    if (payload == null || payload.isEmpty) return;
+
+    _logger.i('Local notification response tapped with payload: $payload');
+
+    try {
+      final decoded = jsonDecode(payload);
+      if (decoded is Map<String, dynamic>) {
+        _handleNotificationClick(decoded);
+        return;
+      }
+    } catch (_) {
+      // Fallback para formato textual legado ou customizado
+      final routeMatch = RegExp(r'route:\s*([^\s,}]+)').firstMatch(payload);
+      if (routeMatch != null) {
+        final route = routeMatch.group(1);
+        if (route != null && route.isNotEmpty) {
+          _handleNotificationClick({'route': route});
+          return;
+        }
+      }
+    }
+
+    if (payload.startsWith('/')) {
+      _handleNotificationClick({'route': payload});
     }
   }
 
@@ -126,7 +166,8 @@ class FcmNotificationService implements NotificationService {
     // ── Foreground messages → show as local notification ──
     FirebaseMessaging.onMessage.listen((RemoteMessage message) {
       _logger.i(
-          '🔔 Foreground message received: ${message.notification?.title}');
+        '🔔 Foreground message received: ${message.notification?.title}',
+      );
 
       final notification = message.notification;
       if (notification != null) {
@@ -145,10 +186,57 @@ class FcmNotificationService implements NotificationService {
     });
   }
 
+  /// Extrai deterministicamente um identificador de evento do payload FCM
+  String? _extractEventId(Map<String, dynamic> data) {
+    // 1. Identificadores universais de notificação/mensagem
+    final genericId =
+        data['id'] ??
+        data['message_id'] ??
+        data['google.message_id'] ??
+        data['notification_id'];
+    if (genericId != null && genericId.toString().trim().isNotEmpty) {
+      return genericId.toString().trim();
+    }
+
+    // 2. Identificador direto de álbum ou chaves de entidade de domínio terminadas em '_id'
+    if (data['album_id'] != null &&
+        data['album_id'].toString().trim().isNotEmpty) {
+      return 'album:${data['album_id'].toString().trim()}';
+    }
+
+    for (final entry in data.entries) {
+      if (entry.key.endsWith('_id') && entry.value != null) {
+        final val = entry.value.toString().trim();
+        if (val.isNotEmpty) {
+          return '${entry.key}:$val';
+        }
+      }
+    }
+
+    return null;
+  }
+
   void _handleNotificationClick(Map<String, dynamic> data) {
     final route = data['route'];
     if (route != null && route is String && route.isNotEmpty) {
-      _logger.i('Navigating to route via notification: $route');
+      final eventId = _extractEventId(data);
+      final eventKey = (eventId != null && eventId.isNotEmpty)
+          ? '$route|$eventId'
+          : route;
+
+      final now = DateTime.now();
+      if (_lastHandledEventKey == eventKey &&
+          _lastHandledTime != null &&
+          now.difference(_lastHandledTime!).inMilliseconds < 1000) {
+        _logger.i('Ignorando navegação duplicada para evento: $eventKey');
+        return;
+      }
+      _lastHandledEventKey = eventKey;
+      _lastHandledTime = now;
+
+      _logger.i(
+        'Navigating to route via notification: $route (event: $eventKey)',
+      );
       Future.delayed(const Duration(milliseconds: 300), () {
         AppRouter.navigatorKey.currentState?.pushNamed(route);
       });
@@ -168,6 +256,7 @@ class FcmNotificationService implements NotificationService {
       importance: Importance.high,
       priority: Priority.high,
       playSound: true,
+      sound: const RawResourceAndroidNotificationSound('condomeet'),
       icon: '@mipmap/ic_launcher',
     );
 
@@ -177,15 +266,25 @@ class FcmNotificationService implements NotificationService {
         presentAlert: true,
         presentBadge: true,
         presentSound: true,
+        sound: 'condomeet.aiff',
       ),
     );
+
+    String? payloadString;
+    if (data != null && data.isNotEmpty) {
+      try {
+        payloadString = jsonEncode(data);
+      } catch (e) {
+        payloadString = data.toString();
+      }
+    }
 
     await _localNotifications.show(
       id: DateTime.now().millisecondsSinceEpoch ~/ 1000,
       title: title,
       body: body,
       notificationDetails: notificationDetails,
-      payload: data?.toString(),
+      payload: payloadString,
     );
   }
 

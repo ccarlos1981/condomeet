@@ -70,7 +70,7 @@ export default function AdminSidebar({
         { label: 'Notificações/Multas', href: '/admin/notificacoes-multas', icon: <FileWarning size={18} /> },
         { label: 'Ocorrências',  href: '/admin/ocorrencias',  icon: <AlertCircle size={18} /> },
         { label: 'Enquetes',     href: '/admin/enquetes',     icon: <BarChart3 size={18} /> },
-        { label: 'Álbum de Fotos', href: '/admin/album-fotos', icon: <Camera size={18} /> },
+        { label: 'Comunicados', href: '/admin/album-fotos', icon: <Camera size={18} /> },
       ],
     },
     {

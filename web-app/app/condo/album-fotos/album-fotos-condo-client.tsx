@@ -3,7 +3,7 @@
 import { useState, useEffect, useRef } from 'react'
 import { Heart, MessageCircle, Eye, ChevronLeft, ChevronRight, Send, X, Reply, Trash2 } from 'lucide-react'
 
-type TipoEvento = 'evento' | 'manutencao' | 'reuniao' | 'outros'
+type TipoEvento = 'evento' | 'manutencao' | 'reuniao' | 'outros' | 'aviso' | 'comunicado'
 
 interface AlbumImage {
   id: string
@@ -52,6 +52,8 @@ const TIPO_LABELS: Record<TipoEvento, string> = {
   manutencao: 'Manutenção',
   reuniao: 'Reunião',
   outros: 'Outros',
+  aviso: 'Aviso',
+  comunicado: 'Comunicado',
 }
 
 const TIPO_COLORS: Record<TipoEvento, string> = {
@@ -59,6 +61,20 @@ const TIPO_COLORS: Record<TipoEvento, string> = {
   manutencao: 'bg-amber-100 text-amber-700',
   reuniao: 'bg-purple-100 text-purple-700',
   outros: 'bg-gray-100 text-gray-700',
+  aviso: 'bg-orange-100 text-orange-700',
+  comunicado: 'bg-teal-100 text-teal-700',
+}
+
+function getTipoNomePrefix(tipo: string): string {
+  switch (tipo) {
+    case 'manutencao': return 'Nome da Manutenção'
+    case 'reuniao': return 'Nome da Reunião'
+    case 'outros': return 'Nome de Outros'
+    case 'aviso': return 'Nome do Aviso'
+    case 'comunicado': return 'Nome do Comunicado'
+    case 'evento':
+    default: return 'Nome do Evento'
+  }
 }
 
 export default function AlbumFotosCondoClient({ albums: initial, userId, userName }: Props) {
@@ -184,12 +200,12 @@ export default function AlbumFotosCondoClient({ albums: initial, userId, userNam
 
   return (
     <div className="max-w-2xl mx-auto">
-      <h1 className="text-2xl font-bold text-gray-900 mb-6 text-center">Álbum de Fotos</h1>
+      <h1 className="text-2xl font-bold text-gray-900 mb-6 text-center">Comunicados</h1>
 
       {albums.length === 0 && (
         <div className="text-center py-16 text-gray-400">
           <Eye size={40} className="mx-auto mb-3 opacity-30" />
-          <p className="text-sm">Nenhum álbum de fotos ainda</p>
+          <p className="text-sm">Nenhum comunicado ainda</p>
         </div>
       )}
 
@@ -205,7 +221,7 @@ export default function AlbumFotosCondoClient({ albums: initial, userId, userNam
               <div className="px-5 pt-4 pb-2">
                 <div className="flex items-center justify-between">
                   <div>
-                    <p className="font-bold text-gray-900 text-base">{album.titulo}</p>
+                    <p className="font-bold text-gray-900 text-base">{getTipoNomePrefix(album.tipo_evento)}: {album.titulo}</p>
                     <div className="flex items-center gap-2 mt-0.5">
                       <span className={`text-[10px] uppercase font-bold px-2 py-0.5 rounded-full ${TIPO_COLORS[album.tipo_evento]}`}>
                         {TIPO_LABELS[album.tipo_evento]}

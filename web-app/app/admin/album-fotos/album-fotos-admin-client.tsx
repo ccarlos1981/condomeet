@@ -3,7 +3,7 @@
 import { useState, useRef, useEffect } from 'react'
 import { Camera, Trash2, Pencil, X, Send, Image as ImageIcon, Heart, MessageCircle, Eye, ChevronLeft, ChevronRight } from 'lucide-react'
 
-type TipoEvento = 'evento' | 'manutencao' | 'reuniao' | 'outros'
+type TipoEvento = 'evento' | 'manutencao' | 'reuniao' | 'outros' | 'aviso' | 'comunicado'
 
 interface AlbumImage {
   id: string
@@ -34,6 +34,8 @@ const TIPO_LABELS: Record<TipoEvento, string> = {
   manutencao: 'Manutenção',
   reuniao: 'Reunião',
   outros: 'Outros',
+  aviso: 'Aviso',
+  comunicado: 'Comunicado',
 }
 
 const TIPO_COLORS: Record<TipoEvento, string> = {
@@ -41,6 +43,32 @@ const TIPO_COLORS: Record<TipoEvento, string> = {
   manutencao: 'bg-amber-100 text-amber-700',
   reuniao: 'bg-purple-100 text-purple-700',
   outros: 'bg-gray-100 text-gray-700',
+  aviso: 'bg-orange-100 text-orange-700',
+  comunicado: 'bg-teal-100 text-teal-700',
+}
+
+function getTipoNomePrefix(tipo: string): string {
+  switch (tipo) {
+    case 'manutencao': return 'Nome da Manutenção'
+    case 'reuniao': return 'Nome da Reunião'
+    case 'outros': return 'Nome de Outros'
+    case 'aviso': return 'Nome do Aviso'
+    case 'comunicado': return 'Nome do Comunicado'
+    case 'evento':
+    default: return 'Nome do Evento'
+  }
+}
+
+function getTipoDescricaoPrefix(tipo: string): string {
+  switch (tipo) {
+    case 'manutencao': return 'Descrição da Manutenção'
+    case 'reuniao': return 'Descrição da Reunião'
+    case 'outros': return 'Descrição de Outros'
+    case 'aviso': return 'Descrição do Aviso'
+    case 'comunicado': return 'Descrição do Comunicado'
+    case 'evento':
+    default: return 'Descrição do Evento'
+  }
 }
 
 export default function AlbumFotosAdminClient({ condominioId, albums: initial }: Props) {
@@ -77,7 +105,7 @@ export default function AlbumFotosAdminClient({ condominioId, albums: initial }:
   function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
     const selected = Array.from(e.target.files ?? [])
     if (files.length + selected.length > 5) {
-      setError('Máximo de 5 fotos por álbum')
+      setError('Máximo de 5 fotos por comunicado')
       return
     }
     setFiles(prev => [...prev, ...selected])
@@ -95,8 +123,10 @@ export default function AlbumFotosAdminClient({ condominioId, albums: initial }:
   }
 
   async function handleCreate() {
-    if (!titulo.trim()) { setError('Informe o título do álbum'); return }
+    if (!titulo.trim()) { setError('Informe o título do comunicado'); return }
+    if (titulo.trim().length > 100) { setError('O título deve ter no máximo 100 caracteres'); return }
     if (files.length === 0) { setError('Adicione pelo menos uma foto'); return }
+    if (files.length > 5) { setError('Máximo de 5 fotos por comunicado'); return }
 
     setSending(true)
     setError(null)
@@ -112,7 +142,7 @@ export default function AlbumFotosAdminClient({ condominioId, albums: initial }:
     const res = await fetch('/api/album-fotos', { method: 'POST', body: formData })
     if (!res.ok) {
       const data = await res.json()
-      setError(data.error ?? 'Erro ao criar álbum')
+      setError(data.error ?? 'Erro ao criar comunicado')
       setSending(false)
       return
     }
@@ -132,9 +162,15 @@ export default function AlbumFotosAdminClient({ condominioId, albums: initial }:
   }
 
   async function handleDelete(id: string) {
-    if (!confirm('Excluir este álbum e todas as fotos?')) return
+    if (!confirm('Excluir este comunicado e todas as fotos?')) return
+    setError(null)
     const res = await fetch(`/api/album-fotos?id=${id}`, { method: 'DELETE' })
-    if (res.ok) setAlbums(albums.filter(a => a.id !== id))
+    if (res.ok) {
+      setAlbums(albums.filter(a => a.id !== id))
+    } else {
+      const data = await res.json().catch(() => ({}))
+      alert(data.error ?? 'Erro ao excluir comunicado')
+    }
   }
 
   function startEdit(album: Album) {
@@ -158,7 +194,7 @@ export default function AlbumFotosAdminClient({ condominioId, albums: initial }:
     const album = albums.find(a => a.id === editingId)
     const currentCount = (album?.imagens.length ?? 0) - editRemovedImageIds.length + editNewFiles.length
     if (currentCount + selected.length > 5) {
-      setError('Máximo de 5 fotos por álbum')
+      setError('Máximo de 5 fotos por comunicado')
       return
     }
     setEditNewFiles(prev => [...prev, ...selected])
@@ -168,6 +204,19 @@ export default function AlbumFotosAdminClient({ condominioId, albums: initial }:
 
   async function handleSaveEdit() {
     if (!editingId) return
+    const album = albums.find(a => a.id === editingId)
+    const remainingCount = (album?.imagens ?? []).filter(img => !editRemovedImageIds.includes(img.id)).length
+    const totalFinal = remainingCount + editNewFiles.length
+
+    if (totalFinal < 1) {
+      setError('O comunicado deve conter pelo menos 1 foto. Não é permitido remover todas as fotos.')
+      return
+    }
+    if (totalFinal > 5) {
+      setError('Máximo de 5 fotos por comunicado')
+      return
+    }
+
     setSending(true)
     setError(null)
 
@@ -184,7 +233,7 @@ export default function AlbumFotosAdminClient({ condominioId, albums: initial }:
     const res = await fetch('/api/album-fotos', { method: 'PUT', body: formData })
     if (!res.ok) {
       const data = await res.json()
-      setError(data.error ?? 'Erro ao atualizar álbum')
+      setError(data.error ?? 'Erro ao atualizar comunicado')
       setSending(false)
       return
     }
@@ -210,20 +259,20 @@ export default function AlbumFotosAdminClient({ condominioId, albums: initial }:
       <div className="mb-8">
         <div className="flex items-center gap-3 mb-1">
           <Camera size={22} className="text-[#FC5931]" />
-          <h1 className="text-2xl font-bold text-gray-900">Álbum de Fotos</h1>
+          <h1 className="text-2xl font-bold text-gray-900">Comunicados</h1>
         </div>
-        <p className="text-sm text-gray-500">Crie álbuns de fotos para compartilhar com os moradores do condomínio.</p>
+        <p className="text-sm text-gray-500">Crie comunicados para compartilhar com os moradores do condomínio.</p>
       </div>
 
       {/* Create form */}
       <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6 mb-8">
-        <p className="text-sm font-semibold text-gray-700 mb-4">Criar novo álbum</p>
+        <p className="text-sm font-semibold text-gray-700 mb-4">Criar comunicado</p>
 
         {/* Title */}
         <input
           type="text"
           maxLength={100}
-          placeholder="Nome do Evento ou demanda"
+          placeholder="Nome do comunicado"
           value={titulo}
           onChange={e => setTitulo(e.target.value)}
           className="w-full border border-gray-200 rounded-xl px-4 py-2.5 text-sm mb-3 focus:outline-none focus:ring-2 focus:ring-[#FC5931]/30 focus:border-[#FC5931]"
@@ -231,7 +280,7 @@ export default function AlbumFotosAdminClient({ condominioId, albums: initial }:
 
         {/* Type */}
         <div className="mb-3">
-          <p className="text-xs text-gray-500 mb-2 font-medium">Tipo do Evento:</p>
+          <p className="text-xs text-gray-500 mb-2 font-medium">Tipo do comunicado:</p>
           <div className="flex flex-wrap gap-3">
             {(Object.keys(TIPO_LABELS) as TipoEvento[]).map(tipo => (
               <label key={tipo} className="flex items-center gap-1.5 cursor-pointer">
@@ -251,7 +300,7 @@ export default function AlbumFotosAdminClient({ condominioId, albums: initial }:
 
         {/* Description */}
         <textarea
-          placeholder="Descrição sobre o Evento"
+          placeholder="Descrição do comunicado"
           value={descricao}
           onChange={e => setDescricao(e.target.value)}
           rows={3}
@@ -274,8 +323,8 @@ export default function AlbumFotosAdminClient({ condominioId, albums: initial }:
             className="border-2 border-dashed border-gray-200 rounded-xl p-6 text-center cursor-pointer hover:border-[#FC5931]/40 transition-colors"
           >
             <Camera size={32} className="mx-auto mb-2 text-[#FC5931]/60" />
-            <p className="text-sm text-gray-500">Insira aqui as fotos do Álbum</p>
-            <p className="text-xs text-gray-400 mt-1">Máximo de 5 imagens por Álbum</p>
+            <p className="text-sm text-gray-500">Insira aqui as fotos do comunicado</p>
+            <p className="text-xs text-gray-400 mt-1">Máximo de 5 imagens por comunicado</p>
           </div>
           <input
             ref={fileInputRef}
@@ -289,19 +338,22 @@ export default function AlbumFotosAdminClient({ condominioId, albums: initial }:
 
         {/* Previews */}
         {previews.length > 0 && (
-          <div className="flex gap-2 flex-wrap mb-4">
-            {previews.map((p, i) => (
-              <div key={i} className="relative group">
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img src={p} alt="" className="w-20 h-20 object-cover rounded-xl border border-gray-200" />
-                <button
-                  onClick={() => removeFile(i)}
-                  className="absolute -top-2 -right-2 w-5 h-5 bg-red-500 text-white rounded-full flex items-center justify-center text-xs opacity-0 group-hover:opacity-100 transition-opacity"
-                >
-                  <X size={12} />
-                </button>
-              </div>
-            ))}
+          <div className="mb-4">
+            <div className="flex gap-2 flex-wrap mb-2">
+              {previews.map((p, i) => (
+                <div key={i} className="relative group">
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img src={p} alt="" className="w-20 h-20 object-cover rounded-xl border border-gray-200" />
+                  <button
+                    onClick={() => removeFile(i)}
+                    className="absolute -top-2 -right-2 w-5 h-5 bg-red-500 text-white rounded-full flex items-center justify-center text-xs opacity-0 group-hover:opacity-100 transition-opacity"
+                  >
+                    <X size={12} />
+                  </button>
+                </div>
+              ))}
+            </div>
+            <p className="text-xs text-gray-500">{files.length}/5 fotos selecionadas</p>
           </div>
         )}
 
@@ -309,11 +361,11 @@ export default function AlbumFotosAdminClient({ condominioId, albums: initial }:
 
         <button
           onClick={handleCreate}
-          disabled={sending}
+          disabled={sending || files.length < 1 || files.length > 5}
           className="flex items-center gap-2 bg-[#FC5931] hover:bg-[#D42F1D] text-white px-6 py-2.5 rounded-full text-sm font-semibold transition-colors disabled:opacity-50"
         >
           <Send size={14} />
-          {sending ? 'Enviando...' : 'Inserir Álbum'}
+          {sending ? 'Enviando...' : 'Inserir comunicado'}
         </button>
       </div>
 
@@ -322,7 +374,7 @@ export default function AlbumFotosAdminClient({ condominioId, albums: initial }:
         {albums.length === 0 && (
           <div className="text-center py-10 text-gray-400 bg-white rounded-2xl border border-gray-100">
             <Camera size={32} className="mx-auto mb-2 opacity-30" />
-            <p className="text-sm">Nenhum álbum criado ainda</p>
+            <p className="text-sm">Nenhum comunicado criado ainda</p>
           </div>
         )}
 
@@ -339,7 +391,7 @@ export default function AlbumFotosAdminClient({ condominioId, albums: initial }:
                 /* Edit mode */
                 <div className="p-5 space-y-3">
                   <div className="flex items-center justify-between mb-2">
-                    <p className="text-sm font-semibold text-gray-700">Editar Álbum</p>
+                    <p className="text-sm font-semibold text-gray-700">Editar comunicado</p>
                     <button onClick={cancelEdit} className="text-gray-400 hover:text-gray-600">
                       <X size={18} />
                     </button>
@@ -430,10 +482,20 @@ export default function AlbumFotosAdminClient({ condominioId, albums: initial }:
                     className="hidden"
                   />
 
+                  {/* Contador de fotos na edição e alerta */}
+                  <div className="flex items-center justify-between text-xs pt-1">
+                    <span className={currentImages.length + editNewFiles.length < 1 ? 'text-red-500 font-semibold' : 'text-gray-500'}>
+                      {currentImages.length + editNewFiles.length}/5 fotos
+                    </span>
+                    {currentImages.length + editNewFiles.length < 1 && (
+                      <span className="text-red-500 font-medium">Adicione ao menos 1 foto para salvar</span>
+                    )}
+                  </div>
+
                   <div className="flex gap-2 pt-2">
                     <button
                       onClick={handleSaveEdit}
-                      disabled={sending}
+                      disabled={sending || currentImages.length + editNewFiles.length < 1 || currentImages.length + editNewFiles.length > 5}
                       className="bg-[#FC5931] hover:bg-[#D42F1D] text-white px-5 py-2 rounded-full text-sm font-semibold transition-colors disabled:opacity-50"
                     >
                       {sending ? 'Salvando...' : 'Salvar'}
@@ -463,11 +525,11 @@ export default function AlbumFotosAdminClient({ condominioId, albums: initial }:
                           )}
                         </div>
                         <p className="font-semibold text-gray-900 text-sm">
-                          Nome do Evento: {album.titulo}
+                          {getTipoNomePrefix(album.tipo_evento)}: {album.titulo}
                         </p>
                         {album.descricao && (
                           <p className="text-xs text-gray-500 mt-0.5">
-                            Descrição do Evento: {album.descricao}
+                            {getTipoDescricaoPrefix(album.tipo_evento)}: {album.descricao}
                           </p>
                         )}
                       </div>

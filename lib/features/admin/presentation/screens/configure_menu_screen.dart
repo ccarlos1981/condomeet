@@ -51,7 +51,7 @@ const _kAllFunctions = [
   _FunctionDef(id: 'visitor_register',    icon: 'badge',         label: 'Registrar Visitante',     route: '/registrar-visitante',        defaultRoles: {'portaria'}),
   _FunctionDef(id: 'portaria_authorize',  icon: 'how_to_reg',    label: 'Autorização Visitante (Portaria)', route: '/autorizar-visitante-portaria', defaultRoles: {'portaria'}),
   _FunctionDef(id: 'registro_turno',      icon: 'assignment',    label: 'Registro de Turno',       route: '/registro-turno',             defaultRoles: {'portaria'}),
-  _FunctionDef(id: 'album_fotos',      icon: 'photo',         label: 'Álbum de Fotos',         route: '/album-fotos',                defaultRoles: {'morador'}),
+  _FunctionDef(id: 'album_fotos',      icon: 'photo',         label: 'Comunicados',            route: '/album-fotos',                defaultRoles: {'morador'}),
   _FunctionDef(id: 'classificados',    icon: 'sell',          label: 'Classificados',           route: '/classificados',              defaultRoles: {'morador'}),
   _FunctionDef(id: 'indicacoes',       icon: 'favorite',      label: 'Indicações de Serviço', route: '/indicacoes',                 defaultRoles: {'morador'}),
   _FunctionDef(id: 'contracts',        icon: 'description',   label: 'Contratos',               route: '/contratos',                  defaultRoles: {'sindico', 'sub_sindico', 'admin'}),

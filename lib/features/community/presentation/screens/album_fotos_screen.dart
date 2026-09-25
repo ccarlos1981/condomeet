@@ -10,6 +10,8 @@ String _tipoLabel(String tipo) {
     case 'evento': return 'Evento';
     case 'manutencao': return 'Manutenção';
     case 'reuniao': return 'Reunião';
+    case 'aviso': return 'Aviso';
+    case 'comunicado': return 'Comunicado';
     default: return 'Outros';
   }
 }
@@ -19,7 +21,21 @@ Color _tipoColor(String tipo) {
     case 'evento': return Colors.blue;
     case 'manutencao': return Colors.amber.shade700;
     case 'reuniao': return Colors.purple;
+    case 'aviso': return Colors.orange.shade700;
+    case 'comunicado': return Colors.teal;
     default: return Colors.grey;
+  }
+}
+
+String _tipoNomePrefix(String tipo) {
+  switch (tipo) {
+    case 'manutencao': return 'Nome da Manutenção';
+    case 'reuniao': return 'Nome da Reunião';
+    case 'outros': return 'Nome de Outros';
+    case 'aviso': return 'Nome do Aviso';
+    case 'comunicado': return 'Nome do Comunicado';
+    case 'evento':
+    default: return 'Nome do Evento';
   }
 }
 
@@ -254,7 +270,7 @@ class _AlbumFotosScreenState extends State<AlbumFotosScreen> {
     return Scaffold(
       backgroundColor: AppColors.surface,
       appBar: AppBar(
-        title: const Text('Álbum de Fotos',
+        title: const Text('Comunicados',
             style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
         backgroundColor: AppColors.primary,
         leading: IconButton(
@@ -274,7 +290,7 @@ class _AlbumFotosScreenState extends State<AlbumFotosScreen> {
                         const SizedBox(height: 100),
                         const Icon(Icons.photo_camera_outlined, size: 56, color: AppColors.disabledIcon),
                         const SizedBox(height: 12),
-                        const Text('Nenhum álbum de fotos ainda',
+                        const Text('Nenhum comunicado ainda',
                             textAlign: TextAlign.center,
                             style: TextStyle(color: AppColors.textHint, fontSize: 14)),
                       ],
@@ -349,7 +365,7 @@ class _AlbumFotosScreenState extends State<AlbumFotosScreen> {
                         style: TextStyle(fontSize: 11, color: AppColors.textHint)),
                 ]),
                 const SizedBox(height: 6),
-                Text(album['titulo'] ?? '',
+                Text('${_tipoNomePrefix(tipo)}: ${album['titulo'] ?? ''}',
                     style: const TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: AppColors.textMain)),
                 if ((album['descricao'] ?? '').toString().isNotEmpty)
                   Padding(

@@ -97,6 +97,7 @@ serve(async (req) => {
           data: {
             type: 'album_fotos',
             album_id: album_id ?? '',
+            route: '/album-fotos',
           },
           android: {
             priority: 'high',
