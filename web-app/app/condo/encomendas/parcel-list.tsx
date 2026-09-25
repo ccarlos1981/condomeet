@@ -5,7 +5,7 @@ import { createClient } from '@/lib/supabase/client'
 import {
   Package, CheckCircle2, Clock, X, Loader2,
   Box, Mail, ShoppingBag, FileText, ChevronDown, UserCheck, RefreshCw,
-  Camera, PenTool, PackageCheck, AlertTriangle
+  Camera, PenTool, PackageCheck, AlertTriangle, XCircle
 } from 'lucide-react'
 import { getBlocoLabel, getAptoLabel, filterResidentialBlocos, filterResidentialAptos, isTechnicalAdminUnit, formatUnitDisplay } from '@/lib/labels'
 
@@ -36,6 +36,9 @@ interface Parcel {
   bloco: string | null
   apto: string | null
   perfil: Perfil | null
+  cancelled_at?: string | null
+  cancelled_by?: string | null
+  cancellation_reason?: string | null
 }
 
 interface Props {
@@ -64,7 +67,7 @@ function fmt(iso: string) {
   })
 }
 
-const PARCEL_FIELDS = 'id, resident_id, status, arrival_time, delivery_time, tipo, tracking_code, observacao, photo_url, pickup_proof_url, condominio_id, picked_up_by_id, picked_up_by_name, bloco, apto, created_at'
+const PARCEL_FIELDS = 'id, resident_id, status, arrival_time, delivery_time, tipo, tracking_code, observacao, photo_url, pickup_proof_url, condominio_id, picked_up_by_id, picked_up_by_name, bloco, apto, created_at, cancelled_at, cancelled_by, cancellation_reason'
 
 // ── Delivery Modal ────────────────────────────────────────────────────────────
 
@@ -350,6 +353,104 @@ function SilentDischargeModal({ parcel, tipoEstrutura, onClose, onConfirm }: Sil
   )
 }
 
+// ── Cancel Modal ─────────────────────────────────────────────────────────────
+
+interface CancelModalProps {
+  parcel: Parcel
+  tipoEstrutura?: string
+  onClose: () => void
+  onConfirm: (parcel: Parcel) => Promise<void>
+}
+
+function CancelModal({ parcel, tipoEstrutura, onClose, onConfirm }: CancelModalProps) {
+  const [confirming, setConfirming] = useState(false)
+
+  const bloco = parcel.bloco ?? parcel.perfil?.bloco_txt ?? null
+  const apto  = parcel.apto ?? parcel.perfil?.apto_txt  ?? null
+  const tipoInfo = TIPO_LABELS[parcel.tipo ?? ''] ?? TIPO_LABELS['pacote']
+  const TipoIcon = tipoInfo.icon
+
+  async function handleConfirm() {
+    if (confirming) return
+    setConfirming(true)
+    try {
+      await onConfirm(parcel)
+    } finally {
+      setConfirming(false)
+    }
+  }
+
+  return (
+    <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4">
+      <div className="bg-white rounded-3xl max-w-md w-full shadow-2xl overflow-hidden animate-in fade-in zoom-in-95 duration-150">
+        {/* Header */}
+        <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100">
+          <div className="flex items-center gap-2">
+            <div className="w-8 h-8 rounded-xl bg-red-100 flex items-center justify-center">
+              <AlertTriangle size={18} className="text-red-600" />
+            </div>
+            <h2 className="text-base font-bold text-gray-900">Cancelar encomenda?</h2>
+          </div>
+          <button
+            onClick={onClose}
+            disabled={confirming}
+            className="text-gray-400 hover:text-gray-600 p-1.5 rounded-lg hover:bg-gray-100 disabled:opacity-50 transition-colors"
+          >
+            <X size={18} className="text-gray-500" />
+          </button>
+        </div>
+
+        <div className="px-6 py-5 space-y-4">
+          {/* Parcel info */}
+          <div className="flex items-center gap-3 bg-gray-50 rounded-xl p-3">
+            <div className={`w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0 ${tipoInfo.color}`}>
+              <TipoIcon size={18} />
+            </div>
+            <div className="min-w-0">
+              <p className="font-semibold text-gray-900 text-sm">
+                {getBlocoLabel(tipoEstrutura)} {bloco} / {getAptoLabel(tipoEstrutura)} {apto}
+              </p>
+              <p className="text-xs text-gray-500">{parcel.perfil?.nome_completo ?? 'Sem morador'}</p>
+            </div>
+          </div>
+
+          {/* Prompt text */}
+          <div className="space-y-2 text-sm text-gray-600">
+            <p className="font-medium text-gray-900">
+              Tem certeza de que deseja cancelar esta encomenda?
+            </p>
+            <p className="text-xs text-gray-500 leading-relaxed">
+              Os moradores desta unidade serão avisados para desconsiderar a notificação de encomenda recebida anteriormente.
+            </p>
+          </div>
+        </div>
+
+        {/* Footer */}
+        <div className="flex gap-3 px-6 pb-6">
+          <button
+            onClick={onClose}
+            disabled={confirming}
+            className="flex-1 px-4 py-3 border border-gray-200 rounded-xl text-sm font-semibold text-gray-600 hover:bg-gray-50 disabled:opacity-50 transition-colors"
+          >
+            VOLTAR
+          </button>
+          <button
+            onClick={handleConfirm}
+            disabled={confirming}
+            className="flex-1 flex items-center justify-center gap-2 px-4 py-3 bg-red-600 text-white rounded-xl text-sm font-semibold hover:bg-red-700 disabled:opacity-50 transition-colors shadow-sm"
+          >
+            {confirming ? (
+              <><Loader2 size={14} className="animate-spin" /> Cancelando...</>
+            ) : (
+              'SIM, CANCELAR'
+            )}
+          </button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
 // ── Main List ─────────────────────────────────────────────────────────────────
 
 export default function ParcelList({ initialParcels, isPorter, userId, condoId, tipoEstrutura, allBlocos, allAptosMap }: Props) {
@@ -363,6 +464,8 @@ export default function ParcelList({ initialParcels, isPorter, userId, condoId, 
   const [photoModal, setPhotoModal] = useState<string | null>(null)
   const [deliveryModal, setDeliveryModal] = useState<Parcel | null>(null)
   const [silentDischargeModal, setSilentDischargeModal] = useState<Parcel | null>(null)
+  const [cancelModal, setCancelModal] = useState<Parcel | null>(null)
+  const [cancelSuccessMsg, setCancelSuccessMsg] = useState<string | null>(null)
   const [mounted, setMounted] = useState(false)
 
   // Server-side fetch state (porter/admin mode)
@@ -668,6 +771,55 @@ export default function ParcelList({ initialParcels, isPorter, userId, condoId, 
     }
   }
 
+  // ── Cancel Encomenda ────────────────────────────────────────────────────────
+
+  async function handleCancelConfirm(parcel: Parcel) {
+    const { data, error } = await supabase.rpc('cancel_encomenda', {
+      p_encomenda_id: parcel.id,
+      p_reason: 'REGISTERED_BY_MISTAKE',
+    })
+
+    if (error) {
+      alert('Erro ao cancelar encomenda: ' + error.message)
+      return
+    }
+
+    const resStr = typeof data === 'string' ? data : JSON.stringify(data ?? '')
+    if (resStr.includes('ALREADY_CANCELLED')) {
+      alert('Esta encomenda já foi cancelada anteriormente.')
+      setCancelModal(null)
+      if (isPorter) refreshAfterDischarge()
+      return
+    }
+    if (resStr.includes('ALREADY_DELIVERED')) {
+      alert('Não é possível cancelar uma encomenda que já foi entregue.')
+      setCancelModal(null)
+      if (isPorter) refreshAfterDischarge()
+      return
+    }
+    if (resStr.includes('NOT_FOUND') || resStr.includes('INVALID_STATUS') || resStr.includes('CONCURRENT_CONFLICT')) {
+      alert(`Não foi possível cancelar: ${resStr}`)
+      setCancelModal(null)
+      if (isPorter) refreshAfterDischarge()
+      return
+    }
+
+    // Success: optimistic update
+    const now = new Date().toISOString()
+    setParcels(prev => prev.map(p =>
+      p.id === parcel.id
+        ? { ...p, status: 'cancelled', cancelled_at: now, cancellation_reason: 'REGISTERED_BY_MISTAKE' }
+        : p
+    ))
+    setCancelModal(null)
+    setCancelSuccessMsg('Encomenda cancelada com sucesso.')
+    setTimeout(() => setCancelSuccessMsg(null), 4000)
+
+    if (isPorter) {
+      refreshAfterDischarge()
+    }
+  }
+
   // ── Render ─────────────────────────────────────────────────────────────────
 
   return (
@@ -702,6 +854,29 @@ export default function ParcelList({ initialParcels, isPorter, userId, condoId, 
           onClose={() => setSilentDischargeModal(null)}
           onConfirm={handleSilentDischarge}
         />
+      )}
+
+      {/* Cancel confirmation modal */}
+      {cancelModal && (
+        <CancelModal
+          parcel={cancelModal}
+          tipoEstrutura={tipoEstrutura}
+          onClose={() => setCancelModal(null)}
+          onConfirm={handleCancelConfirm}
+        />
+      )}
+
+      {/* Cancel success alert */}
+      {cancelSuccessMsg && (
+        <div className="mb-4 p-4 rounded-xl bg-green-50 border border-green-200 text-green-800 text-sm font-medium flex items-center justify-between shadow-sm animate-in fade-in">
+          <div className="flex items-center gap-2">
+            <CheckCircle2 size={16} className="text-green-600 shrink-0" />
+            <span>{cancelSuccessMsg}</span>
+          </div>
+          <button onClick={() => setCancelSuccessMsg(null)} className="text-green-600 hover:text-green-800 p-1">
+            <X size={16} />
+          </button>
+        </div>
       )}
 
       {/* Stats */}
@@ -795,26 +970,31 @@ export default function ParcelList({ initialParcels, isPorter, userId, condoId, 
             const info = TIPO_LABELS[p.tipo ?? ''] ?? TIPO_LABELS['pacote']
             const Icon = info.icon
             const isDelivered = p.status === 'delivered'
+            const isCancelled = p.status === 'cancelled'
 
             return (
               <div
                 key={p.id}
                 className={`bg-white rounded-2xl border shadow-sm overflow-hidden transition-all ${
-                  isDelivered ? 'border-gray-100 opacity-80' : 'border-gray-100 hover:shadow-md'
+                  isCancelled ? 'border-red-100 opacity-80' : isDelivered ? 'border-gray-100 opacity-80' : 'border-gray-100 hover:shadow-md'
                 }`}
               >
                 {/* Card header */}
                 <div className={`flex items-center justify-between px-5 py-3 ${
-                  isDelivered ? 'bg-green-50' : 'bg-[#FC5931]'
+                  isCancelled ? 'bg-red-50' : isDelivered ? 'bg-green-50' : 'bg-[#FC5931]'
                 }`}>
                   <div className="flex items-center gap-3">
                     <div className={`w-9 h-9 rounded-xl flex items-center justify-center ${
-                      isDelivered ? 'bg-green-100' : 'bg-white/15'
+                      isCancelled ? 'bg-red-100' : isDelivered ? 'bg-green-100' : 'bg-white/15'
                     }`}>
-                      <Icon size={17} className={isDelivered ? 'text-green-600' : 'text-white'} />
+                      {isCancelled ? (
+                        <XCircle size={17} className="text-red-600" />
+                      ) : (
+                        <Icon size={17} className={isDelivered ? 'text-green-600' : 'text-white'} />
+                      )}
                     </div>
                     <div>
-                      <p className={`font-bold text-sm ${isDelivered ? 'text-gray-900' : 'text-white'}`}>
+                      <p className={`font-bold text-sm ${isCancelled ? 'text-gray-900' : isDelivered ? 'text-gray-900' : 'text-white'}`}>
                         {formatUnitDisplay({
                           bloco: p.bloco ?? p.perfil?.bloco_txt,
                           apto: p.apto ?? p.perfil?.apto_txt,
@@ -823,15 +1003,21 @@ export default function ParcelList({ initialParcels, isPorter, userId, condoId, 
                           separator: ' / '
                         })}
                       </p>
-                      <p className={`text-xs ${isDelivered ? 'text-gray-500' : 'text-white/70'}`}>
+                      <p className={`text-xs ${isCancelled ? 'text-gray-500' : isDelivered ? 'text-gray-500' : 'text-white/70'}`}>
                         {p.perfil?.nome_completo ?? 'Sem morador'}
                       </p>
                     </div>
                   </div>
                   <div className="flex items-center gap-2">
-                    <span className={`text-xs font-semibold px-2.5 py-1 rounded-full ${info.color}`}>
-                      {info.label}
-                    </span>
+                    {isCancelled ? (
+                      <span className="text-xs font-semibold px-2.5 py-1 rounded-full bg-red-100 text-red-700">
+                        Cancelada
+                      </span>
+                    ) : (
+                      <span className={`text-xs font-semibold px-2.5 py-1 rounded-full ${info.color}`}>
+                        {info.label}
+                      </span>
+                    )}
                   </div>
                 </div>
 
@@ -900,7 +1086,12 @@ export default function ParcelList({ initialParcels, isPorter, userId, condoId, 
                   {/* Bottom row: status + buttons */}
                   <div className="flex items-end justify-between gap-3 mt-3">
                     <div className="flex-1">
-                      {isDelivered ? (
+                      {isCancelled ? (
+                        <div className="flex items-center gap-1.5 text-red-600 text-sm font-medium">
+                          <XCircle size={15} />
+                          <span suppressHydrationWarning>Cancelada {mounted && p.cancelled_at ? fmt(p.cancelled_at) : ''}</span>
+                        </div>
+                      ) : isDelivered ? (
                         <div className="space-y-1.5">
                           <div className="flex items-center gap-1.5 text-green-600 text-sm font-medium">
                             <CheckCircle2 size={15} />
@@ -926,7 +1117,7 @@ export default function ParcelList({ initialParcels, isPorter, userId, condoId, 
                     </div>
 
                     {/* Buttons stacked vertically (same width) */}
-                    {!isDelivered && isPorter && (
+                    {!isDelivered && !isCancelled && isPorter && (
                       <div className="flex flex-col gap-1.5 shrink-0" style={{ minWidth: '140px' }}>
                         <button
                           onClick={() => setDeliveryModal(p)}
@@ -942,6 +1133,14 @@ export default function ParcelList({ initialParcels, isPorter, userId, condoId, 
                         >
                           <PackageCheck size={14} />
                           Baixa Silenciosa
+                        </button>
+                        <button
+                          onClick={() => setCancelModal(p)}
+                          title="Cancelar encomenda"
+                          className="flex items-center justify-center gap-1.5 border border-red-200 hover:border-red-300 bg-red-50 hover:bg-red-100 text-red-600 hover:text-red-700 text-xs font-semibold w-full py-2 rounded-xl transition-colors shadow-sm"
+                        >
+                          <XCircle size={14} />
+                          Cancelar
                         </button>
                       </div>
                     )}

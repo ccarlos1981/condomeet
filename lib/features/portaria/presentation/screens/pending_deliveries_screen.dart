@@ -137,6 +137,7 @@ class _PendingDeliveriesScreenState extends State<PendingDeliveriesScreen> {
             id, resident_id, condominio_id, status, arrival_time, delivery_time,
             photo_url, pickup_proof_url, tipo, tracking_code, observacao,
             registered_by, picked_up_by_id, picked_up_by_name, bloco, apto, created_at,
+            cancelled_at, cancelled_by, cancellation_reason,
             perfil!encomendas_resident_id_fkey(nome_completo, apto_txt, bloco_txt)
           ''')
           .eq('condominio_id', condoId);
@@ -246,6 +247,11 @@ class _PendingDeliveriesScreenState extends State<PendingDeliveriesScreen> {
           registeredBy: row['registered_by'] as String?,
           pickedUpById: row['picked_up_by_id'] as String?,
           pickedUpByName: row['picked_up_by_name'] as String?,
+          cancelledAt: row['cancelled_at'] != null
+              ? DateTime.tryParse(row['cancelled_at'] as String)
+              : null,
+          cancelledBy: row['cancelled_by'] as String?,
+          cancellationReason: row['cancellation_reason'] as String?,
         );
       }).toList();
 
@@ -599,6 +605,7 @@ class _PendingDeliveriesScreenState extends State<PendingDeliveriesScreen> {
 
   Widget _buildCard(Parcel parcel) {
     final isPending = parcel.status == 'pending';
+    final isCancelled = parcel.status == 'cancelled';
     final tipoIcon = _tipoIcons[parcel.tipo] ?? '📦';
     final tipoLabel = _tipoLabels[parcel.tipo] ?? parcel.tipo ?? 'Encomenda';
 
@@ -608,7 +615,9 @@ class _PendingDeliveriesScreenState extends State<PendingDeliveriesScreen> {
         color: Colors.white,
         borderRadius: BorderRadius.circular(16),
         border: Border.all(
-          color: isPending ? AppColors.success.withValues(alpha: 0.08) : AppColors.info.withValues(alpha: 0.08),
+          color: isPending
+              ? AppColors.success.withValues(alpha: 0.08)
+              : (isCancelled ? Colors.red.withValues(alpha: 0.2) : AppColors.info.withValues(alpha: 0.08)),
           width: 1,
         ),
         boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.04), blurRadius: 8, offset: const Offset(0, 2))],
@@ -655,7 +664,17 @@ class _PendingDeliveriesScreenState extends State<PendingDeliveriesScreen> {
                 ],
                 const SizedBox(height: 8),
                 // Status line
-                if (!isPending && parcel.deliveryTime != null) ...[
+                if (isCancelled) ...[
+                  Row(children: [
+                    Icon(Icons.cancel_outlined, size: 14, color: Colors.red.shade600),
+                    const SizedBox(width: 4),
+                    Text(
+                      parcel.cancelledAt != null ? 'Cancelada ${_fmt(parcel.cancelledAt!)}' : 'Cancelada',
+                      style: TextStyle(fontSize: 12, color: Colors.red.shade700, fontWeight: FontWeight.w600),
+                    ),
+                  ]),
+                ],
+                if (!isPending && !isCancelled && parcel.deliveryTime != null) ...[
                   Row(children: [
                     const Icon(Icons.check_circle_outline, size: 14, color: Colors.green),
                     const SizedBox(width: 4),
@@ -721,6 +740,25 @@ class _PendingDeliveriesScreenState extends State<PendingDeliveriesScreen> {
                       ),
                     ),
                   ]),
+                  const SizedBox(height: 8),
+                  SizedBox(
+                    width: double.infinity,
+                    child: OutlinedButton.icon(
+                      onPressed: () => _showCancelModal(parcel),
+                      icon: Icon(Icons.cancel_outlined, size: 15, color: Colors.red.shade600),
+                      label: Text(
+                        'Cancelar',
+                        style: TextStyle(fontSize: 12, color: Colors.red.shade700, fontWeight: FontWeight.w600),
+                      ),
+                      style: OutlinedButton.styleFrom(
+                        foregroundColor: Colors.red.shade700,
+                        side: BorderSide(color: Colors.red.shade200),
+                        backgroundColor: Colors.red.shade50.withValues(alpha: 0.3),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                        padding: const EdgeInsets.symmetric(vertical: 8),
+                      ),
+                    ),
+                  ),
                 ],
               ]),
             ),
@@ -804,6 +842,17 @@ class _PendingDeliveriesScreenState extends State<PendingDeliveriesScreen> {
       builder: (ctx) => _DarBaixaSheet(
         parcel: parcel,
         onConfirmed: _fetchParcels,
+      ),
+    );
+  }
+
+  void _showCancelModal(Parcel parcel) {
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (ctx) => _CancelParcelDialog(
+        parcel: parcel,
+        onConfirmed: () => _fetchParcels(fetchStats: true),
       ),
     );
   }
@@ -1285,6 +1334,122 @@ class _SilentDischargeButtonState extends State<_SilentDischargeButton> {
           : const Icon(Icons.check, size: 18),
       label: Text(_isLoading ? 'Processando...' : 'Dar Baixa',
           style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600)),
+    );
+  }
+}
+
+// ─────────────────────────────────────────────
+// Cancel Parcel Dialog (Confirmation)
+// ─────────────────────────────────────────────
+
+class _CancelParcelDialog extends StatefulWidget {
+  final Parcel parcel;
+  final VoidCallback onConfirmed;
+  const _CancelParcelDialog({required this.parcel, required this.onConfirmed});
+
+  @override
+  State<_CancelParcelDialog> createState() => _CancelParcelDialogState();
+}
+
+class _CancelParcelDialogState extends State<_CancelParcelDialog> {
+  bool _isLoading = false;
+
+  Future<void> _handleConfirm() async {
+    if (_isLoading) return;
+    setState(() => _isLoading = true);
+    HapticFeedback.mediumImpact();
+
+    final repo = sl<ParcelRepository>();
+    final result = await repo.cancelParcel(widget.parcel.id);
+
+    if (mounted) {
+      if (result is Success) {
+        Navigator.of(context).pop();
+        widget.onConfirmed();
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+          content: Text('✅ Encomenda cancelada com sucesso!'),
+          backgroundColor: Colors.red,
+          behavior: SnackBarBehavior.floating,
+        ));
+      } else {
+        setState(() => _isLoading = false);
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          content: Text((result as Failure).message),
+          backgroundColor: AppColors.error,
+        ));
+      }
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Dialog(
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+      backgroundColor: Colors.white,
+      child: Padding(
+        padding: const EdgeInsets.all(24.0),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(children: [
+              Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: Colors.red.shade50,
+                  shape: BoxShape.circle,
+                ),
+                child: Icon(Icons.cancel_outlined, color: Colors.red.shade600, size: 24),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Text('Cancelar encomenda?', style: AppTypography.h2),
+              ),
+            ]),
+            const SizedBox(height: 16),
+            Text(
+              'Tem certeza de que deseja cancelar esta encomenda?\n\nOs moradores desta unidade serão avisados para desconsiderar a notificação de encomenda recebida anteriormente.',
+              style: AppTypography.bodyMedium.copyWith(color: AppColors.textSecondary, height: 1.4),
+            ),
+            const SizedBox(height: 24),
+            Row(children: [
+              Expanded(
+                child: OutlinedButton(
+                  onPressed: _isLoading ? null : () => Navigator.of(context).pop(),
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: Colors.grey.shade700,
+                    side: BorderSide(color: Colors.grey.shade300),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                    padding: const EdgeInsets.symmetric(vertical: 12),
+                  ),
+                  child: const Text('VOLTAR', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: ElevatedButton(
+                  onPressed: _isLoading ? null : _handleConfirm,
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.red.shade600,
+                    foregroundColor: Colors.white,
+                    disabledBackgroundColor: Colors.red.shade300,
+                    disabledForegroundColor: Colors.white70,
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                    padding: const EdgeInsets.symmetric(vertical: 12),
+                  ),
+                  child: _isLoading
+                      ? const SizedBox(
+                          width: 16,
+                          height: 16,
+                          child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2),
+                        )
+                      : const Text('SIM, CANCELAR', style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold)),
+                ),
+              ),
+            ]),
+          ],
+        ),
+      ),
     );
   }
 }

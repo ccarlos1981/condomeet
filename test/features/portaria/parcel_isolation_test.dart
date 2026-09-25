@@ -152,6 +152,15 @@ class _MockParcelRepository implements ParcelRepository {
     databaseParcels.add(parcel);
     return const Success(null);
   }
+
+  @override
+  Future<Result<void>> cancelParcel(String parcelId, {String? reason}) async {
+    final idx = databaseParcels.indexWhere((p) => p.id == parcelId);
+    if (idx != -1) {
+      databaseParcels[idx] = databaseParcels[idx].copyWith(status: 'cancelled');
+    }
+    return const Success(null);
+  }
 }
 
 Parcel _makeParcel({

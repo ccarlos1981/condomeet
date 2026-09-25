@@ -333,6 +333,41 @@ class ParcelRepositoryImpl implements ParcelRepository {
   }
 
   @override
+  Future<Result<void>> cancelParcel(String parcelId, {String? reason}) async {
+    try {
+      final response = await _supabase.rpc('cancel_encomenda', params: {
+        'p_encomenda_id': parcelId,
+        'p_reason': reason ?? 'REGISTERED_BY_MISTAKE',
+      });
+
+      if (response is Map) {
+        final success = response['success'] as bool? ?? false;
+        if (!success) {
+          final message = response['message'] as String? ?? 'Erro ao cancelar encomenda.';
+          return Failure(message);
+        }
+      } else if (response is String) {
+        if (response.contains('ALREADY_CANCELLED')) {
+          return const Failure('Esta encomenda já foi cancelada anteriormente.');
+        }
+        if (response.contains('ALREADY_DELIVERED')) {
+          return const Failure('Não é possível cancelar uma encomenda que já foi entregue.');
+        }
+        if (response.contains('NOT_FOUND')) {
+          return const Failure('Encomenda não encontrada.');
+        }
+        if (response.contains('INVALID_STATUS') || response.contains('CONCURRENT_CONFLICT')) {
+          return Failure('Conflito ao cancelar encomenda: $response');
+        }
+      }
+      return const Success(null);
+    } catch (e) {
+      debugPrint('[ParcelRepositoryImpl] Erro ao cancelar encomenda: $e');
+      return Failure('Erro ao cancelar encomenda: $e');
+    }
+  }
+
+  @override
   Future<Result<List<Parcel>>> getParcelHistory({
     String? residentId,
     required String condominiumId,

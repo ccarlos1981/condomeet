@@ -46,6 +46,15 @@ class _FakeParcelRepository implements ParcelRepository {
   @override
   Future<Result<List<Parcel>>> getParcelHistory({String? residentId, required String condominiumId}) async =>
       const Success([]);
+
+  @override
+  Future<Result<void>> cancelParcel(String parcelId, {String? reason}) async {
+    final idx = _storage.indexWhere((p) => p.id == parcelId);
+    if (idx != -1) {
+      _storage[idx] = _storage[idx].copyWith(status: 'cancelled');
+    }
+    return const Success(null);
+  }
 }
 
 void main() {

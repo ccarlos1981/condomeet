@@ -19,6 +19,9 @@ class Parcel extends Equatable {
   final String? registeredBy;  // UUID of porter who registered
   final String? pickedUpById;
   final String? pickedUpByName;
+  final DateTime? cancelledAt;
+  final String? cancelledBy;
+  final String? cancellationReason;
 
   const Parcel({
     required this.id,
@@ -38,6 +41,9 @@ class Parcel extends Equatable {
     this.registeredBy,
     this.pickedUpById,
     this.pickedUpByName,
+    this.cancelledAt,
+    this.cancelledBy,
+    this.cancellationReason,
   });
 
   @override
@@ -46,6 +52,7 @@ class Parcel extends Equatable {
     arrivalTime, deliveryTime, photoUrl, pickupProofUrl,
     status, condominiumId, tipo, trackingCode, observacao,
     registeredBy, pickedUpById, pickedUpByName,
+    cancelledAt, cancelledBy, cancellationReason,
   ];
 
   Map<String, dynamic> toMap() {
@@ -64,6 +71,9 @@ class Parcel extends Equatable {
       'registered_by': registeredBy,
       'picked_up_by_id': pickedUpById,
       'picked_up_by_name': pickedUpByName,
+      'cancelled_at': cancelledAt?.toIso8601String(),
+      'cancelled_by': cancelledBy,
+      'cancellation_reason': cancellationReason,
     };
   }
 
@@ -85,6 +95,9 @@ class Parcel extends Equatable {
     String? registeredBy,
     String? pickedUpById,
     String? pickedUpByName,
+    DateTime? cancelledAt,
+    String? cancelledBy,
+    String? cancellationReason,
   }) {
     return Parcel(
       id: id ?? this.id,
@@ -104,6 +117,9 @@ class Parcel extends Equatable {
       registeredBy: registeredBy ?? this.registeredBy,
       pickedUpById: pickedUpById ?? this.pickedUpById,
       pickedUpByName: pickedUpByName ?? this.pickedUpByName,
+      cancelledAt: cancelledAt ?? this.cancelledAt,
+      cancelledBy: cancelledBy ?? this.cancelledBy,
+      cancellationReason: cancellationReason ?? this.cancellationReason,
     );
   }
 }

@@ -153,11 +153,13 @@ serve(async (req) => {
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? ""
     )
 
-    // 3. Fetch all FCM tokens for residents of the unit
+    // 3. Fetch all FCM tokens for valid residents of the unit
     const query = supabase
       .from("perfil")
       .select("id, nome_completo, fcm_token")
       .eq("condominio_id", condominio_id)
+      .eq("status_aprovacao", "aprovado")
+      .eq("bloqueado", false)
       .not("fcm_token", "is", null)
 
     if (bloco) query.eq("bloco_txt", bloco)
@@ -198,6 +200,9 @@ serve(async (req) => {
     if (event === "arrived") {
       title = "📦 Encomenda chegou!"
       body = `${unitLabel} — ${tipoStr} aguardando retirada na portaria.`
+    } else if (event === "cancelled") {
+      title = "⚠️ Encomenda cancelada"
+      body = `Desconsidere a notificação anterior de encomenda para o ${unitLabel}. O registro foi realizado por engano e foi cancelado pela portaria/administração do condomínio.`
     } else {
       const who = picked_up_by_name ? ` por ${picked_up_by_name}` : ""
       title = "✅ Encomenda retirada"

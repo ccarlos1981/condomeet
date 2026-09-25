@@ -49,6 +49,10 @@ class _TestParcelRepository implements ParcelRepository {
     required String condominiumId,
   }) async =>
       const Success([]);
+
+  @override
+  Future<Result<void>> cancelParcel(String parcelId, {String? reason}) async =>
+      const Success(null);
 }
 
 // ── Testable AI Parsing & Unit Validation Engine with Priority Logic ─────────

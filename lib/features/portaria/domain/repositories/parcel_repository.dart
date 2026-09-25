@@ -26,6 +26,9 @@ abstract class ParcelRepository {
     String? dischargedBy,
   });
 
+  /// Cancels a pending parcel using the atomic database RPC.
+  Future<Result<void>> cancelParcel(String parcelId, {String? reason});
+
   /// Fetches parcel history for the unit. If residentId is provided, resolves unit from profile.
   Future<Result<List<Parcel>>> getParcelHistory({String? residentId, required String condominiumId});
 }
