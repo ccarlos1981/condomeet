@@ -6,7 +6,8 @@ abstract class AuthRepository {
   Future<String> signUpWithEmail(String email, String password);
   Future<void> signOut();
   Future<Map<String, dynamic>?> fetchProfile(String userId);
-  Future<void> updateFcmToken(String userId, String token);
+  Future<void> updateFcmToken(String userId, String? token);
+  Future<void> clearFcmToken(String userId);
   
   // Novos métodos de busca para o Cadastro 2.0
   Future<List<Map<String, dynamic>>> searchCondominios(String query);

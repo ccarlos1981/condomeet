@@ -33,10 +33,11 @@ export default async function PushUniversalPage() {
     .select('id, dia_semana, horario, assunto, mensagem, ativo')
     .is('condominio_id', null)
 
-  // Fetch profiles to calculate total registered users vs active push devices
+  // Fetch approved profiles to calculate eligible users vs active push devices
   const { data: perfis } = await supabase
     .from('perfil')
     .select('condominio_id, fcm_token')
+    .eq('status_aprovacao', 'aprovado')
 
   const condoStats: Record<string, { totalUsuarios: number; totalDispositivos: number }> = {}
   let globalUsuarios = 0
@@ -45,7 +46,7 @@ export default async function PushUniversalPage() {
   if (perfis) {
     for (const p of perfis) {
       globalUsuarios++
-      const hasToken = typeof p.fcm_token === 'string' && p.fcm_token.trim().length > 0
+      const hasToken = typeof p.fcm_token === 'string' && p.fcm_token.trim().length > 0 && !p.fcm_token.startsWith('dummy_')
       if (hasToken) globalDispositivos++
 
       if (p.condominio_id) {

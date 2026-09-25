@@ -12,80 +12,93 @@ class WaitingApprovalScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     return Scaffold(
       body: SafeArea(
-        child: CustomScrollView(
-          slivers: [
-            SliverFillRemaining(
-              hasScrollBody: false,
-              child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 32.0, vertical: 24.0),
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    const Spacer(),
-                    Container(
-                      padding: const EdgeInsets.all(24),
-                      decoration: BoxDecoration(
-                        color: Colors.orange.withValues(alpha: 0.1),
-                        shape: BoxShape.circle,
+        child: RefreshIndicator(
+          onRefresh: () async {
+            context.read<AuthBloc>().add(const AuthCheckRequested());
+          },
+          child: CustomScrollView(
+            physics: const AlwaysScrollableScrollPhysics(),
+            slivers: [
+              SliverFillRemaining(
+                hasScrollBody: false,
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 32.0, vertical: 24.0),
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      const Spacer(),
+                      Container(
+                        padding: const EdgeInsets.all(24),
+                        decoration: BoxDecoration(
+                          color: Colors.orange.withValues(alpha: 0.1),
+                          shape: BoxShape.circle,
+                        ),
+                        child: const Icon(
+                          Icons.access_time_filled_rounded,
+                          size: 80,
+                          color: Colors.orange,
+                        ),
                       ),
-                      child: const Icon(
-                        Icons.access_time_filled_rounded,
-                        size: 80,
-                        color: Colors.orange,
+                      const SizedBox(height: 32),
+                      const Text(
+                        'Solicitação Enviada!',
+                        textAlign: TextAlign.center,
+                        style: TextStyle(
+                          fontSize: 28,
+                          fontWeight: FontWeight.bold,
+                          color: AppColors.textMain,
+                        ),
                       ),
-                    ),
-                    const SizedBox(height: 32),
-                    const Text(
-                      'Solicitação Enviada!',
-                      textAlign: TextAlign.center,
-                      style: TextStyle(
-                        fontSize: 28,
-                        fontWeight: FontWeight.bold,
-                        color: AppColors.textMain,
+                      const SizedBox(height: 16),
+                      const Text(
+                        'Seus dados foram enviados para o administrador do condomínio. Você receberá uma notificação assim que seu acesso for liberado.',
+                        textAlign: TextAlign.center,
+                        style: TextStyle(
+                          fontSize: 16,
+                          color: AppColors.textSecondary,
+                          height: 1.5,
+                        ),
                       ),
-                    ),
-                    const SizedBox(height: 16),
-                    const Text(
-                      'Seus dados foram enviados para o administrador do condomínio. Você receberá uma notificação assim que seu acesso for liberado.',
-                      textAlign: TextAlign.center,
-                      style: TextStyle(
-                        fontSize: 16,
-                        color: AppColors.textSecondary,
-                        height: 1.5,
-                      ),
-                    ),
-                    const SizedBox(height: 32),
-                    Container(
-                      padding: const EdgeInsets.all(20),
-                      decoration: BoxDecoration(
-                        color: AppColors.surface,
-                        borderRadius: BorderRadius.circular(20),
-                        border: Border.all(color: AppColors.border),
-                      ),
-                      child: const Row(
-                        children: [
-                          Icon(Icons.info_outline, color: AppColors.primary),
-                          SizedBox(width: 16),
-                          Expanded(
-                            child: Text(
-                              'Dica: O síndico costuma analisar solicitações em horários comerciais.',
-                              style: TextStyle(fontSize: 14, color: AppColors.textMain),
+                      const SizedBox(height: 32),
+                      Container(
+                        padding: const EdgeInsets.all(20),
+                        decoration: BoxDecoration(
+                          color: AppColors.surface,
+                          borderRadius: BorderRadius.circular(20),
+                          border: Border.all(color: AppColors.border),
+                        ),
+                        child: const Row(
+                          children: [
+                            Icon(Icons.info_outline, color: AppColors.primary),
+                            SizedBox(width: 16),
+                            Expanded(
+                              child: Text(
+                                'Dica: O síndico costuma analisar solicitações em horários comerciais.',
+                                style: TextStyle(fontSize: 14, color: AppColors.textMain),
+                              ),
                             ),
-                          ),
-                        ],
+                          ],
+                        ),
                       ),
-                    ),
-                    const Spacer(),
-                    const SizedBox(height: 24),
-                    CondoButton(
-                      label: 'Sair e Voltar ao Início',
-                      onPressed: () => context.read<AuthBloc>().add(const AuthLogoutRequested()),
-                    ),
-                  ],
+                      const Spacer(),
+                      const SizedBox(height: 24),
+                      CondoButton(
+                        label: 'Verificar Aprovação',
+                        onPressed: () => context.read<AuthBloc>().add(const AuthCheckRequested()),
+                      ),
+                      const SizedBox(height: 12),
+                      CondoButton(
+                        label: 'Sair e Voltar ao Início',
+                        backgroundColor: Colors.transparent,
+                        foregroundColor: AppColors.textSecondary,
+                        onPressed: () => context.read<AuthBloc>().add(const AuthLogoutRequested()),
+                      ),
+                    ],
+                  ),
                 ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );

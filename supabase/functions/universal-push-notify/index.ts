@@ -116,9 +116,11 @@ serve(async (req) => {
     let query = supabase
       .from('perfil')
       .select('fcm_token')
+      .eq('status_aprovacao', 'aprovado')
       .not('fcm_token', 'is', null)
 
-    // Filter by condominium if specified
+    // Filter by condominium if specified (Modo Condomínio Específico)
+    // Se não especificado (Modo Todos os Condomínios), busca aprovados de todos os condomínios
     if (condominio_id) {
       query = query.eq('condominio_id', condominio_id)
     }
@@ -156,7 +158,7 @@ serve(async (req) => {
     for (const chunk of tokenChunks) {
       const promises = chunk.map(async (token) => {
         // Pular tokens dummy (evitar chamadas desnecessárias ao Firebase)
-        if (token.startsWith('dummy_fcm_token')) {
+        if (token.startsWith('dummy_')) {
           errors.push(`[SKIP] dummy token ignorado`)
           return
         }

@@ -115,12 +115,14 @@ serve(async (req) => {
     for (const item of toSend) {
       console.log(`[Worker] Sending scheduled push "${item.assunto}" (ID: ${item.id})`)
 
-      // Fetch active device tokens
+      // Fetch active device tokens for approved residents
       let query = supabase
         .from('perfil')
         .select('fcm_token')
+        .eq('status_aprovacao', 'aprovado')
         .not('fcm_token', 'is', null)
 
+      // If condominio_id is specified, filter by it. Otherwise (global schedule), send to approved residents of all condos
       if (item.condominio_id) {
         query = query.eq('condominio_id', item.condominio_id)
       }

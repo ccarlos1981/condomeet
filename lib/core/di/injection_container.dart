@@ -125,6 +125,7 @@ Future<void> initDependencies() async {
       authRepository: sl(),
       securityService: sl(),
       consentRepository: sl(),
+      notificationService: sl(),
     ),
   );
   sl.registerFactory(

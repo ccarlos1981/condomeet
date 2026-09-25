@@ -1,8 +1,10 @@
+import 'dart:async';
 import 'package:flutter/foundation.dart' show debugPrint;
 import 'package:bloc_concurrency/bloc_concurrency.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:get_it/get_it.dart';
 import 'package:condomeet/core/services/notification_service.dart';
+import 'package:condomeet/core/services/fcm_notification_service.dart';
 import 'package:condomeet/core/services/telemetry_service.dart';
 import 'package:supabase_flutter/supabase_flutter.dart' hide AuthState;
 import 'package:condomeet/core/services/security_service.dart';
@@ -18,15 +20,29 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
   final AuthRepository _authRepository;
   final SecurityService _securityService;
   final ConsentRepository _consentRepository;
+  final NotificationService _notificationService;
+
+  StreamSubscription<String>? _fcmTokenRefreshSubscription;
+  Timer? _fcmRetryTimer;
+  String? _lastSyncedToken;
+  static const int _kMaxFcmRetries = 3;
 
   AuthBloc({
     required AuthRepository authRepository,
     required SecurityService securityService,
     required ConsentRepository consentRepository,
+    NotificationService? notificationService,
   })  : _authRepository = authRepository,
         _securityService = securityService,
         _consentRepository = consentRepository,
+        _notificationService = notificationService ??
+            (GetIt.instance.isRegistered<NotificationService>()
+                ? GetIt.instance<NotificationService>()
+                : FcmNotificationService()),
         super(const AuthState.unknown()) {
+    // Configura o listener oficial de onTokenRefresh logo na inicialização
+    _setupTokenRefreshListener();
+
     // Usamos o transformador concurrent() para que eventos como AuthCheckRequested (com retries)
     // não bloqueiem a fila de outros eventos, como o AuthLoginSubmitted.
     on<AuthCheckRequested>(_onAuthCheckRequested, transformer: droppable());
@@ -119,8 +135,13 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
         return;
       }
 
+      final bool wasPending = state.status == AuthStatus.pendingApproval || state.profileStatus == 'pendente';
+      if (wasPending && profileStatus == 'aprovado') {
+        debugPrint('🎉 Transição detectada: Usuário $userId passou de pendente para aprovado!');
+      }
+
       // Update FCM token on app start for active users
-      _syncFcmToken(session.user.id);
+      _syncFcmToken(session.user.id, existingToken: profile['fcm_token'] as String?);
       _recordDeviceTelemetry(session.user.id, profile['condominio_id'] as String?, isLogin: false);
       
       // 1. Consent Check (Story 1.3)
@@ -352,7 +373,7 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
       final hasPin = await _securityService.getPin() != null;
       print('🔐 User has PIN: $hasPin');
 
-      _syncFcmToken(session.user.id);
+      _syncFcmToken(session.user.id, existingToken: profile['fcm_token'] as String?);
       _recordDeviceTelemetry(session.user.id, profile['condominio_id'] as String?, isLogin: true);
 
       if (!hasPin) {
@@ -559,6 +580,35 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
   }
 
   Future<void> _onAuthLogoutRequested(AuthLogoutRequested event, Emitter<AuthState> emit) async {
+    // 1. Cancelar quaisquer retries de FCM agendados
+    _fcmRetryTimer?.cancel();
+    _fcmRetryTimer = null;
+
+    // 2. Identificar o userId autenticado da sessão atual
+    final session = _authRepository.currentSession;
+    final userId = session?.user.id ?? state.userId;
+
+    // 3. Limpar public.perfil.fcm_token ANTES do signOut (enquanto sessão/RLS ainda está ativa)
+    if (userId != null && userId.isNotEmpty) {
+      try {
+        debugPrint('🧹 Removendo fcm_token de public.perfil para $userId...');
+        await _authRepository.clearFcmToken(userId);
+        debugPrint('✅ fcm_token limpo com sucesso no perfil de $userId');
+      } catch (e) {
+        debugPrint('⚠️ Erro ao limpar fcm_token no perfil durante logout: $e');
+      }
+    }
+
+    // 4. Deletar token do Firebase no dispositivo para invalidá-lo no FCM
+    try {
+      await _notificationService.deleteToken();
+      _lastSyncedToken = null;
+      debugPrint('✅ Firebase FCM token deletado no dispositivo.');
+    } catch (e) {
+      debugPrint('⚠️ Erro ao deletar token no FirebaseMessaging: $e');
+    }
+
+    // 5. Encerrar auto-login e sessão Supabase
     await _securityService.setAutoLoginActive(false);
     await _authRepository.signOut();
     emit(const AuthState.unauthenticated());
@@ -589,16 +639,76 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
   }
 
 
-  Future<void> _syncFcmToken(String userId) async {
+  void _setupTokenRefreshListener() {
+    _fcmTokenRefreshSubscription?.cancel();
+    _fcmTokenRefreshSubscription = _notificationService.onTokenRefresh.listen(
+      (newToken) async {
+        try {
+          final session = _authRepository.currentSession;
+          if (session == null) {
+            debugPrint('ℹ️ FCM onTokenRefresh: Token emitido, mas nenhum usuário autenticado na sessão Supabase.');
+            return;
+          }
+          final userId = session.user.id;
+          if (userId.isEmpty) return;
+
+          // Não persistir se o usuário estiver com status pendente ou rejeitado
+          if (state.status == AuthStatus.pendingApproval ||
+              state.profileStatus == 'pendente' ||
+              state.profileStatus == 'rejeitado') {
+            debugPrint('ℹ️ FCM onTokenRefresh: Usuário $userId possui status não-aprovado (${state.profileStatus}). Persistência ignorada.');
+            return;
+          }
+
+          final prefix = newToken.length >= 15 ? newToken.substring(0, 15) : newToken;
+          debugPrint('🔄 FCM onTokenRefresh disparado para usuário $userId: $prefix...');
+          await _authRepository.updateFcmToken(userId, newToken);
+          _lastSyncedToken = newToken;
+          debugPrint('✅ FCM onTokenRefresh persistido com sucesso para $userId');
+        } catch (e) {
+          debugPrint('❌ Erro no listener onTokenRefresh: $e');
+        }
+      },
+      onError: (err) {
+        debugPrint('❌ Erro no stream onTokenRefresh: $err');
+      },
+    );
+  }
+
+  Future<void> _syncFcmToken(String userId, {String? existingToken, int attempt = 0}) async {
     try {
-      final notificationService = GetIt.instance<NotificationService>();
-      final token = await notificationService.getToken();
-      if (token != null) {
-        await _authRepository.updateFcmToken(userId, token);
-        print('✅ FCM Token synced for user $userId');
+      final token = await _notificationService.getToken();
+      if (token != null && token.isNotEmpty) {
+        if (existingToken == null || existingToken != token || _lastSyncedToken != token) {
+          await _authRepository.updateFcmToken(userId, token);
+          _lastSyncedToken = token;
+          debugPrint('✅ FCM Token sincronizado/atualizado no perfil para $userId');
+        } else {
+          debugPrint('ℹ️ FCM Token já atualizado e idêntico no banco para $userId');
+        }
+        _fcmRetryTimer?.cancel();
+        return;
+      } else {
+        debugPrint('ℹ️ FCM getToken retornou null (permissão não concedida ou indisponível).');
       }
     } catch (e) {
-      print('❌ Failed to sync FCM token: $e');
+      debugPrint('❌ Erro ao sincronizar FCM token (tentativa $attempt de $_kMaxFcmRetries): $e');
+      if (attempt < _kMaxFcmRetries) {
+        final nextAttempt = attempt + 1;
+        final delaySeconds = nextAttempt * 5; // 5s, 10s, 15s
+        debugPrint('⏳ Agendando retry #$nextAttempt de FCM em ${delaySeconds}s para $userId');
+        _fcmRetryTimer?.cancel();
+        _fcmRetryTimer = Timer(Duration(seconds: delaySeconds), () {
+          final currentSession = _authRepository.currentSession;
+          if (currentSession != null && currentSession.user.id == userId) {
+            _syncFcmToken(userId, existingToken: existingToken, attempt: nextAttempt);
+          } else {
+            debugPrint('⏹️ Retry de FCM cancelado: sessão mudou ou usuário deslogou.');
+          }
+        });
+      } else {
+        debugPrint('🛑 Limite máximo de retries ($_kMaxFcmRetries) atingido para FCM do usuário $userId');
+      }
     }
   }
 
@@ -609,11 +719,19 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
         telemetryService.recordDeviceActivity(
           userId: userId,
           condominiumId: condominiumId,
+          fcmToken: _lastSyncedToken,
           isLogin: isLogin,
         );
       }
     } catch (e) {
       debugPrint('Telemetry fire-and-forget dispatch error: $e');
     }
+  }
+
+  @override
+  Future<void> close() {
+    _fcmRetryTimer?.cancel();
+    _fcmTokenRefreshSubscription?.cancel();
+    return super.close();
   }
 }

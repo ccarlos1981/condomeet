@@ -84,12 +84,23 @@ class AuthRepositoryImpl implements AuthRepository {
   }
 
   @override
-  Future<void> updateFcmToken(String userId, String token) async {
+  Future<void> updateFcmToken(String userId, String? token) async {
     await _resilienceService.execute<void>(
       operationName: 'updateFcmToken',
       idempotency: OperationIdempotency.idempotentWrite,
       action: () async {
         await _supabase.from('perfil').update({'fcm_token': token}).eq('id', userId);
+      },
+    );
+  }
+
+  @override
+  Future<void> clearFcmToken(String userId) async {
+    await _resilienceService.execute<void>(
+      operationName: 'clearFcmToken',
+      idempotency: OperationIdempotency.idempotentWrite,
+      action: () async {
+        await _supabase.from('perfil').update({'fcm_token': null}).eq('id', userId);
       },
     );
   }

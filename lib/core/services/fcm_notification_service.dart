@@ -162,6 +162,26 @@ class FcmNotificationService implements NotificationService {
   }
 
   @override
+  Stream<String> get onTokenRefresh {
+    try {
+      return _fcm.onTokenRefresh;
+    } catch (e) {
+      _logger.e('Erro ao acessar stream onTokenRefresh do FirebaseMessaging: $e');
+      return const Stream.empty();
+    }
+  }
+
+  @override
+  Future<void> deleteToken() async {
+    try {
+      await _fcm.deleteToken();
+      _logger.i('FCM token deletado no dispositivo e invalidado no Firebase.');
+    } catch (e) {
+      _logger.w('Erro ao deletar FCM token no Firebase: $e');
+    }
+  }
+
+  @override
   void setupHandlers() {
     // ── Foreground messages → show as local notification ──
     FirebaseMessaging.onMessage.listen((RemoteMessage message) {
