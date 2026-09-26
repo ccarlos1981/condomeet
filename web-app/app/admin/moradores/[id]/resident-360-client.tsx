@@ -29,6 +29,7 @@ import {
   History,
   PlusCircle,
   Edit2,
+  Edit3,
   RefreshCw,
   PawPrint,
   ArrowRightLeft,
@@ -36,6 +37,7 @@ import {
   Trash2,
   Eye,
   Loader2,
+  UserCheck,
 } from 'lucide-react'
 import { getBlocoLabel, getAptoLabel, formatUnitDisplay, isTechnicalAdminUnit } from '@/lib/labels'
 import { isTechnicalAdminRole } from '@/lib/roles'
@@ -44,6 +46,8 @@ import ApproveConfirmModal from '../approve-confirm-modal'
 import RejectConfirmModal from '../reject-confirm-modal'
 import InactivateConfirmModal from '../inactivate-confirm-modal'
 import CreateResidentLinkModal from '../create-resident-link-modal'
+import CorrigirVinculoModal from '../corrigir-vinculo-modal'
+import TransferirUnidadeModal from '../transferir-unidade-modal'
 import VehicleModal from '../vehicle-modal'
 import VehiclePlateModal from '../vehicle-plate-modal'
 import VehicleInactivateModal from '../vehicle-inactivate-modal'
@@ -65,6 +69,7 @@ import {
   adminGetResidentInvitesPage,
   adminGetUnitAccessPage,
   adminGetResidentHistoryPage,
+  adminGetResidentAccessEntriesPage,
 } from '@/app/admin/actions'
 
 export interface ResidentData {
@@ -163,6 +168,16 @@ export interface AuditLogData {
   unidade_apto?: string | null
 }
 
+export interface ResidentAccessEntryData {
+  id: string
+  tipo: string
+  bloco: string | null
+  apto: string | null
+  cracha_referencia: string | null
+  created_at: string
+  operador_nome: string
+}
+
 interface Props {
   resident: ResidentData
   condoNome: string
@@ -171,6 +186,8 @@ interface Props {
   coResidents: CoResidentData[]
   convites: ConviteData[]
   portariaRegistros: PortariaRegistroData[]
+  residentAccessEntries?: ResidentAccessEntryData[]
+  residentAccessTotal?: number
   auditLogs?: AuditLogData[]
   auditTotal?: number
   veiculos?: VehicleData[]
@@ -380,6 +397,8 @@ export default function Resident360Client({
   coResidents,
   convites,
   portariaRegistros = [],
+  residentAccessEntries: initialResidentAccessEntries = [],
+  residentAccessTotal: initialResidentAccessTotal = 0,
   auditLogs: initialAuditLogs = [],
   auditTotal: initialAuditTotal = 0,
   veiculos: initialVeiculos = [],
@@ -409,6 +428,41 @@ export default function Resident360Client({
     Math.ceil(portariaRegistros.length / PORTARIA_PAGE_SIZE)
   )
   const paginatedPortariaRegistros = serverPortariaRegistros
+
+  // Paginação de Entradas do Morador (Gate 3P - P2-C)
+  const [residentAccessPage, setResidentAccessPage] = useState(1)
+  const [serverResidentAccess, setServerResidentAccess] = useState<ResidentAccessEntryData[]>(initialResidentAccessEntries)
+  const [serverResidentAccessTotal, setServerResidentAccessTotal] = useState(initialResidentAccessTotal)
+  const [serverResidentAccessTotalPages, setServerResidentAccessTotalPages] = useState(
+    Math.ceil(initialResidentAccessTotal / 5)
+  )
+  const [residentAccessLoading, setResidentAccessLoading] = useState(false)
+
+  // Sincronizar estado inicial de acessos do morador quando recebido via props
+  useEffect(() => {
+    setServerResidentAccess(initialResidentAccessEntries)
+    setServerResidentAccessTotal(initialResidentAccessTotal)
+    setServerResidentAccessTotalPages(Math.ceil(initialResidentAccessTotal / 5))
+  }, [initialResidentAccessEntries, initialResidentAccessTotal])
+
+  // Busca paginada isolada de Entradas do Morador (Gate 3P - P2-C)
+  useEffect(() => {
+    if (!initialResident.id || !initialResident.condominio_id) return
+    let isCancelled = false
+    setResidentAccessLoading(true)
+    adminGetResidentAccessEntriesPage(initialResident.id, initialResident.condominio_id, residentAccessPage).then((result) => {
+      if (isCancelled) return
+      if (result.success && result.data) {
+        setServerResidentAccess(result.data)
+        setServerResidentAccessTotal(result.total)
+        setServerResidentAccessTotalPages(result.totalPages)
+      }
+      setResidentAccessLoading(false)
+    })
+    return () => {
+      isCancelled = true
+    }
+  }, [initialResident.id, initialResident.condominio_id, residentAccessPage])
 
   // Paginação do Histórico Administrativo (Gate 3M)
   const [historyPage, setHistoryPage] = useState(1)
@@ -611,6 +665,11 @@ export default function Resident360Client({
   // Create Resident Link Modal State (Gate 3C.7)
   const [isCreateLinkModalOpen, setIsCreateLinkModalOpen] = useState(false)
 
+  // Gate 3P (P2-A e P2-B) Modals State
+  const [isCorrigirVinculoModalOpen, setIsCorrigirVinculoModalOpen] = useState(false)
+  const [selectedLinkToCorrect, setSelectedLinkToCorrect] = useState<UnitLinkData | null>(null)
+  const [isTransferirUnidadeModalOpen, setIsTransferirUnidadeModalOpen] = useState(false)
+
   // Edit General Data Modal State (Gate 3I.4)
   const [editGeneralDataOpen, setEditGeneralDataOpen] = useState(false)
 
@@ -687,7 +746,7 @@ export default function Resident360Client({
     { key: 'veiculos', label: 'Veículos', icon: <Car size={16} />, count: veiculosError ? undefined : veiculos.length },
     { key: 'pets', label: 'Pets', icon: <PawPrint size={16} />, count: petsError ? undefined : pets.length },
     { key: 'familia', label: 'Família', icon: <Users size={16} />, count: ((dependentes?.length ?? 0) + (coResidents.length > 0 ? coResidents.length + 1 : 0)) || undefined },
-    { key: 'acessos', label: 'Acessos', icon: <KeyRound size={16} />, count: serverConvitesTotal + serverPortariaTotal },
+    { key: 'acessos', label: 'Acessos', icon: <KeyRound size={16} />, count: serverConvitesTotal + serverPortariaTotal + serverResidentAccessTotal },
     { key: 'historico', label: 'Histórico 🔒', icon: <Clock size={16} />, count: serverHistoryTotal > 0 ? serverHistoryTotal : undefined },
   ]
 
@@ -1281,14 +1340,42 @@ export default function Resident360Client({
           <div className="space-y-6">
             {/* Active Units */}
             <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6">
-              <div className="flex items-center justify-between mb-4">
-                <h2 className="text-base font-bold text-gray-900 flex items-center gap-2">
-                  <Home size={18} className="text-[#FC5931]" />
-                  Unidade Ativa
-                </h2>
-                <span className="text-xs px-2.5 py-0.5 rounded-full font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200">
-                  Vínculo Vigente
-                </span>
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4">
+                <div className="flex items-center gap-2">
+                  <h2 className="text-base font-bold text-gray-900 flex items-center gap-2">
+                    <Home size={18} className="text-[#FC5931]" />
+                    Unidade Ativa
+                  </h2>
+                  <span className="text-xs px-2.5 py-0.5 rounded-full font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200">
+                    Vínculo Vigente
+                  </span>
+                </div>
+
+                {activeUnit && (
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setSelectedLinkToCorrect(activeUnit)
+                        setIsCorrigirVinculoModalOpen(true)
+                      }}
+                      className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold text-gray-700 bg-gray-100 hover:bg-gray-200 border border-gray-200 transition-colors"
+                      title="Corrigir datas de entrada ou saída do vínculo"
+                    >
+                      <Edit3 size={13} />
+                      Corrigir vínculo
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setIsTransferirUnidadeModalOpen(true)}
+                      className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold text-white bg-[#FC5931] hover:bg-[#e04d28] shadow-sm transition-colors"
+                      title="Transferir morador para outra unidade mantendo o histórico"
+                    >
+                      <ArrowRightLeft size={13} />
+                      Transferir de Unidade
+                    </button>
+                  </div>
+                )}
               </div>
 
               {activeUnit ? (
@@ -1350,7 +1437,7 @@ export default function Resident360Client({
               {inactiveUnits.length > 0 ? (
                 <div className="divide-y divide-gray-100">
                   {inactiveUnits.map(unit => (
-                    <div key={unit.id} className="py-3 flex items-center justify-between">
+                    <div key={unit.id} className="py-3 flex items-center justify-between gap-3">
                       <div>
                         <p className="font-semibold text-sm text-gray-800">
                           {blocoLabel} {unit.bloco_nome || '—'} · {aptoLabel} {unit.apto_numero || '—'}
@@ -1359,9 +1446,23 @@ export default function Resident360Client({
                           Período: {formatDate(unit.data_entrada)} até {formatDate(unit.data_saida)}
                         </p>
                       </div>
-                      <span className="text-xs px-2.5 py-0.5 rounded-full font-medium bg-gray-100 text-gray-600">
-                        Inativo
-                      </span>
+                      <div className="flex items-center gap-2">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setSelectedLinkToCorrect(unit)
+                            setIsCorrigirVinculoModalOpen(true)
+                          }}
+                          className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md text-xs font-medium text-gray-600 hover:text-gray-900 bg-gray-50 hover:bg-gray-100 border border-gray-200 transition-colors"
+                          title="Corrigir datas deste período histórico"
+                        >
+                          <Edit3 size={12} />
+                          Corrigir vínculo
+                        </button>
+                        <span className="text-xs px-2.5 py-0.5 rounded-full font-medium bg-gray-100 text-gray-600">
+                          Inativo
+                        </span>
+                      </div>
                     </div>
                   ))}
                 </div>
@@ -2686,6 +2787,120 @@ export default function Resident360Client({
                 </div>
               )}
             </div>
+
+            {/* 3. Entradas e Saídas Físicas do Próprio Morador (Gate 3P - P2-C) */}
+            <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6">
+              <div className="flex items-center justify-between mb-4">
+                <div className="flex items-center gap-2">
+                  <UserCheck size={18} className="text-[#FC5931]" />
+                  <h2 className="text-base font-bold text-gray-900">
+                    Entradas e Saídas do Próprio Morador
+                  </h2>
+                </div>
+                {serverResidentAccessTotal > 0 && (
+                  <span className="text-xs font-semibold text-gray-500 bg-gray-100 px-2.5 py-0.5 rounded-full">
+                    {serverResidentAccessTotal} registro{serverResidentAccessTotal !== 1 ? 's' : ''}
+                  </span>
+                )}
+              </div>
+
+              {serverResidentAccessTotal > 0 ? (
+                <>
+                  <div className={`space-y-3 transition-opacity duration-150 ${residentAccessLoading ? 'opacity-50 pointer-events-none' : 'opacity-100'}`}>
+                    {serverResidentAccess.map(r => {
+                      const isEntrada = r.tipo === 'entrada'
+
+                      return (
+                        <div
+                          key={r.id}
+                          className="p-4 rounded-xl border border-gray-100 bg-white hover:border-gray-200 transition-all space-y-3"
+                        >
+                          <div className="flex items-start justify-between gap-3 flex-wrap">
+                            <div className="flex items-center gap-2">
+                              {isEntrada ? (
+                                <span className="inline-flex items-center gap-1 text-[11px] font-semibold px-2.5 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200">
+                                  <CheckCircle size={12} />
+                                  Entrada Registrada
+                                </span>
+                              ) : (
+                                <span className="inline-flex items-center gap-1 text-[11px] font-semibold px-2.5 py-0.5 rounded-full bg-blue-50 text-blue-700 border border-blue-200">
+                                  <Clock size={12} />
+                                  Saída Registrada
+                                </span>
+                              )}
+
+                              {(r.bloco || r.apto) && (
+                                <span className="text-xs font-medium text-gray-600 bg-gray-50 px-2 py-0.5 rounded-md border border-gray-100">
+                                  {blocoLabel} {r.bloco || '—'} · {aptoLabel} {r.apto || '—'}
+                                </span>
+                              )}
+                            </div>
+
+                            <span className="text-xs text-gray-500">
+                              {formatDateTime(r.created_at)}
+                            </span>
+                          </div>
+
+                          <div className="flex items-center gap-4 flex-wrap text-xs text-gray-600 pt-1 border-t border-gray-50">
+                            <div className="flex items-center gap-1.5">
+                              <Shield size={13} className="text-gray-400 shrink-0" />
+                              <span>Portaria / Operador: <strong className="text-gray-800 font-medium">{r.operador_nome || 'Portaria'}</strong></span>
+                            </div>
+
+                            {r.cracha_referencia && (
+                              <div className="flex items-center gap-1.5">
+                                <KeyRound size={13} className="text-gray-400 shrink-0" />
+                                <span>Crachá / Identificador: <strong className="text-gray-800 font-medium">{r.cracha_referencia}</strong></span>
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      )
+                    })}
+                  </div>
+
+                  {/* Controle de Paginação (Gate 3P: 5 itens por página, server-side) */}
+                  {serverResidentAccessTotalPages > 1 && (
+                    <div className="flex items-center justify-between pt-4 mt-2 border-t border-gray-100 text-xs">
+                      <button
+                        type="button"
+                        onClick={() => setResidentAccessPage(prev => Math.max(1, prev - 1))}
+                        disabled={residentAccessPage <= 1 || residentAccessLoading}
+                        className={`px-3 py-1.5 rounded-lg font-semibold transition-all ${
+                          residentAccessPage <= 1 || residentAccessLoading
+                            ? 'bg-gray-100 text-gray-400 cursor-not-allowed border border-gray-200'
+                            : 'bg-white text-gray-700 hover:bg-gray-50 border border-gray-200 shadow-sm hover:text-[#FC5931]'
+                        }`}
+                      >
+                        Anterior
+                      </button>
+
+                      <span className="text-gray-500 font-medium">
+                        Página {residentAccessPage} de {serverResidentAccessTotalPages}
+                      </span>
+
+                      <button
+                        type="button"
+                        onClick={() => setResidentAccessPage(prev => Math.min(serverResidentAccessTotalPages, prev + 1))}
+                        disabled={residentAccessPage >= serverResidentAccessTotalPages || residentAccessLoading}
+                        className={`px-3 py-1.5 rounded-lg font-semibold transition-all ${
+                          residentAccessPage >= serverResidentAccessTotalPages || residentAccessLoading
+                            ? 'bg-gray-100 text-gray-400 cursor-not-allowed border border-gray-200'
+                            : 'bg-white text-gray-700 hover:bg-gray-50 border border-gray-200 shadow-sm hover:text-[#FC5931]'
+                        }`}
+                      >
+                        Próxima
+                      </button>
+                    </div>
+                  )}
+                </>
+              ) : (
+                <div className="text-center py-8 text-gray-400 text-xs">
+                  <UserCheck size={28} className="mx-auto mb-2 text-gray-300" />
+                  Nenhum registro de entrada ou saída física registrado para este morador na portaria.
+                </div>
+              )}
+            </div>
           </div>
         )}
 
@@ -2760,7 +2975,11 @@ export default function Resident360Client({
                     const isResidentUnblocked = log.acao === 'RESIDENT_UNBLOCKED'
                     const isUnitInactivation = log.acao === 'UNIT_INACTIVATED'
                     const isUnitLinkCreated = log.acao === 'UNIT_LINK_CREATED'
-                    const isDateCorrected = log.acao === 'UNIT_LINK_ENTRY_DATE_CORRECTED'
+                    const isUnitTransferred = log.acao === 'UNIT_TRANSFERRED'
+                    const isDateCorrected =
+                      log.acao === 'UNIT_LINK_ENTRY_DATE_CORRECTED' ||
+                      log.acao === 'UNIT_LINK_EXIT_DATE_CORRECTED' ||
+                      log.acao === 'UNIT_LINK_DATES_CORRECTED'
                     const isTypeChange = log.acao === 'RESIDENT_TYPE_CHANGED'
                     const isVehicleCreated = log.acao === 'VEHICLE_CREATED'
                     const isVehicleUpdated = log.acao === 'VEHICLE_UPDATED'
@@ -2814,10 +3033,19 @@ export default function Resident360Client({
                                 <PlusCircle size={12} />
                                 Novo vínculo residencial
                               </span>
+                            ) : isUnitTransferred ? (
+                              <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-bold border bg-purple-50 text-purple-700 border-purple-200">
+                                <ArrowRightLeft size={12} />
+                                Transferência de unidade
+                              </span>
                             ) : isDateCorrected ? (
                               <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-bold border bg-amber-50 text-amber-700 border-amber-200">
                                 <Calendar size={12} />
-                                Data de entrada corrigida
+                                {log.acao === 'UNIT_LINK_EXIT_DATE_CORRECTED'
+                                  ? 'Data de saída corrigida'
+                                  : log.acao === 'UNIT_LINK_DATES_CORRECTED'
+                                  ? 'Datas de vínculo corrigidas'
+                                  : 'Data de entrada corrigida'}
                               </span>
                             ) : isTypeChange ? (
                               <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-bold border bg-blue-50 text-blue-700 border-blue-200">
@@ -3013,20 +3241,41 @@ export default function Resident360Client({
                           </div>
                         )}
 
-                        {isDateCorrected && (
+                        {isUnitTransferred && (
                           <div className="text-xs text-gray-600 bg-white p-3 rounded-lg border border-gray-100 space-y-1">
-                            <p>
-                              • Data anterior: <span className="line-through text-gray-400">{formatDate(log.estado_anterior?.data_entrada)}</span>
-                              {' '} ➔ Nova data: <strong className="text-emerald-700">{formatDate(post.data_entrada)}</strong>
-                            </p>
-                            {post.bloco_txt && post.apto_txt && (
+                            {ant.bloco && ant.apto && post.bloco && post.apto && (
                               <p>
-                                • Unidade vinculada: <strong>{blocoLabel} {post.bloco_txt} · {aptoLabel} {post.apto_txt}</strong>
+                                • Transferência: <span className="line-through text-gray-400">{blocoLabel} {ant.bloco} · {aptoLabel} {ant.apto}</span>
+                                {' '} ➔ <strong className="text-purple-700">{blocoLabel} {post.bloco} · {aptoLabel} {post.apto}</strong>
                               </p>
                             )}
-                            <p className="text-gray-500 text-[11px]">
-                              • Ajuste de data durante a homologação do Gate 3C.7-B.
-                            </p>
+                            {post.data_transferencia && (
+                              <p>
+                                • Data da transferência: <strong>{formatDate(post.data_transferencia)}</strong>
+                              </p>
+                            )}
+                          </div>
+                        )}
+
+                        {isDateCorrected && (
+                          <div className="text-xs text-gray-600 bg-white p-3 rounded-lg border border-gray-100 space-y-1">
+                            {ant.data_entrada !== post.data_entrada && (
+                              <p>
+                                • Data de entrada: <span className="line-through text-gray-400">{formatDate(ant.data_entrada)}</span>
+                                {' '} ➔ Nova data: <strong className="text-emerald-700">{formatDate(post.data_entrada)}</strong>
+                              </p>
+                            )}
+                            {ant.data_saida !== post.data_saida && (
+                              <p>
+                                • Data de saída: <span className="line-through text-gray-400">{formatDate(ant.data_saida)}</span>
+                                {' '} ➔ Nova data: <strong className="text-emerald-700">{formatDate(post.data_saida)}</strong>
+                              </p>
+                            )}
+                            {(log.unidade_bloco || log.unidade_apto) && (
+                              <p>
+                                • Unidade: <strong>{blocoLabel} {log.unidade_bloco || '—'} · {aptoLabel} {log.unidade_apto || '—'}</strong>
+                              </p>
+                            )}
                           </div>
                         )}
 
@@ -3644,6 +3893,45 @@ export default function Resident360Client({
           coResidents={coResidents}
           onSuccess={() => {
             setTransferringDependente(null)
+            router.refresh()
+          }}
+        />
+      )}
+
+      {/* Modal de Correção de Vínculo (Gate 3P - P2-A) */}
+      {isCorrigirVinculoModalOpen && selectedLinkToCorrect && (
+        <CorrigirVinculoModal
+          isOpen={isCorrigirVinculoModalOpen}
+          onClose={() => {
+            setIsCorrigirVinculoModalOpen(false)
+            setSelectedLinkToCorrect(null)
+          }}
+          link={selectedLinkToCorrect}
+          profileId={resident.id}
+          residentName={resident.nome_completo || 'Morador'}
+          blocoLabel={blocoLabel}
+          aptoLabel={aptoLabel}
+          onSuccess={() => {
+            setIsCorrigirVinculoModalOpen(false)
+            setSelectedLinkToCorrect(null)
+            router.refresh()
+          }}
+        />
+      )}
+
+      {/* Modal de Transferência de Unidade (Gate 3P - P2-B) */}
+      {isTransferirUnidadeModalOpen && activeUnit && (
+        <TransferirUnidadeModal
+          isOpen={isTransferirUnidadeModalOpen}
+          onClose={() => setIsTransferirUnidadeModalOpen(false)}
+          activeUnit={activeUnit}
+          profileId={resident.id}
+          condominioId={resident.condominio_id}
+          residentName={resident.nome_completo || 'Morador'}
+          blocoLabel={blocoLabel}
+          aptoLabel={aptoLabel}
+          onSuccess={() => {
+            setIsTransferirUnidadeModalOpen(false)
             router.refresh()
           }}
         />

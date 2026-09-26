@@ -12,6 +12,7 @@ import Resident360Client, {
   VehicleData,
   PetData,
   DependenteData,
+  ResidentAccessEntryData,
 } from './resident-360-client'
 
 export const metadata = {
@@ -514,6 +515,41 @@ export default async function Resident360Page(props: PageProps) {
     foto_signed_url: residentFotoSignedUrl,
   }
 
+  // 13. Fetch initial 5 entries of this resident in visita_proprietario + exact total count (Gate 3P / P2-C)
+  const { data: rawVisitasProprietario, count: visitasCount } = await supabase
+    .from('visita_proprietario')
+    .select('id, tipo, bloco, apto, cracha_referencia, registrado_por, created_at', { count: 'exact' })
+    .eq('morador_id', id)
+    .eq('condominio_id', condoId)
+    .order('created_at', { ascending: false })
+    .range(0, 4)
+
+  const operadorIds = Array.from(new Set((rawVisitasProprietario ?? []).map((v: any) => v.registrado_por).filter(Boolean)))
+  let operadorMap: Record<string, string> = {}
+  if (operadorIds.length > 0) {
+    const { data: operadores } = await supabase
+      .from('perfil')
+      .select('id, nome_completo')
+      .in('id', operadorIds)
+    if (operadores) {
+      operadorMap = operadores.reduce((acc: Record<string, string>, op: any) => {
+        acc[op.id] = op.nome_completo
+        return acc
+      }, {})
+    }
+  }
+
+  const residentAccessEntries: ResidentAccessEntryData[] = (rawVisitasProprietario ?? []).map((v: any) => ({
+    id: v.id,
+    tipo: v.tipo,
+    bloco: v.bloco,
+    apto: v.apto,
+    cracha_referencia: v.cracha_referencia,
+    created_at: v.created_at,
+    operador_nome: v.registrado_por ? (operadorMap[v.registrado_por] || 'Portaria') : 'Portaria',
+  }))
+  const residentAccessTotal = visitasCount ?? 0
+
   return (
     <Resident360Client
       resident={residentWithSignedUrl}
@@ -523,6 +559,8 @@ export default async function Resident360Page(props: PageProps) {
       coResidents={coResidents}
       convites={convites}
       portariaRegistros={portariaRegistros}
+      residentAccessEntries={residentAccessEntries}
+      residentAccessTotal={residentAccessTotal}
       auditLogs={auditLogs}
       auditTotal={auditCount ?? 0}
       veiculos={veiculos}

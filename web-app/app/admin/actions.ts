@@ -2658,3 +2658,206 @@ export async function adminRejectResident(data: {
     return { error: msg }
   }
 }
+
+/**
+ * Gate 3P / P2-A: Retificação material atômica de datas de vínculo residencial.
+ * Execução atômica via RPC PostgreSQL admin_corrigir_datas_vinculo_morador.
+ * Auditoria compulsória em perfil_audit_log (UNIT_LINK_ENTRY_DATE_CORRECTED / UNIT_LINK_EXIT_DATE_CORRECTED / UNIT_LINK_DATES_CORRECTED).
+ */
+export async function adminCorrigirDatasVinculoMorador(data: {
+  vinculoId: string
+  residentId: string
+  dataEntrada: string
+  dataSaida?: string | null
+  motivo: string
+}): Promise<{ success?: boolean; error?: string; result?: any }> {
+  try {
+    const vinculoId = data.vinculoId?.trim()
+    const residentId = data.residentId?.trim()
+    if (!vinculoId) return { error: 'Identificador do vínculo é obrigatório.' }
+    if (!residentId) return { error: 'Identificador do morador é obrigatório.' }
+    if (!data.dataEntrada?.trim()) return { error: 'Data de entrada é obrigatória.' }
+
+    const cleanMotivo = data.motivo?.trim()
+    if (!cleanMotivo || cleanMotivo.length < 3) {
+      return { error: 'O motivo da retificação é obrigatório (mínimo de 3 caracteres).' }
+    }
+
+    const supabase = await createClient()
+    const { data: rpcResult, error: rpcError } = await supabase.rpc('admin_corrigir_datas_vinculo_morador', {
+      p_vinculo_id: vinculoId,
+      p_data_entrada: data.dataEntrada,
+      p_data_saida: data.dataSaida?.trim() ? data.dataSaida : null,
+      p_motivo: cleanMotivo,
+    })
+
+    if (rpcError) {
+      console.error('[adminCorrigirDatasVinculoMorador] Erro na RPC:', rpcError)
+      return { error: rpcError.message || 'Falha ao retificar datas do vínculo.' }
+    }
+
+    revalidatePath('/admin/moradores')
+    revalidatePath(`/admin/moradores/${residentId}`)
+
+    return {
+      success: true,
+      result: rpcResult,
+    }
+  } catch (err: unknown) {
+    console.error('[adminCorrigirDatasVinculoMorador] Erro interno:', err)
+    const msg = err instanceof Error ? err.message : 'Erro interno ao retificar datas do vínculo.'
+    return { error: msg }
+  }
+}
+
+/**
+ * Gate 3P / P2-B: Transferência atômica de unidade residencial.
+ * Execução atômica via RPC PostgreSQL admin_transferir_unidade_morador.
+ * Encerra vínculo anterior, cria novo vínculo ativo, atualiza perfil, respeita limite de 4 ocupantes.
+ * Auditoria compulsória em perfil_audit_log (UNIT_TRANSFERRED).
+ */
+export async function adminTransferirUnidadeMorador(data: {
+  residentId: string
+  novaUnidadeId: string
+  dataTransferencia?: string | null
+  motivo: string
+}): Promise<{ success?: boolean; error?: string; result?: any }> {
+  try {
+    const residentId = data.residentId?.trim()
+    const novaUnidadeId = data.novaUnidadeId?.trim()
+    if (!residentId) return { error: 'Identificador do morador é obrigatório.' }
+    if (!novaUnidadeId) return { error: 'Identificador da nova unidade é obrigatório.' }
+
+    const cleanMotivo = data.motivo?.trim()
+    if (!cleanMotivo || cleanMotivo.length < 3) {
+      return { error: 'O motivo da transferência é obrigatório (mínimo de 3 caracteres).' }
+    }
+
+    const supabase = await createClient()
+    const { data: rpcResult, error: rpcError } = await supabase.rpc('admin_transferir_unidade_morador', {
+      p_perfil_id: residentId,
+      p_nova_unidade_id: novaUnidadeId,
+      p_data_transferencia: data.dataTransferencia?.trim() ? data.dataTransferencia : null,
+      p_motivo: cleanMotivo,
+    })
+
+    if (rpcError) {
+      console.error('[adminTransferirUnidadeMorador] Erro na RPC:', rpcError)
+      return { error: rpcError.message || 'Falha ao transferir unidade do morador.' }
+    }
+
+    revalidatePath('/admin/moradores')
+    revalidatePath(`/admin/moradores/${residentId}`)
+    revalidatePath('/portaria')
+
+    return {
+      success: true,
+      result: rpcResult,
+    }
+  } catch (err: unknown) {
+    console.error('[adminTransferirUnidadeMorador] Erro interno:', err)
+    const msg = err instanceof Error ? err.message : 'Erro interno ao transferir unidade do morador.'
+    return { error: msg }
+  }
+}
+
+/**
+ * Gate 3P / P2-C: Consulta paginada server-side das entradas/saídas do morador registradas na portaria (visita_proprietario).
+ * Read-only com isolamento multi-tenant estrito e range de 5 registros por página.
+ */
+export async function adminGetResidentAccessEntriesPage(residentId: string, page: number = 1) {
+  try {
+    if (!residentId?.trim()) {
+      return { error: 'Identificador do morador é obrigatório.' }
+    }
+
+    const supabase = await createClient()
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) return { error: 'Não autorizado' }
+
+    // 1. Obter perfil do operador e condomínio
+    const { data: operatorProfile, error: operatorError } = await supabase
+      .from('perfil')
+      .select('condominio_id, papel_sistema')
+      .eq('id', user.id)
+      .single()
+
+    if (operatorError || !operatorProfile || !isAdminRole(operatorProfile.papel_sistema)) {
+      return { error: 'Permissão negada. Apenas síndicos e administradores podem consultar acessos.' }
+    }
+
+    const condoId = operatorProfile.condominio_id
+    if (!condoId) return { error: 'Condomínio do operador não identificado.' }
+
+    // 2. Tenant guard: verificar morador
+    const { data: targetResident, error: targetError } = await supabase
+      .from('perfil')
+      .select('id, condominio_id')
+      .eq('id', residentId.trim())
+      .single()
+
+    if (targetError || !targetResident || targetResident.condominio_id !== condoId) {
+      return { error: 'Morador não encontrado ou não pertence a este condomínio.' }
+    }
+
+    const PAGE_SIZE = 5
+    const safePage = Math.max(1, Math.floor(Number(page) || 1))
+    const from = (safePage - 1) * PAGE_SIZE
+    const to = from + PAGE_SIZE - 1
+
+    const { data: rawVisitas, error: queryError, count } = await supabase
+      .from('visita_proprietario')
+      .select('id, tipo, bloco, apto, cracha_referencia, registrado_por, created_at', { count: 'exact' })
+      .eq('morador_id', residentId.trim())
+      .eq('condominio_id', condoId)
+      .order('created_at', { ascending: false })
+      .range(from, to)
+
+    if (queryError) {
+      console.error('[adminGetResidentAccessEntriesPage] Erro ao consultar visita_proprietario:', queryError)
+      return { error: 'Falha ao consultar acessos do morador.' }
+    }
+
+    // 3. Resolver nomes dos operadores que registraram as entradas
+    const operadorIds = Array.from(new Set((rawVisitas ?? []).map((v: any) => v.registrado_por).filter(Boolean)))
+    let operadorMap: Record<string, string> = {}
+    if (operadorIds.length > 0) {
+      const { data: operadores } = await supabase
+        .from('perfil')
+        .select('id, nome_completo')
+        .in('id', operadorIds)
+      if (operadores) {
+        operadorMap = operadores.reduce((acc: Record<string, string>, op: any) => {
+          acc[op.id] = op.nome_completo
+          return acc
+        }, {})
+      }
+    }
+
+    const items = (rawVisitas ?? []).map((v: any) => ({
+      id: v.id,
+      tipo: v.tipo,
+      bloco: v.bloco,
+      apto: v.apto,
+      cracha_referencia: v.cracha_referencia,
+      created_at: v.created_at,
+      operador_nome: v.registrado_por ? (operadorMap[v.registrado_por] || 'Portaria') : 'Portaria',
+    }))
+
+    const total = count ?? 0
+    const totalPages = total > 0 ? Math.ceil(total / PAGE_SIZE) : 0
+
+    return {
+      success: true,
+      data: items,
+      total,
+      page: safePage,
+      pageSize: PAGE_SIZE,
+      totalPages,
+    }
+  } catch (err: unknown) {
+    console.error('[adminGetResidentAccessEntriesPage] Erro interno:', err)
+    return { error: 'Erro interno ao consultar acessos do morador.' }
+  }
+}
+
