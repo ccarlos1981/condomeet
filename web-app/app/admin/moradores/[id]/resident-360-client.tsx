@@ -2756,6 +2756,8 @@ export default function Resident360Client({
                     const ant = log.estado_anterior || {}
                     const isResidentApproved = log.acao === 'RESIDENT_APPROVED'
                     const isResidentRejected = log.acao === 'RESIDENT_REJECTED'
+                    const isResidentBlocked = log.acao === 'RESIDENT_BLOCKED'
+                    const isResidentUnblocked = log.acao === 'RESIDENT_UNBLOCKED'
                     const isUnitInactivation = log.acao === 'UNIT_INACTIVATED'
                     const isUnitLinkCreated = log.acao === 'UNIT_LINK_CREATED'
                     const isDateCorrected = log.acao === 'UNIT_LINK_ENTRY_DATE_CORRECTED'
@@ -2791,6 +2793,16 @@ export default function Resident360Client({
                               <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-bold border bg-red-50 text-red-700 border-red-200">
                                 <XCircle size={12} />
                                 Cadastro rejeitado
+                              </span>
+                            ) : isResidentBlocked ? (
+                              <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-bold border bg-red-50 text-red-700 border-red-200">
+                                <Lock size={12} />
+                                Acesso bloqueado
+                              </span>
+                            ) : isResidentUnblocked ? (
+                              <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-bold border bg-emerald-50 text-emerald-700 border-emerald-200">
+                                <Unlock size={12} />
+                                Acesso reativado
                               </span>
                             ) : isUnitInactivation ? (
                               <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-bold border bg-red-50 text-red-700 border-red-200">
@@ -2931,6 +2943,28 @@ export default function Resident360Client({
                                 • Status anterior: <span className="capitalize">{ant.status_aprovacao}</span>
                               </p>
                             )}
+                          </div>
+                        )}
+
+                        {isResidentBlocked && (
+                          <div className="text-xs text-gray-600 bg-white p-3 rounded-lg border border-gray-100 space-y-1">
+                            <p>
+                              • Status alterado para: <strong className="text-red-700">Bloqueado</strong>
+                            </p>
+                            <p className="text-gray-500 text-[11px]">
+                              • Acesso ao sistema suspenso administrativamente
+                            </p>
+                          </div>
+                        )}
+
+                        {isResidentUnblocked && (
+                          <div className="text-xs text-gray-600 bg-white p-3 rounded-lg border border-gray-100 space-y-1">
+                            <p>
+                              • Status alterado para: <strong className="text-emerald-700">Aprovado (Reativado)</strong>
+                            </p>
+                            <p className="text-gray-500 text-[11px]">
+                              • Acesso ao sistema restabelecido
+                            </p>
                           </div>
                         )}
 

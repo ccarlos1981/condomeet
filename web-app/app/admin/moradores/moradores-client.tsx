@@ -13,7 +13,6 @@ import {
   Building2,
   ChevronLeft,
   ChevronRight,
-  Edit,
   SlidersHorizontal,
   Filter,
   RotateCcw,
@@ -24,7 +23,6 @@ import {
   PlusCircle,
 } from 'lucide-react'
 import { getBlocoLabel, getAptoLabel, isTechnicalAdminUnit, filterResidentialBlocos, formatUnitDisplay } from '@/lib/labels'
-import EditProfileModal from '@/components/edit-profile-modal'
 import BlockConfirmModal from './block-confirm-modal'
 import InactivateConfirmModal from './inactivate-confirm-modal'
 import CreateResidentLinkModal from './create-resident-link-modal'
@@ -205,7 +203,6 @@ export default function MoradoresClient({
   const [emailSearch, setEmailSearch] = useState('')
   const [roleFilter, setRoleFilter] = useState<string | null>(null)
   const [currentPage, setCurrentPage] = useState(1)
-  const [editingProfile, setEditingProfile] = useState<Morador | null>(null)
   const ITEMS_PER_PAGE = 9
 
   // Block / Unblock Modal State
@@ -1258,18 +1255,6 @@ export default function MoradoresClient({
                             </span>
                           )}
                           <div className="flex items-center gap-1.5 ml-auto">
-                            <button
-                              type="button"
-                              onClick={(e) => {
-                                e.stopPropagation()
-                                setEditingProfile(m)
-                              }}
-                              className="flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[10px] font-semibold bg-blue-50 text-blue-600 border border-blue-100 hover:bg-blue-100 transition-colors"
-                              title="Editar cadastro"
-                            >
-                              <Edit size={12} /> Editar
-                            </button>
-
                             {status === 'ativo' && (
                               <>
                                 <button
@@ -1414,16 +1399,6 @@ export default function MoradoresClient({
             </div>
           )}
         </>
-      )}
-
-      {editingProfile && (
-        <EditProfileModal
-          profile={editingProfile}
-          blocoLabel={blocoLabel}
-          aptoLabel={aptoLabel}
-          currentUserRole={currentUserRole}
-          onClose={() => setEditingProfile(null)}
-        />
       )}
 
       {confirmAction && (
