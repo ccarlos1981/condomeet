@@ -57,6 +57,11 @@ export default function LoginPage() {
         .eq('id', loginData.user.id)
         .single()
       
+      if (perfil?.status_aprovacao === 'inativo') {
+        router.push('/inactive-account')
+        return
+      }
+
       if (perfil?.status_aprovacao === 'bloqueado' || perfil?.status_aprovacao === 'pendente') {
         setShowBlocked(true)
         setBlockedMessage(
@@ -91,6 +96,11 @@ export default function LoginPage() {
           .eq('id', loginData.user.id)
           .single()
         
+        if (perfil?.status_aprovacao === 'inativo') {
+          router.push('/inactive-account')
+          return
+        }
+
         if (perfil?.status_aprovacao === 'bloqueado' || perfil?.status_aprovacao === 'pendente') {
           setShowPasswordSetup(false)
           setShowBlocked(true)

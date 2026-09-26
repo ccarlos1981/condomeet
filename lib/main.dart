@@ -13,6 +13,7 @@ import 'package:condomeet/features/auth/presentation/screens/pin_unlock_screen.d
 import 'package:condomeet/features/auth/presentation/screens/login_screen.dart';
 import 'package:condomeet/features/auth/presentation/screens/self_registration_screen.dart';
 import 'package:condomeet/features/auth/presentation/screens/waiting_approval_screen.dart';
+import 'package:condomeet/features/auth/presentation/screens/inactive_account_screen.dart';
 import 'package:condomeet/features/auth/presentation/screens/consent_screen.dart';
 import 'package:condomeet/features/home/presentation/screens/home_screen.dart';
 import 'package:condomeet/features/auth/presentation/screens/splash_screen.dart';
@@ -315,6 +316,7 @@ class _AuthRootGateState extends State<AuthRootGate> with WidgetsBindingObserver
     // Ao voltar da loja para o app, reavalia a versão instalada.
     // Só desbloqueia se a nova versão efetivamente atender à política.
     if (state == AppLifecycleState.resumed) {
+      context.read<AuthBloc>().add(const AuthCheckRequested());
       if (_gateResult?.isBlocked == true) {
         debugPrint('🔄 [AuthRootGate] App retornou ao primeiro plano com bloqueio ativo: reavaliando versão instalada...');
         _checkVersion();
@@ -425,6 +427,8 @@ class _AuthRootGateState extends State<AuthRootGate> with WidgetsBindingObserver
             return const SelfRegistrationScreen();
           case AuthStatus.pendingApproval:
             return const WaitingApprovalScreen();
+          case AuthStatus.inactiveAccount:
+            return const InactiveAccountScreen();
           case AuthStatus.rejected:
           case AuthStatus.authenticating:
           case AuthStatus.unauthenticated:

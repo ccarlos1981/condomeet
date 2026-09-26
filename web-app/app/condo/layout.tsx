@@ -15,8 +15,11 @@ export default async function CondoLayout({ children }: { children: React.ReactN
     .eq('id', user.id)
     .single()
 
-  // Block pending/blocked users — same as Flutter's AuthState.pendingApproval
+  // Block pending/blocked/inactive users
   const status = profile?.status_aprovacao ?? 'pendente'
+  if (status === 'inativo') {
+    redirect('/inactive-account')
+  }
   if (status === 'pendente' || status === 'bloqueado') {
     redirect('/pending-approval')
   }

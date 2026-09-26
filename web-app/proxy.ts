@@ -26,7 +26,7 @@ export async function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl
 
   // Public routes
-  const publicRoutes = ['/login', '/register', '/sindico-register', '/forgot-password', '/reset-password', '/privacidade', '/pending-approval']
+  const publicRoutes = ['/login', '/register', '/sindico-register', '/forgot-password', '/reset-password', '/privacidade', '/pending-approval', '/inactive-account']
   if (pathname === '/' || publicRoutes.some(r => pathname.startsWith(r))) {
     if (user && (pathname.startsWith('/login') || pathname === '/')) {
       return NextResponse.redirect(new URL('/condo', request.url))

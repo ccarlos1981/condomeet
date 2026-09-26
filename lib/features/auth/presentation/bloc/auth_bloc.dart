@@ -116,6 +116,16 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
       final String? condominiumId = profile['condominio_id'];
       final String? role = profile['papel_sistema'];
       
+      if (profileStatus == 'inativo') {
+        emit(AuthState.inactiveAccount(
+          userId: userId,
+          userName: userName,
+          condominiumId: condominiumId,
+          role: role,
+        ));
+        return;
+      }
+
       if (profileStatus == 'pendente' || profileStatus == 'bloqueado') {
         emit(AuthState.pendingApproval(
           userId: userId,
@@ -294,6 +304,17 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
       final String? condominiumId = profile['condominio_id'];
       final String? role = profile['papel_sistema'];
       
+      if (profileStatus == 'inativo') {
+        print('🚫 Login inativo: $profileStatus → emitindo inactiveAccount');
+        emit(AuthState.inactiveAccount(
+          userId: userId,
+          userName: userName,
+          condominiumId: condominiumId,
+          role: role,
+        ));
+        return;
+      }
+
       if (profileStatus == 'pendente' || profileStatus == 'bloqueado') {
         print('🚫 Login bloqueado: $profileStatus → emitindo pendingApproval');
         emit(AuthState.pendingApproval(
@@ -652,9 +673,11 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
           final userId = session.user.id;
           if (userId.isEmpty) return;
 
-          // Não persistir se o usuário estiver com status pendente ou rejeitado
+          // Não persistir se o usuário estiver com status pendente, inativo ou rejeitado
           if (state.status == AuthStatus.pendingApproval ||
+              state.status == AuthStatus.inactiveAccount ||
               state.profileStatus == 'pendente' ||
+              state.profileStatus == 'inativo' ||
               state.profileStatus == 'rejeitado') {
             debugPrint('ℹ️ FCM onTokenRefresh: Usuário $userId possui status não-aprovado (${state.profileStatus}). Persistência ignorada.');
             return;

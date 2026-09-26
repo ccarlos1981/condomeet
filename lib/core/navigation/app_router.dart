@@ -9,6 +9,7 @@ import 'package:condomeet/features/auth/presentation/screens/self_registration_s
 import 'package:condomeet/features/auth/presentation/screens/sindico_registration_screen.dart';
 import 'package:condomeet/features/auth/presentation/screens/manager_approval_screen.dart';
 import 'package:condomeet/features/auth/presentation/screens/waiting_approval_screen.dart';
+import 'package:condomeet/features/auth/presentation/screens/inactive_account_screen.dart';
 import 'package:condomeet/features/auth/presentation/screens/minha_unidade_screen.dart';
 import 'package:condomeet/features/portaria/presentation/screens/resident_search_screen.dart';
 import 'package:condomeet/features/portaria/presentation/screens/ocr_scanner_screen.dart';
@@ -152,6 +153,7 @@ class AppRouter {
       '/self-registration': (context) => const SelfRegistrationScreen(),
       '/sindico-registration': (context) => const SindicoRegistrationScreen(),
       '/waiting-approval': (context) => const WaitingApprovalScreen(),
+      '/inactive-account': (context) => const InactiveAccountScreen(),
       '/manager-approval': (context) => const ManagerApprovalScreen(),
       '/minha-unidade': (context) {
         final args = ModalRoute.of(context)!.settings.arguments as Map<String, dynamic>;
@@ -325,6 +327,8 @@ class AppRouter {
         return '/self-registration';
       case AuthStatus.pendingApproval:
         return '/waiting-approval';
+      case AuthStatus.inactiveAccount:
+        return '/inactive-account';
       case AuthStatus.rejected:
       case AuthStatus.unauthenticated:
         return '/login';

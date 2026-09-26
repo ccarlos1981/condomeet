@@ -9,10 +9,20 @@ export async function POST(req: NextRequest) {
   const { area_id, horario_id, data_reserva, nome_evento } = await req.json()
   if (!area_id || !data_reserva) return NextResponse.json({ error: 'area_id e data_reserva são obrigatórios' }, { status: 400 })
 
-  // Get profile
+  // Get profile and validate active resident status
   const { data: profile } = await supabase
-    .from('perfil').select('condominio_id').eq('id', user.id).single()
+    .from('perfil')
+    .select('condominio_id, status_aprovacao, bloqueado')
+    .eq('id', user.id)
+    .single()
   if (!profile?.condominio_id) return NextResponse.json({ error: 'Perfil não encontrado' }, { status: 404 })
+
+  if (profile.status_aprovacao !== 'aprovado' || profile.bloqueado === true) {
+    return NextResponse.json(
+      { error: 'Apenas moradores com cadastro aprovado e ativo podem realizar reservas.' },
+      { status: 403 }
+    )
+  }
 
   // Get area config
   const { data: area } = await supabase

@@ -14,6 +14,7 @@ enum AuthStatus {
   locked,
   needsPasswordSetup,  // moradores migrados precisam definir senha
   forgotPasswordCodeSent, // código enviado via WhatsApp
+  inactiveAccount, // cadastro inativo sem vínculo residencial ativo
 }
 
 class AuthState extends Equatable {
@@ -85,6 +86,10 @@ class AuthState extends Equatable {
   
   const AuthState.pendingApproval({String? userId, String? userName, String? condominiumId, String? role}) 
     : this(status: AuthStatus.pendingApproval, userId: userId, userName: userName, condominiumId: condominiumId, role: role);
+
+  /// Morador sem vínculo residencial ativo (inativado administrativamente)
+  const AuthState.inactiveAccount({String? userId, String? userName, String? condominiumId, String? role})
+    : this(status: AuthStatus.inactiveAccount, userId: userId, userName: userName, condominiumId: condominiumId, role: role, profileStatus: 'inativo');
 
   /// Morador migrado — precisa definir senha.
   const AuthState.needsPasswordSetup({required String email})

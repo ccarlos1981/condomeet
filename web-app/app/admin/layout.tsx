@@ -11,9 +11,13 @@ export default async function AdminLayout({ children }: { children: React.ReactN
 
   const { data: profile } = await supabase
     .from('perfil')
-    .select('papel_sistema, nome_completo, condominio_id, administradora_id')
+    .select('papel_sistema, nome_completo, condominio_id, administradora_id, status_aprovacao')
     .eq('id', user.id)
     .single()
+
+  if (profile?.status_aprovacao === 'inativo') {
+    redirect('/inactive-account')
+  }
 
   const role = profile?.papel_sistema ?? ''
 
