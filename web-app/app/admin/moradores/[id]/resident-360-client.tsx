@@ -31,6 +31,9 @@ import {
   RefreshCw,
   PawPrint,
   ArrowRightLeft,
+  Camera,
+  Trash2,
+  Eye,
 } from 'lucide-react'
 import { getBlocoLabel, getAptoLabel, formatUnitDisplay, isTechnicalAdminUnit } from '@/lib/labels'
 import { isTechnicalAdminRole } from '@/lib/roles'
@@ -45,6 +48,7 @@ import PetModal from '../pet-modal'
 import PetInactivateModal from '../pet-inactivate-modal'
 import PetReactivateModal from '../pet-reactivate-modal'
 import PetUnitModal from '../pet-unit-modal'
+import { PhotoUploadModal, PhotoRemoveModal, PhotoViewerModal } from '../photo-modal'
 import { adminToggleBlockStatus } from '@/app/admin/actions'
 
 export interface ResidentData {
@@ -156,6 +160,8 @@ export interface VehicleData {
   vaga_numero?: string | null
   observacao?: string | null
   status: 'ativo' | 'inativo'
+  foto_path?: string | null
+  foto_signed_url?: string | null
   created_at: string
   updated_at?: string | null
   unidade_bloco?: string | null
@@ -178,6 +184,8 @@ export interface PetData {
   vacinado?: boolean | null
   observacao?: string | null
   status: 'ativo' | 'inativo'
+  foto_path?: string | null
+  foto_signed_url?: string | null
   created_at: string
   updated_at?: string | null
   unidade_bloco?: string | null
@@ -355,6 +363,28 @@ export default function Resident360Client({
   const [transferringPet, setTransferringPet] = useState<PetData | null>(null)
   const [inactivatingPet, setInactivatingPet] = useState<PetData | null>(null)
   const [reactivatingPet, setReactivatingPet] = useState<PetData | null>(null)
+
+  // Photo Modals State (Gate 3F.2-B)
+  const [photoUploadTarget, setPhotoUploadTarget] = useState<{
+    type: 'pet' | 'veiculo'
+    id: string
+    name: string
+    condoId: string
+    currentPhotoPath?: string | null
+  } | null>(null)
+
+  const [photoRemoveTarget, setPhotoRemoveTarget] = useState<{
+    type: 'pet' | 'veiculo'
+    id: string
+    name: string
+    condoId: string
+    currentPhotoPath: string
+  } | null>(null)
+
+  const [viewingPhoto, setViewingPhoto] = useState<{
+    url: string
+    title: string
+  } | null>(null)
 
   // Block / Unblock Modal State
   const [confirmAction, setConfirmAction] = useState<'block' | 'unblock' | null>(null)
@@ -1048,14 +1078,105 @@ export default function Resident360Client({
                             )}
                           </div>
 
-                          {/* Marca e Modelo */}
-                          <div>
-                            <h3 className={`font-bold text-base leading-tight ${isAtivo ? 'text-gray-900' : 'text-zinc-600'}`}>
-                              {veiculo.marca} {veiculo.modelo}
-                            </h3>
-                            <p className="text-xs text-gray-500 mt-1 capitalize">
-                              {veiculo.cor} · {veiculo.tipo} {veiculo.ano ? `· ${veiculo.ano}` : ''}
-                            </p>
+                          {/* Foto e Informações Principais do Veículo */}
+                          <div className="flex items-start gap-3.5 pt-1">
+                            {/* Miniatura ou Fallback */}
+                            <div className="relative shrink-0 group">
+                              {veiculo.foto_signed_url ? (
+                                <button
+                                  type="button"
+                                  onClick={() => setViewingPhoto({ url: veiculo.foto_signed_url!, title: `Veículo: ${formatPlateDisplay(veiculo.placa)}` })}
+                                  className="block relative overflow-hidden rounded-xl border border-gray-200 shadow-xs cursor-pointer hover:border-[#FC5931] transition-all group"
+                                  title="Clique para ampliar a foto do veículo"
+                                >
+                                  <img
+                                    src={veiculo.foto_signed_url}
+                                    alt={`Veículo ${veiculo.placa}`}
+                                    className="w-20 h-20 object-cover"
+                                  />
+                                  <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center text-white">
+                                    <Eye size={16} />
+                                  </div>
+                                </button>
+                              ) : veiculo.foto_path ? (
+                                <div
+                                  className="w-20 h-20 rounded-xl bg-amber-50 border border-amber-200 text-amber-600 flex flex-col items-center justify-center p-1 text-center"
+                                  title="Foto vinculada no banco mas temporariamente inacessível"
+                                >
+                                  <AlertCircle size={18} />
+                                  <span className="text-[9px] font-semibold mt-0.5 leading-tight">Foto indisponível</span>
+                                </div>
+                              ) : (
+                                <div className="w-20 h-20 rounded-xl bg-gray-50 border border-dashed border-gray-200 flex flex-col items-center justify-center text-gray-400">
+                                  <Car size={24} className="text-gray-300" />
+                                  <span className="text-[9px] font-medium text-gray-400 mt-0.5">Sem foto</span>
+                                </div>
+                              )}
+                            </div>
+
+                            {/* Marca, Modelo e Ações de Mídia */}
+                            <div className="min-w-0 flex-1">
+                              <h3 className={`font-bold text-base leading-tight truncate ${isAtivo ? 'text-gray-900' : 'text-zinc-600'}`}>
+                                {veiculo.marca} {veiculo.modelo}
+                              </h3>
+                              <p className="text-xs text-gray-500 mt-1 capitalize">
+                                {veiculo.cor} · {veiculo.tipo} {veiculo.ano ? `· ${veiculo.ano}` : ''}
+                              </p>
+
+                              {/* Ações contextuais de foto (apenas para veículo ativo) */}
+                              {isAtivo && (
+                                <div className="flex items-center gap-2 mt-2 pt-1 border-t border-gray-100/60">
+                                  {!veiculo.foto_path ? (
+                                    <button
+                                      type="button"
+                                      onClick={() => setPhotoUploadTarget({
+                                        type: 'veiculo',
+                                        id: veiculo.id,
+                                        name: formatPlateDisplay(veiculo.placa),
+                                        condoId: veiculo.condominio_id,
+                                        currentPhotoPath: null,
+                                      })}
+                                      className="inline-flex items-center gap-1 text-[11px] font-semibold text-[#FC5931] hover:text-[#e04820] hover:underline cursor-pointer"
+                                    >
+                                      <Camera size={12} />
+                                      Adicionar foto
+                                    </button>
+                                  ) : (
+                                    <>
+                                      <button
+                                        type="button"
+                                        onClick={() => setPhotoUploadTarget({
+                                          type: 'veiculo',
+                                          id: veiculo.id,
+                                          name: formatPlateDisplay(veiculo.placa),
+                                          condoId: veiculo.condominio_id,
+                                          currentPhotoPath: veiculo.foto_path,
+                                        })}
+                                        className="inline-flex items-center gap-1 text-[11px] font-semibold text-gray-600 hover:text-gray-900 hover:underline cursor-pointer"
+                                      >
+                                        <Camera size={12} />
+                                        Alterar foto
+                                      </button>
+                                      <span className="text-gray-300 text-xs">·</span>
+                                      <button
+                                        type="button"
+                                        onClick={() => setPhotoRemoveTarget({
+                                          type: 'veiculo',
+                                          id: veiculo.id,
+                                          name: formatPlateDisplay(veiculo.placa),
+                                          condoId: veiculo.condominio_id,
+                                          currentPhotoPath: veiculo.foto_path!,
+                                        })}
+                                        className="inline-flex items-center gap-1 text-[11px] font-semibold text-red-600 hover:text-red-700 hover:underline cursor-pointer"
+                                      >
+                                        <Trash2 size={12} />
+                                        Remover foto
+                                      </button>
+                                    </>
+                                  )}
+                                </div>
+                              )}
+                            </div>
                           </div>
 
                           {/* Vaga e Unidade */}
@@ -1260,21 +1381,112 @@ export default function Resident360Client({
                             )}
                           </div>
 
-                          {/* Espécie e Raça */}
-                          <div>
-                            <p className="text-xs font-semibold text-gray-700">
-                              {formatEspecie(pet.especie)} {pet.raca ? `• ${pet.raca}` : '• SRD'}
-                            </p>
-                            <p className="text-xs text-gray-500 mt-0.5">
-                              {pet.sexo === 'macho' ? 'Macho' : pet.sexo === 'femea' ? 'Fêmea' : 'Sexo: Não informado'}
-                              {' • '}
-                              {formatPorte(pet.porte)}
-                            </p>
-                            {pet.cor && (
-                              <p className="text-xs text-gray-500 mt-0.5">
-                                Cor: {pet.cor}
+                          {/* Foto e Informações Principais do Pet */}
+                          <div className="flex items-start gap-3.5 pt-1">
+                            {/* Miniatura ou Fallback */}
+                            <div className="relative shrink-0 group">
+                              {pet.foto_signed_url ? (
+                                <button
+                                  type="button"
+                                  onClick={() => setViewingPhoto({ url: pet.foto_signed_url!, title: `Pet: ${pet.nome}` })}
+                                  className="block relative overflow-hidden rounded-xl border border-gray-200 shadow-xs cursor-pointer hover:border-[#FC5931] transition-all group"
+                                  title="Clique para ampliar a foto do pet"
+                                >
+                                  <img
+                                    src={pet.foto_signed_url}
+                                    alt={`Pet ${pet.nome}`}
+                                    className="w-20 h-20 object-cover"
+                                  />
+                                  <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center text-white">
+                                    <Eye size={16} />
+                                  </div>
+                                </button>
+                              ) : pet.foto_path ? (
+                                <div
+                                  className="w-20 h-20 rounded-xl bg-amber-50 border border-amber-200 text-amber-600 flex flex-col items-center justify-center p-1 text-center"
+                                  title="Foto vinculada no banco mas temporariamente inacessível"
+                                >
+                                  <AlertCircle size={18} />
+                                  <span className="text-[9px] font-semibold mt-0.5 leading-tight">Foto indisponível</span>
+                                </div>
+                              ) : (
+                                <div className="w-20 h-20 rounded-xl bg-gray-50 border border-dashed border-gray-200 flex flex-col items-center justify-center text-gray-400">
+                                  <PawPrint size={24} className="text-gray-300" />
+                                  <span className="text-[9px] font-medium text-gray-400 mt-0.5">Sem foto</span>
+                                </div>
+                              )}
+                            </div>
+
+                            {/* Espécie, Raça e Ações de Mídia */}
+                            <div className="min-w-0 flex-1">
+                              <p className="text-xs font-semibold text-gray-700">
+                                {formatEspecie(pet.especie)} {pet.raca ? `• ${pet.raca}` : '• SRD'}
                               </p>
-                            )}
+                              <p className="text-xs text-gray-500 mt-0.5">
+                                {pet.sexo === 'macho' ? 'Macho' : pet.sexo === 'femea' ? 'Fêmea' : 'Sexo: Não informado'}
+                                {' • '}
+                                {formatPorte(pet.porte)}
+                              </p>
+                              {pet.cor && (
+                                <p className="text-xs text-gray-500 mt-0.5 truncate">
+                                  Cor: {pet.cor}
+                                </p>
+                              )}
+
+                              {/* Ações contextuais de foto (apenas para pet ativo) */}
+                              {isAtivo && (
+                                <div className="flex items-center gap-2 mt-2 pt-1 border-t border-gray-100/60">
+                                  {!pet.foto_path ? (
+                                    <button
+                                      type="button"
+                                      onClick={() => setPhotoUploadTarget({
+                                        type: 'pet',
+                                        id: pet.id,
+                                        name: pet.nome,
+                                        condoId: pet.condominio_id,
+                                        currentPhotoPath: null,
+                                      })}
+                                      className="inline-flex items-center gap-1 text-[11px] font-semibold text-[#FC5931] hover:text-[#e04820] hover:underline cursor-pointer"
+                                    >
+                                      <Camera size={12} />
+                                      Adicionar foto
+                                    </button>
+                                  ) : (
+                                    <>
+                                      <button
+                                        type="button"
+                                        onClick={() => setPhotoUploadTarget({
+                                          type: 'pet',
+                                          id: pet.id,
+                                          name: pet.nome,
+                                          condoId: pet.condominio_id,
+                                          currentPhotoPath: pet.foto_path,
+                                        })}
+                                        className="inline-flex items-center gap-1 text-[11px] font-semibold text-gray-600 hover:text-gray-900 hover:underline cursor-pointer"
+                                      >
+                                        <Camera size={12} />
+                                        Alterar foto
+                                      </button>
+                                      <span className="text-gray-300 text-xs">·</span>
+                                      <button
+                                        type="button"
+                                        onClick={() => setPhotoRemoveTarget({
+                                          type: 'pet',
+                                          id: pet.id,
+                                          name: pet.nome,
+                                          condoId: pet.condominio_id,
+                                          currentPhotoPath: pet.foto_path!,
+                                        })}
+                                        className="inline-flex items-center gap-1 text-[11px] font-semibold text-red-600 hover:text-red-700 hover:underline cursor-pointer"
+                                      >
+                                        <Trash2 size={12} />
+                                        Remover foto
+                                      </button>
+                                    </>
+                                  )}
+                                </div>
+                              )}
+                            </div>
                           </div>
 
                           {/* Informações Complementares */}
@@ -1594,6 +1806,10 @@ export default function Resident360Client({
                     const isPetInactivated = log.acao === 'PET_INACTIVATED'
                     const isPetReactivated = log.acao === 'PET_REACTIVATED'
                     const isPetUnitChanged = log.acao === 'PET_UNIT_CHANGED'
+                    const isVehiclePhotoUpdated = log.acao === 'VEHICLE_PHOTO_UPDATED'
+                    const isVehiclePhotoRemoved = log.acao === 'VEHICLE_PHOTO_REMOVED'
+                    const isPetPhotoUpdated = log.acao === 'PET_PHOTO_UPDATED'
+                    const isPetPhotoRemoved = log.acao === 'PET_PHOTO_REMOVED'
 
                     return (
                       <div
@@ -1647,6 +1863,16 @@ export default function Resident360Client({
                                 <RefreshCw size={12} />
                                 Veículo reativado
                               </span>
+                            ) : isVehiclePhotoUpdated ? (
+                              <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-bold border bg-teal-50 text-teal-700 border-teal-200">
+                                <Camera size={12} />
+                                Foto do veículo atualizada
+                              </span>
+                            ) : isVehiclePhotoRemoved ? (
+                              <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-bold border bg-zinc-100 text-zinc-700 border-zinc-200">
+                                <Trash2 size={12} />
+                                Foto do veículo removida
+                              </span>
                             ) : isPetCreated ? (
                               <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-bold border bg-emerald-50 text-emerald-700 border-emerald-200">
                                 <PawPrint size={12} />
@@ -1671,6 +1897,16 @@ export default function Resident360Client({
                               <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-bold border bg-orange-50 text-orange-700 border-orange-200">
                                 <ArrowRightLeft size={12} />
                                 Unidade do pet alterada
+                              </span>
+                            ) : isPetPhotoUpdated ? (
+                              <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-bold border bg-teal-50 text-teal-700 border-teal-200">
+                                <Camera size={12} />
+                                Foto do pet atualizada
+                              </span>
+                            ) : isPetPhotoRemoved ? (
+                              <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-bold border bg-zinc-100 text-zinc-700 border-zinc-200">
+                                <Trash2 size={12} />
+                                Foto do pet removida
                               </span>
                             ) : (
                               <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-bold border bg-zinc-100 text-zinc-700 border-zinc-200">
@@ -1892,6 +2128,52 @@ export default function Resident360Client({
                                 • Nova unidade residencial: <strong>{blocoLabel} {log.unidade_bloco || '—'} · {aptoLabel} {log.unidade_apto || '—'}</strong>
                               </p>
                             )}
+                          </div>
+                        )}
+
+                        {/* Eventos de Foto de Veículo (Gate 3F.2-B) */}
+                        {isVehiclePhotoUpdated && (
+                          <div className="text-xs text-gray-600 bg-white p-3 rounded-lg border border-gray-100 space-y-1">
+                            <p>
+                              • Veículo: <strong className="font-mono font-bold text-gray-900">{formatPlateDisplay(post.placa || ant.placa)}</strong>
+                            </p>
+                            <p className="text-gray-500">
+                              • Foto atualizada com sucesso no cadastro do veículo.
+                            </p>
+                          </div>
+                        )}
+
+                        {isVehiclePhotoRemoved && (
+                          <div className="text-xs text-gray-600 bg-white p-3 rounded-lg border border-gray-100 space-y-1">
+                            <p>
+                              • Veículo: <strong className="font-mono font-bold text-gray-900">{formatPlateDisplay(post.placa || ant.placa)}</strong>
+                            </p>
+                            <p className="text-gray-500">
+                              • Foto removida do cadastro do veículo.
+                            </p>
+                          </div>
+                        )}
+
+                        {/* Eventos de Foto de Pet (Gate 3F.2-B) */}
+                        {isPetPhotoUpdated && (
+                          <div className="text-xs text-gray-600 bg-white p-3 rounded-lg border border-gray-100 space-y-1">
+                            <p>
+                              • Pet: <strong className="font-bold text-gray-900">🐾 {post.nome || ant.nome || 'Pet'}</strong>
+                            </p>
+                            <p className="text-gray-500">
+                              • Foto atualizada com sucesso no cadastro do pet.
+                            </p>
+                          </div>
+                        )}
+
+                        {isPetPhotoRemoved && (
+                          <div className="text-xs text-gray-600 bg-white p-3 rounded-lg border border-gray-100 space-y-1">
+                            <p>
+                              • Pet: <strong className="font-bold text-gray-900">🐾 {post.nome || ant.nome || 'Pet'}</strong>
+                            </p>
+                            <p className="text-gray-500">
+                              • Foto removida do cadastro do pet.
+                            </p>
                           </div>
                         )}
 
@@ -2133,6 +2415,52 @@ export default function Resident360Client({
             setReactivatingPet(null)
             router.refresh()
           }}
+        />
+      )}
+
+      {/* Photo Upload / Substitution Modal (Gate 3F.2-B) */}
+      {photoUploadTarget && (
+        <PhotoUploadModal
+          isOpen={Boolean(photoUploadTarget)}
+          onClose={() => setPhotoUploadTarget(null)}
+          type={photoUploadTarget.type}
+          entityId={photoUploadTarget.id}
+          entityName={photoUploadTarget.name}
+          condominioId={photoUploadTarget.condoId}
+          currentPhotoPath={photoUploadTarget.currentPhotoPath}
+          profileId={resident.id}
+          onSuccess={() => {
+            setPhotoUploadTarget(null)
+            router.refresh()
+          }}
+        />
+      )}
+
+      {/* Photo Removal Confirmation Modal (Gate 3F.2-B) */}
+      {photoRemoveTarget && (
+        <PhotoRemoveModal
+          isOpen={Boolean(photoRemoveTarget)}
+          onClose={() => setPhotoRemoveTarget(null)}
+          type={photoRemoveTarget.type}
+          entityId={photoRemoveTarget.id}
+          entityName={photoRemoveTarget.name}
+          condominioId={photoRemoveTarget.condoId}
+          currentPhotoPath={photoRemoveTarget.currentPhotoPath}
+          profileId={resident.id}
+          onSuccess={() => {
+            setPhotoRemoveTarget(null)
+            router.refresh()
+          }}
+        />
+      )}
+
+      {/* Photo Fullscreen Viewer Lightbox (Gate 3F.2-B) */}
+      {viewingPhoto && (
+        <PhotoViewerModal
+          isOpen={Boolean(viewingPhoto)}
+          onClose={() => setViewingPhoto(null)}
+          imageUrl={viewingPhoto.url}
+          title={viewingPhoto.title}
         />
       )}
     </div>

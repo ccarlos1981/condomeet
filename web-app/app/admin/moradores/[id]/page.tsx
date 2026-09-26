@@ -278,6 +278,7 @@ export default async function Resident360Page(props: PageProps) {
       ano,
       vaga_numero,
       observacao,
+      foto_path,
       status,
       created_at,
       updated_at,
@@ -295,26 +296,6 @@ export default async function Resident360Page(props: PageProps) {
   if (veiculosError) {
     console.error('[Resident360Page] Falha na consulta de veículos (perfil_id: %s, condo_id: %s):', id, condoId, veiculosError.message)
   }
-
-  const veiculos: VehicleData[] = (rawVeiculos ?? []).map((v: any) => ({
-    id: v.id,
-    condominio_id: v.condominio_id,
-    perfil_id: v.perfil_id,
-    unidade_id: v.unidade_id,
-    placa: v.placa,
-    tipo: v.tipo,
-    marca: v.marca,
-    modelo: v.modelo,
-    cor: v.cor,
-    ano: v.ano,
-    vaga_numero: v.vaga_numero,
-    observacao: v.observacao,
-    status: v.status,
-    created_at: v.created_at,
-    updated_at: v.updated_at,
-    unidade_bloco: v.unidades?.blocos?.nome_ou_numero || null,
-    unidade_apto: v.unidades?.apartamentos?.numero || null,
-  }))
 
   // 11. Fetch pets associated with this resident strictly in this condominium (Gate 3E.2-B)
   const { data: rawPets, error: petsError } = await supabase
@@ -334,6 +315,7 @@ export default async function Resident360Page(props: PageProps) {
       castrado,
       vacinado,
       observacao,
+      foto_path,
       status,
       created_at,
       updated_at,
@@ -352,6 +334,56 @@ export default async function Resident360Page(props: PageProps) {
     console.error('[Resident360Page] Falha na consulta de pets (perfil_id: %s, condo_id: %s):', id, condoId, petsError.message)
   }
 
+  // 12. Batch generate temporary signed URLs for pet and vehicle photos (Gate 3F.2-B)
+  const veiculoPaths = (rawVeiculos ?? []).map((v: any) => v.foto_path).filter(Boolean) as string[]
+  const petPaths = (rawPets ?? []).map((p: any) => p.foto_path).filter(Boolean) as string[]
+  const allPathsToSign = Array.from(new Set([...veiculoPaths, ...petPaths]))
+
+  const signedUrlMap = new Map<string, string>()
+
+  if (allPathsToSign.length > 0) {
+    try {
+      const { data: signedData, error: signError } = await supabase
+        .storage
+        .from('base-cadastral-media')
+        .createSignedUrls(allPathsToSign, 3600) // 1 hour ephemeral signature
+
+      if (signError) {
+        console.error('[Resident360Page] Falha ao gerar signed URLs para fotos:', signError.message)
+      } else if (signedData) {
+        signedData.forEach((item: any) => {
+          if (item?.path && item?.signedUrl) {
+            signedUrlMap.set(item.path, item.signedUrl)
+          }
+        })
+      }
+    } catch (err: any) {
+      console.error('[Resident360Page] Exceção ao gerar signed URLs de fotos:', err?.message || err)
+    }
+  }
+
+  const veiculos: VehicleData[] = (rawVeiculos ?? []).map((v: any) => ({
+    id: v.id,
+    condominio_id: v.condominio_id,
+    perfil_id: v.perfil_id,
+    unidade_id: v.unidade_id,
+    placa: v.placa,
+    tipo: v.tipo,
+    marca: v.marca,
+    modelo: v.modelo,
+    cor: v.cor,
+    ano: v.ano,
+    vaga_numero: v.vaga_numero,
+    observacao: v.observacao,
+    status: v.status,
+    foto_path: v.foto_path || null,
+    foto_signed_url: v.foto_path ? (signedUrlMap.get(v.foto_path) || null) : null,
+    created_at: v.created_at,
+    updated_at: v.updated_at,
+    unidade_bloco: v.unidades?.blocos?.nome_ou_numero || null,
+    unidade_apto: v.unidades?.apartamentos?.numero || null,
+  }))
+
   const pets: PetData[] = (rawPets ?? []).map((p: any) => ({
     id: p.id,
     condominio_id: p.condominio_id,
@@ -368,6 +400,8 @@ export default async function Resident360Page(props: PageProps) {
     vacinado: p.vacinado,
     observacao: p.observacao,
     status: p.status,
+    foto_path: p.foto_path || null,
+    foto_signed_url: p.foto_path ? (signedUrlMap.get(p.foto_path) || null) : null,
     created_at: p.created_at,
     updated_at: p.updated_at,
     unidade_bloco: p.unidades?.blocos?.nome_ou_numero || null,

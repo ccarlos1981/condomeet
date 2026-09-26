@@ -1385,3 +1385,161 @@ export async function adminTransferPetUnit(data: {
     return { error: msg }
   }
 }
+
+// ==============================================================================
+// BASE CADASTRAL 360º — GATE 3F.2-B — FOTOS DE PETS E VEÍCULOS
+// ==============================================================================
+
+export async function adminSavePetPhoto(data: {
+  petId: string
+  fotoPath: string
+  profileId?: string
+}) {
+  try {
+    const supabase = await createClient()
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) return { error: 'Não autorizado' }
+
+    if (!data.petId) return { error: 'Identificador do pet é obrigatório.' }
+    if (!data.fotoPath?.trim()) return { error: 'O caminho da foto é obrigatório.' }
+
+    const { data: rpcResult, error: rpcError } = await supabase.rpc('admin_salvar_foto_pet', {
+      p_pet_id: data.petId,
+      p_foto_path: data.fotoPath.trim(),
+    })
+
+    if (rpcError) {
+      console.error('Erro na RPC admin_salvar_foto_pet:', rpcError)
+      return { error: rpcError.message }
+    }
+
+    revalidatePath('/admin/moradores')
+    if (data.profileId) {
+      revalidatePath(`/admin/moradores/${data.profileId}`)
+    }
+
+    return {
+      success: true,
+      result: rpcResult,
+    }
+  } catch (err: unknown) {
+    console.error('Erro interno em adminSavePetPhoto:', err)
+    const msg = err instanceof Error ? err.message : 'Erro interno ao salvar foto do pet.'
+    return { error: msg }
+  }
+}
+
+export async function adminRemovePetPhoto(data: {
+  petId: string
+  motivo?: string | null
+  profileId?: string
+}) {
+  try {
+    const supabase = await createClient()
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) return { error: 'Não autorizado' }
+
+    if (!data.petId) return { error: 'Identificador do pet é obrigatório.' }
+
+    const { data: rpcResult, error: rpcError } = await supabase.rpc('admin_remover_foto_pet', {
+      p_pet_id: data.petId,
+      p_motivo: data.motivo?.trim() || null,
+    })
+
+    if (rpcError) {
+      console.error('Erro na RPC admin_remover_foto_pet:', rpcError)
+      return { error: rpcError.message }
+    }
+
+    revalidatePath('/admin/moradores')
+    if (data.profileId) {
+      revalidatePath(`/admin/moradores/${data.profileId}`)
+    }
+
+    return {
+      success: true,
+      result: rpcResult,
+    }
+  } catch (err: unknown) {
+    console.error('Erro interno em adminRemovePetPhoto:', err)
+    const msg = err instanceof Error ? err.message : 'Erro interno ao remover foto do pet.'
+    return { error: msg }
+  }
+}
+
+export async function adminSaveVehiclePhoto(data: {
+  veiculoId: string
+  fotoPath: string
+  profileId?: string
+}) {
+  try {
+    const supabase = await createClient()
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) return { error: 'Não autorizado' }
+
+    if (!data.veiculoId) return { error: 'Identificador do veículo é obrigatório.' }
+    if (!data.fotoPath?.trim()) return { error: 'O caminho da foto é obrigatório.' }
+
+    const { data: rpcResult, error: rpcError } = await supabase.rpc('admin_salvar_foto_veiculo', {
+      p_veiculo_id: data.veiculoId,
+      p_foto_path: data.fotoPath.trim(),
+    })
+
+    if (rpcError) {
+      console.error('Erro na RPC admin_salvar_foto_veiculo:', rpcError)
+      return { error: rpcError.message }
+    }
+
+    revalidatePath('/admin/moradores')
+    if (data.profileId) {
+      revalidatePath(`/admin/moradores/${data.profileId}`)
+    }
+
+    return {
+      success: true,
+      result: rpcResult,
+    }
+  } catch (err: unknown) {
+    console.error('Erro interno em adminSaveVehiclePhoto:', err)
+    const msg = err instanceof Error ? err.message : 'Erro interno ao salvar foto do veículo.'
+    return { error: msg }
+  }
+}
+
+export async function adminRemoveVehiclePhoto(data: {
+  veiculoId: string
+  motivo?: string | null
+  profileId?: string
+}) {
+  try {
+    const supabase = await createClient()
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) return { error: 'Não autorizado' }
+
+    if (!data.veiculoId) return { error: 'Identificador do veículo é obrigatório.' }
+
+    const { data: rpcResult, error: rpcError } = await supabase.rpc('admin_remover_foto_veiculo', {
+      p_veiculo_id: data.veiculoId,
+      p_motivo: data.motivo?.trim() || null,
+    })
+
+    if (rpcError) {
+      console.error('Erro na RPC admin_remover_foto_veiculo:', rpcError)
+      return { error: rpcError.message }
+    }
+
+    revalidatePath('/admin/moradores')
+    if (data.profileId) {
+      revalidatePath(`/admin/moradores/${data.profileId}`)
+    }
+
+    return {
+      success: true,
+      result: rpcResult,
+    }
+  } catch (err: unknown) {
+    console.error('Erro interno em adminRemoveVehiclePhoto:', err)
+    const msg = err instanceof Error ? err.message : 'Erro interno ao remover foto do veículo.'
+    return { error: msg }
+  }
+}

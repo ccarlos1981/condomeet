@@ -318,6 +318,84 @@ Todas as mutações são transacionais, validam credenciais administrativas do o
 
 ---
 
+## 10. Baseline Oficial — Fotos de Pets e Veículos
+### Base Cadastral 360º — Gate 3F
+
+> **STATUS:** `🟢 CONCLUÍDO` · `🟢 HOMOLOGADO` · `🔒 FROZEN` · `🏛️ OFFICIAL BASELINE`  
+> **DATA DE CONGELAMENTO:** 26/09/2026  
+> **DEPLOY:** `⏸️ NÃO EXECUTADO MANUALMENTE NO FECHAMENTO (PENDENTE DE AUTORIZAÇÃO HUMANA / NÃO DECLARADO EM PRODUÇÃO)`  
+> **ESCOPO TÉCNICO:** Gate 3F.1 (Auditoria e Desenho), Gate 3F.2-A (Fundação Canônica de Banco e Storage), Gate 3F.2-B (Integração Resident 360º, Client e Modais) e Gate 3F.2-C (Auditoria e Fechamento Oficial).
+
+#### A. Arquitetura Canônica de Mídia (Banco e Storage)
+- **Colunas Canônicas:**
+  - `public.pets.foto_path TEXT NULL`: Armazena o path relativo canônico no storage (`{condominio_id}/pets/{pet_id}/{timestamp}_{uuid}.jpg`).
+  - `public.veiculos.foto_path TEXT NULL`: Armazena o path relativo canônico no storage (`{condominio_id}/veiculos/{veiculo_id}/{timestamp}_{uuid}.jpg`).
+- **Bucket Privado (`base-cadastral-media`):**
+  - Bucket estritamente privado (`public = false`).
+  - Limite de arquivo: `5242880` bytes (5 MB).
+  - Tipos MIME aceitos: `image/jpeg`, `image/png`, `image/webp`.
+- **Signed URLs Temporárias:**
+  - URLs temporárias e efêmeras (TTL de 3600s / 1 hora) geradas sob demanda no servidor (`Resident360Page`).
+  - Invariante de Segurança: Signed URLs *nunca são persistidas no banco de dados*. O banco armazena exclusivamente o `foto_path` relativo canônico.
+  - Geração em batch no carregamento do Resident 360º (`createSignedUrls`) para mitigar roundtrips e latência.
+
+#### B. Segurança, Storage RLS e Multi-Tenancy
+- **Isolamento Multi-Tenant:**
+  - Validação estrita do `condominio_id` como primeiro segmento do path do arquivo (`split_part(name, '/', 1)`).
+  - Políticas de Storage em `storage.objects`:
+    - `base_cadastral_media_select`: Permite leitura apenas para operadores do mesmo condomínio (`admin`, `síndico`, `subsíndico`, `administradora`) ou `system_superadmins`.
+    - `base_cadastral_media_insert`: Permite gravação validando a hierarquia estrita (`pets`/`veiculos`) e tenant do operador.
+    - `base_cadastral_media_delete`: Permite remoção restrita ao condomínio do operador ou SuperAdmin.
+- **Desacoplamento de `auth.users`:**
+  - Políticas utilizam `auth.jwt() ->> 'email'` para checagem de SuperAdmin e `auth.uid()` para validação em `public.perfil`, sem JOINs ou consultas diretas em `auth.users`.
+- **Zero Abertura Genérica:**
+  - Nenhuma permissão irrestrita aberta para `authenticated`.
+
+#### C. RPCs Administrativas e Imutabilidade de Inativos
+- **RPCs Canônicas Transacionais (`SECURITY DEFINER` com `SET search_path TO 'public'`):**
+  - `public.admin_salvar_foto_pet(p_pet_id UUID, p_foto_path TEXT)`
+  - `public.admin_remover_foto_pet(p_pet_id UUID, p_motivo TEXT DEFAULT NULL)`
+  - `public.admin_salvar_foto_veiculo(p_veiculo_id UUID, p_foto_path TEXT)`
+  - `public.admin_remover_foto_veiculo(p_veiculo_id UUID, p_motivo TEXT DEFAULT NULL)`
+- **Validação Sintática de Path:** Exige rigorosamente 4 segmentos (`{condominio_id}/{entity}/{entity_id}/{filename}`) e extensões aceitas (`.(jpe?g|png|webp)$`).
+- **Proteção e Imutabilidade de Inativos:**
+  - Se `status != 'ativo'`, as RPCs rejeitam a operação com `RAISE EXCEPTION`.
+  - A foto existente é preservada para fins de histórico e memória cadastral da entidade inativa.
+- **Substituição e Remoção Seguras:**
+  - Fluxo de substituição e remoção com rollback em caso de falha e desvinculação em banco com auditoria completa.
+
+#### D. Frontend e Experiência do Operador (Resident 360º)
+- **Modais e Componentes (`photo-modal.tsx`):**
+  - `PhotoUploadModal`: Permite upload com drag & drop, pré-visualização, e compressão/redimensionamento client-side via HTML Canvas (max 1200px, 85% de qualidade JPEG).
+  - `PhotoRemoveModal`: Confirmação segura de remoção de foto com justificativa opcional.
+  - `PhotoViewerModal`: Lightbox para visualização de imagem em tamanho ampliado.
+- **UI Integrada:**
+  - Thumbnails responsivos em cards de Pets e Veículos, botão de câmera/upload, menu de ações contextuais (visualizar, substituir, remover).
+- **Histórico e Auditoria Administrativa Unificada:**
+  - Integração dos eventos no `perfil_audit_log`: `PET_PHOTO_UPDATED`, `PET_PHOTO_REMOVED`, `VEHICLE_PHOTO_UPDATED`, `VEHICLE_PHOTO_REMOVED`, com badges, ícones e detalhes renderizados na linha do tempo da visão 360º.
+
+#### E. Homologação Humana e Estado Final Auditado
+- **Testes de Homologação Realizados:**
+  - Upload e exibição de foto para o Pet `Toy` (`eae01465-8320-4525-a0cf-2898cbb3e085`).
+  - Upload e exibição de foto para o Veículo `AAA1235` (`8b4bf78f-4e04-430b-a59c-e0e45a290494`).
+  - Visualização em lightbox e renderização adequada das ações de mídia na UI.
+- **Auditoria de Eventos de Histórico:**
+  - `PET_PHOTO_UPDATED`: Confirmado (`1` evento no log).
+  - `VEHICLE_PHOTO_UPDATED`: Confirmado (`1` evento no log).
+  - `PET_PHOTO_REMOVED`: Funcionalidade implementada em RPC e UI; `0` eventos encontrados na auditoria final desta homologação (nenhuma remoção executada no fechamento).
+  - `VEHICLE_PHOTO_REMOVED`: Funcionalidade implementada em RPC e UI; `0` eventos encontrados na auditoria final desta homologação (nenhuma remoção executada no fechamento).
+- **Estado do Storage e Banco no Fechamento:**
+  - Pet Toy com foto válida e objeto existente no bucket.
+  - Veículo AAA1235 com foto válida e objeto existente no bucket.
+  - Bucket `base-cadastral-media`: 2 objetos físicos / 2 referenciados no banco / 0 órfãos.
+
+#### F. Escopo Deliberadamente Excluído do Gate 3F
+- **Módulo Flutter / Mobile:** Zero implementação funcional no app móvel neste ciclo.
+- **Módulo Portaria:** Zero implementação de consultas ou exibição de fotos de pets/veículos na portaria neste ciclo.
+- **Deploy em Produção:** Fechamento realizado sem deploy manual.
+
+---
+
 ## TRACEABILITY
 
 | Bloco do Loader Operacional | Fonte Primária no AI-OS | Origem no Monólito / Gate 5.1 |
