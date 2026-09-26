@@ -7,7 +7,7 @@ import {
   Home, UserCheck, Users, Bell, FileText, MessageSquare,
   CalendarDays, MapPin, ClipboardList, Settings, Package,
   ChevronLeft, ChevronRight, ChevronDown, Menu, X, LogOut, Megaphone,
-  AlertCircle, SlidersHorizontal, ArrowRight, BarChart3, Building2, Camera, ShoppingBag, Wallet, ShoppingCart, Store, Car, ClipboardCheck, Wrench, Briefcase, Gavel, PlusCircle, DollarSign, DoorOpen, UserSearch, Warehouse, BookOpen, FileWarning
+  AlertCircle, SlidersHorizontal, ArrowRight, BarChart3, Building2, Camera, ShoppingBag, Wallet, ShoppingCart, Store, Car, ClipboardCheck, Wrench, Briefcase, Gavel, PlusCircle, DollarSign, DoorOpen, Warehouse, BookOpen, FileWarning
 } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { useRouter } from 'next/navigation'
@@ -56,9 +56,7 @@ export default function AdminSidebar({
       title: 'Geral',
       items: [
         { label: 'Dashboard',  href: '/admin',           icon: <Home size={18} /> },
-        { label: 'Aprovações', href: '/admin/aprovacoes', icon: <UserCheck size={18} /> },
         { label: 'Moradores',  href: '/admin/moradores',  icon: <Users size={18} /> },
-        { label: 'Busca Moradores', href: '/admin/resident-search', icon: <UserSearch size={18} /> },
         { label: 'Reservas',        href: '/admin/reservas',        icon: <CalendarDays size={18} /> },
       ],
     },
