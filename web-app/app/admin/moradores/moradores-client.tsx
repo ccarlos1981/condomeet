@@ -179,11 +179,13 @@ export default function MoradoresClient({
   tipoEstrutura,
   currentUserRole,
   blocosCadastrados = [],
+  initialStatus = 'todos',
 }: {
   moradores: Morador[]
   tipoEstrutura?: string
   currentUserRole?: string | null
   blocosCadastrados?: string[]
+  initialStatus?: FilterStatus
 }) {
   const blocoLabel = getBlocoLabel(tipoEstrutura)
   const aptoLabel = getAptoLabel(tipoEstrutura)
@@ -300,8 +302,20 @@ export default function MoradoresClient({
 
   // Advanced Filters State (Starts CLOSED)
   const [isFiltersOpen, setIsFiltersOpen] = useState(false)
-  const [draftFilters, setDraftFilters] = useState<AdvancedFilters>(INITIAL_FILTERS)
-  const [appliedFilters, setAppliedFilters] = useState<AdvancedFilters>(INITIAL_FILTERS)
+  const [draftFilters, setDraftFilters] = useState<AdvancedFilters>(() => ({
+    ...INITIAL_FILTERS,
+    status: initialStatus,
+  }))
+  const [appliedFilters, setAppliedFilters] = useState<AdvancedFilters>(() => ({
+    ...INITIAL_FILTERS,
+    status: initialStatus,
+  }))
+
+  useEffect(() => {
+    setDraftFilters(prev => ({ ...prev, status: initialStatus }))
+    setAppliedFilters(prev => ({ ...prev, status: initialStatus }))
+    setCurrentPage(1)
+  }, [initialStatus])
 
   // Options for Bloco dropdown: combine distinct perfil.bloco_txt + public.blocos, exclude Admin, natural sort
   const availableBlocos = useMemo(() => {

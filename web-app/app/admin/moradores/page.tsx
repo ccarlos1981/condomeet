@@ -1,12 +1,21 @@
 import { createClient } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
-import MoradoresClient from './moradores-client'
+import MoradoresClient, { FilterStatus } from './moradores-client'
 import { AlertCircle } from 'lucide-react'
 
-export default async function MoradoresPage() {
+export default async function MoradoresPage(props: {
+  searchParams?: Promise<{ status?: string }>
+}) {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) redirect('/login')
+
+  const resolvedSearchParams = props.searchParams ? await props.searchParams : undefined
+  const rawStatus = resolvedSearchParams?.status?.toLowerCase()
+  const validStatuses: FilterStatus[] = ['todos', 'ativo', 'pendente', 'bloqueado', 'rejeitado', 'inativo']
+  const initialStatus: FilterStatus = validStatuses.includes(rawStatus as FilterStatus)
+    ? (rawStatus as FilterStatus)
+    : 'pendente'
 
   const { data: profile } = await supabase
     .from('perfil')
@@ -84,6 +93,7 @@ export default async function MoradoresPage() {
       tipoEstrutura={tipoEstrutura}
       currentUserRole={profile?.papel_sistema}
       blocosCadastrados={blocosCadastrados}
+      initialStatus={initialStatus}
     />
   )
 
