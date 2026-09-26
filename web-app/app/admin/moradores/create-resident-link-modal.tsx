@@ -13,7 +13,7 @@ import {
   Mail,
   ShieldCheck,
 } from 'lucide-react'
-import { adminGetResidentLinkContext, adminCreateResidentLink } from '@/app/admin/actions'
+import { adminGetResidentLinkContext, adminCreateResidentLink, adminGetUnitOccupancy } from '@/app/admin/actions'
 import { getBlocoLabel, getAptoLabel } from '@/lib/labels'
 
 interface CreateResidentLinkModalProps {
@@ -75,6 +75,13 @@ export default function CreateResidentLinkModal({
   // Estados de submissão
   const [submitting, setSubmitting] = useState(false)
   const [errorMessage, setErrorMessage] = useState<string | null>(null)
+
+  // Gate 3G.4-D2: Ocupação da unidade destino
+  const MAX_OCUPANTES_UNIDADE = 4
+  const [unitOccupancy, setUnitOccupancy] = useState<number | null>(null)
+  const [loadingOccupancy, setLoadingOccupancy] = useState(false)
+  const [occupancyError, setOccupancyError] = useState<string | null>(null)
+  const limiteAtingidoDestino = unitOccupancy !== null && unitOccupancy >= MAX_OCUPANTES_UNIDADE
 
   // Carregar dados ao abrir o modal
   useEffect(() => {
@@ -160,6 +167,43 @@ export default function CreateResidentLinkModal({
     }
   }, [availableUnits, selectedUnidadeId])
 
+  // Gate 3G.4-D2: Consultar ocupação da unidade destino quando a seleção muda
+  useEffect(() => {
+    let isMounted = true
+
+    async function fetchOccupancy() {
+      if (!selectedUnidadeId) {
+        setUnitOccupancy(null)
+        setOccupancyError(null)
+        return
+      }
+
+      setLoadingOccupancy(true)
+      setOccupancyError(null)
+
+      try {
+        const res = await adminGetUnitOccupancy(selectedUnidadeId)
+        if (!isMounted) return
+
+        if (res.error) {
+          setOccupancyError(res.error)
+          setUnitOccupancy(null)
+        } else {
+          setUnitOccupancy(res.ocupacao ?? 0)
+        }
+      } catch {
+        if (!isMounted) return
+        setOccupancyError('Falha ao verificar ocupação.')
+        setUnitOccupancy(null)
+      } finally {
+        if (isMounted) setLoadingOccupancy(false)
+      }
+    }
+
+    fetchOccupancy()
+    return () => { isMounted = false }
+  }, [selectedUnidadeId])
+
   // Identificar se a unidade selecionada é a mesma do período anterior
   const isSameUnitAsLast = useMemo(() => {
     if (!lastExitInfo || !selectedUnidadeId) return false
@@ -218,6 +262,16 @@ export default function CreateResidentLinkModal({
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
     if (submitting) return
+
+    // Gate 3G.4-D2: Proteção do handler contra bypass programático
+    if (limiteAtingidoDestino) {
+      setErrorMessage('Esta unidade já atingiu o limite de 4 pessoas.')
+      return
+    }
+    if (loadingOccupancy || occupancyError) {
+      setErrorMessage('Aguarde a verificação de ocupação da unidade.')
+      return
+    }
 
     setErrorMessage(null)
 
@@ -373,6 +427,47 @@ export default function CreateResidentLinkModal({
                 </div>
               </div>
 
+              {/* Gate 3G.4-D2: Indicador de ocupação da unidade destino */}
+              {selectedUnidadeId && (
+                <div className="flex items-center gap-2">
+                  {loadingOccupancy ? (
+                    <span className="text-xs font-medium text-gray-500 flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-gray-50 border border-gray-200">
+                      <Loader2 size={12} className="animate-spin" />
+                      Verificando ocupação...
+                    </span>
+                  ) : occupancyError ? (
+                    <span className="text-xs font-semibold px-2.5 py-1 rounded-lg bg-red-50 text-red-700 border border-red-200">
+                      ⚠ {occupancyError}
+                    </span>
+                  ) : unitOccupancy !== null ? (
+                    <>
+                      <span className={`text-xs font-semibold px-2.5 py-1 rounded-lg ${
+                        limiteAtingidoDestino
+                          ? 'bg-red-50 text-red-700 border border-red-200'
+                          : unitOccupancy >= 3
+                            ? 'bg-amber-50 text-amber-700 border border-amber-200'
+                            : 'bg-gray-50 text-gray-600 border border-gray-200'
+                      }`}>
+                        Ocupação da unidade: {unitOccupancy} / {MAX_OCUPANTES_UNIDADE} pessoas
+                      </span>
+                      {limiteAtingidoDestino && (
+                        <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full bg-red-100 text-red-700 border border-red-200">
+                          Limite atingido
+                        </span>
+                      )}
+                    </>
+                  ) : null}
+                </div>
+              )}
+
+              {/* Mensagem de bloqueio por limite (Gate 3G.4-D2) */}
+              {limiteAtingidoDestino && (
+                <div className="p-3 rounded-xl bg-red-50/70 border border-red-200 text-red-800 text-xs flex items-center gap-2">
+                  <AlertTriangle size={15} className="text-red-600 shrink-0" />
+                  <span>Esta unidade já atingiu o limite de 4 pessoas. Não é possível criar um novo vínculo residencial nesta unidade.</span>
+                </div>
+              )}
+
               {/* Alerta de Retorno à Mesma Unidade (Discreto) */}
               {isSameUnitAsLast && lastExitInfo?.dataSaida && (
                 <div className="p-3 rounded-xl bg-blue-50/70 border border-blue-200 text-blue-800 text-xs flex items-center gap-2">
@@ -481,8 +576,13 @@ export default function CreateResidentLinkModal({
           <button
             type="submit"
             form="create-link-form"
-            disabled={submitting || loadingContext || !!contextError}
-            className="inline-flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-semibold bg-emerald-600 hover:bg-emerald-700 active:bg-emerald-800 text-white shadow-xs transition-colors disabled:opacity-50 cursor-pointer"
+            disabled={submitting || loadingContext || !!contextError || limiteAtingidoDestino || loadingOccupancy || !!occupancyError}
+            title={limiteAtingidoDestino ? 'Esta unidade já atingiu o limite de 4 pessoas.' : undefined}
+            className={`inline-flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-semibold shadow-xs transition-colors disabled:opacity-50 ${
+              limiteAtingidoDestino
+                ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
+                : 'bg-emerald-600 hover:bg-emerald-700 active:bg-emerald-800 text-white cursor-pointer'
+            }`}
           >
             {submitting ? (
               <>

@@ -11,6 +11,7 @@ import Resident360Client, {
   PortariaRegistroData,
   VehicleData,
   PetData,
+  DependenteData,
 } from './resident-360-client'
 
 export const metadata = {
@@ -334,7 +335,34 @@ export default async function Resident360Page(props: PageProps) {
     console.error('[Resident360Page] Falha na consulta de pets (perfil_id: %s, condo_id: %s):', id, condoId, petsError.message)
   }
 
-  // 12. Batch generate temporary signed URLs for pet and vehicle photos (Gate 3F.2-B)
+  // 12. Fetch dependentes associated with this resident strictly in this condominium (Gate 3G.3-B1)
+  const { data: rawDependentes, error: dependentesError } = await supabase
+    .from('dependentes')
+    .select(`
+      id,
+      condominio_id,
+      unidade_id,
+      responsavel_perfil_id,
+      nome_completo,
+      parentesco,
+      data_nascimento,
+      foto_path,
+      observacao,
+      status,
+      perfil_convertido_id,
+      created_at,
+      updated_at
+    `)
+    .eq('responsavel_perfil_id', id)
+    .eq('condominio_id', condoId)
+    .order('status', { ascending: true }) // 'ativo' comes before 'inativo' alphabetically
+    .order('nome_completo', { ascending: true })
+
+  if (dependentesError) {
+    console.error('[Resident360Page] Falha na consulta de dependentes (perfil_id: %s, condo_id: %s):', id, condoId, dependentesError.message)
+  }
+
+  // 13. Batch generate temporary signed URLs for pet and vehicle photos (Gate 3F.2-B)
   const veiculoPaths = (rawVeiculos ?? []).map((v: any) => v.foto_path).filter(Boolean) as string[]
   const petPaths = (rawPets ?? []).map((p: any) => p.foto_path).filter(Boolean) as string[]
   const allPathsToSign = Array.from(new Set([...veiculoPaths, ...petPaths]))
@@ -408,6 +436,22 @@ export default async function Resident360Page(props: PageProps) {
     unidade_apto: p.unidades?.apartamentos?.numero || null,
   }))
 
+  const dependentes: DependenteData[] = (rawDependentes ?? []).map((d: any) => ({
+    id: d.id,
+    condominio_id: d.condominio_id,
+    unidade_id: d.unidade_id,
+    responsavel_perfil_id: d.responsavel_perfil_id,
+    nome_completo: d.nome_completo,
+    parentesco: d.parentesco,
+    data_nascimento: d.data_nascimento,
+    foto_path: d.foto_path || null,
+    observacao: d.observacao,
+    status: d.status,
+    perfil_convertido_id: d.perfil_convertido_id || null,
+    created_at: d.created_at,
+    updated_at: d.updated_at,
+  }))
+
   return (
     <Resident360Client
       resident={resident as ResidentData}
@@ -422,6 +466,8 @@ export default async function Resident360Page(props: PageProps) {
       veiculosError={veiculosError ? 'Não foi possível carregar os dados de veículos devido a uma falha no banco de dados.' : null}
       pets={pets}
       petsError={petsError ? 'Não foi possível carregar os dados de pets devido a uma falha no banco de dados.' : null}
+      dependentes={dependentes}
+      dependentesError={dependentesError ? 'Não foi possível carregar os dados de dependentes devido a uma falha no banco de dados.' : null}
     />
   )
 }

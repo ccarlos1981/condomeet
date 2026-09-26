@@ -49,6 +49,10 @@ import PetInactivateModal from '../pet-inactivate-modal'
 import PetReactivateModal from '../pet-reactivate-modal'
 import PetUnitModal from '../pet-unit-modal'
 import { PhotoUploadModal, PhotoRemoveModal, PhotoViewerModal } from '../photo-modal'
+import DependentModal from '../dependent-modal'
+import DependentInactivateModal from '../dependent-inactivate-modal'
+import DependentReactivateModal from '../dependent-reactivate-modal'
+import DependentResponsibleModal from '../dependent-responsible-modal'
 import { adminToggleBlockStatus } from '@/app/admin/actions'
 
 export interface ResidentData {
@@ -144,6 +148,8 @@ interface Props {
   veiculosError?: string | null
   pets?: PetData[]
   petsError?: string | null
+  dependentes?: DependenteData[]
+  dependentesError?: string | null
 }
 
 export interface VehicleData {
@@ -190,6 +196,22 @@ export interface PetData {
   updated_at?: string | null
   unidade_bloco?: string | null
   unidade_apto?: string | null
+}
+
+export interface DependenteData {
+  id: string
+  condominio_id: string
+  unidade_id: string | null
+  responsavel_perfil_id: string
+  nome_completo: string
+  parentesco: string | null
+  data_nascimento: string | null
+  foto_path: string | null
+  observacao: string | null
+  status: 'ativo' | 'inativo'
+  perfil_convertido_id: string | null
+  created_at: string
+  updated_at: string | null
 }
 
 export function formatEspecie(especie?: string | null): string {
@@ -329,6 +351,8 @@ export default function Resident360Client({
   veiculosError = null,
   pets: initialPets = [],
   petsError = null,
+  dependentes = [],
+  dependentesError = null,
 }: Props) {
   const router = useRouter()
   const [activeTab, setActiveTab] = useState<TabKey>('dados-gerais')
@@ -363,6 +387,13 @@ export default function Resident360Client({
   const [transferringPet, setTransferringPet] = useState<PetData | null>(null)
   const [inactivatingPet, setInactivatingPet] = useState<PetData | null>(null)
   const [reactivatingPet, setReactivatingPet] = useState<PetData | null>(null)
+
+  // Dependentes State (Gate 3G.3-B4)
+  const [isDependentModalOpen, setIsDependentModalOpen] = useState(false)
+  const [editingDependente, setEditingDependente] = useState<DependenteData | null>(null)
+  const [inactivatingDependente, setInactivatingDependente] = useState<DependenteData | null>(null)
+  const [reactivatingDependente, setReactivatingDependente] = useState<DependenteData | null>(null)
+  const [transferringDependente, setTransferringDependente] = useState<DependenteData | null>(null)
 
   // Photo Modals State (Gate 3F.2-B)
   const [photoUploadTarget, setPhotoUploadTarget] = useState<{
@@ -441,6 +472,21 @@ export default function Resident360Client({
   const activeUnit = unitLinks.find(u => u.status === 'ativo')
   const inactiveUnits = unitLinks.filter(u => u.status === 'inativo')
 
+  // ── Gate 3G.4-D1: Ocupação da unidade (limite canônico de 4 pessoas) ──
+  const MAX_OCUPANTES_UNIDADE = 4
+
+  // Moradores ativos na unidade: o morador atual (se aprovado e ativo) + co-residentes
+  const currentResidentIsActive = isApproved && activeUnit != null
+  const moradoresAtivosUnidade = (currentResidentIsActive ? 1 : 0) + coResidents.length
+
+  // Dependentes ativos não-convertidos (convertidos já contam como moradores)
+  const dependentesAtivosNaoConvertidos = dependentes.filter(
+    d => d.status === 'ativo' && d.perfil_convertido_id == null
+  ).length
+
+  const ocupacaoAtual = moradoresAtivosUnidade + dependentesAtivosNaoConvertidos
+  const limiteAtingido = ocupacaoAtual >= MAX_OCUPANTES_UNIDADE
+
   const formattedUnit = formatUnitDisplay({
     bloco: activeUnit?.bloco_nome || resident.bloco_txt,
     apto: activeUnit?.apto_numero || resident.apto_txt,
@@ -454,7 +500,7 @@ export default function Resident360Client({
     { key: 'unidade', label: 'Unidade', icon: <Home size={16} />, count: unitLinks.filter(u => u.status === 'ativo').length },
     { key: 'veiculos', label: 'Veículos', icon: <Car size={16} />, count: veiculosError ? undefined : veiculos.length },
     { key: 'pets', label: 'Pets', icon: <PawPrint size={16} />, count: petsError ? undefined : pets.length },
-    { key: 'familia', label: 'Família', icon: <Users size={16} />, count: coResidents.length > 0 ? coResidents.length + 1 : undefined },
+    { key: 'familia', label: 'Família', icon: <Users size={16} />, count: ((dependentes?.length ?? 0) + (coResidents.length > 0 ? coResidents.length + 1 : 0)) || undefined },
     { key: 'acessos', label: 'Acessos', icon: <KeyRound size={16} />, count: convites.length + portariaRegistros.length },
     { key: 'historico', label: 'Histórico 🔒', icon: <Clock size={16} />, count: auditLogs.length > 0 ? auditLogs.length : undefined },
   ]
@@ -1581,22 +1627,219 @@ export default function Resident360Client({
         {/* 5. FAMÍLIA */}
         {activeTab === 'familia' && (
           <div className="space-y-6">
+            {/* ── DEPENDENTES ── */}
+            <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6">
+              <div className="flex items-center justify-between mb-4">
+                <div>
+                  <h2 className="text-base font-bold text-gray-900 flex items-center gap-2">
+                    <Heart size={18} className="text-[#FC5931]" />
+                    Dependentes
+                  </h2>
+                  <p className="text-xs text-gray-500 mt-1">
+                    Pessoas vinculadas como dependentes deste morador.
+                  </p>
+                  {/* Gate 3G.4-D1: Indicador de ocupação da unidade */}
+                  {activeUnit?.unidade_id && (
+                    <div className="flex items-center gap-2 mt-2">
+                      <span className={`text-xs font-semibold px-2.5 py-1 rounded-lg ${
+                        limiteAtingido
+                          ? 'bg-red-50 text-red-700 border border-red-200'
+                          : ocupacaoAtual >= 3
+                            ? 'bg-amber-50 text-amber-700 border border-amber-200'
+                            : 'bg-gray-50 text-gray-600 border border-gray-200'
+                      }`}>
+                        Ocupação da unidade: {ocupacaoAtual} / {MAX_OCUPANTES_UNIDADE} pessoas
+                      </span>
+                      {limiteAtingido && (
+                        <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full bg-red-100 text-red-700 border border-red-200">
+                          Limite atingido
+                        </span>
+                      )}
+                    </div>
+                  )}
+                </div>
+                {activeUnit?.unidade_id && (
+                  <button
+                    onClick={() => {
+                      if (limiteAtingido) return
+                      setEditingDependente(null)
+                      setIsDependentModalOpen(true)
+                    }}
+                    disabled={limiteAtingido}
+                    title={limiteAtingido ? 'Esta unidade já atingiu o limite de 4 pessoas.' : 'Adicionar um novo dependente'}
+                    className={`inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-bold transition-all shadow-sm ${
+                      limiteAtingido
+                        ? 'text-gray-400 bg-gray-100 border border-gray-200 cursor-not-allowed'
+                        : 'text-white bg-[#FC5931] hover:bg-[#FC5931]/90'
+                    }`}
+                  >
+                    <PlusCircle size={14} />
+                    Adicionar dependente
+                  </button>
+                )}
+              </div>
+
+              {dependentesError ? (
+                <div className="p-3.5 bg-red-50 border border-red-200 rounded-xl flex items-start gap-2.5 text-xs text-red-700">
+                  <AlertCircle size={16} className="text-red-500 shrink-0 mt-0.5" />
+                  <div className="flex-1 font-medium">{dependentesError}</div>
+                </div>
+              ) : !activeUnit?.unidade_id ? (
+                <div className="p-3.5 bg-amber-50 border border-amber-200 rounded-xl flex items-start gap-2.5 text-xs text-amber-800">
+                  <AlertCircle size={16} className="text-amber-600 shrink-0 mt-0.5" />
+                  <div>
+                    <strong>Sem unidade ativa.</strong> Este morador não possui vínculo residencial ativo no condomínio. Cadastre ou aprove um vínculo de moradia antes de adicionar dependentes.
+                  </div>
+                </div>
+              ) : dependentes.length === 0 ? (
+                <div className="text-center py-8 text-gray-400 text-xs">
+                  <Heart size={28} className="mx-auto mb-2 text-gray-300" />
+                  Nenhum dependente cadastrado.
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  {dependentes.map(dep => {
+                    const parentescoMap: Record<string, string> = {
+                      filho: 'Filho(a)',
+                      conjuge_companheiro: 'Cônjuge / Companheiro(a)',
+                      pai_mae: 'Pai / Mãe',
+                      enteado: 'Enteado(a)',
+                      outro_familiar: 'Outro familiar',
+                      outro_dependente: 'Outro dependente',
+                    }
+                    const parentescoLabel = dep.parentesco ? (parentescoMap[dep.parentesco] || dep.parentesco) : '—'
+
+                    // Format date of birth as pt-BR civil date (avoid timezone shift)
+                    let dataNascFormatted = '—'
+                    let idadeStr = ''
+                    if (dep.data_nascimento) {
+                      const parts = dep.data_nascimento.split('T')[0].split('-')
+                      if (parts.length === 3) {
+                        const [yearStr, monthStr, dayStr] = parts
+                        const year = parseInt(yearStr, 10)
+                        const month = parseInt(monthStr, 10)
+                        const day = parseInt(dayStr, 10)
+                        dataNascFormatted = `${String(day).padStart(2, '0')}/${String(month).padStart(2, '0')}/${year}`
+
+                        // Calculate age
+                        const today = new Date()
+                        let age = today.getFullYear() - year
+                        const monthDiff = (today.getMonth() + 1) - month
+                        if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < day)) {
+                          age--
+                        }
+                        if (age >= 0) {
+                          idadeStr = age === 1 ? '1 ano' : `${age} anos`
+                        }
+                      }
+                    }
+
+                    const isDepActive = dep.status === 'ativo'
+                    const isDepConverted = dep.perfil_convertido_id != null
+                    const canEdit = isDepActive && !isDepConverted
+
+                    return (
+                      <div
+                        key={dep.id}
+                        className={`p-4 rounded-xl border transition-all ${
+                          isDepActive
+                            ? 'border-gray-100 bg-white'
+                            : 'border-gray-100 bg-gray-50/50 opacity-75'
+                        }`}
+                      >
+                        <div className="flex items-start justify-between gap-3">
+                          <div className="min-w-0 flex-1">
+                            <div className="flex items-center gap-2 flex-wrap">
+                              <p className="font-semibold text-sm text-gray-900">
+                                {dep.nome_completo}
+                              </p>
+                              <span className={`text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full ${
+                                isDepActive
+                                  ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
+                                  : 'bg-gray-100 text-gray-500 border border-gray-200'
+                              }`}>
+                                {isDepActive ? 'Ativo' : 'Inativo'}
+                              </span>
+                              {isDepConverted && (
+                                <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full bg-blue-50 text-blue-700 border border-blue-200">
+                                  Cadastro convertido
+                                </span>
+                              )}
+                            </div>
+                            <p className="text-xs text-gray-500 mt-1">
+                              {parentescoLabel}
+                              {dataNascFormatted !== '—' && (
+                                <> · Nascimento: {dataNascFormatted}{idadeStr && <> ({idadeStr})</>}</>
+                              )}
+                            </p>
+                            {dep.observacao && (
+                              <p className="text-xs text-gray-400 mt-1 italic truncate max-w-md">
+                                {dep.observacao}
+                              </p>
+                            )}
+                          </div>
+                          {canEdit && (
+                            <div className="flex items-center gap-1.5 shrink-0">
+                              <button
+                                onClick={() => {
+                                  setEditingDependente(dep)
+                                  setIsDependentModalOpen(true)
+                                }}
+                                className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-[11px] font-semibold text-gray-600 hover:text-[#FC5931] hover:bg-orange-50 transition-colors border border-gray-200 hover:border-[#FC5931]/30"
+                              >
+                                <Edit2 size={12} />
+                                Editar
+                              </button>
+                              <button
+                                onClick={() => setInactivatingDependente(dep)}
+                                className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-[11px] font-semibold text-gray-600 hover:text-red-600 hover:bg-red-50 transition-colors border border-gray-200 hover:border-red-300"
+                              >
+                                Inativar
+                              </button>
+                              <button
+                                onClick={() => setTransferringDependente(dep)}
+                                className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-[11px] font-semibold text-gray-600 hover:text-blue-600 hover:bg-blue-50 transition-colors border border-gray-200 hover:border-blue-300"
+                              >
+                                <ArrowRightLeft size={12} />
+                                Trocar responsável
+                              </button>
+                            </div>
+                          )}
+                          {!isDepConverted && !isDepActive && (
+                            <button
+                              onClick={() => {
+                                if (limiteAtingido) return
+                                setReactivatingDependente(dep)
+                              }}
+                              disabled={limiteAtingido}
+                              title={limiteAtingido ? 'Sem vaga disponível na unidade.' : 'Reativar este dependente'}
+                              className={`inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-[11px] font-semibold transition-colors border shrink-0 ${
+                                limiteAtingido
+                                  ? 'text-gray-400 bg-gray-50 border-gray-200 cursor-not-allowed'
+                                  : 'text-gray-600 hover:text-emerald-600 hover:bg-emerald-50 border-gray-200 hover:border-emerald-300'
+                              }`}
+                            >
+                              <RefreshCw size={12} />
+                              Reativar
+                            </button>
+                          )}
+                        </div>
+                      </div>
+                    )
+                  })}
+                </div>
+              )}
+            </div>
+
+            {/* ── MORADORES DA MESMA UNIDADE ── */}
             <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6">
               <div className="mb-4">
                 <h2 className="text-base font-bold text-gray-900 flex items-center gap-2">
                   <Users size={18} className="text-[#FC5931]" />
-                  Pessoas Atualmente Vinculadas à Mesma Unidade
+                  Moradores da Mesma Unidade
                 </h2>
                 <p className="text-xs text-gray-500 mt-1">
                   Exibindo cadastros que compartilham a mesma unidade física ({formattedUnit}).
-                </p>
-              </div>
-
-              {/* Informative notice */}
-              <div className="bg-amber-50/70 border border-amber-200/80 rounded-xl p-3.5 mb-5 flex items-start gap-2.5">
-                <Info size={16} className="text-amber-600 shrink-0 mt-0.5" />
-                <p className="text-xs text-amber-800">
-                  <strong className="font-semibold">Relações Familiares em Modelagem:</strong> A estrutura relacional formal (cônjuge, filhos, dependentes e titularidade) será configurada em uma próxima etapa.
                 </p>
               </div>
 
@@ -2461,6 +2704,70 @@ export default function Resident360Client({
           onClose={() => setViewingPhoto(null)}
           imageUrl={viewingPhoto.url}
           title={viewingPhoto.title}
+        />
+      )}
+
+      {/* Dependent Create/Edit Modal (Gate 3G.3-B4) */}
+      <DependentModal
+        isOpen={isDependentModalOpen}
+        onClose={() => {
+          setIsDependentModalOpen(false)
+          setEditingDependente(null)
+        }}
+        profileId={resident.id}
+        unitId={activeUnit?.unidade_id || ''}
+        residentName={resident.nome_completo || 'Morador'}
+        editingDependente={editingDependente}
+        onSuccess={() => {
+          setIsDependentModalOpen(false)
+          setEditingDependente(null)
+          router.refresh()
+        }}
+      />
+
+      {/* Dependent Inactivate Modal (Gate 3G.3-B5A) */}
+      {inactivatingDependente && (
+        <DependentInactivateModal
+          isOpen={Boolean(inactivatingDependente)}
+          onClose={() => setInactivatingDependente(null)}
+          dependente={inactivatingDependente}
+          profileId={resident.id}
+          residentName={resident.nome_completo || 'Morador'}
+          onSuccess={() => {
+            setInactivatingDependente(null)
+            router.refresh()
+          }}
+        />
+      )}
+
+      {/* Dependent Reactivate Modal (Gate 3G.3-B5A) */}
+      {reactivatingDependente && (
+        <DependentReactivateModal
+          isOpen={Boolean(reactivatingDependente)}
+          onClose={() => setReactivatingDependente(null)}
+          dependente={reactivatingDependente}
+          profileId={resident.id}
+          residentName={resident.nome_completo || 'Morador'}
+          onSuccess={() => {
+            setReactivatingDependente(null)
+            router.refresh()
+          }}
+        />
+      )}
+
+      {/* Dependent Responsible Transfer Modal (Gate 3G.3-B5B) */}
+      {transferringDependente && (
+        <DependentResponsibleModal
+          isOpen={Boolean(transferringDependente)}
+          onClose={() => setTransferringDependente(null)}
+          dependente={transferringDependente}
+          profileId={resident.id}
+          residentName={resident.nome_completo || 'Morador'}
+          coResidents={coResidents}
+          onSuccess={() => {
+            setTransferringDependente(null)
+            router.refresh()
+          }}
         />
       )}
     </div>

@@ -1543,3 +1543,314 @@ export async function adminRemoveVehiclePhoto(data: {
     return { error: msg }
   }
 }
+
+// ==============================================================================
+// BASE CADASTRAL 360º — GATE 3G.3-B2 — DEPENDENTES (SERVER ACTIONS)
+// ==============================================================================
+
+export async function adminCadastrarDependente(data: {
+  profileId: string
+  unidadeId: string
+  nomeCompleto: string
+  parentesco?: string | null
+  dataNascimento?: string | null
+  observacao?: string | null
+}) {
+  try {
+    const supabase = await createClient()
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) return { error: 'Não autorizado' }
+
+    const { data: opProfile } = await supabase
+      .from('perfil')
+      .select('papel_sistema')
+      .eq('id', user.id)
+      .single()
+
+    if (!isAdminRole(opProfile?.papel_sistema)) {
+      return { error: 'Permissão negada. Apenas síndicos e administradores podem cadastrar dependentes.' }
+    }
+
+    if (!data.profileId) return { error: 'O morador responsável é obrigatório.' }
+    if (!data.unidadeId) return { error: 'A unidade residencial é obrigatória.' }
+    if (!data.nomeCompleto?.trim()) return { error: 'O nome completo do dependente é obrigatório.' }
+
+    const { data: rpcResult, error: rpcError } = await supabase.rpc('admin_cadastrar_dependente', {
+      p_unidade_id: data.unidadeId,
+      p_responsavel_perfil_id: data.profileId,
+      p_nome_completo: data.nomeCompleto.trim(),
+      p_parentesco: data.parentesco?.trim() || null,
+      p_data_nascimento: data.dataNascimento || null,
+      p_observacao: data.observacao?.trim() || null,
+    })
+
+    if (rpcError) {
+      console.error('Erro na RPC admin_cadastrar_dependente:', rpcError)
+      return { error: rpcError.message }
+    }
+
+    revalidatePath('/admin/moradores')
+    revalidatePath(`/admin/moradores/${data.profileId}`)
+
+    return {
+      success: true,
+      result: rpcResult,
+    }
+  } catch (err: unknown) {
+    console.error('Erro interno em adminCadastrarDependente:', err)
+    const msg = err instanceof Error ? err.message : 'Erro interno ao cadastrar dependente.'
+    return { error: msg }
+  }
+}
+
+export async function adminAtualizarDependente(data: {
+  dependenteId: string
+  profileId: string
+  nomeCompleto: string
+  parentesco?: string | null
+  dataNascimento?: string | null
+  observacao?: string | null
+}) {
+  try {
+    const supabase = await createClient()
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) return { error: 'Não autorizado' }
+
+    const { data: opProfile } = await supabase
+      .from('perfil')
+      .select('papel_sistema')
+      .eq('id', user.id)
+      .single()
+
+    if (!isAdminRole(opProfile?.papel_sistema)) {
+      return { error: 'Permissão negada. Apenas síndicos e administradores podem atualizar dependentes.' }
+    }
+
+    if (!data.dependenteId) return { error: 'Identificador do dependente é obrigatório.' }
+    if (!data.nomeCompleto?.trim()) return { error: 'O nome completo do dependente é obrigatório.' }
+
+    const { data: rpcResult, error: rpcError } = await supabase.rpc('admin_atualizar_dependente', {
+      p_dependente_id: data.dependenteId,
+      p_nome_completo: data.nomeCompleto.trim(),
+      p_parentesco: data.parentesco?.trim() || null,
+      p_data_nascimento: data.dataNascimento || null,
+      p_observacao: data.observacao?.trim() || null,
+    })
+
+    if (rpcError) {
+      console.error('Erro na RPC admin_atualizar_dependente:', rpcError)
+      return { error: rpcError.message }
+    }
+
+    revalidatePath('/admin/moradores')
+    if (data.profileId) {
+      revalidatePath(`/admin/moradores/${data.profileId}`)
+    }
+
+    return {
+      success: true,
+      result: rpcResult,
+    }
+  } catch (err: unknown) {
+    console.error('Erro interno em adminAtualizarDependente:', err)
+    const msg = err instanceof Error ? err.message : 'Erro interno ao atualizar dependente.'
+    return { error: msg }
+  }
+}
+
+export async function adminInativarDependente(data: {
+  dependenteId: string
+  profileId: string
+  motivo: string
+}) {
+  try {
+    const supabase = await createClient()
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) return { error: 'Não autorizado' }
+
+    const { data: opProfile } = await supabase
+      .from('perfil')
+      .select('papel_sistema')
+      .eq('id', user.id)
+      .single()
+
+    if (!isAdminRole(opProfile?.papel_sistema)) {
+      return { error: 'Permissão negada. Apenas síndicos e administradores podem inativar dependentes.' }
+    }
+
+    if (!data.dependenteId) return { error: 'Identificador do dependente é obrigatório.' }
+    if (!data.motivo?.trim()) return { error: 'O motivo da inativação é obrigatório.' }
+
+    const { data: rpcResult, error: rpcError } = await supabase.rpc('admin_inativar_dependente', {
+      p_dependente_id: data.dependenteId,
+      p_motivo: data.motivo.trim(),
+    })
+
+    if (rpcError) {
+      console.error('Erro na RPC admin_inativar_dependente:', rpcError)
+      return { error: rpcError.message }
+    }
+
+    revalidatePath('/admin/moradores')
+    if (data.profileId) {
+      revalidatePath(`/admin/moradores/${data.profileId}`)
+    }
+
+    return {
+      success: true,
+      result: rpcResult,
+    }
+  } catch (err: unknown) {
+    console.error('Erro interno em adminInativarDependente:', err)
+    const msg = err instanceof Error ? err.message : 'Erro interno ao inativar dependente.'
+    return { error: msg }
+  }
+}
+
+export async function adminReativarDependente(data: {
+  dependenteId: string
+  profileId: string
+  motivo?: string | null
+}) {
+  try {
+    const supabase = await createClient()
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) return { error: 'Não autorizado' }
+
+    const { data: opProfile } = await supabase
+      .from('perfil')
+      .select('papel_sistema')
+      .eq('id', user.id)
+      .single()
+
+    if (!isAdminRole(opProfile?.papel_sistema)) {
+      return { error: 'Permissão negada. Apenas síndicos e administradores podem reativar dependentes.' }
+    }
+
+    if (!data.dependenteId) return { error: 'Identificador do dependente é obrigatório.' }
+
+    const { data: rpcResult, error: rpcError } = await supabase.rpc('admin_reativar_dependente', {
+      p_dependente_id: data.dependenteId,
+      p_motivo: data.motivo?.trim() || null,
+    })
+
+    if (rpcError) {
+      console.error('Erro na RPC admin_reativar_dependente:', rpcError)
+      return { error: rpcError.message }
+    }
+
+    revalidatePath('/admin/moradores')
+    if (data.profileId) {
+      revalidatePath(`/admin/moradores/${data.profileId}`)
+    }
+
+    return {
+      success: true,
+      result: rpcResult,
+    }
+  } catch (err: unknown) {
+    console.error('Erro interno em adminReativarDependente:', err)
+    const msg = err instanceof Error ? err.message : 'Erro interno ao reativar dependente.'
+    return { error: msg }
+  }
+}
+
+export async function adminTrocarResponsavelDependente(data: {
+  dependenteId: string
+  profileId: string
+  novoResponsavelPerfilId: string
+  motivo?: string | null
+}) {
+  try {
+    const supabase = await createClient()
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) return { error: 'Não autorizado' }
+
+    const { data: opProfile } = await supabase
+      .from('perfil')
+      .select('papel_sistema')
+      .eq('id', user.id)
+      .single()
+
+    if (!isAdminRole(opProfile?.papel_sistema)) {
+      return { error: 'Permissão negada. Apenas síndicos e administradores podem transferir responsabilidade de dependentes.' }
+    }
+
+    if (!data.dependenteId) return { error: 'Identificador do dependente é obrigatório.' }
+    if (!data.novoResponsavelPerfilId) return { error: 'O novo responsável é obrigatório.' }
+
+    const { data: rpcResult, error: rpcError } = await supabase.rpc('admin_trocar_responsavel_dependente', {
+      p_dependente_id: data.dependenteId,
+      p_novo_responsavel_perfil_id: data.novoResponsavelPerfilId,
+      p_motivo: data.motivo?.trim() || null,
+    })
+
+    if (rpcError) {
+      console.error('Erro na RPC admin_trocar_responsavel_dependente:', rpcError)
+      return { error: rpcError.message }
+    }
+
+    revalidatePath('/admin/moradores')
+    if (data.profileId) {
+      revalidatePath(`/admin/moradores/${data.profileId}`)
+    }
+
+    return {
+      success: true,
+      result: rpcResult,
+    }
+  } catch (err: unknown) {
+    console.error('Erro interno em adminTrocarResponsavelDependente:', err)
+    const msg = err instanceof Error ? err.message : 'Erro interno ao transferir responsabilidade do dependente.'
+    return { error: msg }
+  }
+}
+
+/**
+ * Gate 3G.4-D2: Consulta a ocupação atual de uma unidade residencial.
+ * Retorna a contagem de moradores ativos + dependentes ativos não-convertidos.
+ * Usada pelo modal "Novo Vínculo" para validação UX do limite de 4 pessoas.
+ * A RPC admin_criar_vinculo_morador permanece como autoridade final.
+ */
+export async function adminGetUnitOccupancy(unidadeId: string): Promise<{
+  ocupacao?: number
+  error?: string
+}> {
+  try {
+    if (!unidadeId) return { error: 'ID da unidade não informado.' }
+
+    const supabase = await createClient()
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) return { error: 'Sessão expirada.' }
+
+    // A) Moradores ativos: COUNT DISTINCT perfil_id em unidade_perfil
+    const { count: moradoresCount, error: morErr } = await supabase
+      .from('unidade_perfil')
+      .select('perfil_id', { count: 'exact', head: true })
+      .eq('unidade_id', unidadeId)
+      .eq('status', 'ativo')
+
+    if (morErr) {
+      console.error('[adminGetUnitOccupancy] Erro ao contar moradores:', morErr.message)
+      return { error: 'Falha ao consultar ocupação da unidade.' }
+    }
+
+    // B) Dependentes ativos não-convertidos
+    const { count: depsCount, error: depErr } = await supabase
+      .from('dependentes')
+      .select('id', { count: 'exact', head: true })
+      .eq('unidade_id', unidadeId)
+      .eq('status', 'ativo')
+      .is('perfil_convertido_id', null)
+
+    if (depErr) {
+      console.error('[adminGetUnitOccupancy] Erro ao contar dependentes:', depErr.message)
+      return { error: 'Falha ao consultar ocupação da unidade.' }
+    }
+
+    return { ocupacao: (moradoresCount ?? 0) + (depsCount ?? 0) }
+  } catch (err: unknown) {
+    console.error('[adminGetUnitOccupancy] Erro interno:', err)
+    return { error: 'Erro interno ao consultar ocupação.' }
+  }
+}
