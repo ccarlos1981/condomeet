@@ -1589,6 +1589,190 @@ export async function adminRemoveVehiclePhoto(data: {
 }
 
 // ==============================================================================
+// BASE CADASTRAL 360º — GATE 3J — FOTO DO MORADOR (SERVER ACTIONS)
+// ==============================================================================
+
+export async function adminSaveResidentPhoto(data: {
+  residentId: string
+  fotoPath: string
+  motivo?: string | null
+}) {
+  try {
+    const supabase = await createClient()
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) return { error: 'Não autorizado' }
+
+    if (!data.residentId?.trim()) return { error: 'Identificador do morador é obrigatório.' }
+    if (!data.fotoPath?.trim()) return { error: 'O caminho da foto é obrigatório.' }
+
+    const cleanPath = data.fotoPath.trim()
+
+    // 1. Autorização do operador
+    const { data: opProfile } = await supabase
+      .from('perfil')
+      .select('condominio_id, papel_sistema')
+      .eq('id', user.id)
+      .single()
+
+    if (!isAdminRole(opProfile?.papel_sistema)) {
+      return { error: 'Permissão negada. Apenas síndicos e administradores podem gerenciar fotos de moradores.' }
+    }
+
+    // 2. Validação do morador alvo e tenant guard
+    const { data: targetResident, error: targetError } = await supabase
+      .from('perfil')
+      .select('id, condominio_id, status_aprovacao')
+      .eq('id', data.residentId.trim())
+      .single()
+
+    if (targetError || !targetResident) {
+      return { error: 'Morador alvo não encontrado.' }
+    }
+
+    if (targetResident.condominio_id !== opProfile?.condominio_id) {
+      return { error: 'Operação negada. O morador pertence a outro condomínio (violação multi-tenant).' }
+    }
+
+    if (targetResident.status_aprovacao === 'inativo') {
+      return { error: 'Operação não permitida. O morador encontra-se inativo e seu registro histórico é imutável.' }
+    }
+
+    // 3. Validação do path canônico: {condominio_id}/moradores/{residentId}/...
+    const expectedPrefix = `${targetResident.condominio_id}/moradores/${targetResident.id}/`
+    if (!cleanPath.startsWith(expectedPrefix)) {
+      return { error: 'Estrutura de caminho de foto inválida para este morador.' }
+    }
+
+    // 4. Execução atômica no banco de dados via RPC
+    const { data: rpcResult, error: rpcError } = await supabase.rpc('admin_salvar_foto_morador', {
+      p_perfil_id: targetResident.id,
+      p_foto_path: cleanPath,
+      p_motivo: data.motivo?.trim() || null,
+    })
+
+    if (rpcError) {
+      console.error('Erro na RPC admin_salvar_foto_morador:', rpcError)
+      // Rollback: se o banco falhar, remover arquivo órfão do Storage
+      try {
+        await supabase.storage.from('base-cadastral-media').remove([cleanPath])
+      } catch (rollbackErr) {
+        console.error('[StorageRollback] Falha ao desfazer arquivo órfão no Storage:', rollbackErr)
+      }
+      return { error: rpcError.message || 'Falha ao salvar a foto do morador no banco de dados.' }
+    }
+
+    // 5. Exclusão diferida da foto anterior SOMENTE se for path relativo do bucket privado
+    const oldPath = rpcResult?.foto_path_anterior
+    if (
+      oldPath &&
+      typeof oldPath === 'string' &&
+      !oldPath.startsWith('http://') &&
+      !oldPath.startsWith('https://') &&
+      oldPath !== cleanPath
+    ) {
+      try {
+        await supabase.storage.from('base-cadastral-media').remove([oldPath])
+      } catch (cleanupErr) {
+        console.error('[StorageCleanup] Falha ao remover foto anterior do Storage:', cleanupErr)
+      }
+    }
+
+    revalidatePath('/admin/moradores')
+    revalidatePath(`/admin/moradores/${data.residentId.trim()}`)
+
+    return {
+      success: true,
+      result: rpcResult,
+    }
+  } catch (err: unknown) {
+    console.error('Erro interno em adminSaveResidentPhoto:', err)
+    const msg = err instanceof Error ? err.message : 'Erro interno ao salvar foto do morador.'
+    return { error: msg }
+  }
+}
+
+export async function adminRemoveResidentPhoto(data: {
+  residentId: string
+  motivo?: string | null
+}) {
+  try {
+    const supabase = await createClient()
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) return { error: 'Não autorizado' }
+
+    if (!data.residentId?.trim()) return { error: 'Identificador do morador é obrigatório.' }
+
+    // 1. Autorização do operador
+    const { data: opProfile } = await supabase
+      .from('perfil')
+      .select('condominio_id, papel_sistema')
+      .eq('id', user.id)
+      .single()
+
+    if (!isAdminRole(opProfile?.papel_sistema)) {
+      return { error: 'Permissão negada. Apenas síndicos e administradores podem remover fotos de moradores.' }
+    }
+
+    // 2. Validação do morador alvo e tenant guard
+    const { data: targetResident, error: targetError } = await supabase
+      .from('perfil')
+      .select('id, condominio_id, status_aprovacao')
+      .eq('id', data.residentId.trim())
+      .single()
+
+    if (targetError || !targetResident) {
+      return { error: 'Morador alvo não encontrado.' }
+    }
+
+    if (targetResident.condominio_id !== opProfile?.condominio_id) {
+      return { error: 'Operação negada. O morador pertence a outro condomínio (violação multi-tenant).' }
+    }
+
+    if (targetResident.status_aprovacao === 'inativo') {
+      return { error: 'Operação não permitida. O morador encontra-se inativo e seu registro histórico é imutável.' }
+    }
+
+    // 3. Execução atômica no banco de dados via RPC
+    const { data: rpcResult, error: rpcError } = await supabase.rpc('admin_remover_foto_morador', {
+      p_perfil_id: targetResident.id,
+      p_motivo: data.motivo?.trim() || null,
+    })
+
+    if (rpcError) {
+      console.error('Erro na RPC admin_remover_foto_morador:', rpcError)
+      return { error: rpcError.message || 'Falha ao remover a foto do morador.' }
+    }
+
+    // 4. Exclusão diferida da foto anterior no Storage SOMENTE se for path relativo privado
+    const oldPath = rpcResult?.foto_path_anterior
+    if (
+      oldPath &&
+      typeof oldPath === 'string' &&
+      !oldPath.startsWith('http://') &&
+      !oldPath.startsWith('https://')
+    ) {
+      try {
+        await supabase.storage.from('base-cadastral-media').remove([oldPath])
+      } catch (cleanupErr) {
+        console.error('[StorageCleanup] Falha ao remover foto do morador no Storage:', cleanupErr)
+      }
+    }
+
+    revalidatePath('/admin/moradores')
+    revalidatePath(`/admin/moradores/${data.residentId.trim()}`)
+
+    return {
+      success: true,
+      result: rpcResult,
+    }
+  } catch (err: unknown) {
+    console.error('Erro interno em adminRemoveResidentPhoto:', err)
+    const msg = err instanceof Error ? err.message : 'Erro interno ao remover foto do morador.'
+    return { error: msg }
+  }
+}
+
+// ==============================================================================
 // BASE CADASTRAL 360º — GATE 3G.3-B2 — DEPENDENTES (SERVER ACTIONS)
 // ==============================================================================
 

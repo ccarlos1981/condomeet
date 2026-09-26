@@ -74,6 +74,7 @@ export interface ResidentData {
   bloco_txt: string | null
   apto_txt: string | null
   foto_url: string | null
+  foto_signed_url?: string | null
   notificacoes_whatsapp: boolean | null
   needs_password_setup: boolean | null
   last_interaction_at: string | null
@@ -474,9 +475,9 @@ export default function Resident360Client({
   const [reactivatingDependente, setReactivatingDependente] = useState<DependenteData | null>(null)
   const [transferringDependente, setTransferringDependente] = useState<DependenteData | null>(null)
 
-  // Photo Modals State (Gate 3F.2-B)
+  // Photo Modals State (Gate 3F.2-B & Gate 3J)
   const [photoUploadTarget, setPhotoUploadTarget] = useState<{
-    type: 'pet' | 'veiculo'
+    type: 'pet' | 'veiculo' | 'morador'
     id: string
     name: string
     condoId: string
@@ -484,7 +485,7 @@ export default function Resident360Client({
   } | null>(null)
 
   const [photoRemoveTarget, setPhotoRemoveTarget] = useState<{
-    type: 'pet' | 'veiculo'
+    type: 'pet' | 'veiculo' | 'morador'
     id: string
     name: string
     condoId: string
@@ -615,27 +616,72 @@ export default function Resident360Client({
         <div className="flex flex-col md:flex-row md:items-center gap-6 justify-between">
           {/* Avatar + Main Info */}
           <div className="flex items-start sm:items-center gap-5">
-            {resident.foto_url ? (
-              <img
-                src={resident.foto_url}
-                alt={resident.nome_completo || 'Morador'}
-                className="w-20 h-20 rounded-2xl object-cover shadow-sm border-2 border-gray-100 flex-shrink-0"
-              />
-            ) : (
-              <div
-                className={`w-20 h-20 rounded-2xl flex items-center justify-center shadow-md flex-shrink-0 ${
-                  isInactive ? 'bg-zinc-200 text-zinc-600' : `bg-gradient-to-br ${avatarGrad} text-white`
+            <div className="relative shrink-0 group">
+              {resident.foto_signed_url || resident.foto_url ? (
+                <button
+                  type="button"
+                  onClick={() => setViewingPhoto({
+                    url: resident.foto_signed_url || resident.foto_url!,
+                    title: `Foto do Morador: ${resident.nome_completo || 'Sem nome'}`
+                  })}
+                  className="block relative overflow-hidden rounded-2xl shadow-sm border-2 border-gray-100 hover:border-[#FC5931] transition-all cursor-pointer group"
+                  title="Clique para ampliar a foto"
+                >
+                  <img
+                    src={resident.foto_signed_url || resident.foto_url!}
+                    alt={resident.nome_completo || 'Morador'}
+                    className="w-20 h-20 rounded-2xl object-cover"
+                  />
+                  <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center text-white rounded-2xl">
+                    <Eye size={20} />
+                  </div>
+                </button>
+              ) : (
+                <div
+                  className={`w-20 h-20 rounded-2xl flex items-center justify-center shadow-md ${
+                    isInactive ? 'bg-zinc-200 text-zinc-600' : `bg-gradient-to-br ${avatarGrad} text-white`
+                  }`}
+                >
+                  {isBlocked ? (
+                    <Lock size={32} className="text-white/90" />
+                  ) : isInactive ? (
+                    <UserX size={32} className="text-zinc-600" />
+                  ) : (
+                    <span className="text-white text-2xl font-bold tracking-tight">{initials}</span>
+                  )}
+                </div>
+              )}
+
+              {/* Botão de câmera sobre o avatar */}
+              <button
+                type="button"
+                onClick={() => {
+                  if (isInactive) return
+                  setPhotoUploadTarget({
+                    type: 'morador',
+                    id: resident.id,
+                    name: resident.nome_completo || 'Morador',
+                    condoId: resident.condominio_id,
+                    currentPhotoPath: resident.foto_url,
+                  })
+                }}
+                disabled={isInactive}
+                title={
+                  isInactive
+                    ? 'Morador inativo — cadastro histórico protegido'
+                    : (resident.foto_signed_url || resident.foto_url)
+                    ? 'Alterar foto do morador'
+                    : 'Adicionar foto do morador'
+                }
+                className={`absolute -bottom-1 -right-1 p-1.5 rounded-full shadow-md border-2 border-white transition-all ${
+                  isInactive
+                    ? 'bg-zinc-300 text-zinc-500 cursor-not-allowed opacity-60'
+                    : 'bg-[#FC5931] hover:bg-[#e04820] text-white cursor-pointer hover:scale-105 active:scale-95'
                 }`}
               >
-                {isBlocked ? (
-                  <Lock size={32} className="text-white/90" />
-                ) : isInactive ? (
-                  <UserX size={32} className="text-zinc-600" />
-                ) : (
-                  <span className="text-white text-2xl font-bold tracking-tight">{initials}</span>
-                )}
-              </div>
-            )}
+                <Camera size={13} />
+              </button>
+            </div>
 
             <div className="min-w-0">
               <div className="flex items-center gap-2.5 flex-wrap">
@@ -860,9 +906,97 @@ export default function Resident360Client({
                   <dd className="font-medium text-gray-900 mt-0.5">{resident.nome_completo || '—'}</dd>
                 </div>
                 <div>
-                  <dt className="text-xs font-semibold text-gray-400 uppercase tracking-wider">Foto do Perfil</dt>
-                  <dd className="text-gray-700 mt-0.5">
-                    {resident.foto_url ? 'Foto personalizada cadastrada' : 'Avatar gerado por iniciais'}
+                  <dt className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-1.5">Foto do Perfil</dt>
+                  <dd className="mt-1">
+                    {resident.foto_signed_url || resident.foto_url ? (
+                      <div className="flex items-center gap-3.5">
+                        {/* Miniatura com clique para ampliar */}
+                        <button
+                          type="button"
+                          onClick={() => setViewingPhoto({
+                            url: resident.foto_signed_url || resident.foto_url!,
+                            title: `Foto do Morador: ${resident.nome_completo || 'Sem nome'}`
+                          })}
+                          className="relative w-14 h-14 rounded-xl overflow-hidden border border-gray-200 shadow-xs cursor-pointer hover:border-[#FC5931] transition-all group shrink-0"
+                          title="Clique para ampliar a foto"
+                        >
+                          <img
+                            src={resident.foto_signed_url || resident.foto_url!}
+                            alt={resident.nome_completo || 'Foto do Morador'}
+                            className="w-full h-full object-cover"
+                          />
+                          <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center text-white">
+                            <Eye size={16} />
+                          </div>
+                        </button>
+
+                        <div className="flex flex-col gap-1.5">
+                          {isInactive ? (
+                            <p className="text-xs text-zinc-500 font-medium">
+                              Morador inativo — cadastro histórico protegido.
+                            </p>
+                          ) : (
+                            <div className="flex items-center gap-2">
+                              <button
+                                type="button"
+                                onClick={() => setPhotoUploadTarget({
+                                  type: 'morador',
+                                  id: resident.id,
+                                  name: resident.nome_completo || 'Morador',
+                                  condoId: resident.condominio_id,
+                                  currentPhotoPath: resident.foto_url,
+                                })}
+                                className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-semibold text-gray-700 bg-gray-100 hover:bg-gray-200 transition-colors cursor-pointer"
+                              >
+                                <Camera size={13} className="text-gray-500" />
+                                Alterar foto
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => setPhotoRemoveTarget({
+                                  type: 'morador',
+                                  id: resident.id,
+                                  name: resident.nome_completo || 'Morador',
+                                  condoId: resident.condominio_id,
+                                  currentPhotoPath: resident.foto_url!,
+                                })}
+                                className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-semibold text-red-600 bg-red-50 hover:bg-red-100 transition-colors cursor-pointer"
+                              >
+                                <Trash2 size={13} className="text-red-500" />
+                                Remover foto
+                              </button>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="flex flex-col gap-2">
+                        <div className="flex items-center gap-3">
+                          <span className="text-sm text-gray-500 font-normal">Não cadastrada</span>
+                          {!isInactive && (
+                            <button
+                              type="button"
+                              onClick={() => setPhotoUploadTarget({
+                                type: 'morador',
+                                id: resident.id,
+                                name: resident.nome_completo || 'Morador',
+                                condoId: resident.condominio_id,
+                                currentPhotoPath: null,
+                              })}
+                              className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-semibold text-[#FC5931] bg-orange-50 hover:bg-orange-100 transition-colors cursor-pointer"
+                            >
+                              <Camera size={13} />
+                              Adicionar foto
+                            </button>
+                          )}
+                        </div>
+                        {isInactive && (
+                          <p className="text-xs text-zinc-500 font-medium">
+                            Morador inativo — cadastro histórico protegido.
+                          </p>
+                        )}
+                      </div>
+                    )}
                   </dd>
                 </div>
                 <div>

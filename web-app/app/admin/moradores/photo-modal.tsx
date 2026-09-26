@@ -10,6 +10,7 @@ import {
   Camera,
   PawPrint,
   Car,
+  User,
   Image as ImageIcon,
   CheckCircle,
 } from 'lucide-react'
@@ -19,6 +20,8 @@ import {
   adminRemovePetPhoto,
   adminSaveVehiclePhoto,
   adminRemoveVehiclePhoto,
+  adminSaveResidentPhoto,
+  adminRemoveResidentPhoto,
 } from '@/app/admin/actions'
 
 // ==============================================================================
@@ -135,7 +138,7 @@ export async function processImageForUpload(
 export interface PhotoUploadModalProps {
   isOpen: boolean
   onClose: () => void
-  type: 'pet' | 'veiculo'
+  type: 'pet' | 'veiculo' | 'morador'
   entityId: string
   entityName: string
   condominioId: string
@@ -185,7 +188,8 @@ export function PhotoUploadModal({
 
   const isReplacing = Boolean(currentPhotoPath)
   const isPet = type === 'pet'
-  const entityLabel = isPet ? 'Pet' : 'Veículo'
+  const isMorador = type === 'morador'
+  const entityLabel = isPet ? 'Pet' : isMorador ? 'Morador' : 'Veículo'
 
   async function handleFileSelected(file: File) {
     setError(null)
@@ -235,7 +239,7 @@ export function PhotoUploadModal({
     const supabase = createClient()
     const timestamp = Date.now()
     const uniqueId = typeof crypto !== 'undefined' && crypto.randomUUID ? crypto.randomUUID() : Math.random().toString(36).substring(2, 15)
-    const entityFolder = isPet ? 'pets' : 'veiculos'
+    const entityFolder = isPet ? 'pets' : isMorador ? 'moradores' : 'veiculos'
     const newPath = `${condominioId}/${entityFolder}/${entityId}/${timestamp}_${uniqueId}.jpg`
 
     let uploadSucceeded = false
@@ -263,6 +267,11 @@ export function PhotoUploadModal({
           fotoPath: newPath,
           profileId,
         })
+      } else if (isMorador) {
+        res = await adminSaveResidentPhoto({
+          residentId: entityId,
+          fotoPath: newPath,
+        })
       } else {
         res = await adminSaveVehiclePhoto({
           veiculoId: entityId,
@@ -283,9 +292,14 @@ export function PhotoUploadModal({
         throw new Error(res.error)
       }
 
-      // 4. Se o banco confirmou com sucesso, remover foto anterior se houver
+      // 4. Se o banco confirmou com sucesso, remover foto anterior se houver (apenas path relativo)
       const oldPath = res.result?.foto_path_anterior
-      if (oldPath && oldPath !== newPath) {
+      if (
+        oldPath &&
+        oldPath !== newPath &&
+        !oldPath.startsWith('http://') &&
+        !oldPath.startsWith('https://')
+      ) {
         try {
           await supabase.storage.from('base-cadastral-media').remove([oldPath])
         } catch (cleanupErr) {
@@ -311,7 +325,7 @@ export function PhotoUploadModal({
         <div className="p-6 border-b border-gray-100 flex items-center justify-between">
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 rounded-xl bg-orange-50 border border-orange-100 flex items-center justify-center text-[#FC5931]">
-              {isPet ? <PawPrint size={20} /> : <Car size={20} />}
+              {isPet ? <PawPrint size={20} /> : isMorador ? <User size={20} /> : <Car size={20} />}
             </div>
             <div>
               <h2 className="text-base font-bold text-gray-900">
@@ -486,7 +500,7 @@ export function PhotoUploadModal({
 export interface PhotoRemoveModalProps {
   isOpen: boolean
   onClose: () => void
-  type: 'pet' | 'veiculo'
+  type: 'pet' | 'veiculo' | 'morador'
   entityId: string
   entityName: string
   condominioId: string
@@ -520,7 +534,8 @@ export function PhotoRemoveModal({
   if (!isOpen) return null
 
   const isPet = type === 'pet'
-  const entityLabel = isPet ? 'Pet' : 'Veículo'
+  const isMorador = type === 'morador'
+  const entityLabel = isPet ? 'Pet' : isMorador ? 'Morador' : 'Veículo'
 
   async function handleConfirmRemove() {
     setLoading(true)
@@ -537,6 +552,11 @@ export function PhotoRemoveModal({
           motivo: motivo.trim() || null,
           profileId,
         })
+      } else if (isMorador) {
+        res = await adminRemoveResidentPhoto({
+          residentId: entityId,
+          motivo: motivo.trim() || null,
+        })
       } else {
         res = await adminRemoveVehiclePhoto({
           veiculoId: entityId,
@@ -549,9 +569,14 @@ export function PhotoRemoveModal({
         throw new Error(res.error)
       }
 
-      // 2. Se o banco confirmou foto_path = NULL, remover arquivo físico do Storage
+      // 2. Se o banco confirmou foto_path = NULL, remover arquivo físico do Storage (apenas se for path relativo privado)
       const oldPath = res.result?.foto_path_anterior || currentPhotoPath
-      if (oldPath) {
+      if (
+        oldPath &&
+        typeof oldPath === 'string' &&
+        !oldPath.startsWith('http://') &&
+        !oldPath.startsWith('https://')
+      ) {
         try {
           await supabase.storage.from('base-cadastral-media').remove([oldPath])
         } catch (cleanupErr) {

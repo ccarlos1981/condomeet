@@ -395,10 +395,24 @@ export default async function Resident360Page(props: PageProps) {
     console.error('[Resident360Page] Falha na consulta de dependentes (perfil_id: %s, condo_id: %s):', id, condoId, dependentesError.message)
   }
 
-  // 13. Batch generate temporary signed URLs for pet and vehicle photos (Gate 3F.2-B)
+  // 13. Batch generate temporary signed URLs for resident, pet and vehicle photos (Gate 3F.2-B & Gate 3J)
   const veiculoPaths = (rawVeiculos ?? []).map((v: any) => v.foto_path).filter(Boolean) as string[]
   const petPaths = (rawPets ?? []).map((p: any) => p.foto_path).filter(Boolean) as string[]
-  const allPathsToSign = Array.from(new Set([...veiculoPaths, ...petPaths]))
+
+  // Resolução canônica de foto do morador:
+  // - Se começar com http:// ou https:// -> URL legada pública direta (preserva 106 fotos legadas)
+  // - Se for path relativo -> incluir no lote de assinatura privada do Storage base-cadastral-media
+  const isResidentLegacyUrl = Boolean(
+    resident.foto_url &&
+    (resident.foto_url.startsWith('http://') || resident.foto_url.startsWith('https://'))
+  )
+  const residentRelativePath = resident.foto_url && !isResidentLegacyUrl ? resident.foto_url : null
+
+  const allPathsToSign = Array.from(new Set([
+    ...veiculoPaths,
+    ...petPaths,
+    ...(residentRelativePath ? [residentRelativePath] : []),
+  ]))
 
   const signedUrlMap = new Map<string, string>()
 
@@ -421,6 +435,13 @@ export default async function Resident360Page(props: PageProps) {
     } catch (err: any) {
       console.error('[Resident360Page] Exceção ao gerar signed URLs de fotos:', err?.message || err)
     }
+  }
+
+  let residentFotoSignedUrl: string | null = null
+  if (isResidentLegacyUrl) {
+    residentFotoSignedUrl = resident.foto_url
+  } else if (residentRelativePath) {
+    residentFotoSignedUrl = signedUrlMap.get(residentRelativePath) || null
   }
 
   const veiculos: VehicleData[] = (rawVeiculos ?? []).map((v: any) => ({
@@ -485,9 +506,14 @@ export default async function Resident360Page(props: PageProps) {
     updated_at: d.updated_at,
   }))
 
+  const residentWithSignedUrl: ResidentData = {
+    ...(resident as ResidentData),
+    foto_signed_url: residentFotoSignedUrl,
+  }
+
   return (
     <Resident360Client
-      resident={resident as ResidentData}
+      resident={residentWithSignedUrl}
       condoNome={condoNome}
       condoTipoEstrutura={condoTipoEstrutura}
       unitLinks={unitLinks}
