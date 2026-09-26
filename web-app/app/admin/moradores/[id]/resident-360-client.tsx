@@ -53,6 +53,7 @@ import DependentModal from '../dependent-modal'
 import DependentInactivateModal from '../dependent-inactivate-modal'
 import DependentReactivateModal from '../dependent-reactivate-modal'
 import DependentResponsibleModal from '../dependent-responsible-modal'
+import EditGeneralDataModal from './edit-general-data-modal'
 import {
   adminToggleBlockStatus,
   adminGetResidentInvitesPage,
@@ -506,6 +507,9 @@ export default function Resident360Client({
   // Create Resident Link Modal State (Gate 3C.7)
   const [isCreateLinkModalOpen, setIsCreateLinkModalOpen] = useState(false)
 
+  // Edit General Data Modal State (Gate 3I.4)
+  const [editGeneralDataOpen, setEditGeneralDataOpen] = useState(false)
+
   async function handleConfirmBlockAction() {
     if (!confirmAction) return
     setActionLoading(true)
@@ -836,10 +840,20 @@ export default function Resident360Client({
           <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
             {/* Card 1: Identificação Pessoal */}
             <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6">
-              <h2 className="text-base font-bold text-gray-900 mb-4 flex items-center gap-2">
-                <User size={18} className="text-[#FC5931]" />
-                Identificação Pessoal
-              </h2>
+              <div className="flex items-center justify-between mb-4">
+                <h2 className="text-base font-bold text-gray-900 flex items-center gap-2">
+                  <User size={18} className="text-[#FC5931]" />
+                  Identificação Pessoal
+                </h2>
+                <button
+                  type="button"
+                  onClick={() => setEditGeneralDataOpen(true)}
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold text-gray-700 bg-gray-100 hover:bg-gray-200 transition-colors"
+                >
+                  <Edit2 size={13} className="text-gray-500" />
+                  Editar dados
+                </button>
+              </div>
               <dl className="space-y-3.5 text-sm">
                 <div>
                   <dt className="text-xs font-semibold text-gray-400 uppercase tracking-wider">Nome Completo</dt>
@@ -2824,6 +2838,21 @@ export default function Resident360Client({
           }}
         />
       )}
+
+      {/* Edit General Data Modal (Gate 3I.4) */}
+      <EditGeneralDataModal
+        open={editGeneralDataOpen}
+        onClose={() => setEditGeneralDataOpen(false)}
+        residentId={initialResident.id}
+        nomeCompleto={initialResident.nome_completo || ''}
+        whatsapp={initialResident.whatsapp || ''}
+        tipoMorador={initialResident.tipo_morador || ''}
+        papelSistema={initialResident.papel_sistema || ''}
+        onSaved={() => {
+          setEditGeneralDataOpen(false)
+          router.refresh()
+        }}
+      />
 
       {/* Vehicle Add / Edit Modal */}
       {isVehicleModalOpen && (

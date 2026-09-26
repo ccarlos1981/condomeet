@@ -6,6 +6,50 @@ import { revalidatePath } from 'next/cache'
 
 import { isAdminRole, isTechnicalAdminRole, normalizeRoleForPersistence, canPromoteToAdmin } from '@/lib/roles'
 
+/**
+ * Gate 3I.3-A: Normalização canônica de telefone para E.164 (+55DDDNÚMERO).
+ */
+function normalizePhoneE164(phone: string): string | null {
+  if (!phone || typeof phone !== 'string') return null
+
+  const trimmed = phone.trim()
+  if (!trimmed) return null
+
+  const hadPlus55 = trimmed.startsWith('+55') || trimmed.startsWith('+ 55')
+  let digits = trimmed.replace(/\D/g, '')
+
+  if (hadPlus55) {
+    if (digits.startsWith('55')) {
+      digits = digits.slice(2)
+    }
+  } else if ((digits.length === 13 || digits.length === 12) && digits.startsWith('55')) {
+    digits = digits.slice(2)
+  }
+
+  // DDD (2 dígitos) + número local (8 ou 9 dígitos) -> Total 10 ou 11 dígitos
+  if (digits.length !== 10 && digits.length !== 11) {
+    return null
+  }
+
+  const ddd = parseInt(digits.slice(0, 2), 10)
+  if (isNaN(ddd) || ddd < 11 || ddd > 99) {
+    return null
+  }
+
+  const localNumber = digits.slice(2)
+  // Celular (9 dígitos) no Brasil inicia com 9
+  if (localNumber.length === 9 && localNumber[0] !== '9') {
+    return null
+  }
+
+  // Fixo (8 dígitos) no Brasil inicia com 2, 3, 4 ou 5
+  if (localNumber.length === 8 && (localNumber[0] < '2' || localNumber[0] > '5')) {
+    return null
+  }
+
+  return `+55${digits}`
+}
+
 export async function adminUpdateProfile(data: {
   id: string
   nome_completo: string
@@ -1994,6 +2038,101 @@ export async function adminGetUnitAccessPage(
   } catch (err: unknown) {
     console.error('[adminGetUnitAccessPage] Erro interno:', err)
     const msg = err instanceof Error ? err.message : 'Erro interno ao consultar acessos.'
+    return { error: msg }
+  }
+}
+
+/**
+ * Gate 3I.3-B: Edição canônica dos dados gerais do morador para o Resident 360.
+ * Atualiza exclusivamente nome_completo, whatsapp, tipo_morador e papel_sistema.
+ * Não altera email, unidades nem credenciais de autenticação.
+ * Registra trilha de auditoria em public.perfil_audit_log (RESIDENT_GENERAL_DATA_UPDATED).
+ */
+export async function adminUpdateResidentGeneralData(data: {
+  residentId: string
+  nome_completo: string
+  whatsapp: string
+  tipo_morador: string
+  papel_sistema: string
+  motivo?: string
+}): Promise<{ success?: boolean; error?: string }> {
+  try {
+    if (!data.residentId?.trim()) {
+      return { error: 'Identificador do morador é obrigatório.' }
+    }
+
+    const cleanNome = data.nome_completo?.trim()
+    if (!cleanNome) {
+      return { error: 'O nome completo é obrigatório.' }
+    }
+
+    const normalizedWhatsapp = normalizePhoneE164(data.whatsapp)
+    if (!normalizedWhatsapp) {
+      return { error: 'Número de telefone/WhatsApp inválido. Informe um número com DDD válido (ex: 11 99999-9999).' }
+    }
+
+    const cleanTipoMorador = data.tipo_morador?.trim()
+    if (!cleanTipoMorador) {
+      return { error: 'O tipo de morador é obrigatório.' }
+    }
+
+    if (!data.papel_sistema?.trim()) {
+      return { error: 'O papel no sistema é obrigatório.' }
+    }
+
+    // 1. Autenticação e autorização do operador
+    const supabase = await createClient()
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) return { error: 'Não autorizado.' }
+
+    const { data: operatorProfile, error: operatorError } = await supabase
+      .from('perfil')
+      .select('condominio_id, papel_sistema')
+      .eq('id', user.id)
+      .single()
+
+    if (operatorError || !operatorProfile || !isAdminRole(operatorProfile.papel_sistema)) {
+      return { error: 'Permissão negada. Apenas síndicos e administradores podem editar moradores.' }
+    }
+
+    const isTargetAdmin = isTechnicalAdminRole(data.papel_sistema)
+    let canonicalPapel = isTargetAdmin ? 'Admin' : normalizeRoleForPersistence(data.papel_sistema)
+    const normPapelLower = canonicalPapel.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+    if (normPapelLower.startsWith('morador')) canonicalPapel = 'Morador'
+    else if (normPapelLower.startsWith('porteir')) canonicalPapel = 'Porteiro'
+    else if (normPapelLower.startsWith('zelador')) canonicalPapel = 'Zelador'
+    else if (normPapelLower.includes('subsindico')) canonicalPapel = 'Subsíndico'
+    else if (normPapelLower.includes('sindico')) canonicalPapel = 'Síndico'
+
+    if (isTargetAdmin) {
+      if (!canPromoteToAdmin(operatorProfile.papel_sistema)) {
+        return { error: 'Permissão negada. Somente o Síndico ou Administrador podem atribuir a função de Admin.' }
+      }
+    }
+
+    // 3. Execução atômica via RPC transacional no PostgreSQL
+    const { error: rpcError } = await supabase.rpc('admin_atualizar_dados_gerais_morador', {
+      p_resident_id: data.residentId.trim(),
+      p_nome_completo: cleanNome,
+      p_whatsapp: normalizedWhatsapp,
+      p_tipo_morador: cleanTipoMorador,
+      p_papel_sistema: canonicalPapel,
+      p_motivo: data.motivo?.trim() || null,
+    })
+
+    if (rpcError) {
+      console.error('[adminUpdateResidentGeneralData] Erro na RPC admin_atualizar_dados_gerais_morador:', rpcError)
+      return { error: rpcError.message || 'Falha ao atualizar os dados do morador.' }
+    }
+
+    // 4. Revalidação de rotas
+    revalidatePath('/admin/moradores')
+    revalidatePath(`/admin/moradores/${data.residentId.trim()}`)
+
+    return { success: true }
+  } catch (err: unknown) {
+    console.error('[adminUpdateResidentGeneralData] Erro interno:', err)
+    const msg = err instanceof Error ? err.message : 'Erro interno ao atualizar os dados gerais do morador.'
     return { error: msg }
   }
 }
