@@ -184,7 +184,28 @@ export default async function Resident360Page(props: PageProps) {
   // 7. Fetch recent convites emitted by this resident
   const { data: rawConvites } = await supabase
     .from('convites')
-    .select('id, guest_name, visitor_type, status, validity_date, qr_data, created_at, visitante_compareceu')
+    .select(`
+      id,
+      resident_id,
+      guest_name,
+      visitor_type,
+      status,
+      validity_date,
+      valid_until,
+      qr_data,
+      created_at,
+      visitante_compareceu,
+      liberado_em,
+      liberado_por,
+      documento,
+      placa,
+      whatsapp,
+      observacao,
+      cracha_referencia,
+      bloco_destino,
+      apto_destino,
+      criado_por_portaria
+    `)
     .eq('resident_id', id)
     .eq('condominio_id', condoId)
     .order('created_at', { ascending: false })
@@ -192,14 +213,26 @@ export default async function Resident360Page(props: PageProps) {
 
   const convites: ConviteData[] = (rawConvites ?? []).map((c: any) => ({
     id: c.id,
+    resident_id: c.resident_id,
     guest_name: c.guest_name,
     visitor_type: c.visitor_type,
     status: c.status,
     validity_date: c.validity_date,
+    valid_until: c.valid_until,
     qr_data: c.qr_data,
     created_at: c.created_at,
     visitante_compareceu: c.visitante_compareceu,
-  }))
+    liberado_em: c.liberado_em,
+    liberado_por: c.liberado_por,
+    documento: c.documento,
+    placa: c.placa,
+    whatsapp: c.whatsapp,
+    observacao: c.observacao,
+    cracha_referencia: c.cracha_referencia,
+    bloco_destino: c.bloco_destino,
+    apto_destino: c.apto_destino,
+    criado_por_portaria: c.criado_por_portaria,
+  })) as ConviteData[]
 
   // 8. Fetch recent concierge visitor logs directed to this unit
   let portariaRegistros: PortariaRegistroData[] = []

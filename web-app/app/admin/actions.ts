@@ -1854,3 +1854,146 @@ export async function adminGetUnitOccupancy(unidadeId: string): Promise<{
     return { error: 'Erro interno ao consultar ocupação.' }
   }
 }
+
+/**
+ * Gate 3H.2-C1: Consulta paginada server-side dos convites emitidos por um morador.
+ * Read-only com isolamento multi-tenant estrito e range de 5 registros por página.
+ */
+export async function adminGetResidentInvitesPage(residentId: string, page: number = 1) {
+  try {
+    if (!residentId?.trim()) {
+      return { error: 'Identificador do morador é obrigatório.' }
+    }
+
+    const supabase = await createClient()
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) return { error: 'Não autorizado' }
+
+    // Obter perfil do operador autenticado e validar permissão administrativa
+    const { data: operatorProfile, error: operatorError } = await supabase
+      .from('perfil')
+      .select('condominio_id, papel_sistema')
+      .eq('id', user.id)
+      .single()
+
+    if (operatorError || !operatorProfile || !isAdminRole(operatorProfile.papel_sistema)) {
+      return { error: 'Permissão negada. Apenas síndicos e administradores podem consultar convites.' }
+    }
+
+    const condoId = operatorProfile.condominio_id
+    if (!condoId) {
+      return { error: 'Condomínio do operador não identificado.' }
+    }
+
+    const PAGE_SIZE = 5
+    const safePage = Math.max(1, Math.floor(Number(page) || 1))
+    const from = (safePage - 1) * PAGE_SIZE
+    const to = from + PAGE_SIZE - 1
+
+    const { data: convites, error: queryError, count } = await supabase
+      .from('convites')
+      .select(
+        'id, resident_id, guest_name, visitor_type, status, validity_date, valid_until, qr_data, created_at, visitante_compareceu, liberado_em, liberado_por, documento, placa, whatsapp, observacao, cracha_referencia, bloco_destino, apto_destino, criado_por_portaria',
+        { count: 'exact' }
+      )
+      .eq('resident_id', residentId.trim())
+      .eq('condominio_id', condoId)
+      .order('created_at', { ascending: false })
+      .range(from, to)
+
+    if (queryError) {
+      console.error('[adminGetResidentInvitesPage] Erro ao consultar convites:', queryError)
+      return { error: 'Falha ao consultar convites do morador.' }
+    }
+
+    const total = count ?? 0
+    const totalPages = total > 0 ? Math.ceil(total / PAGE_SIZE) : 0
+
+    return {
+      success: true,
+      data: convites ?? [],
+      page: safePage,
+      pageSize: PAGE_SIZE,
+      total,
+      totalPages,
+    }
+  } catch (err: unknown) {
+    console.error('[adminGetResidentInvitesPage] Erro interno:', err)
+    const msg = err instanceof Error ? err.message : 'Erro interno ao consultar convites.'
+    return { error: msg }
+  }
+}
+
+/**
+ * Gate 3H: Consulta paginada dos registros de portaria (acessos) de uma unidade residencial.
+ * Read-only com isolamento multi-tenant estrito e range de 5 registros por página.
+ */
+export async function adminGetUnitAccessPage(
+  condominioId: string,
+  bloco: string,
+  apto: string,
+  page: number = 1
+) {
+  try {
+    const safePage = Math.max(1, Math.floor(Number(page) || 1))
+    const PAGE_SIZE = 5
+
+    if (!condominioId?.trim() || !bloco?.trim() || !apto?.trim()) {
+      return {
+        success: true,
+        data: [],
+        page: safePage,
+        pageSize: PAGE_SIZE,
+        total: 0,
+        totalPages: 0,
+      }
+    }
+
+    const supabase = await createClient()
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) return { error: 'Não autorizado' }
+
+    // Obter perfil do operador autenticado e validar permissão administrativa
+    const { data: operatorProfile, error: operatorError } = await supabase
+      .from('perfil')
+      .select('condominio_id, papel_sistema')
+      .eq('id', user.id)
+      .single()
+
+    if (operatorError || !operatorProfile || !isAdminRole(operatorProfile.papel_sistema)) {
+      return { error: 'Permissão negada. Apenas síndicos e administradores podem consultar acessos.' }
+    }
+
+    const from = (safePage - 1) * 5
+    const to = from + 4
+
+    const { data, error: queryError, count } = await supabase
+      .from('visitante_registros')
+      .select('id, nome, tipo_visitante, entrada_at, saida_at, status, created_at', { count: 'exact' })
+      .eq('condominio_id', condominioId.trim())
+      .eq('bloco', bloco.trim())
+      .eq('apto', apto.trim())
+      .order('entrada_at', { ascending: false })
+      .range(from, to)
+
+    if (queryError) {
+      console.error('[adminGetUnitAccessPage] Erro ao consultar registros de portaria:', queryError)
+      return { error: 'Falha ao consultar registros de portaria da unidade.' }
+    }
+
+    const total = count ?? 0
+
+    return {
+      success: true,
+      data: data ?? [],
+      page: safePage,
+      pageSize: PAGE_SIZE,
+      total,
+      totalPages: Math.ceil(total / 5),
+    }
+  } catch (err: unknown) {
+    console.error('[adminGetUnitAccessPage] Erro interno:', err)
+    const msg = err instanceof Error ? err.message : 'Erro interno ao consultar acessos.'
+    return { error: msg }
+  }
+}

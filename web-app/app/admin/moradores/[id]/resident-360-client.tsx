@@ -53,7 +53,11 @@ import DependentModal from '../dependent-modal'
 import DependentInactivateModal from '../dependent-inactivate-modal'
 import DependentReactivateModal from '../dependent-reactivate-modal'
 import DependentResponsibleModal from '../dependent-responsible-modal'
-import { adminToggleBlockStatus } from '@/app/admin/actions'
+import {
+  adminToggleBlockStatus,
+  adminGetResidentInvitesPage,
+  adminGetUnitAccessPage,
+} from '@/app/admin/actions'
 
 export interface ResidentData {
   id: string
@@ -103,13 +107,25 @@ export interface CoResidentData {
 
 export interface ConviteData {
   id: string
+  resident_id?: string | null
   guest_name: string | null
   visitor_type: string | null
   status: string | null
   validity_date: string | null
+  valid_until?: string | null
   qr_data: string | null
   created_at: string
   visitante_compareceu: boolean | null
+  liberado_em?: string | null
+  liberado_por?: string | null
+  documento?: string | null
+  placa?: string | null
+  whatsapp?: string | null
+  observacao?: string | null
+  cracha_referencia?: string | null
+  bloco_destino?: string | null
+  apto_destino?: string | null
+  criado_por_portaria?: boolean | null
 }
 
 export interface PortariaRegistroData {
@@ -120,6 +136,9 @@ export interface PortariaRegistroData {
   saida_at: string | null
   status: string | null
   created_at: string | null
+  placa?: string | null
+  documento?: string | null
+  observacao?: string | null
 }
 
 export interface AuditLogData {
@@ -338,6 +357,9 @@ function formatDateTime(iso?: string | null): string {
   }
 }
 
+const PORTARIA_PAGE_SIZE = 5
+const CONVITES_PAGE_SIZE = 5
+
 export default function Resident360Client({
   resident: initialResident,
   condoNome,
@@ -357,11 +379,67 @@ export default function Resident360Client({
   const router = useRouter()
   const [activeTab, setActiveTab] = useState<TabKey>('dados-gerais')
 
+  // Paginação de Convites (Gate 3H.2-B4)
+  const [convitesPage, setConvitesPage] = useState(1)
+  const [serverConvites, setServerConvites] = useState(convites)
+  const [serverConvitesTotal, setServerConvitesTotal] = useState(convites.length)
+  const [serverConvitesTotalPages, setServerConvitesTotalPages] = useState(
+    Math.ceil(convites.length / CONVITES_PAGE_SIZE)
+  )
+  const paginatedConvites = serverConvites
+
+  // Paginação da Portaria (Gate 3H.2-B3)
+  const [portariaPage, setPortariaPage] = useState(1)
+  const [serverPortariaRegistros, setServerPortariaRegistros] = useState(portariaRegistros)
+  const [serverPortariaTotal, setServerPortariaTotal] = useState(portariaRegistros.length)
+  const [serverPortariaTotalPages, setServerPortariaTotalPages] = useState(
+    Math.ceil(portariaRegistros.length / PORTARIA_PAGE_SIZE)
+  )
+  const paginatedPortariaRegistros = serverPortariaRegistros
+
   // Synced local state for immediate reactive status changes
   const [resident, setResident] = useState<ResidentData>(initialResident)
   useEffect(() => {
     setResident(initialResident)
   }, [initialResident])
+
+  useEffect(() => {
+    adminGetResidentInvitesPage(resident.id, convitesPage).then((result) => {
+      if (result.success) {
+        setServerConvites(result.data)
+        setServerConvitesTotal(result.total)
+        setServerConvitesTotalPages(result.totalPages)
+      }
+    })
+  }, [resident.id, convitesPage])
+
+  useEffect(() => {
+    if (
+      !initialResident.condominio_id ||
+      !initialResident.bloco_txt ||
+      !initialResident.apto_txt
+    ) {
+      return
+    }
+
+    adminGetUnitAccessPage(
+      initialResident.condominio_id,
+      initialResident.bloco_txt,
+      initialResident.apto_txt,
+      portariaPage
+    ).then((result) => {
+      if (result.success) {
+        setServerPortariaRegistros(result.data)
+        setServerPortariaTotal(result.total)
+        setServerPortariaTotalPages(result.totalPages)
+      }
+    })
+  }, [
+    initialResident.condominio_id,
+    initialResident.bloco_txt,
+    initialResident.apto_txt,
+    portariaPage,
+  ])
 
   const [veiculos, setVeiculos] = useState<VehicleData[]>(initialVeiculos)
   useEffect(() => {
@@ -501,7 +579,7 @@ export default function Resident360Client({
     { key: 'veiculos', label: 'Veículos', icon: <Car size={16} />, count: veiculosError ? undefined : veiculos.length },
     { key: 'pets', label: 'Pets', icon: <PawPrint size={16} />, count: petsError ? undefined : pets.length },
     { key: 'familia', label: 'Família', icon: <Users size={16} />, count: ((dependentes?.length ?? 0) + (coResidents.length > 0 ? coResidents.length + 1 : 0)) || undefined },
-    { key: 'acessos', label: 'Acessos', icon: <KeyRound size={16} />, count: convites.length + portariaRegistros.length },
+    { key: 'acessos', label: 'Acessos', icon: <KeyRound size={16} />, count: serverConvitesTotal + serverPortariaTotal },
     { key: 'historico', label: 'Histórico 🔒', icon: <Clock size={16} />, count: auditLogs.length > 0 ? auditLogs.length : undefined },
   ]
 
@@ -1908,28 +1986,156 @@ export default function Resident360Client({
               </h2>
 
               {convites.length > 0 ? (
-                <div className="divide-y divide-gray-100">
-                  {convites.map(c => (
-                    <div key={c.id} className="py-3 flex items-center justify-between flex-wrap gap-2">
-                      <div>
-                        <p className="font-semibold text-sm text-gray-800">{c.guest_name || 'Visitante sem nome'}</p>
-                        <p className="text-xs text-gray-400 mt-0.5">
-                          Tipo: {c.visitor_type || 'Visitante'} • Validade: {formatDateTime(c.validity_date)}
-                        </p>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        {c.visitante_compareceu && (
-                          <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200">
-                            Compareceu
-                          </span>
-                        )}
-                        <span className="text-xs px-2.5 py-0.5 rounded-full font-medium bg-gray-100 text-gray-700">
-                          {c.status}
-                        </span>
-                      </div>
+                <>
+                  <div className="space-y-3">
+                    {paginatedConvites.map(c => {
+                      const validadeFormatted = c.validity_date
+                        ? (/^\d{4}-\d{2}-\d{2}$/.test(c.validity_date.trim())
+                            ? formatDateCivil(c.validity_date)
+                            : formatDateTime(c.validity_date))
+                        : c.valid_until
+                        ? formatDateTime(c.valid_until)
+                        : null
+
+                      return (
+                        <div
+                          key={c.id}
+                          className="p-4 rounded-xl border border-gray-100 bg-white hover:border-gray-200 transition-all space-y-3"
+                        >
+                          {/* Header: Visitante Name, Visitor Type, Comparecimento & Status */}
+                          <div className="flex items-start justify-between gap-3 flex-wrap">
+                            <div className="min-w-0">
+                              <div className="flex items-center gap-2 flex-wrap">
+                                <p className="font-semibold text-sm text-gray-900">
+                                  {c.guest_name || 'Visitante sem nome'}
+                                </p>
+                                {c.visitor_type && (
+                                  <span className="text-[11px] font-medium px-2 py-0.5 rounded-md bg-gray-100 text-gray-600">
+                                    {c.visitor_type}
+                                  </span>
+                                )}
+                              </div>
+                            </div>
+
+                            {/* Badges de Status e Comparecimento */}
+                            <div className="flex items-center gap-2 flex-wrap">
+                              {c.visitante_compareceu === true && (
+                                <span className="inline-flex items-center gap-1 text-[11px] font-semibold px-2.5 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200">
+                                  <CheckCircle size={12} />
+                                  Compareceu
+                                </span>
+                              )}
+                              {c.visitante_compareceu === false && (
+                                <span className="text-[11px] font-medium px-2.5 py-0.5 rounded-full bg-gray-100 text-gray-600 border border-gray-200">
+                                  Não compareceu
+                                </span>
+                              )}
+                              {c.status && (
+                                <span className="text-xs px-2.5 py-0.5 rounded-full font-medium bg-gray-100 text-gray-700 border border-gray-200">
+                                  {c.status}
+                                </span>
+                              )}
+                            </div>
+                          </div>
+
+                          {/* Datas: Criação, Validade, Liberação */}
+                          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-2 text-xs text-gray-500 pt-1">
+                            {c.created_at && (
+                              <div className="flex items-center gap-1.5">
+                                <Clock size={13} className="text-gray-400 shrink-0" />
+                                <span>Criado: <strong className="text-gray-700 font-medium">{formatDateTime(c.created_at)}</strong></span>
+                              </div>
+                            )}
+                            {validadeFormatted && (
+                              <div className="flex items-center gap-1.5">
+                                <Calendar size={13} className="text-gray-400 shrink-0" />
+                                <span>Validade: <strong className="text-gray-700 font-medium">{validadeFormatted}</strong></span>
+                              </div>
+                            )}
+                            {c.liberado_em && (
+                              <div className="flex items-center gap-1.5">
+                                <CheckCircle size={13} className="text-emerald-500 shrink-0" />
+                                <span>Liberado: <strong className="text-gray-700 font-medium">{formatDateTime(c.liberado_em)}</strong></span>
+                              </div>
+                            )}
+                          </div>
+
+                          {/* Dados adicionais se disponíveis: Placa, Documento, WhatsApp, Crachá/Ref */}
+                          {(c.placa || c.documento || c.whatsapp || c.cracha_referencia) && (
+                            <div className="flex items-center gap-4 flex-wrap text-xs text-gray-600 pt-1 border-t border-gray-50">
+                              {c.placa && (
+                                <div className="flex items-center gap-1.5">
+                                  <Car size={13} className="text-gray-400 shrink-0" />
+                                  <span>Placa: <strong className="text-gray-800 font-semibold">{c.placa}</strong></span>
+                                </div>
+                              )}
+                              {c.documento && (
+                                <div className="flex items-center gap-1.5">
+                                  <Shield size={13} className="text-gray-400 shrink-0" />
+                                  <span>Documento: <strong className="text-gray-800 font-medium">{c.documento}</strong></span>
+                                </div>
+                              )}
+                              {c.whatsapp && (
+                                <div className="flex items-center gap-1.5">
+                                  <Phone size={13} className="text-gray-400 shrink-0" />
+                                  <span>WhatsApp: <strong className="text-gray-800 font-medium">{c.whatsapp}</strong></span>
+                                </div>
+                              )}
+                              {c.cracha_referencia && (
+                                <div className="flex items-center gap-1.5">
+                                  <KeyRound size={13} className="text-gray-400 shrink-0" />
+                                  <span>Crachá / Ref: <strong className="text-gray-800 font-medium">{c.cracha_referencia}</strong></span>
+                                </div>
+                              )}
+                            </div>
+                          )}
+
+                          {/* Observação se houver */}
+                          {c.observacao && (
+                            <p className="text-xs text-gray-500 italic bg-gray-50/80 p-2.5 rounded-xl border border-gray-100">
+                              "{c.observacao}"
+                            </p>
+                          )}
+                        </div>
+                      )
+                    })}
+                  </div>
+
+                  {/* Controle de Paginação (quando houver mais de 5 convites) */}
+                  {convites.length > CONVITES_PAGE_SIZE && (
+                    <div className="flex items-center justify-between pt-4 mt-2 border-t border-gray-100 text-xs">
+                      <button
+                        type="button"
+                        onClick={() => setConvitesPage(prev => Math.max(1, prev - 1))}
+                        disabled={convitesPage <= 1}
+                        className={`px-3 py-1.5 rounded-lg font-semibold transition-all ${
+                          convitesPage <= 1
+                            ? 'bg-gray-100 text-gray-400 cursor-not-allowed border border-gray-200'
+                            : 'bg-white text-gray-700 hover:bg-gray-50 border border-gray-200 shadow-sm hover:text-[#FC5931]'
+                        }`}
+                      >
+                        Anterior
+                      </button>
+
+                      <span className="text-gray-500 font-medium">
+                        Página {convitesPage} de {serverConvitesTotalPages}
+                      </span>
+
+                      <button
+                        type="button"
+                        onClick={() => setConvitesPage(prev => Math.min(serverConvitesTotalPages, prev + 1))}
+                        disabled={convitesPage >= serverConvitesTotalPages}
+                        className={`px-3 py-1.5 rounded-lg font-semibold transition-all ${
+                          convitesPage >= serverConvitesTotalPages
+                            ? 'bg-gray-100 text-gray-400 cursor-not-allowed border border-gray-200'
+                            : 'bg-white text-gray-700 hover:bg-gray-50 border border-gray-200 shadow-sm hover:text-[#FC5931]'
+                        }`}
+                      >
+                        Próxima
+                      </button>
                     </div>
-                  ))}
-                </div>
+                  )}
+                </>
               ) : (
                 <div className="text-center py-8 text-gray-400 text-xs">
                   <KeyRound size={28} className="mx-auto mb-2 text-gray-300" />
@@ -1946,21 +2152,130 @@ export default function Resident360Client({
               </h2>
 
               {portariaRegistros.length > 0 ? (
-                <div className="divide-y divide-gray-100">
-                  {portariaRegistros.map(r => (
-                    <div key={r.id} className="py-3 flex items-center justify-between flex-wrap gap-2">
-                      <div>
-                        <p className="font-semibold text-sm text-gray-800">{r.nome || 'Visitante'}</p>
-                        <p className="text-xs text-gray-400 mt-0.5">
-                          Tipo: {r.tipo_visitante || 'Visitante'} • Entrada: {formatDateTime(r.entrada_at)}
-                        </p>
-                      </div>
-                      <span className="text-xs px-2.5 py-0.5 rounded-full font-medium bg-gray-100 text-gray-700">
-                        {r.status || 'Registrado'}
+                <>
+                  <div className="space-y-3">
+                    {paginatedPortariaRegistros.map(r => {
+                      const isPresente = !r.saida_at
+
+                      return (
+                        <div
+                          key={r.id}
+                          className="p-4 rounded-xl border border-gray-100 bg-white hover:border-gray-200 transition-all space-y-3"
+                        >
+                          {/* Header: Visitante Name, Visitor Type, Presente/Saída & Status */}
+                          <div className="flex items-start justify-between gap-3 flex-wrap">
+                            <div className="min-w-0">
+                              <div className="flex items-center gap-2 flex-wrap">
+                                <p className="font-semibold text-sm text-gray-900">
+                                  {r.nome || 'Visitante'}
+                                </p>
+                                {r.tipo_visitante && (
+                                  <span className="text-[11px] font-medium px-2 py-0.5 rounded-md bg-gray-100 text-gray-600">
+                                    {r.tipo_visitante}
+                                  </span>
+                                )}
+                              </div>
+                            </div>
+
+                            {/* Badges de Presença e Status */}
+                            <div className="flex items-center gap-2 flex-wrap">
+                              {isPresente ? (
+                                <span className="inline-flex items-center gap-1 text-[11px] font-semibold px-2.5 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200">
+                                  Presente
+                                </span>
+                              ) : (
+                                <span className="text-[11px] font-medium px-2.5 py-0.5 rounded-full bg-gray-100 text-gray-600 border border-gray-200">
+                                  Saída registrada
+                                </span>
+                              )}
+                              {r.status && (
+                                <span className="text-xs px-2.5 py-0.5 rounded-full font-medium bg-gray-100 text-gray-700 border border-gray-200">
+                                  {r.status}
+                                </span>
+                              )}
+                            </div>
+                          </div>
+
+                          {/* Datas: Entrada e Saída */}
+                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs text-gray-500 pt-1">
+                            {r.entrada_at && (
+                              <div className="flex items-center gap-1.5">
+                                <Clock size={13} className="text-gray-400 shrink-0" />
+                                <span>Entrada: <strong className="text-gray-700 font-medium">{formatDateTime(r.entrada_at)}</strong></span>
+                              </div>
+                            )}
+                            {r.saida_at && (
+                              <div className="flex items-center gap-1.5">
+                                <Clock size={13} className="text-gray-400 shrink-0" />
+                                <span>Saída: <strong className="text-gray-700 font-medium">{formatDateTime(r.saida_at)}</strong></span>
+                              </div>
+                            )}
+                          </div>
+
+                          {/* Dados adicionais se disponíveis: Placa e Documento */}
+                          {(r.placa || r.documento) && (
+                            <div className="flex items-center gap-4 flex-wrap text-xs text-gray-600 pt-1 border-t border-gray-50">
+                              {r.placa && (
+                                <div className="flex items-center gap-1.5">
+                                  <Car size={13} className="text-gray-400 shrink-0" />
+                                  <span>Placa: <strong className="text-gray-800 font-semibold">{r.placa}</strong></span>
+                                </div>
+                              )}
+                              {r.documento && (
+                                <div className="flex items-center gap-1.5">
+                                  <Shield size={13} className="text-gray-400 shrink-0" />
+                                  <span>Documento: <strong className="text-gray-800 font-medium">{r.documento}</strong></span>
+                                </div>
+                              )}
+                            </div>
+                          )}
+
+                          {/* Observação se houver */}
+                          {r.observacao && (
+                            <p className="text-xs text-gray-500 italic bg-gray-50/80 p-2.5 rounded-xl border border-gray-100">
+                              "{r.observacao}"
+                            </p>
+                          )}
+                        </div>
+                      )
+                    })}
+                  </div>
+
+                  {/* Controle de Paginação (quando houver mais de 5 registros) */}
+                  {portariaRegistros.length > PORTARIA_PAGE_SIZE && (
+                    <div className="flex items-center justify-between pt-4 mt-2 border-t border-gray-100 text-xs">
+                      <button
+                        type="button"
+                        onClick={() => setPortariaPage(prev => Math.max(1, prev - 1))}
+                        disabled={portariaPage <= 1}
+                        className={`px-3 py-1.5 rounded-lg font-semibold transition-all ${
+                          portariaPage <= 1
+                            ? 'bg-gray-100 text-gray-400 cursor-not-allowed border border-gray-200'
+                            : 'bg-white text-gray-700 hover:bg-gray-50 border border-gray-200 shadow-sm hover:text-[#FC5931]'
+                        }`}
+                      >
+                        Anterior
+                      </button>
+
+                      <span className="text-gray-500 font-medium">
+                        Página {portariaPage} de {serverPortariaTotalPages}
                       </span>
+
+                      <button
+                        type="button"
+                        onClick={() => setPortariaPage(prev => Math.min(serverPortariaTotalPages, prev + 1))}
+                        disabled={portariaPage >= serverPortariaTotalPages}
+                        className={`px-3 py-1.5 rounded-lg font-semibold transition-all ${
+                          portariaPage >= serverPortariaTotalPages
+                            ? 'bg-gray-100 text-gray-400 cursor-not-allowed border border-gray-200'
+                            : 'bg-white text-gray-700 hover:bg-gray-50 border border-gray-200 shadow-sm hover:text-[#FC5931]'
+                        }`}
+                      >
+                        Próxima
+                      </button>
                     </div>
-                  ))}
-                </div>
+                  )}
+                </>
               ) : (
                 <div className="text-center py-8 text-gray-400 text-xs">
                   <Building2 size={28} className="mx-auto mb-2 text-gray-300" />
