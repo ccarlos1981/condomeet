@@ -2419,6 +2419,113 @@ export async function adminGetUnitAccessPage(
 }
 
 /**
+ * Gate 3M: Consulta paginada do histórico administrativo de alterações do morador (public.perfil_audit_log).
+ * Read-only com isolamento multi-tenant estrito e range de 5 registros por página.
+ */
+export async function adminGetResidentHistoryPage(residentId: string, page: number = 1) {
+  try {
+    if (!residentId?.trim()) {
+      return { error: 'Identificador do morador é obrigatório.' }
+    }
+
+    const supabase = await createClient()
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) return { error: 'Não autorizado' }
+
+    // 1. Obter perfil do operador autenticado e validar permissão administrativa
+    const { data: operatorProfile, error: operatorError } = await supabase
+      .from('perfil')
+      .select('condominio_id, papel_sistema')
+      .eq('id', user.id)
+      .single()
+
+    if (operatorError || !operatorProfile || !isAdminRole(operatorProfile.papel_sistema)) {
+      return { error: 'Permissão negada. Apenas síndicos e administradores podem consultar o histórico.' }
+    }
+
+    const condoId = operatorProfile.condominio_id
+    if (!condoId) {
+      return { error: 'Condomínio do operador não identificado.' }
+    }
+
+    // 2. Tenant guard e proteção cross-profile: verificar se o residentId pertence ao condomínio do operador
+    const { data: targetResident, error: targetError } = await supabase
+      .from('perfil')
+      .select('id, condominio_id')
+      .eq('id', residentId.trim())
+      .single()
+
+    if (targetError || !targetResident || targetResident.condominio_id !== condoId) {
+      return { error: 'Morador não encontrado ou não pertence a este condomínio.' }
+    }
+
+    const PAGE_SIZE = 5
+    const safePage = Math.max(1, Math.floor(Number(page) || 1))
+    const from = (safePage - 1) * PAGE_SIZE
+    const to = from + PAGE_SIZE - 1
+
+    const { data: rawLogs, error: queryError, count } = await supabase
+      .from('perfil_audit_log')
+      .select(`
+        id,
+        acao,
+        motivo,
+        estado_anterior,
+        estado_posterior,
+        created_at,
+        operador:operador_id (
+          id,
+          nome_completo,
+          papel_sistema
+        ),
+        unidade:unidade_id (
+          id,
+          blocos ( nome_ou_numero ),
+          apartamentos ( numero )
+        )
+      `, { count: 'exact' })
+      .eq('perfil_id', residentId.trim())
+      .eq('condominio_id', condoId)
+      .order('created_at', { ascending: false })
+      .range(from, to)
+
+    if (queryError) {
+      console.error('[adminGetResidentHistoryPage] Erro ao consultar histórico:', queryError)
+      return { error: 'Falha ao consultar histórico do morador.' }
+    }
+
+    const items = (rawLogs ?? []).map((l: any) => ({
+      id: l.id,
+      acao: l.acao,
+      motivo: l.motivo,
+      estado_anterior: l.estado_anterior,
+      estado_posterior: l.estado_posterior,
+      created_at: l.created_at,
+      operador_nome: l.operador?.nome_completo || 'Administrador',
+      operador_papel: l.operador?.papel_sistema || 'Admin',
+      unidade_bloco: l.unidade?.blocos?.nome_ou_numero || null,
+      unidade_apto: l.unidade?.apartamentos?.numero || null,
+    }))
+
+    const total = count ?? 0
+    const totalPages = total > 0 ? Math.ceil(total / PAGE_SIZE) : 0
+
+    return {
+      success: true,
+      data: items,
+      page: safePage,
+      pageSize: PAGE_SIZE,
+      total,
+      totalPages,
+    }
+  } catch (err: unknown) {
+    console.error('[adminGetResidentHistoryPage] Erro interno:', err)
+    const msg = err instanceof Error ? err.message : 'Erro interno ao consultar histórico.'
+    return { error: msg }
+  }
+}
+
+/**
  * Gate 3I.3-B: Edição canônica dos dados gerais do morador para o Resident 360.
  * Atualiza exclusivamente nome_completo, whatsapp, tipo_morador e papel_sistema.
  * Não altera email, unidades nem credenciais de autenticação.

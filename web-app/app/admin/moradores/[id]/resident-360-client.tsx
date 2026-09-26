@@ -35,6 +35,7 @@ import {
   Camera,
   Trash2,
   Eye,
+  Loader2,
 } from 'lucide-react'
 import { getBlocoLabel, getAptoLabel, formatUnitDisplay, isTechnicalAdminUnit } from '@/lib/labels'
 import { isTechnicalAdminRole } from '@/lib/roles'
@@ -63,6 +64,7 @@ import {
   adminRejectResident,
   adminGetResidentInvitesPage,
   adminGetUnitAccessPage,
+  adminGetResidentHistoryPage,
 } from '@/app/admin/actions'
 
 export interface ResidentData {
@@ -170,6 +172,7 @@ interface Props {
   convites: ConviteData[]
   portariaRegistros: PortariaRegistroData[]
   auditLogs?: AuditLogData[]
+  auditTotal?: number
   veiculos?: VehicleData[]
   veiculosError?: string | null
   pets?: PetData[]
@@ -367,6 +370,7 @@ function formatDateTime(iso?: string | null): string {
 
 const PORTARIA_PAGE_SIZE = 5
 const CONVITES_PAGE_SIZE = 5
+const HISTORY_PAGE_SIZE = 5
 
 export default function Resident360Client({
   resident: initialResident,
@@ -376,7 +380,8 @@ export default function Resident360Client({
   coResidents,
   convites,
   portariaRegistros = [],
-  auditLogs = [],
+  auditLogs: initialAuditLogs = [],
+  auditTotal: initialAuditTotal = 0,
   veiculos: initialVeiculos = [],
   veiculosError = null,
   pets: initialPets = [],
@@ -404,6 +409,40 @@ export default function Resident360Client({
     Math.ceil(portariaRegistros.length / PORTARIA_PAGE_SIZE)
   )
   const paginatedPortariaRegistros = serverPortariaRegistros
+
+  // Paginação do Histórico Administrativo (Gate 3M)
+  const [historyPage, setHistoryPage] = useState(1)
+  const [serverAuditLogs, setServerAuditLogs] = useState<AuditLogData[]>(initialAuditLogs)
+  const [serverHistoryTotal, setServerHistoryTotal] = useState(initialAuditTotal || initialAuditLogs.length)
+  const [serverHistoryTotalPages, setServerHistoryTotalPages] = useState(
+    Math.ceil((initialAuditTotal || initialAuditLogs.length) / HISTORY_PAGE_SIZE)
+  )
+  const [historyLoading, setHistoryLoading] = useState(false)
+
+  // Sincronizar estado inicial do histórico quando recebido via props
+  useEffect(() => {
+    setServerAuditLogs(initialAuditLogs)
+    setServerHistoryTotal(initialAuditTotal || initialAuditLogs.length)
+    setServerHistoryTotalPages(Math.ceil((initialAuditTotal || initialAuditLogs.length) / HISTORY_PAGE_SIZE))
+  }, [initialAuditLogs, initialAuditTotal])
+
+  // Busca paginada isolada do Histórico (Gate 3M)
+  useEffect(() => {
+    let isCancelled = false
+    setHistoryLoading(true)
+    adminGetResidentHistoryPage(initialResident.id, historyPage).then((result) => {
+      if (isCancelled) return
+      if (result.success && result.data) {
+        setServerAuditLogs(result.data)
+        setServerHistoryTotal(result.total)
+        setServerHistoryTotalPages(result.totalPages)
+      }
+      setHistoryLoading(false)
+    })
+    return () => {
+      isCancelled = true
+    }
+  }, [initialResident.id, historyPage])
 
   // Synced local state for immediate reactive status changes
   const [resident, setResident] = useState<ResidentData>(initialResident)
@@ -649,7 +688,7 @@ export default function Resident360Client({
     { key: 'pets', label: 'Pets', icon: <PawPrint size={16} />, count: petsError ? undefined : pets.length },
     { key: 'familia', label: 'Família', icon: <Users size={16} />, count: ((dependentes?.length ?? 0) + (coResidents.length > 0 ? coResidents.length + 1 : 0)) || undefined },
     { key: 'acessos', label: 'Acessos', icon: <KeyRound size={16} />, count: serverConvitesTotal + serverPortariaTotal },
-    { key: 'historico', label: 'Histórico 🔒', icon: <Clock size={16} />, count: auditLogs.length > 0 ? auditLogs.length : undefined },
+    { key: 'historico', label: 'Histórico 🔒', icon: <Clock size={16} />, count: serverHistoryTotal > 0 ? serverHistoryTotal : undefined },
   ]
 
   return (
@@ -2702,16 +2741,17 @@ export default function Resident360Client({
                   <Shield size={18} className="text-[#FC5931]" />
                   <h3 className="text-base font-bold text-gray-900">Histórico Administrativo de Alterações</h3>
                 </div>
-                {auditLogs.length > 0 && (
+                {serverHistoryTotal > 0 && (
                   <span className="text-xs font-semibold text-gray-500 bg-gray-100 px-2.5 py-0.5 rounded-full">
-                    {auditLogs.length} registro{auditLogs.length !== 1 ? 's' : ''}
+                    {serverHistoryTotal} registro{serverHistoryTotal !== 1 ? 's' : ''}
                   </span>
                 )}
               </div>
 
-              {auditLogs.length > 0 ? (
-                <div className="space-y-3">
-                  {auditLogs.map((log) => {
+              {serverHistoryTotal > 0 ? (
+                <>
+                <div className={`space-y-3 transition-opacity duration-150 ${historyLoading ? 'opacity-50 pointer-events-none' : 'opacity-100'}`}>
+                  {serverAuditLogs.map((log) => {
                     const post = log.estado_posterior || {}
                     const ant = log.estado_anterior || {}
                     const isResidentApproved = log.acao === 'RESIDENT_APPROVED'
@@ -3145,6 +3185,43 @@ export default function Resident360Client({
                     )
                   })}
                 </div>
+
+                {/* Gate 3M: Controle de Paginação Real Server-Side (5 por página) */}
+                {serverHistoryTotal > HISTORY_PAGE_SIZE && (
+                  <div className="flex items-center justify-between pt-4 mt-2 border-t border-gray-100 text-xs">
+                    <button
+                      type="button"
+                      onClick={() => setHistoryPage(prev => Math.max(1, prev - 1))}
+                      disabled={historyPage <= 1 || historyLoading}
+                      className={`px-3 py-1.5 rounded-lg font-semibold transition-all ${
+                        historyPage <= 1 || historyLoading
+                          ? 'bg-gray-100 text-gray-400 cursor-not-allowed border border-gray-200'
+                          : 'bg-white text-gray-700 hover:bg-gray-50 border border-gray-200 shadow-sm hover:text-[#FC5931]'
+                      }`}
+                    >
+                      Anterior
+                    </button>
+
+                    <span className="text-gray-500 font-medium flex items-center gap-1.5">
+                      {historyLoading && <Loader2 size={12} className="animate-spin text-[#FC5931]" />}
+                      <span>Página {historyPage} de {Math.max(1, serverHistoryTotalPages)}</span>
+                    </span>
+
+                    <button
+                      type="button"
+                      onClick={() => setHistoryPage(prev => Math.min(serverHistoryTotalPages, prev + 1))}
+                      disabled={historyPage >= serverHistoryTotalPages || historyLoading}
+                      className={`px-3 py-1.5 rounded-lg font-semibold transition-all ${
+                        historyPage >= serverHistoryTotalPages || historyLoading
+                          ? 'bg-gray-100 text-gray-400 cursor-not-allowed border border-gray-200'
+                          : 'bg-white text-gray-700 hover:bg-gray-50 border border-gray-200 shadow-sm hover:text-[#FC5931]'
+                      }`}
+                    >
+                      Próxima
+                    </button>
+                  </div>
+                )}
+                </>
               ) : (
                 <div className="text-center py-8 text-gray-400 text-xs">
                   <Shield size={28} className="mx-auto mb-2 text-gray-300" />

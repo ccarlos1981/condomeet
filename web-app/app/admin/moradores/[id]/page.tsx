@@ -257,8 +257,8 @@ export default async function Resident360Page(props: PageProps) {
     }))
   }
 
-  // 9. Fetch administrative audit logs for this resident
-  const { data: rawAuditLogs } = await supabase
+  // 9. Fetch administrative audit logs for this resident (Gate 3M: initial 5 records + exact total count)
+  const { data: rawAuditLogs, count: auditCount } = await supabase
     .from('perfil_audit_log')
     .select(`
       id,
@@ -277,11 +277,11 @@ export default async function Resident360Page(props: PageProps) {
         blocos ( nome_ou_numero ),
         apartamentos ( numero )
       )
-    `)
+    `, { count: 'exact' })
     .eq('perfil_id', id)
     .eq('condominio_id', condoId)
     .order('created_at', { ascending: false })
-    .limit(50)
+    .range(0, 4)
 
   const auditLogs = (rawAuditLogs ?? []).map((l: any) => ({
     id: l.id,
@@ -524,6 +524,7 @@ export default async function Resident360Page(props: PageProps) {
       convites={convites}
       portariaRegistros={portariaRegistros}
       auditLogs={auditLogs}
+      auditTotal={auditCount ?? 0}
       veiculos={veiculos}
       veiculosError={veiculosError ? 'Não foi possível carregar os dados de veículos devido a uma falha no banco de dados.' : null}
       pets={pets}
