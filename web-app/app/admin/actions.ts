@@ -1097,3 +1097,291 @@ export async function adminReactivateVehicle(data: {
     return { error: msg }
   }
 }
+
+// ============================================================================
+// BASE CADASTRAL 360º — MÓDULO PETS (GATE 3E.2-B)
+// ============================================================================
+
+export async function adminCreatePet(data: {
+  profileId: string
+  unidadeId: string
+  nome: string
+  especie: string
+  raca?: string | null
+  sexo?: string | null
+  porte?: string | null
+  cor?: string | null
+  dataNascimento?: string | null
+  castrado?: boolean | null
+  vacinado?: boolean | null
+  observacao?: string | null
+}) {
+  try {
+    const supabase = await createClient()
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) return { error: 'Não autorizado' }
+
+    const { data: opProfile } = await supabase
+      .from('perfil')
+      .select('papel_sistema')
+      .eq('id', user.id)
+      .single()
+
+    if (!isAdminRole(opProfile?.papel_sistema)) {
+      return { error: 'Permissão negada. Apenas síndicos e administradores podem cadastrar pets.' }
+    }
+
+    if (!data.profileId) return { error: 'O morador tutor é obrigatório.' }
+    if (!data.unidadeId) return { error: 'A unidade residencial é obrigatória.' }
+    if (!data.nome?.trim()) return { error: 'O nome do pet é obrigatório.' }
+    if (!data.especie?.trim()) return { error: 'A espécie do pet é obrigatória.' }
+
+    const { data: rpcResult, error: rpcError } = await supabase.rpc('admin_cadastrar_pet', {
+      p_perfil_id: data.profileId,
+      p_unidade_id: data.unidadeId,
+      p_nome: data.nome.trim(),
+      p_especie: data.especie.trim().toLowerCase(),
+      p_raca: data.raca?.trim() || null,
+      p_sexo: data.sexo?.trim().toLowerCase() || null,
+      p_porte: data.porte?.trim().toLowerCase() || null,
+      p_cor: data.cor?.trim() || null,
+      p_data_nascimento: data.dataNascimento || null,
+      p_castrado: typeof data.castrado === 'boolean' ? data.castrado : null,
+      p_vacinado: typeof data.vacinado === 'boolean' ? data.vacinado : null,
+      p_observacao: data.observacao?.trim() || null,
+    })
+
+    if (rpcError) {
+      console.error('Erro na RPC admin_cadastrar_pet:', rpcError)
+      return { error: rpcError.message }
+    }
+
+    revalidatePath('/admin/moradores')
+    revalidatePath(`/admin/moradores/${data.profileId}`)
+
+    return {
+      success: true,
+      result: rpcResult,
+    }
+  } catch (err: unknown) {
+    console.error('Erro interno em adminCreatePet:', err)
+    const msg = err instanceof Error ? err.message : 'Erro interno ao cadastrar pet.'
+    return { error: msg }
+  }
+}
+
+export async function adminUpdatePet(data: {
+  petId: string
+  profileId: string
+  nome: string
+  especie: string
+  raca?: string | null
+  sexo?: string | null
+  porte?: string | null
+  cor?: string | null
+  dataNascimento?: string | null
+  castrado?: boolean | null
+  vacinado?: boolean | null
+  observacao?: string | null
+}) {
+  try {
+    const supabase = await createClient()
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) return { error: 'Não autorizado' }
+
+    const { data: opProfile } = await supabase
+      .from('perfil')
+      .select('papel_sistema')
+      .eq('id', user.id)
+      .single()
+
+    if (!isAdminRole(opProfile?.papel_sistema)) {
+      return { error: 'Permissão negada. Apenas síndicos e administradores podem atualizar pets.' }
+    }
+
+    if (!data.petId) return { error: 'Identificador do pet é obrigatório.' }
+    if (!data.nome?.trim()) return { error: 'O nome do pet é obrigatório.' }
+    if (!data.especie?.trim()) return { error: 'A espécie do pet é obrigatória.' }
+
+    const { data: rpcResult, error: rpcError } = await supabase.rpc('admin_atualizar_pet', {
+      p_pet_id: data.petId,
+      p_nome: data.nome.trim(),
+      p_especie: data.especie.trim().toLowerCase(),
+      p_raca: data.raca?.trim() || null,
+      p_sexo: data.sexo?.trim().toLowerCase() || null,
+      p_porte: data.porte?.trim().toLowerCase() || null,
+      p_cor: data.cor?.trim() || null,
+      p_data_nascimento: data.dataNascimento || null,
+      p_castrado: typeof data.castrado === 'boolean' ? data.castrado : null,
+      p_vacinado: typeof data.vacinado === 'boolean' ? data.vacinado : null,
+      p_observacao: data.observacao?.trim() || null,
+    })
+
+    if (rpcError) {
+      console.error('Erro na RPC admin_atualizar_pet:', rpcError)
+      return { error: rpcError.message }
+    }
+
+    revalidatePath('/admin/moradores')
+    if (data.profileId) {
+      revalidatePath(`/admin/moradores/${data.profileId}`)
+    }
+
+    return {
+      success: true,
+      result: rpcResult,
+    }
+  } catch (err: unknown) {
+    console.error('Erro interno em adminUpdatePet:', err)
+    const msg = err instanceof Error ? err.message : 'Erro interno ao atualizar pet.'
+    return { error: msg }
+  }
+}
+
+export async function adminInactivatePet(data: {
+  petId: string
+  profileId: string
+  motivo: string
+}) {
+  try {
+    const supabase = await createClient()
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) return { error: 'Não autorizado' }
+
+    const { data: opProfile } = await supabase
+      .from('perfil')
+      .select('papel_sistema')
+      .eq('id', user.id)
+      .single()
+
+    if (!isAdminRole(opProfile?.papel_sistema)) {
+      return { error: 'Permissão negada. Apenas síndicos e administradores podem inativar pets.' }
+    }
+
+    if (!data.petId) return { error: 'Identificador do pet é obrigatório.' }
+    if (!data.motivo?.trim()) return { error: 'O motivo da inativação é obrigatório.' }
+
+    const { data: rpcResult, error: rpcError } = await supabase.rpc('admin_inativar_pet', {
+      p_pet_id: data.petId,
+      p_motivo: data.motivo.trim(),
+    })
+
+    if (rpcError) {
+      console.error('Erro na RPC admin_inativar_pet:', rpcError)
+      return { error: rpcError.message }
+    }
+
+    revalidatePath('/admin/moradores')
+    if (data.profileId) {
+      revalidatePath(`/admin/moradores/${data.profileId}`)
+    }
+
+    return {
+      success: true,
+      result: rpcResult,
+    }
+  } catch (err: unknown) {
+    console.error('Erro interno em adminInactivatePet:', err)
+    const msg = err instanceof Error ? err.message : 'Erro interno ao inativar pet.'
+    return { error: msg }
+  }
+}
+
+export async function adminReactivatePet(data: {
+  petId: string
+  profileId: string
+  motivo?: string | null
+}) {
+  try {
+    const supabase = await createClient()
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) return { error: 'Não autorizado' }
+
+    const { data: opProfile } = await supabase
+      .from('perfil')
+      .select('papel_sistema')
+      .eq('id', user.id)
+      .single()
+
+    if (!isAdminRole(opProfile?.papel_sistema)) {
+      return { error: 'Permissão negada. Apenas síndicos e administradores podem reativar pets.' }
+    }
+
+    if (!data.petId) return { error: 'Identificador do pet é obrigatório.' }
+
+    const { data: rpcResult, error: rpcError } = await supabase.rpc('admin_reativar_pet', {
+      p_pet_id: data.petId,
+      p_motivo: data.motivo?.trim() || null,
+    })
+
+    if (rpcError) {
+      console.error('Erro na RPC admin_reativar_pet:', rpcError)
+      return { error: rpcError.message }
+    }
+
+    revalidatePath('/admin/moradores')
+    if (data.profileId) {
+      revalidatePath(`/admin/moradores/${data.profileId}`)
+    }
+
+    return {
+      success: true,
+      result: rpcResult,
+    }
+  } catch (err: unknown) {
+    console.error('Erro interno em adminReactivatePet:', err)
+    const msg = err instanceof Error ? err.message : 'Erro interno ao reativar pet.'
+    return { error: msg }
+  }
+}
+
+export async function adminTransferPetUnit(data: {
+  petId: string
+  profileId: string
+  novaUnidadeId: string
+  motivo?: string | null
+}) {
+  try {
+    const supabase = await createClient()
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) return { error: 'Não autorizado' }
+
+    const { data: opProfile } = await supabase
+      .from('perfil')
+      .select('papel_sistema')
+      .eq('id', user.id)
+      .single()
+
+    if (!isAdminRole(opProfile?.papel_sistema)) {
+      return { error: 'Permissão negada. Apenas síndicos e administradores podem transferir unidades de pets.' }
+    }
+
+    if (!data.petId) return { error: 'Identificador do pet é obrigatório.' }
+    if (!data.novaUnidadeId) return { error: 'A nova unidade residencial é obrigatória.' }
+
+    const { data: rpcResult, error: rpcError } = await supabase.rpc('admin_transferir_unidade_pet', {
+      p_pet_id: data.petId,
+      p_nova_unidade_id: data.novaUnidadeId,
+      p_motivo: data.motivo?.trim() || null,
+    })
+
+    if (rpcError) {
+      console.error('Erro na RPC admin_transferir_unidade_pet:', rpcError)
+      return { error: rpcError.message }
+    }
+
+    revalidatePath('/admin/moradores')
+    if (data.profileId) {
+      revalidatePath(`/admin/moradores/${data.profileId}`)
+    }
+
+    return {
+      success: true,
+      result: rpcResult,
+    }
+  } catch (err: unknown) {
+    console.error('Erro interno em adminTransferPetUnit:', err)
+    const msg = err instanceof Error ? err.message : 'Erro interno ao transferir unidade do pet.'
+    return { error: msg }
+  }
+}

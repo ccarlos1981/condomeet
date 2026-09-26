@@ -29,6 +29,8 @@ import {
   PlusCircle,
   Edit2,
   RefreshCw,
+  PawPrint,
+  ArrowRightLeft,
 } from 'lucide-react'
 import { getBlocoLabel, getAptoLabel, formatUnitDisplay, isTechnicalAdminUnit } from '@/lib/labels'
 import { isTechnicalAdminRole } from '@/lib/roles'
@@ -39,6 +41,10 @@ import VehicleModal from '../vehicle-modal'
 import VehiclePlateModal from '../vehicle-plate-modal'
 import VehicleInactivateModal from '../vehicle-inactivate-modal'
 import VehicleReactivateModal from '../vehicle-reactivate-modal'
+import PetModal from '../pet-modal'
+import PetInactivateModal from '../pet-inactivate-modal'
+import PetReactivateModal from '../pet-reactivate-modal'
+import PetUnitModal from '../pet-unit-modal'
 import { adminToggleBlockStatus } from '@/app/admin/actions'
 
 export interface ResidentData {
@@ -132,6 +138,8 @@ interface Props {
   auditLogs?: AuditLogData[]
   veiculos?: VehicleData[]
   veiculosError?: string | null
+  pets?: PetData[]
+  petsError?: string | null
 }
 
 export interface VehicleData {
@@ -152,6 +160,53 @@ export interface VehicleData {
   updated_at?: string | null
   unidade_bloco?: string | null
   unidade_apto?: string | null
+}
+
+export interface PetData {
+  id: string
+  condominio_id: string
+  perfil_id: string
+  unidade_id: string
+  nome: string
+  especie: 'cao' | 'gato' | 'ave' | 'roedor' | 'reptil' | 'peixe' | 'outro'
+  raca?: string | null
+  sexo?: 'macho' | 'femea' | null
+  porte?: 'pequeno' | 'medio' | 'grande' | 'nao_se_aplica' | null
+  cor?: string | null
+  data_nascimento?: string | null
+  castrado?: boolean | null
+  vacinado?: boolean | null
+  observacao?: string | null
+  status: 'ativo' | 'inativo'
+  created_at: string
+  updated_at?: string | null
+  unidade_bloco?: string | null
+  unidade_apto?: string | null
+}
+
+export function formatEspecie(especie?: string | null): string {
+  if (!especie) return '—'
+  const map: Record<string, string> = {
+    cao: 'Cão',
+    gato: 'Gato',
+    ave: 'Ave',
+    roedor: 'Roedor',
+    reptil: 'Réptil',
+    peixe: 'Peixe',
+    outro: 'Outro',
+  }
+  return map[especie] || especie
+}
+
+export function formatPorte(porte?: string | null): string {
+  if (!porte) return 'Não informado'
+  const map: Record<string, string> = {
+    pequeno: 'Pequeno',
+    medio: 'Médio',
+    grande: 'Grande',
+    nao_se_aplica: 'Não se aplica',
+  }
+  return map[porte] || porte
 }
 
 export function formatPlateDisplay(plate?: string | null): string {
@@ -219,6 +274,23 @@ function formatDate(iso?: string | null): string {
   }
 }
 
+/**
+ * Formata campo PostgreSQL DATE (dia civil YYYY-MM-DD) sem conversão para UTC ou objeto Date.
+ * Previne retrocessos indevidos de fuso horário (ex: 2000-01-01 -> 31/12/1999).
+ */
+export function formatDateCivil(dateStr?: string | null): string {
+  if (!dateStr) return '—'
+  const clean = dateStr.trim().split(/[T ]/)[0]
+  const parts = clean.split('-')
+  if (parts.length === 3) {
+    const [year, month, day] = parts
+    if (year.length === 4 && month.length === 2 && day.length === 2) {
+      return `${day}/${month}/${year}`
+    }
+  }
+  return clean
+}
+
 function formatDateTime(iso?: string | null): string {
   if (!iso) return '—'
   try {
@@ -247,6 +319,8 @@ export default function Resident360Client({
   auditLogs = [],
   veiculos: initialVeiculos = [],
   veiculosError = null,
+  pets: initialPets = [],
+  petsError = null,
 }: Props) {
   const router = useRouter()
   const [activeTab, setActiveTab] = useState<TabKey>('dados-gerais')
@@ -268,6 +342,19 @@ export default function Resident360Client({
   const [correctingVehicle, setCorrectingVehicle] = useState<VehicleData | null>(null)
   const [inactivatingVehicle, setInactivatingVehicle] = useState<VehicleData | null>(null)
   const [reactivatingVehicle, setReactivatingVehicle] = useState<VehicleData | null>(null)
+
+  // Pets State (Gate 3E.2-B)
+  const [pets, setPets] = useState<PetData[]>(initialPets)
+  useEffect(() => {
+    setPets(initialPets)
+  }, [initialPets])
+
+  // Pet Modals State
+  const [isPetModalOpen, setIsPetModalOpen] = useState(false)
+  const [editingPet, setEditingPet] = useState<PetData | null>(null)
+  const [transferringPet, setTransferringPet] = useState<PetData | null>(null)
+  const [inactivatingPet, setInactivatingPet] = useState<PetData | null>(null)
+  const [reactivatingPet, setReactivatingPet] = useState<PetData | null>(null)
 
   // Block / Unblock Modal State
   const [confirmAction, setConfirmAction] = useState<'block' | 'unblock' | null>(null)
@@ -336,7 +423,7 @@ export default function Resident360Client({
     { key: 'dados-gerais', label: 'Dados Gerais', icon: <User size={16} /> },
     { key: 'unidade', label: 'Unidade', icon: <Home size={16} />, count: unitLinks.filter(u => u.status === 'ativo').length },
     { key: 'veiculos', label: 'Veículos', icon: <Car size={16} />, count: veiculosError ? undefined : veiculos.length },
-    { key: 'pets', label: 'Pets', icon: <Heart size={16} /> },
+    { key: 'pets', label: 'Pets', icon: <PawPrint size={16} />, count: petsError ? undefined : pets.length },
     { key: 'familia', label: 'Família', icon: <Users size={16} />, count: coResidents.length > 0 ? coResidents.length + 1 : undefined },
     { key: 'acessos', label: 'Acessos', icon: <KeyRound size={16} />, count: convites.length + portariaRegistros.length },
     { key: 'historico', label: 'Histórico 🔒', icon: <Clock size={16} />, count: auditLogs.length > 0 ? auditLogs.length : undefined },
@@ -1048,20 +1135,234 @@ export default function Resident360Client({
 
         {/* 4. PETS */}
         {activeTab === 'pets' && (
-          <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-12 text-center max-w-xl mx-auto">
-            <div className="w-16 h-16 rounded-2xl bg-orange-50 mx-auto flex items-center justify-center mb-4">
-              <Heart size={32} className="text-[#FC5931]" />
+          <div className="space-y-6">
+            {/* Aviso discreto caso o morador esteja com acesso bloqueado */}
+            {isBlocked && (
+              <div className="bg-amber-50/80 border border-amber-200/90 rounded-xl p-3.5 flex items-center gap-3">
+                <Lock size={16} className="text-amber-700 shrink-0" />
+                <p className="text-xs text-amber-800">
+                  <strong className="font-semibold">Morador com acesso administrativo bloqueado:</strong> Os pets cadastrados permanecem vinculados e visíveis para a administração do condomínio.
+                </p>
+              </div>
+            )}
+
+            {/* Aviso para morador inativo */}
+            {isInactive && (
+              <div className="bg-zinc-100 border border-zinc-200 rounded-xl p-3.5 flex items-center gap-3">
+                <Info size={16} className="text-zinc-600 shrink-0" />
+                <p className="text-xs text-zinc-700">
+                  <strong className="font-semibold">Morador inativo:</strong> Exibindo pets históricos cadastrados. Para cadastrar novos pets, o morador deve possuir um vínculo residencial ativo.
+                </p>
+              </div>
+            )}
+
+            {/* Erro de consulta na base de pets */}
+            {petsError && (
+              <div className="bg-red-50 border border-red-200 rounded-xl p-3.5 flex items-center gap-3">
+                <AlertCircle size={16} className="text-red-600 shrink-0" />
+                <p className="text-xs text-red-700 font-medium">
+                  {petsError}
+                </p>
+              </div>
+            )}
+
+            {/* Cabeçalho da aba de pets */}
+            <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                <div>
+                  <h2 className="text-base font-bold text-gray-900 flex items-center gap-2">
+                    <PawPrint size={18} className="text-[#FC5931]" />
+                    Animais de Estimação (Pets) {petsError ? '' : `(${pets.length})`}
+                  </h2>
+                  <p className="text-xs text-gray-500 mt-1">
+                    Animais de estimação cadastrados e vinculados a este morador para identificação e convivência.
+                  </p>
+                </div>
+
+                <button
+                  onClick={() => {
+                    setEditingPet(null)
+                    setIsPetModalOpen(true)
+                  }}
+                  className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-semibold bg-[#FC5931] text-white hover:bg-[#e04820] shadow-sm transition-all self-start sm:self-auto cursor-pointer"
+                >
+                  <PlusCircle size={15} />
+                  + Adicionar Pet
+                </button>
+              </div>
+
+              {/* Lista ou Estado Vazio / Erro */}
+              {petsError ? (
+                <div className="py-12 text-center max-w-md mx-auto">
+                  <div className="w-16 h-16 rounded-2xl bg-red-50 mx-auto flex items-center justify-center mb-4">
+                    <AlertCircle size={32} className="text-red-500" />
+                  </div>
+                  <h3 className="text-base font-bold text-gray-900 mb-1">Erro na consulta de pets</h3>
+                  <p className="text-xs text-gray-500">
+                    Ocorreu uma falha ao consultar o banco de dados. Recarregue a página ou contate o administrador do sistema.
+                  </p>
+                </div>
+              ) : pets.length === 0 ? (
+                <div className="py-12 text-center max-w-md mx-auto">
+                  <div className="w-16 h-16 rounded-2xl bg-orange-50 mx-auto flex items-center justify-center mb-4">
+                    <PawPrint size={32} className="text-[#FC5931]" />
+                  </div>
+                  <h3 className="text-base font-bold text-gray-900 mb-1">Nenhum pet cadastrado.</h3>
+                  <p className="text-xs text-gray-500 mb-6">
+                    Cadastre os animais de estimação deste morador para identificação e controle no condomínio.
+                  </p>
+                  <button
+                    onClick={() => {
+                      setEditingPet(null)
+                      setIsPetModalOpen(true)
+                    }}
+                    className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-semibold bg-[#FC5931] text-white hover:bg-[#e04820] shadow-sm transition-all cursor-pointer"
+                  >
+                    <PlusCircle size={15} />
+                    + Adicionar Pet
+                  </button>
+                </div>
+              ) : (
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mt-6">
+                  {pets.map((pet) => {
+                    const isAtivo = pet.status === 'ativo'
+                    const activeUnitsCount = unitLinks.filter(u => u.status === 'ativo').length
+                    const canTransfer = isAtivo && activeUnitsCount > 1
+
+                    return (
+                      <div
+                        key={pet.id}
+                        className={`rounded-2xl border p-5 transition-all flex flex-col justify-between ${
+                          isAtivo
+                            ? 'bg-white border-gray-200/90 shadow-sm hover:border-[#FC5931]/30 hover:shadow-md'
+                            : 'bg-zinc-50/80 border-zinc-200 text-zinc-500 shadow-none'
+                        }`}
+                      >
+                        <div className="space-y-3">
+                          {/* Linha Superior: Nome e Badge de Status */}
+                          <div className="flex items-center justify-between gap-2">
+                            <h3 className={`font-bold text-base leading-tight flex items-center gap-1.5 ${isAtivo ? 'text-gray-900' : 'text-zinc-600'}`}>
+                              <span>🐾</span>
+                              <span>{pet.nome}</span>
+                            </h3>
+
+                            {/* Status */}
+                            {isAtivo ? (
+                              <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-bold bg-emerald-50 text-emerald-700 border border-emerald-200">
+                                <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
+                                ATIVO
+                              </span>
+                            ) : (
+                              <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-bold bg-zinc-100 text-zinc-600 border border-zinc-200">
+                                <span className="w-1.5 h-1.5 rounded-full bg-zinc-400" />
+                                INATIVO
+                              </span>
+                            )}
+                          </div>
+
+                          {/* Espécie e Raça */}
+                          <div>
+                            <p className="text-xs font-semibold text-gray-700">
+                              {formatEspecie(pet.especie)} {pet.raca ? `• ${pet.raca}` : '• SRD'}
+                            </p>
+                            <p className="text-xs text-gray-500 mt-0.5">
+                              {pet.sexo === 'macho' ? 'Macho' : pet.sexo === 'femea' ? 'Fêmea' : 'Sexo: Não informado'}
+                              {' • '}
+                              {formatPorte(pet.porte)}
+                            </p>
+                            {pet.cor && (
+                              <p className="text-xs text-gray-500 mt-0.5">
+                                Cor: {pet.cor}
+                              </p>
+                            )}
+                          </div>
+
+                          {/* Informações Complementares */}
+                          <div className="p-2.5 rounded-xl bg-gray-50/80 border border-gray-100/80 text-[11px] space-y-1 text-gray-600">
+                            <div>
+                              Nascimento: <span className="font-medium text-gray-800">{pet.data_nascimento ? formatDateCivil(pet.data_nascimento) : 'Não informado'}</span>
+                            </div>
+                            <div className="flex items-center gap-3">
+                              <span>
+                                Vacinado: <strong className={pet.vacinado === true ? 'text-emerald-700' : pet.vacinado === false ? 'text-amber-700' : 'text-gray-500'}>
+                                  {pet.vacinado === true ? 'Sim' : pet.vacinado === false ? 'Não' : 'Não informado'}
+                                </strong>
+                              </span>
+                              <span>•</span>
+                              <span>
+                                Castrado: <strong className={pet.castrado === true ? 'text-emerald-700' : pet.castrado === false ? 'text-amber-700' : 'text-gray-500'}>
+                                  {pet.castrado === true ? 'Sim' : pet.castrado === false ? 'Não' : 'Não informado'}
+                                </strong>
+                              </span>
+                            </div>
+                          </div>
+
+                          {/* Unidade */}
+                          {(pet.unidade_bloco || pet.unidade_apto) && (
+                            <div className="text-[11px] text-gray-500">
+                              Unidade: <span className="font-semibold text-gray-700">{blocoLabel} {pet.unidade_bloco || '—'} · {aptoLabel} {pet.unidade_apto || '—'}</span>
+                            </div>
+                          )}
+
+                          {/* Observação se houver */}
+                          {pet.observacao && (
+                            <p className="text-xs text-gray-500 italic bg-gray-50/80 p-2.5 rounded-xl border border-gray-100 line-clamp-2">
+                              "{pet.observacao}"
+                            </p>
+                          )}
+                        </div>
+
+                        {/* Ações Administrativas */}
+                        <div className="pt-4 mt-4 border-t border-gray-100 flex items-center justify-between gap-2 flex-wrap">
+                          {isAtivo ? (
+                            <>
+                              <div className="flex items-center gap-1.5 flex-wrap">
+                                <button
+                                  onClick={() => {
+                                    setEditingPet(pet)
+                                    setIsPetModalOpen(true)
+                                  }}
+                                  className="px-2.5 py-1 text-xs font-semibold rounded-lg bg-gray-100 text-gray-700 hover:bg-gray-200 transition-colors cursor-pointer"
+                                >
+                                  Editar
+                                </button>
+                                {canTransfer && (
+                                  <button
+                                    onClick={() => setTransferringPet(pet)}
+                                    className="px-2.5 py-1 text-xs font-semibold rounded-lg bg-orange-50 text-[#FC5931] border border-orange-200 hover:bg-orange-100 transition-colors cursor-pointer"
+                                    title="Alterar unidade residencial do pet"
+                                  >
+                                    Alterar unidade
+                                  </button>
+                                )}
+                              </div>
+
+                              <div>
+                                <button
+                                  onClick={() => setInactivatingPet(pet)}
+                                  className="px-2.5 py-1 text-xs font-semibold rounded-lg bg-red-50 text-red-700 border border-red-200 hover:bg-red-100 transition-colors cursor-pointer"
+                                >
+                                  Inativar
+                                </button>
+                              </div>
+                            </>
+                          ) : (
+                            <div className="w-full flex justify-end">
+                              <button
+                                onClick={() => setReactivatingPet(pet)}
+                                className="px-3 py-1.5 text-xs font-semibold rounded-lg bg-emerald-50 text-emerald-700 border border-emerald-200 hover:bg-emerald-100 transition-colors cursor-pointer"
+                              >
+                                Reativar
+                              </button>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    )
+                  })}
+                </div>
+              )}
             </div>
-            <h2 className="text-lg font-bold text-gray-900 mb-1">Animais de Estimação (Pets)</h2>
-            <p className="text-sm text-gray-500 mb-5">
-              Nenhum pet cadastrado. O cadastro de pets (foto, nome, espécie, raça, porte e carteira de vacinação) será disponibilizado na próxima etapa.
-            </p>
-            <button
-              disabled
-              className="px-4 py-2 rounded-xl text-xs font-semibold bg-gray-100 text-gray-400 border border-gray-200 cursor-not-allowed"
-            >
-              + Adicionar Pet (Em breve)
-            </button>
           </div>
         )}
 
@@ -1288,6 +1589,11 @@ export default function Resident360Client({
                     const isVehiclePlateCorrected = log.acao === 'VEHICLE_PLATE_CORRECTED'
                     const isVehicleInactivated = log.acao === 'VEHICLE_INACTIVATED'
                     const isVehicleReactivated = log.acao === 'VEHICLE_REACTIVATED'
+                    const isPetCreated = log.acao === 'PET_CREATED'
+                    const isPetUpdated = log.acao === 'PET_UPDATED'
+                    const isPetInactivated = log.acao === 'PET_INACTIVATED'
+                    const isPetReactivated = log.acao === 'PET_REACTIVATED'
+                    const isPetUnitChanged = log.acao === 'PET_UNIT_CHANGED'
 
                     return (
                       <div
@@ -1340,6 +1646,31 @@ export default function Resident360Client({
                               <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-bold border bg-teal-50 text-teal-700 border-teal-200">
                                 <RefreshCw size={12} />
                                 Veículo reativado
+                              </span>
+                            ) : isPetCreated ? (
+                              <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-bold border bg-emerald-50 text-emerald-700 border-emerald-200">
+                                <PawPrint size={12} />
+                                Pet cadastrado
+                              </span>
+                            ) : isPetUpdated ? (
+                              <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-bold border bg-blue-50 text-blue-700 border-blue-200">
+                                <Edit2 size={12} />
+                                Dados do pet atualizados
+                              </span>
+                            ) : isPetInactivated ? (
+                              <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-bold border bg-zinc-100 text-zinc-700 border-zinc-200">
+                                <PawPrint size={12} />
+                                Pet inativado
+                              </span>
+                            ) : isPetReactivated ? (
+                              <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-bold border bg-teal-50 text-teal-700 border-teal-200">
+                                <RefreshCw size={12} />
+                                Pet reativado
+                              </span>
+                            ) : isPetUnitChanged ? (
+                              <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-bold border bg-orange-50 text-orange-700 border-orange-200">
+                                <ArrowRightLeft size={12} />
+                                Unidade do pet alterada
                               </span>
                             ) : (
                               <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-bold border bg-zinc-100 text-zinc-700 border-zinc-200">
@@ -1501,6 +1832,69 @@ export default function Resident360Client({
                           </div>
                         )}
 
+                        {/* Eventos de Pets (Gate 3E.2-B) */}
+                        {isPetCreated && (
+                          <div className="text-xs text-gray-600 bg-white p-3 rounded-lg border border-gray-100 space-y-1">
+                            <p>
+                              • Pet: <strong className="font-bold text-gray-900">🐾 {post.nome}</strong>
+                              {post.especie && ` • Espécie: ${formatEspecie(post.especie)}`}
+                              {post.raca && ` • Raça: ${post.raca}`}
+                              {post.cor && ` (${post.cor})`}
+                            </p>
+                            <p>
+                              {post.sexo && `• Sexo: ${post.sexo === 'macho' ? 'Macho' : 'Fêmea'} • `}
+                              {post.porte && `Porte: ${formatPorte(post.porte)} • `}
+                              {post.data_nascimento && `Nascimento: ${formatDateCivil(post.data_nascimento)} • `}
+                              Vacinado: {post.vacinado === true ? 'Sim' : post.vacinado === false ? 'Não' : 'Não informado'} • Castrado: {post.castrado === true ? 'Sim' : post.castrado === false ? 'Não' : 'Não informado'}
+                            </p>
+                          </div>
+                        )}
+
+                        {isPetUpdated && (
+                          <div className="text-xs text-gray-600 bg-white p-3 rounded-lg border border-gray-100 space-y-1">
+                            <p>
+                              • Pet: <strong className="font-bold text-gray-900">🐾 {post.nome || ant.nome}</strong>
+                              {post.especie && ` • Espécie: ${formatEspecie(post.especie)}`}
+                              {post.raca && ` • Raça: ${post.raca}`}
+                              {post.cor && ` (${post.cor})`}
+                            </p>
+                            <p>
+                              • Atualização cadastral registrada no histórico de auditoria.
+                            </p>
+                          </div>
+                        )}
+
+                        {isPetInactivated && (
+                          <div className="text-xs text-gray-600 bg-white p-3 rounded-lg border border-gray-100 space-y-1">
+                            <p>
+                              • Pet: <strong className="font-bold text-gray-900">🐾 {post.nome || ant.nome}</strong>
+                              {' '} • Status resultante: <strong className="text-zinc-600">Inativo</strong>
+                            </p>
+                          </div>
+                        )}
+
+                        {isPetReactivated && (
+                          <div className="text-xs text-gray-600 bg-white p-3 rounded-lg border border-gray-100 space-y-1">
+                            <p>
+                              • Pet: <strong className="font-bold text-gray-900">🐾 {post.nome || ant.nome}</strong>
+                              {' '} • Status resultante: <strong className="text-emerald-700">Ativo</strong>
+                            </p>
+                          </div>
+                        )}
+
+                        {isPetUnitChanged && (
+                          <div className="text-xs text-gray-600 bg-white p-3 rounded-lg border border-gray-100 space-y-1">
+                            <p>
+                              • Pet: <strong className="font-bold text-gray-900">🐾 {post.nome || ant.nome}</strong>
+                            </p>
+                            {(log.unidade_bloco || log.unidade_apto) && (
+                              <p>
+                                • Nova unidade residencial: <strong>{blocoLabel} {log.unidade_bloco || '—'} · {aptoLabel} {log.unidade_apto || '—'}</strong>
+                              </p>
+                            )}
+                          </div>
+                        )}
+
                         {/* Operador responsável */}
                         <div className="text-[11px] text-gray-400 pt-1 border-t border-gray-100 flex items-center justify-between">
                           <span>Operador responsável: <strong className="text-gray-600">{log.operador_nome}</strong> ({log.operador_papel || 'Admin'})</span>
@@ -1657,6 +2051,86 @@ export default function Resident360Client({
           residentName={resident.nome_completo || 'Morador'}
           onSuccess={() => {
             setReactivatingVehicle(null)
+            router.refresh()
+          }}
+        />
+      )}
+
+      {/* Pet Add / Edit Modal */}
+      {isPetModalOpen && (
+        <PetModal
+          isOpen={isPetModalOpen}
+          onClose={() => {
+            setIsPetModalOpen(false)
+            setEditingPet(null)
+          }}
+          profileId={resident.id}
+          residentName={resident.nome_completo || 'Morador'}
+          activeUnits={unitLinks
+            .filter(u => u.status === 'ativo')
+            .map(u => ({
+              id: u.id,
+              unidade_id: u.unidade_id,
+              bloco_nome: u.bloco_nome,
+              apto_numero: u.apto_numero,
+            }))}
+          editingPet={editingPet}
+          onSuccess={() => {
+            setIsPetModalOpen(false)
+            setEditingPet(null)
+            router.refresh()
+          }}
+        />
+      )}
+
+      {/* Pet Transfer Unit Modal */}
+      {transferringPet && (
+        <PetUnitModal
+          isOpen={Boolean(transferringPet)}
+          onClose={() => setTransferringPet(null)}
+          pet={transferringPet}
+          profileId={resident.id}
+          residentName={resident.nome_completo || 'Morador'}
+          activeUnits={unitLinks
+            .filter(u => u.status === 'ativo')
+            .map(u => ({
+              id: u.id,
+              unidade_id: u.unidade_id,
+              bloco_nome: u.bloco_nome,
+              apto_numero: u.apto_numero,
+            }))}
+          onSuccess={() => {
+            setTransferringPet(null)
+            router.refresh()
+          }}
+        />
+      )}
+
+      {/* Pet Inactivate Modal */}
+      {inactivatingPet && (
+        <PetInactivateModal
+          isOpen={Boolean(inactivatingPet)}
+          onClose={() => setInactivatingPet(null)}
+          pet={inactivatingPet}
+          profileId={resident.id}
+          residentName={resident.nome_completo || 'Morador'}
+          onSuccess={() => {
+            setInactivatingPet(null)
+            router.refresh()
+          }}
+        />
+      )}
+
+      {/* Pet Reactivate Modal */}
+      {reactivatingPet && (
+        <PetReactivateModal
+          isOpen={Boolean(reactivatingPet)}
+          onClose={() => setReactivatingPet(null)}
+          pet={reactivatingPet}
+          profileId={resident.id}
+          residentName={resident.nome_completo || 'Morador'}
+          onSuccess={() => {
+            setReactivatingPet(null)
             router.refresh()
           }}
         />

@@ -10,6 +10,7 @@ import Resident360Client, {
   ConviteData,
   PortariaRegistroData,
   VehicleData,
+  PetData,
 } from './resident-360-client'
 
 export const metadata = {
@@ -315,6 +316,64 @@ export default async function Resident360Page(props: PageProps) {
     unidade_apto: v.unidades?.apartamentos?.numero || null,
   }))
 
+  // 11. Fetch pets associated with this resident strictly in this condominium (Gate 3E.2-B)
+  const { data: rawPets, error: petsError } = await supabase
+    .from('pets')
+    .select(`
+      id,
+      condominio_id,
+      perfil_id,
+      unidade_id,
+      nome,
+      especie,
+      raca,
+      sexo,
+      porte,
+      cor,
+      data_nascimento,
+      castrado,
+      vacinado,
+      observacao,
+      status,
+      created_at,
+      updated_at,
+      unidades (
+        id,
+        blocos ( nome_ou_numero ),
+        apartamentos ( numero )
+      )
+    `)
+    .eq('perfil_id', id)
+    .eq('condominio_id', condoId)
+    .order('status', { ascending: true }) // 'ativo' comes before 'inativo' alphabetically
+    .order('nome', { ascending: true })
+
+  if (petsError) {
+    console.error('[Resident360Page] Falha na consulta de pets (perfil_id: %s, condo_id: %s):', id, condoId, petsError.message)
+  }
+
+  const pets: PetData[] = (rawPets ?? []).map((p: any) => ({
+    id: p.id,
+    condominio_id: p.condominio_id,
+    perfil_id: p.perfil_id,
+    unidade_id: p.unidade_id,
+    nome: p.nome,
+    especie: p.especie,
+    raca: p.raca,
+    sexo: p.sexo,
+    porte: p.porte,
+    cor: p.cor,
+    data_nascimento: p.data_nascimento,
+    castrado: p.castrado,
+    vacinado: p.vacinado,
+    observacao: p.observacao,
+    status: p.status,
+    created_at: p.created_at,
+    updated_at: p.updated_at,
+    unidade_bloco: p.unidades?.blocos?.nome_ou_numero || null,
+    unidade_apto: p.unidades?.apartamentos?.numero || null,
+  }))
+
   return (
     <Resident360Client
       resident={resident as ResidentData}
@@ -327,6 +386,8 @@ export default async function Resident360Page(props: PageProps) {
       auditLogs={auditLogs}
       veiculos={veiculos}
       veiculosError={veiculosError ? 'Não foi possível carregar os dados de veículos devido a uma falha no banco de dados.' : null}
+      pets={pets}
+      petsError={petsError ? 'Não foi possível carregar os dados de pets devido a uma falha no banco de dados.' : null}
     />
   )
 }

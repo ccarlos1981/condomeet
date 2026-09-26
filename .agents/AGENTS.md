@@ -258,6 +258,66 @@ Todas as mutações são transacionais, validam credenciais do operador (`system
 
 ---
 
+## 9. Baseline Oficial — Módulo Pets
+### Base Cadastral 360º — Gate 3E
+
+> **STATUS:** `🟢 CONCLUÍDO` · `🟢 HOMOLOGADO` · `🔒 FROZEN` · `🏛️ OFFICIAL BASELINE`  
+> **DATA DE CONGELAMENTO:** 25/09/2026  
+> **DEPLOY:** `⏸️ PENDENTE DE AUTORIZAÇÃO HUMANA`  
+> **ESCOPO TÉCNICO:** Gate 3E.1-A (Auditoria Mínima), Gate 3E.2-A (Fundação Canônica de Banco), Gate 3E.2-B (Integração Administrativa Resident 360º), Gate 3E.2-B.1 (Hotfix Data Civil) e Gate 3E.2-B.2 (Auditoria Forense de Motivos).
+
+#### A. Arquitetura Canônica de `public.pets`
+- **Tabela Soberana:** A tabela `public.pets` centraliza todos os animais de estimação vinculados a residentes e condomínios.
+- **Relacionamento Relacional:**
+  - `condominio_id UUID REFERENCES public.condominio(id) ON DELETE CASCADE`: Tenant isolado.
+  - `perfil_id UUID REFERENCES public.perfil(id) ON DELETE CASCADE`: Tutor principal / morador responsável pelo pet.
+  - `unidade_id UUID REFERENCES public.unidade(id) ON DELETE RESTRICT`: Unidade residencial de lotação do animal.
+- **Campos Cadastrais:** `nome` (obrigatório), `especie` ('cao' | 'gato' | 'outro', padrão 'cao'), `raca`, `sexo` ('macho' | 'femea'), `porte` ('pequeno' | 'medio' | 'grande'), `cor`, `data_nascimento` (PostgreSQL DATE civil), `castrado` (BOOLEAN), `vacinado` (BOOLEAN), `observacao`, `status` ('ativo' | 'inativo', padrão 'ativo').
+- **Integridade Relacional (Triggers e Guards):**
+  - Trigger `tr_pets_guard`: Assegura antes do INSERT/UPDATE que `unidade_id` pertence rigorosamente ao `condominio_id` informado.
+
+#### B. Segurança, RLS e Multi-Tenancy
+- **RLS Habilitado:** `ALTER TABLE public.pets ENABLE ROW LEVEL SECURITY;`.
+- **Policy de Leitura (`pets_admin_select`):** Permite leitura para SuperAdmins e operadores (síndicos/administradores) do mesmo condomínio.
+- **Isolamento de Token / JWT:** Implementado puramente via JWT claims (`(auth.jwt() ->> 'email')`), sem JOINs ou consultas diretas em `auth.users`, prevenindo o erro `42501 permission denied for table users`.
+- **Mutações Restritas:** Zero policies permissivas de INSERT/UPDATE/DELETE para clientes. Todas as mutações ocorrem exclusivamente através de RPCs `SECURITY DEFINER` com `SET search_path TO 'public'`.
+
+#### C. RPCs Administrativas Canônicas
+Todas as mutações são transacionais, validam credenciais administrativas do operador e registram eventos auditáveis em `public.perfil_audit_log`:
+1. `public.admin_cadastrar_pet(...)`: Valida dados cadastrais, garante que o perfil possui vínculo ativo na unidade informada e insere o registro com `status = 'ativo'`. Registra auditoria `PET_CREATED`.
+2. `public.admin_atualizar_pet(...)`: Atualiza os dados descritivos (nome, espécie, raça, sexo, porte, cor, data de nascimento, castrado, vacinado, observação) de um pet com `status = 'ativo'`. Rejeita formalmente mutações em pets inativos. Registra auditoria `PET_UPDATED`.
+3. `public.admin_inativar_pet(...)`: Encerra o ciclo ativo do pet (`status = 'inativo'`). Exige motivo textual obrigatório. Registra auditoria `PET_INACTIVATED`.
+4. `public.admin_reativar_pet(...)`: Restaura o pet para `status = 'ativo'`, validando previamente se o morador ainda possui vínculo residencial ativo na unidade cadastrada do animal. Exige motivo textual obrigatório. Registra auditoria `PET_REACTIVATED`.
+5. `public.admin_transferir_unidade_pet(...)`: Transfere a lotação residencial do pet para outra unidade válida do mesmo morador. Preserva integralmente o identificador primário (`pet_id`). Exige motivo. Registra auditoria `PET_UNIT_CHANGED`.
+
+#### D. Regras de Negócio e Ciclo de Vida do Pet
+- **Pet Ativo:**
+  - Permite edição cadastral (`admin_atualizar_pet`).
+  - Permite transferência de unidade entre moradias ativas do tutor (`admin_transferir_unidade_pet`).
+  - Permite inativação administrativa (`admin_inativar_pet`).
+  - UI exibe ações contextuais: `[Editar]`, `[Alterar unidade]` (quando há mais de uma unidade ativa), `[Inativar]`.
+- **Pet Inativo (Histórico Imutável):**
+  - Registro histórico encerrado imutável.
+  - Proteção em profundidade no banco de dados: RPCs `admin_atualizar_pet` e `admin_transferir_unidade_pet` disparam exceção (`RAISE EXCEPTION`) se `v_status = 'inativo'`.
+  - Única ação permitida: Reativação (`admin_reativar_pet`).
+  - UI oculta `Editar`, `Alterar unidade` e `Inativar`, disponibilizando unicamente `[Reativar]`.
+- **Regra Temporal e Tratamento de DATE Civil (Gate 3E.2-B.1):**
+  - O campo `data_nascimento` é tratado estritamente como DIA CIVIL (`YYYY-MM-DD`).
+  - É proibido o uso de `new Date('YYYY-MM-DD')` ou construtores propensos a timezone shift UTC.
+  - Implementado parseamento determinístico via string split (`formatDateCivil`), garantindo que `2000-01-01` permaneça `01/01/2000` em qualquer fuso horário cliente.
+
+#### E. Integração com Resident 360º e Prevenção de Erros Mascarados
+- **Tratamento Explícito de Erro de Consulta:** Erros de PostgREST na consulta de pets (`petsError`) nunca são mascarados como array vazio. O estado de falha de conexão/permissão é propagado e renderizado com banner de erro dedicado, mantendo distinção absoluta em relação ao estado legítimo de lista vazia ("Nenhum pet cadastrado").
+- **Aba Pets & Contadores:** Contador no tab `Pets (N)` reflete a totalidade do histórico (ativos + inativos). Card visual dedicado com crachá `ATIVO` (verde) ou `INATIVO` (cinza/alerta), dados zootécnicos e ações operacionais com modais contextuais.
+- **Histórico Administrativo Unificado:** Todas as mutações do pet gravam eventos canônicos em `public.perfil_audit_log` (`PET_CREATED`, `PET_UPDATED`, `PET_INACTIVATED`, `PET_REACTIVATED`, `PET_UNIT_CHANGED`), renderizados na linha do tempo com ícones, motivos textuais e badges informativas sem exposição de JSON bruto.
+
+#### F. Escopo Deliberadamente Excluído do Gate 3E
+- **Fotos / Supabase Storage:** Zero implementação de upload de fotos, storage bucket, carteira de vacinação ou microchip neste ciclo.
+- **Módulo Flutter / Mobile:** Zero implementação funcional no app móvel neste ciclo.
+- **Módulo Portaria:** Zero implementação de consultas operacionais na portaria neste ciclo.
+
+---
+
 ## TRACEABILITY
 
 | Bloco do Loader Operacional | Fonte Primária no AI-OS | Origem no Monólito / Gate 5.1 |
