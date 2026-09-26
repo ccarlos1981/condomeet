@@ -2512,3 +2512,314 @@ export async function adminUpdateResidentGeneralData(data: {
     return { error: msg }
   }
 }
+
+/**
+ * Helper interno para obter cliente Supabase com service_role para auditoria controlada.
+ */
+function getAdminSupabaseClient() {
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL
+  const key = process.env.SUPABASE_SERVICE_ROLE_KEY
+  if (!url || !key) return null
+  return createSupabaseClient(url, key, {
+    auth: { persistSession: false, autoRefreshToken: false },
+  })
+}
+
+/**
+ * Gate 3L: Aprovação canônica de morador no Resident 360.
+ * Permite transição SOMENTE de 'pendente' ou 'rejeitado' para 'aprovado'.
+ * Tenant guard estrito, proteção administrativa, sem alteração de unidade/auth/bloqueio.
+ * Trilha de auditoria obrigatória em public.perfil_audit_log (RESIDENT_APPROVED).
+ */
+export async function adminApproveResident(data: {
+  residentId: string
+  motivo?: string
+}): Promise<{ success?: boolean; error?: string; newStatus?: string }> {
+  try {
+    const residentId = data.residentId?.trim()
+    if (!residentId) {
+      return { error: 'Identificador do morador é obrigatório.' }
+    }
+
+    const supabase = await createClient()
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) return { error: 'Não autorizado' }
+
+    // 1. Obter operador autenticado e validar permissão
+    const { data: operatorProfile, error: operatorError } = await supabase
+      .from('perfil')
+      .select('condominio_id, papel_sistema')
+      .eq('id', user.id)
+      .single()
+
+    if (operatorError || !operatorProfile || !isAdminRole(operatorProfile.papel_sistema)) {
+      return { error: 'Permissão negada. Apenas síndicos e administradores podem aprovar moradores.' }
+    }
+
+    const condoId = operatorProfile.condominio_id
+    if (!condoId) {
+      return { error: 'Condomínio do operador não identificado.' }
+    }
+
+    // 2. Proteção contra auto-aprovação do próprio operador
+    if (residentId === user.id) {
+      return { error: 'Operação inválida. Não é permitido aprovar o próprio usuário operador.' }
+    }
+
+    // 3. Obter perfil-alvo e validar tenant guard
+    const { data: targetProfile, error: targetError } = await supabase
+      .from('perfil')
+      .select('id, condominio_id, status_aprovacao, bloqueado, nome_completo, papel_sistema')
+      .eq('id', residentId)
+      .single()
+
+    if (targetError || !targetProfile || targetProfile.condominio_id !== condoId) {
+      return { error: 'Morador não encontrado ou não pertence a este condomínio.' }
+    }
+
+    const currentStatus = targetProfile.status_aprovacao
+
+    // 4. Máquina de estados: permitir SOMENTE se 'pendente' ou 'rejeitado'
+    if (currentStatus === 'aprovado') {
+      return { error: 'Este morador já se encontra aprovado.' }
+    }
+    if (currentStatus === 'bloqueado') {
+      return { error: 'Moradores bloqueados devem ser reativados na ação de desbloqueio, não aprovados.' }
+    }
+    if (currentStatus === 'inativo') {
+      return { error: 'Moradores inativos devem receber um novo vínculo residencial, não aprovação direta.' }
+    }
+    if (currentStatus !== 'pendente' && currentStatus !== 'rejeitado') {
+      return { error: 'Status atual do morador não permite aprovação.' }
+    }
+
+    // 5. Buscar unidade_id ativa canônica se houver vínculo
+    const { data: activeUnitLink } = await supabase
+      .from('unidade_perfil')
+      .select('unidade_id')
+      .eq('perfil_id', residentId)
+      .eq('condominio_id', condoId)
+      .eq('status', 'ativo')
+      .order('created_at', { ascending: false })
+      .limit(1)
+      .maybeSingle()
+
+    // 6. Atualizar SOMENTE status_aprovacao para 'aprovado'
+    const { error: updateError } = await supabase
+      .from('perfil')
+      .update({
+        status_aprovacao: 'aprovado',
+      })
+      .eq('id', residentId)
+      .eq('condominio_id', condoId)
+
+    if (updateError) {
+      console.error('[adminApproveResident] Erro ao atualizar status_aprovacao:', updateError)
+      return { error: 'Falha ao aprovar o morador. Tente novamente.' }
+    }
+
+    // 7. Trilha de auditoria em perfil_audit_log (RESIDENT_APPROVED)
+    const cleanMotivo = data.motivo?.trim() || (currentStatus === 'rejeitado' ? 'Aprovação de cadastro previamente rejeitado' : 'Aprovação cadastral pelo gestor')
+    const adminClient = getAdminSupabaseClient() || supabase
+
+    const { error: auditError } = await adminClient
+      .from('perfil_audit_log')
+      .insert({
+        condominio_id: condoId,
+        perfil_id: residentId,
+        operador_id: user.id,
+        unidade_id: activeUnitLink?.unidade_id || null,
+        acao: 'RESIDENT_APPROVED',
+        motivo: cleanMotivo,
+        estado_anterior: {
+          status_aprovacao: currentStatus,
+          bloqueado: targetProfile.bloqueado,
+        },
+        estado_posterior: {
+          status_aprovacao: 'aprovado',
+          bloqueado: targetProfile.bloqueado,
+        },
+      })
+
+    // 8. Tratamento explícito de consistência não-atômica controlada
+    if (auditError) {
+      console.error('[adminApproveResident] Falha ao gravar audit_log (revertendo status):', auditError)
+      // Reversão compensatória
+      await supabase
+        .from('perfil')
+        .update({ status_aprovacao: currentStatus })
+        .eq('id', residentId)
+        .eq('condominio_id', condoId)
+
+      return { error: 'Falha ao registrar auditoria da aprovação. A operação foi cancelada por segurança.' }
+    }
+
+    // 9. Revalidar rotas envolvidas
+    revalidatePath('/admin/moradores')
+    revalidatePath(`/admin/moradores/${residentId}`)
+    revalidatePath('/portaria')
+    revalidatePath('/admin/aprovacoes')
+
+    return {
+      success: true,
+      newStatus: 'aprovado',
+    }
+  } catch (err: unknown) {
+    console.error('[adminApproveResident] Erro interno:', err)
+    const msg = err instanceof Error ? err.message : 'Erro interno ao processar a aprovação.'
+    return { error: msg }
+  }
+}
+
+/**
+ * Gate 3L: Rejeição canônica de morador no Resident 360.
+ * Permite transição SOMENTE de 'pendente' para 'rejeitado'.
+ * Motivo obrigatório e não vazio.
+ * Tenant guard estrito, proteção administrativa, sem alteração de unidade/auth/bloqueio.
+ * Trilha de auditoria obrigatória em public.perfil_audit_log (RESIDENT_REJECTED).
+ */
+export async function adminRejectResident(data: {
+  residentId: string
+  motivo: string
+}): Promise<{ success?: boolean; error?: string; newStatus?: string }> {
+  try {
+    const residentId = data.residentId?.trim()
+    if (!residentId) {
+      return { error: 'Identificador do morador é obrigatório.' }
+    }
+
+    const cleanMotivo = data.motivo?.trim()
+    if (!cleanMotivo) {
+      return { error: 'O motivo da rejeição é obrigatório.' }
+    }
+
+    const supabase = await createClient()
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) return { error: 'Não autorizado' }
+
+    // 1. Obter operador autenticado e validar permissão
+    const { data: operatorProfile, error: operatorError } = await supabase
+      .from('perfil')
+      .select('condominio_id, papel_sistema')
+      .eq('id', user.id)
+      .single()
+
+    if (operatorError || !operatorProfile || !isAdminRole(operatorProfile.papel_sistema)) {
+      return { error: 'Permissão negada. Apenas síndicos e administradores podem rejeitar moradores.' }
+    }
+
+    const condoId = operatorProfile.condominio_id
+    if (!condoId) {
+      return { error: 'Condomínio do operador não identificado.' }
+    }
+
+    // 2. Proteção contra auto-rejeição do próprio operador
+    if (residentId === user.id) {
+      return { error: 'Operação inválida. Não é permitido rejeitar o próprio usuário operador.' }
+    }
+
+    // 3. Obter perfil-alvo e validar tenant guard
+    const { data: targetProfile, error: targetError } = await supabase
+      .from('perfil')
+      .select('id, condominio_id, status_aprovacao, bloqueado, nome_completo, papel_sistema')
+      .eq('id', residentId)
+      .single()
+
+    if (targetError || !targetProfile || targetProfile.condominio_id !== condoId) {
+      return { error: 'Morador não encontrado ou não pertence a este condomínio.' }
+    }
+
+    const currentStatus = targetProfile.status_aprovacao
+
+    // 4. Máquina de estados: permitir SOMENTE se 'pendente'
+    if (currentStatus === 'rejeitado') {
+      return { error: 'Este morador já se encontra rejeitado.' }
+    }
+    if (currentStatus === 'aprovado') {
+      return { error: 'Moradores aprovados devem ser bloqueados ou inativados, não rejeitados.' }
+    }
+    if (currentStatus === 'bloqueado') {
+      return { error: 'Moradores bloqueados não podem ser rejeitados.' }
+    }
+    if (currentStatus === 'inativo') {
+      return { error: 'Moradores inativos não podem ser rejeitados.' }
+    }
+    if (currentStatus !== 'pendente') {
+      return { error: 'Apenas cadastros pendentes podem ser rejeitados.' }
+    }
+
+    // 5. Buscar unidade_id ativa canônica se houver vínculo
+    const { data: activeUnitLink } = await supabase
+      .from('unidade_perfil')
+      .select('unidade_id')
+      .eq('perfil_id', residentId)
+      .eq('condominio_id', condoId)
+      .eq('status', 'ativo')
+      .order('created_at', { ascending: false })
+      .limit(1)
+      .maybeSingle()
+
+    // 6. Atualizar SOMENTE status_aprovacao para 'rejeitado'
+    const { error: updateError } = await supabase
+      .from('perfil')
+      .update({
+        status_aprovacao: 'rejeitado',
+      })
+      .eq('id', residentId)
+      .eq('condominio_id', condoId)
+
+    if (updateError) {
+      console.error('[adminRejectResident] Erro ao atualizar status_aprovacao:', updateError)
+      return { error: 'Falha ao rejeitar o morador. Tente novamente.' }
+    }
+
+    // 7. Trilha de auditoria em perfil_audit_log (RESIDENT_REJECTED)
+    const adminClient = getAdminSupabaseClient() || supabase
+
+    const { error: auditError } = await adminClient
+      .from('perfil_audit_log')
+      .insert({
+        condominio_id: condoId,
+        perfil_id: residentId,
+        operador_id: user.id,
+        unidade_id: activeUnitLink?.unidade_id || null,
+        acao: 'RESIDENT_REJECTED',
+        motivo: cleanMotivo,
+        estado_anterior: {
+          status_aprovacao: currentStatus,
+          bloqueado: targetProfile.bloqueado,
+        },
+        estado_posterior: {
+          status_aprovacao: 'rejeitado',
+          bloqueado: targetProfile.bloqueado,
+        },
+      })
+
+    // 8. Tratamento explícito de consistência não-atômica controlada
+    if (auditError) {
+      console.error('[adminRejectResident] Falha ao gravar audit_log (revertendo status):', auditError)
+      await supabase
+        .from('perfil')
+        .update({ status_aprovacao: currentStatus })
+        .eq('id', residentId)
+        .eq('condominio_id', condoId)
+
+      return { error: 'Falha ao registrar auditoria da rejeição. A operação foi cancelada por segurança.' }
+    }
+
+    // 9. Revalidar rotas envolvidas
+    revalidatePath('/admin/moradores')
+    revalidatePath(`/admin/moradores/${residentId}`)
+    revalidatePath('/portaria')
+    revalidatePath('/admin/aprovacoes')
+
+    return {
+      success: true,
+      newStatus: 'rejeitado',
+    }
+  } catch (err: unknown) {
+    console.error('[adminRejectResident] Erro interno:', err)
+    const msg = err instanceof Error ? err.message : 'Erro interno ao processar a rejeição.'
+    return { error: msg }
+  }
+}

@@ -19,6 +19,7 @@ import {
   Calendar,
   CheckCircle,
   AlertCircle,
+  XCircle,
   Lock,
   Unlock,
   ExternalLink,
@@ -38,6 +39,8 @@ import {
 import { getBlocoLabel, getAptoLabel, formatUnitDisplay, isTechnicalAdminUnit } from '@/lib/labels'
 import { isTechnicalAdminRole } from '@/lib/roles'
 import BlockConfirmModal from '../block-confirm-modal'
+import ApproveConfirmModal from '../approve-confirm-modal'
+import RejectConfirmModal from '../reject-confirm-modal'
 import InactivateConfirmModal from '../inactivate-confirm-modal'
 import CreateResidentLinkModal from '../create-resident-link-modal'
 import VehicleModal from '../vehicle-modal'
@@ -56,6 +59,8 @@ import DependentResponsibleModal from '../dependent-responsible-modal'
 import EditGeneralDataModal from './edit-general-data-modal'
 import {
   adminToggleBlockStatus,
+  adminApproveResident,
+  adminRejectResident,
   adminGetResidentInvitesPage,
   adminGetUnitAccessPage,
 } from '@/app/admin/actions'
@@ -503,6 +508,64 @@ export default function Resident360Client({
   const [actionLoading, setActionLoading] = useState(false)
   const [actionError, setActionError] = useState<string | null>(null)
 
+  // Gate 3L: Approve / Reject Modal State
+  const [isApproveModalOpen, setIsApproveModalOpen] = useState(false)
+  const [isRejectModalOpen, setIsRejectModalOpen] = useState(false)
+  const [approvalLoading, setApprovalLoading] = useState(false)
+  const [approvalError, setApprovalError] = useState<string | null>(null)
+  const [rejectionLoading, setRejectionLoading] = useState(false)
+  const [rejectionError, setRejectionError] = useState<string | null>(null)
+
+  async function handleConfirmApprove(motivo?: string) {
+    setApprovalLoading(true)
+    setApprovalError(null)
+
+    const res = await adminApproveResident({
+      residentId: resident.id,
+      motivo,
+    })
+
+    if (res.error) {
+      setApprovalError(res.error)
+      setApprovalLoading(false)
+      return
+    }
+
+    setResident(prev => ({
+      ...prev,
+      status_aprovacao: 'aprovado',
+    }))
+
+    setApprovalLoading(false)
+    setIsApproveModalOpen(false)
+    router.refresh()
+  }
+
+  async function handleConfirmReject(motivo: string) {
+    setRejectionLoading(true)
+    setRejectionError(null)
+
+    const res = await adminRejectResident({
+      residentId: resident.id,
+      motivo,
+    })
+
+    if (res.error) {
+      setRejectionError(res.error)
+      setRejectionLoading(false)
+      return
+    }
+
+    setResident(prev => ({
+      ...prev,
+      status_aprovacao: 'rejeitado',
+    }))
+
+    setRejectionLoading(false)
+    setIsRejectModalOpen(false)
+    router.refresh()
+  }
+
   // Inactivate Modal State
   const [isInactivateModalOpen, setIsInactivateModalOpen] = useState(false)
 
@@ -766,6 +829,53 @@ export default function Resident360Client({
 
           {/* Administrative and Contact Actions */}
           <div className="flex items-center gap-2 flex-wrap self-end md:self-center">
+            {/* Gate 3L: Ações Contextuais de Morador Pendente */}
+            {isPending && (
+              <>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setApprovalError(null)
+                    setIsApproveModalOpen(true)
+                  }}
+                  className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-semibold bg-emerald-50 text-emerald-700 hover:bg-emerald-100 transition-colors border border-emerald-200 shadow-2xs"
+                  title="Aprovar cadastro deste morador"
+                >
+                  <CheckCircle size={13} />
+                  Aprovar
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    setRejectionError(null)
+                    setIsRejectModalOpen(true)
+                  }}
+                  className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-semibold bg-red-50 text-red-600 hover:bg-red-100 transition-colors border border-red-200 shadow-2xs"
+                  title="Rejeitar cadastro deste morador"
+                >
+                  <XCircle size={13} />
+                  Rejeitar
+                </button>
+              </>
+            )}
+
+            {/* Gate 3L: Ação de Reconsideração de Morador Rejeitado */}
+            {isRejected && (
+              <button
+                type="button"
+                onClick={() => {
+                  setApprovalError(null)
+                  setIsApproveModalOpen(true)
+                }}
+                className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-semibold bg-emerald-50 text-emerald-700 hover:bg-emerald-100 transition-colors border border-emerald-200 shadow-2xs"
+                title="Aprovar cadastro previamente rejeitado"
+              >
+                <CheckCircle size={13} />
+                Aprovar cadastro
+              </button>
+            )}
+
             {/* Contextual Administrative Action: Bloquear / Reativar */}
             {isApproved && (
               <button
@@ -2604,6 +2714,8 @@ export default function Resident360Client({
                   {auditLogs.map((log) => {
                     const post = log.estado_posterior || {}
                     const ant = log.estado_anterior || {}
+                    const isResidentApproved = log.acao === 'RESIDENT_APPROVED'
+                    const isResidentRejected = log.acao === 'RESIDENT_REJECTED'
                     const isUnitInactivation = log.acao === 'UNIT_INACTIVATED'
                     const isUnitLinkCreated = log.acao === 'UNIT_LINK_CREATED'
                     const isDateCorrected = log.acao === 'UNIT_LINK_ENTRY_DATE_CORRECTED'
@@ -2630,7 +2742,17 @@ export default function Resident360Client({
                       >
                         <div className="flex items-start justify-between gap-3 flex-wrap">
                           <div className="flex items-center gap-2">
-                            {isUnitInactivation ? (
+                            {isResidentApproved ? (
+                              <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-bold border bg-emerald-50 text-emerald-700 border-emerald-200">
+                                <CheckCircle size={12} />
+                                Cadastro aprovado
+                              </span>
+                            ) : isResidentRejected ? (
+                              <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-bold border bg-red-50 text-red-700 border-red-200">
+                                <XCircle size={12} />
+                                Cadastro rejeitado
+                              </span>
+                            ) : isUnitInactivation ? (
                               <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-bold border bg-red-50 text-red-700 border-red-200">
                                 <UserX size={12} />
                                 Morador inativado
@@ -2746,6 +2868,32 @@ export default function Resident360Client({
                         )}
 
                         {/* Detalhes específicos amigáveis sem expor JSON bruto */}
+                        {isResidentApproved && (
+                          <div className="text-xs text-gray-600 bg-white p-3 rounded-lg border border-gray-100 space-y-1">
+                            <p>
+                              • Status alterado para: <strong className="text-emerald-700">Aprovado</strong>
+                            </p>
+                            {ant.status_aprovacao && (
+                              <p className="text-gray-500 text-[11px]">
+                                • Status anterior: <span className="capitalize">{ant.status_aprovacao}</span>
+                              </p>
+                            )}
+                          </div>
+                        )}
+
+                        {isResidentRejected && (
+                          <div className="text-xs text-gray-600 bg-white p-3 rounded-lg border border-gray-100 space-y-1">
+                            <p>
+                              • Status alterado para: <strong className="text-red-700">Rejeitado</strong>
+                            </p>
+                            {ant.status_aprovacao && (
+                              <p className="text-gray-500 text-[11px]">
+                                • Status anterior: <span className="capitalize">{ant.status_aprovacao}</span>
+                              </p>
+                            )}
+                          </div>
+                        )}
+
                         {isUnitInactivation && (
                           <div className="text-xs text-gray-600 bg-white p-3 rounded-lg border border-gray-100 space-y-1">
                             {post.link_data_saida && (
@@ -3023,6 +3171,41 @@ export default function Resident360Client({
           loading={actionLoading}
           error={actionError}
           onConfirm={handleConfirmBlockAction}
+        />
+      )}
+
+      {/* Approve Modal (Gate 3L) */}
+      {isApproveModalOpen && (
+        <ApproveConfirmModal
+          isOpen={isApproveModalOpen}
+          onClose={() => {
+            if (!approvalLoading) {
+              setIsApproveModalOpen(false)
+              setApprovalError(null)
+            }
+          }}
+          onConfirm={handleConfirmApprove}
+          residentName={resident.nome_completo || 'Morador'}
+          isReapproval={isRejected}
+          loading={approvalLoading}
+          error={approvalError}
+        />
+      )}
+
+      {/* Reject Modal (Gate 3L) */}
+      {isRejectModalOpen && (
+        <RejectConfirmModal
+          isOpen={isRejectModalOpen}
+          onClose={() => {
+            if (!rejectionLoading) {
+              setIsRejectModalOpen(false)
+              setRejectionError(null)
+            }
+          }}
+          onConfirm={handleConfirmReject}
+          residentName={resident.nome_completo || 'Morador'}
+          loading={rejectionLoading}
+          error={rejectionError}
         />
       )}
 
