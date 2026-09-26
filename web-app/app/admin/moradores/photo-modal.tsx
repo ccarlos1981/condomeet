@@ -11,6 +11,7 @@ import {
   PawPrint,
   Car,
   User,
+  Users,
   Image as ImageIcon,
   CheckCircle,
 } from 'lucide-react'
@@ -22,6 +23,8 @@ import {
   adminRemoveVehiclePhoto,
   adminSaveResidentPhoto,
   adminRemoveResidentPhoto,
+  adminSaveDependentPhoto,
+  adminRemoveDependentPhoto,
 } from '@/app/admin/actions'
 
 // ==============================================================================
@@ -138,7 +141,7 @@ export async function processImageForUpload(
 export interface PhotoUploadModalProps {
   isOpen: boolean
   onClose: () => void
-  type: 'pet' | 'veiculo' | 'morador'
+  type: 'pet' | 'veiculo' | 'morador' | 'dependente'
   entityId: string
   entityName: string
   condominioId: string
@@ -189,7 +192,8 @@ export function PhotoUploadModal({
   const isReplacing = Boolean(currentPhotoPath)
   const isPet = type === 'pet'
   const isMorador = type === 'morador'
-  const entityLabel = isPet ? 'Pet' : isMorador ? 'Morador' : 'Veículo'
+  const isDependente = type === 'dependente'
+  const entityLabel = isPet ? 'Pet' : isMorador ? 'Morador' : isDependente ? 'Dependente' : 'Veículo'
 
   async function handleFileSelected(file: File) {
     setError(null)
@@ -239,7 +243,7 @@ export function PhotoUploadModal({
     const supabase = createClient()
     const timestamp = Date.now()
     const uniqueId = typeof crypto !== 'undefined' && crypto.randomUUID ? crypto.randomUUID() : Math.random().toString(36).substring(2, 15)
-    const entityFolder = isPet ? 'pets' : isMorador ? 'moradores' : 'veiculos'
+    const entityFolder = isPet ? 'pets' : isMorador ? 'moradores' : isDependente ? 'dependentes' : 'veiculos'
     const newPath = `${condominioId}/${entityFolder}/${entityId}/${timestamp}_${uniqueId}.jpg`
 
     let uploadSucceeded = false
@@ -271,6 +275,12 @@ export function PhotoUploadModal({
         res = await adminSaveResidentPhoto({
           residentId: entityId,
           fotoPath: newPath,
+        })
+      } else if (isDependente) {
+        res = await adminSaveDependentPhoto({
+          dependenteId: entityId,
+          fotoPath: newPath,
+          profileId,
         })
       } else {
         res = await adminSaveVehiclePhoto({
@@ -325,7 +335,7 @@ export function PhotoUploadModal({
         <div className="p-6 border-b border-gray-100 flex items-center justify-between">
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 rounded-xl bg-orange-50 border border-orange-100 flex items-center justify-center text-[#FC5931]">
-              {isPet ? <PawPrint size={20} /> : isMorador ? <User size={20} /> : <Car size={20} />}
+              {isPet ? <PawPrint size={20} /> : isMorador ? <User size={20} /> : isDependente ? <Users size={20} /> : <Car size={20} />}
             </div>
             <div>
               <h2 className="text-base font-bold text-gray-900">
@@ -500,7 +510,7 @@ export function PhotoUploadModal({
 export interface PhotoRemoveModalProps {
   isOpen: boolean
   onClose: () => void
-  type: 'pet' | 'veiculo' | 'morador'
+  type: 'pet' | 'veiculo' | 'morador' | 'dependente'
   entityId: string
   entityName: string
   condominioId: string
@@ -535,7 +545,8 @@ export function PhotoRemoveModal({
 
   const isPet = type === 'pet'
   const isMorador = type === 'morador'
-  const entityLabel = isPet ? 'Pet' : isMorador ? 'Morador' : 'Veículo'
+  const isDependente = type === 'dependente'
+  const entityLabel = isPet ? 'Pet' : isMorador ? 'Morador' : isDependente ? 'Dependente' : 'Veículo'
 
   async function handleConfirmRemove() {
     setLoading(true)
@@ -556,6 +567,12 @@ export function PhotoRemoveModal({
         res = await adminRemoveResidentPhoto({
           residentId: entityId,
           motivo: motivo.trim() || null,
+        })
+      } else if (isDependente) {
+        res = await adminRemoveDependentPhoto({
+          dependenteId: entityId,
+          motivo: motivo.trim() || null,
+          profileId,
         })
       } else {
         res = await adminRemoveVehiclePhoto({

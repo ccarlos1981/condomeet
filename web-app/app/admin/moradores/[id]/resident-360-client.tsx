@@ -228,6 +228,7 @@ export interface DependenteData {
   parentesco: string | null
   data_nascimento: string | null
   foto_path: string | null
+  foto_signed_url?: string | null
   observacao: string | null
   status: 'ativo' | 'inativo'
   perfil_convertido_id: string | null
@@ -475,9 +476,9 @@ export default function Resident360Client({
   const [reactivatingDependente, setReactivatingDependente] = useState<DependenteData | null>(null)
   const [transferringDependente, setTransferringDependente] = useState<DependenteData | null>(null)
 
-  // Photo Modals State (Gate 3F.2-B & Gate 3J)
+  // Photo Modals State (Gate 3F.2-B, Gate 3J & Gate 3K)
   const [photoUploadTarget, setPhotoUploadTarget] = useState<{
-    type: 'pet' | 'veiculo' | 'morador'
+    type: 'pet' | 'veiculo' | 'morador' | 'dependente'
     id: string
     name: string
     condoId: string
@@ -485,7 +486,7 @@ export default function Resident360Client({
   } | null>(null)
 
   const [photoRemoveTarget, setPhotoRemoveTarget] = useState<{
-    type: 'pet' | 'veiculo' | 'morador'
+    type: 'pet' | 'veiculo' | 'morador' | 'dependente'
     id: string
     name: string
     condoId: string
@@ -1963,6 +1964,17 @@ export default function Resident360Client({
                     const isDepActive = dep.status === 'ativo'
                     const isDepConverted = dep.perfil_convertido_id != null
                     const canEdit = isDepActive && !isDepConverted
+                    const isRespInactive = resident.status_aprovacao === 'inativo'
+                    const hasActiveUnit = Boolean(activeUnit?.unidade_id)
+                    const canManagePhoto = isDepActive && !isRespInactive && hasActiveUnit
+
+                    const depInitials = (dep.nome_completo || 'D')
+                      .split(' ')
+                      .filter(Boolean)
+                      .slice(0, 2)
+                      .map(n => n[0])
+                      .join('')
+                      .toUpperCase()
 
                     return (
                       <div
@@ -1974,35 +1986,129 @@ export default function Resident360Client({
                         }`}
                       >
                         <div className="flex items-start justify-between gap-3">
-                          <div className="min-w-0 flex-1">
-                            <div className="flex items-center gap-2 flex-wrap">
-                              <p className="font-semibold text-sm text-gray-900">
-                                {dep.nome_completo}
-                              </p>
-                              <span className={`text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full ${
-                                isDepActive
-                                  ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
-                                  : 'bg-gray-100 text-gray-500 border border-gray-200'
-                              }`}>
-                                {isDepActive ? 'Ativo' : 'Inativo'}
-                              </span>
-                              {isDepConverted && (
-                                <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full bg-blue-50 text-blue-700 border border-blue-200">
-                                  Cadastro convertido
-                                </span>
+                          <div className="flex items-start gap-3.5 min-w-0 flex-1">
+                            {/* Avatar / Miniatura da Foto à Esquerda */}
+                            <div className="relative shrink-0">
+                              {dep.foto_signed_url ? (
+                                <button
+                                  type="button"
+                                  onClick={() => setViewingPhoto({
+                                    url: dep.foto_signed_url!,
+                                    title: `Dependente: ${dep.nome_completo}`
+                                  })}
+                                  className="block relative w-14 h-14 rounded-xl overflow-hidden border border-gray-200 shadow-xs cursor-pointer hover:border-[#FC5931] transition-all group"
+                                  title="Clique para ampliar a foto do dependente"
+                                >
+                                  <img
+                                    src={dep.foto_signed_url}
+                                    alt={dep.nome_completo}
+                                    className="w-full h-full object-cover"
+                                  />
+                                  <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center text-white">
+                                    <Eye size={16} />
+                                  </div>
+                                </button>
+                              ) : (
+                                <div className="w-14 h-14 rounded-xl bg-orange-50/60 border border-dashed border-orange-200 text-[#FC5931] flex flex-col items-center justify-center shrink-0">
+                                  {depInitials ? (
+                                    <span className="text-xs font-bold text-[#FC5931]">{depInitials}</span>
+                                  ) : (
+                                    <Users size={18} className="text-[#FC5931]" />
+                                  )}
+                                  <span className="text-[8px] font-medium text-gray-400 mt-0.5">Sem foto</span>
+                                </div>
                               )}
                             </div>
-                            <p className="text-xs text-gray-500 mt-1">
-                              {parentescoLabel}
-                              {dataNascFormatted !== '—' && (
-                                <> · Nascimento: {dataNascFormatted}{idadeStr && <> ({idadeStr})</>}</>
-                              )}
-                            </p>
-                            {dep.observacao && (
-                              <p className="text-xs text-gray-400 mt-1 italic truncate max-w-md">
-                                {dep.observacao}
+
+                            {/* Informações Principais do Dependente */}
+                            <div className="min-w-0 flex-1">
+                              <div className="flex items-center gap-2 flex-wrap">
+                                <p className="font-semibold text-sm text-gray-900">
+                                  {dep.nome_completo}
+                                </p>
+                                <span className={`text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full ${
+                                  isDepActive
+                                    ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
+                                    : 'bg-gray-100 text-gray-500 border border-gray-200'
+                                }`}>
+                                  {isDepActive ? 'Ativo' : 'Inativo'}
+                                </span>
+                                {isDepConverted && (
+                                  <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full bg-blue-50 text-blue-700 border border-blue-200">
+                                    Cadastro convertido
+                                  </span>
+                                )}
+                              </div>
+                              <p className="text-xs text-gray-500 mt-1">
+                                {parentescoLabel}
+                                {dataNascFormatted !== '—' && (
+                                  <> · Nascimento: {dataNascFormatted}{idadeStr && <> ({idadeStr})</>}</>
+                                )}
                               </p>
-                            )}
+                              {dep.observacao && (
+                                <p className="text-xs text-gray-400 mt-1 italic truncate max-w-md">
+                                  {dep.observacao}
+                                </p>
+                              )}
+
+                              {/* Ações contextuais de foto */}
+                              <div className="flex items-center gap-2 mt-2 pt-1.5 border-t border-gray-100">
+                                {canManagePhoto ? (
+                                  !dep.foto_path ? (
+                                    <button
+                                      type="button"
+                                      onClick={() => setPhotoUploadTarget({
+                                        type: 'dependente',
+                                        id: dep.id,
+                                        name: dep.nome_completo,
+                                        condoId: dep.condominio_id,
+                                        currentPhotoPath: null,
+                                      })}
+                                      className="inline-flex items-center gap-1 text-[11px] font-semibold text-[#FC5931] hover:text-[#e04820] hover:underline cursor-pointer"
+                                    >
+                                      <Camera size={12} />
+                                      Adicionar foto
+                                    </button>
+                                  ) : (
+                                    <>
+                                      <button
+                                        type="button"
+                                        onClick={() => setPhotoUploadTarget({
+                                          type: 'dependente',
+                                          id: dep.id,
+                                          name: dep.nome_completo,
+                                          condoId: dep.condominio_id,
+                                          currentPhotoPath: dep.foto_path,
+                                        })}
+                                        className="inline-flex items-center gap-1 text-[11px] font-semibold text-gray-600 hover:text-gray-900 hover:underline cursor-pointer"
+                                      >
+                                        <Camera size={12} />
+                                        Alterar foto
+                                      </button>
+                                      <span className="text-gray-300">·</span>
+                                      <button
+                                        type="button"
+                                        onClick={() => setPhotoRemoveTarget({
+                                          type: 'dependente',
+                                          id: dep.id,
+                                          name: dep.nome_completo,
+                                          condoId: dep.condominio_id,
+                                          currentPhotoPath: dep.foto_path!,
+                                        })}
+                                        className="inline-flex items-center gap-1 text-[11px] font-semibold text-red-600 hover:text-red-700 hover:underline cursor-pointer"
+                                      >
+                                        <Trash2 size={12} />
+                                        Remover foto
+                                      </button>
+                                    </>
+                                  )
+                                ) : (
+                                  <span className="text-[11px] text-zinc-400 font-medium">
+                                    Cadastro histórico protegido.
+                                  </span>
+                                )}
+                              </div>
+                            </div>
                           </div>
                           {canEdit && (
                             <div className="flex items-center gap-1.5 shrink-0">

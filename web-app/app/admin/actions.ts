@@ -2034,6 +2034,198 @@ export async function adminTrocarResponsavelDependente(data: {
   }
 }
 
+// ==============================================================================
+// BASE CADASTRAL 360º — GATE 3K — FOTO DOS DEPENDENTES (SERVER ACTIONS)
+// ==============================================================================
+
+export async function adminSaveDependentPhoto(data: {
+  dependenteId: string
+  fotoPath: string
+  motivo?: string | null
+  profileId?: string
+}) {
+  try {
+    const supabase = await createClient()
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) return { error: 'Não autorizado' }
+
+    if (!data.dependenteId?.trim()) return { error: 'Identificador do dependente é obrigatório.' }
+    if (!data.fotoPath?.trim()) return { error: 'O caminho da foto é obrigatório.' }
+
+    const cleanPath = data.fotoPath.trim()
+
+    // 1. Autorização do operador
+    const { data: opProfile } = await supabase
+      .from('perfil')
+      .select('condominio_id, papel_sistema')
+      .eq('id', user.id)
+      .single()
+
+    if (!isAdminRole(opProfile?.papel_sistema)) {
+      return { error: 'Permissão negada. Apenas síndicos e administradores podem gerenciar fotos de dependentes.' }
+    }
+
+    // 2. Validação do dependente alvo e tenant guard
+    const { data: targetDep, error: targetError } = await supabase
+      .from('dependentes')
+      .select('id, condominio_id, status, responsavel_perfil_id')
+      .eq('id', data.dependenteId.trim())
+      .single()
+
+    if (targetError || !targetDep) {
+      return { error: 'Dependente alvo não encontrado.' }
+    }
+
+    if (targetDep.condominio_id !== opProfile?.condominio_id) {
+      return { error: 'Operação negada. O dependente pertence a outro condomínio (violação multi-tenant).' }
+    }
+
+    if (targetDep.status === 'inativo') {
+      return { error: 'Operação não permitida. O dependente encontra-se inativo e seu registro histórico é imutável.' }
+    }
+
+    // 3. Validação do path canônico: {condominio_id}/dependentes/{dependenteId}/...
+    const expectedPrefix = `${targetDep.condominio_id}/dependentes/${targetDep.id}/`
+    if (!cleanPath.startsWith(expectedPrefix)) {
+      return { error: 'Estrutura de caminho de foto inválida para este dependente.' }
+    }
+
+    // 4. Execução atômica no banco de dados via RPC
+    const { data: rpcResult, error: rpcError } = await supabase.rpc('admin_salvar_foto_dependente', {
+      p_dependente_id: targetDep.id,
+      p_foto_path: cleanPath,
+      p_motivo: data.motivo?.trim() || null,
+    })
+
+    if (rpcError) {
+      console.error('Erro na RPC admin_salvar_foto_dependente:', rpcError)
+      // Rollback: se o banco falhar, remover arquivo órfão do Storage
+      try {
+        await supabase.storage.from('base-cadastral-media').remove([cleanPath])
+      } catch (rollbackErr) {
+        console.error('[StorageRollback] Falha ao desfazer arquivo órfão no Storage:', rollbackErr)
+      }
+      return { error: rpcError.message || 'Falha ao salvar a foto do dependente no banco de dados.' }
+    }
+
+    // 5. Exclusão diferida da foto anterior SOMENTE se for path relativo do bucket privado
+    const oldPath = rpcResult?.foto_path_anterior
+    if (
+      oldPath &&
+      typeof oldPath === 'string' &&
+      !oldPath.startsWith('http://') &&
+      !oldPath.startsWith('https://') &&
+      oldPath !== cleanPath
+    ) {
+      try {
+        await supabase.storage.from('base-cadastral-media').remove([oldPath])
+      } catch (cleanupErr) {
+        console.error('[StorageCleanup] Falha ao remover foto anterior do Storage:', cleanupErr)
+      }
+    }
+
+    const revalProfileId = data.profileId || targetDep.responsavel_perfil_id
+    revalidatePath('/admin/moradores')
+    if (revalProfileId) {
+      revalidatePath(`/admin/moradores/${revalProfileId}`)
+    }
+
+    return {
+      success: true,
+      result: rpcResult,
+    }
+  } catch (err: unknown) {
+    console.error('Erro interno em adminSaveDependentPhoto:', err)
+    const msg = err instanceof Error ? err.message : 'Erro interno ao salvar foto do dependente.'
+    return { error: msg }
+  }
+}
+
+export async function adminRemoveDependentPhoto(data: {
+  dependenteId: string
+  motivo?: string | null
+  profileId?: string
+}) {
+  try {
+    const supabase = await createClient()
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) return { error: 'Não autorizado' }
+
+    if (!data.dependenteId?.trim()) return { error: 'Identificador do dependente é obrigatório.' }
+
+    // 1. Autorização do operador
+    const { data: opProfile } = await supabase
+      .from('perfil')
+      .select('condominio_id, papel_sistema')
+      .eq('id', user.id)
+      .single()
+
+    if (!isAdminRole(opProfile?.papel_sistema)) {
+      return { error: 'Permissão negada. Apenas síndicos e administradores podem remover fotos de dependentes.' }
+    }
+
+    // 2. Validação do dependente alvo e tenant guard
+    const { data: targetDep, error: targetError } = await supabase
+      .from('dependentes')
+      .select('id, condominio_id, status, responsavel_perfil_id')
+      .eq('id', data.dependenteId.trim())
+      .single()
+
+    if (targetError || !targetDep) {
+      return { error: 'Dependente alvo não encontrado.' }
+    }
+
+    if (targetDep.condominio_id !== opProfile?.condominio_id) {
+      return { error: 'Operação negada. O dependente pertence a outro condomínio (violação multi-tenant).' }
+    }
+
+    if (targetDep.status === 'inativo') {
+      return { error: 'Operação não permitida. O dependente encontra-se inativo e seu registro histórico é imutável.' }
+    }
+
+    // 3. Execução atômica no banco de dados via RPC
+    const { data: rpcResult, error: rpcError } = await supabase.rpc('admin_remover_foto_dependente', {
+      p_dependente_id: targetDep.id,
+      p_motivo: data.motivo?.trim() || null,
+    })
+
+    if (rpcError) {
+      console.error('Erro na RPC admin_remover_foto_dependente:', rpcError)
+      return { error: rpcError.message || 'Falha ao remover a foto do dependente.' }
+    }
+
+    // 4. Exclusão diferida da foto anterior no Storage SOMENTE se for path relativo privado
+    const oldPath = rpcResult?.foto_path_anterior
+    if (
+      oldPath &&
+      typeof oldPath === 'string' &&
+      !oldPath.startsWith('http://') &&
+      !oldPath.startsWith('https://')
+    ) {
+      try {
+        await supabase.storage.from('base-cadastral-media').remove([oldPath])
+      } catch (cleanupErr) {
+        console.error('[StorageCleanup] Falha ao remover foto do dependente no Storage:', cleanupErr)
+      }
+    }
+
+    const revalProfileId = data.profileId || targetDep.responsavel_perfil_id
+    revalidatePath('/admin/moradores')
+    if (revalProfileId) {
+      revalidatePath(`/admin/moradores/${revalProfileId}`)
+    }
+
+    return {
+      success: true,
+      result: rpcResult,
+    }
+  } catch (err: unknown) {
+    console.error('Erro interno em adminRemoveDependentPhoto:', err)
+    const msg = err instanceof Error ? err.message : 'Erro interno ao remover foto do dependente.'
+    return { error: msg }
+  }
+}
+
 /**
  * Gate 3G.4-D2: Consulta a ocupação atual de uma unidade residencial.
  * Retorna a contagem de moradores ativos + dependentes ativos não-convertidos.

@@ -395,9 +395,10 @@ export default async function Resident360Page(props: PageProps) {
     console.error('[Resident360Page] Falha na consulta de dependentes (perfil_id: %s, condo_id: %s):', id, condoId, dependentesError.message)
   }
 
-  // 13. Batch generate temporary signed URLs for resident, pet and vehicle photos (Gate 3F.2-B & Gate 3J)
+  // 13. Batch generate temporary signed URLs for resident, pet, vehicle and dependent photos (Gate 3F.2-B, Gate 3J & Gate 3K)
   const veiculoPaths = (rawVeiculos ?? []).map((v: any) => v.foto_path).filter(Boolean) as string[]
   const petPaths = (rawPets ?? []).map((p: any) => p.foto_path).filter(Boolean) as string[]
+  const dependentePaths = (rawDependentes ?? []).map((d: any) => d.foto_path).filter(Boolean) as string[]
 
   // Resolução canônica de foto do morador:
   // - Se começar com http:// ou https:// -> URL legada pública direta (preserva 106 fotos legadas)
@@ -411,6 +412,7 @@ export default async function Resident360Page(props: PageProps) {
   const allPathsToSign = Array.from(new Set([
     ...veiculoPaths,
     ...petPaths,
+    ...dependentePaths,
     ...(residentRelativePath ? [residentRelativePath] : []),
   ]))
 
@@ -499,6 +501,7 @@ export default async function Resident360Page(props: PageProps) {
     parentesco: d.parentesco,
     data_nascimento: d.data_nascimento,
     foto_path: d.foto_path || null,
+    foto_signed_url: d.foto_path ? (signedUrlMap.get(d.foto_path) || null) : null,
     observacao: d.observacao,
     status: d.status,
     perfil_convertido_id: d.perfil_convertido_id || null,
