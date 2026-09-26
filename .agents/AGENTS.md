@@ -200,6 +200,64 @@ Caso uma regra técnica específica pareça ausente ou ambígua durante a execu�
 
 ---
 
+## 8. Baseline Oficial — Módulo Veículos
+### Base Cadastral 360º — Gate 3D
+
+> **STATUS:** `🟢 CONCLUÍDO` · `🟢 HOMOLOGADO` · `🔒 FROZEN` · `🏛️ OFFICIAL BASELINE`  
+> **DATA DE CONGELAMENTO:** 25/09/2026  
+> **ESCOPO TÉCNICO:** Gate 3D.1 (Fundação Canônica), Gate 3D.2-B (UI Administrativa e Integração 360º), Gate 3D.2-B.1 (Hotfix RLS de Leitura) e Gate 3D.2-B.3 (Hardening de Imutabilidade de Veículo Inativo).
+
+#### A. Arquitetura Canônica de `public.veiculos`
+- **Tabela Soberana:** A tabela `public.veiculos` armazena todos os veículos vinculados a residentes e condomínios.
+- **Relacionamento Relacional:**
+  - `perfil_id UUID REFERENCES public.perfil(id) ON DELETE CASCADE`: Vinculação canônica ao morador titular.
+  - `unidade_id UUID REFERENCES public.unidade(id) ON DELETE CASCADE`: Unidade residencial de lotação do veículo.
+  - `condominio_id UUID REFERENCES public.condominio(id) ON DELETE CASCADE`: Tenant isolado.
+- **Campos Cadastrais:** `placa` (limpa e normalizada sem traço/espaço, em maiúsculas), `marca`, `modelo`, `cor`, `ano`, `vaga_numero` (identificador da vaga de garagem), `status` ('ativo' | 'inativo').
+- **Constraint de Unicidade Parcial:** Garantia soberana de placa ativa única por condomínio:
+  `CREATE UNIQUE INDEX idx_veiculos_unique_placa_ativa ON public.veiculos(condominio_id, placa) WHERE status = 'ativo';`
+  Permite placas duplicadas apenas se os registros anteriores estiverem com `status = 'inativo'`.
+
+#### B. Segurança, RLS e Hotfix Histórico
+- **RLS Ativo:** RLS obrigatório habilitado em `public.veiculos`.
+- **Policy de Leitura (`veiculos_admin_select`):** Permite leitura para SuperAdmins e operadores (síndicos/administradores) do mesmo condomínio.
+- **Resolução do Incidente Hotfix RLS (Gate 3D.2-B.1):** A policy original realizava `JOIN` direto com `auth.users`, resultando em `42501 permission denied for table users` para usuários logados sob a role `authenticated`. A baseline oficial utiliza identificação puramente via JWT claims:
+  `EXISTS (SELECT 1 FROM public.system_superadmins sa WHERE sa.email = (auth.jwt() ->> 'email'))`
+  *Invariante:* É terminantemente proibido reintroduzir consultas ou JOINs diretos em `auth.users` dentro de policies RLS.
+- **Mutações Restritas:** Não há policies permissivas de INSERT/UPDATE/DELETE para clientes. Toda e qualquer mutação administrativa ocorre obrigatoriamente através de RPCs `SECURITY DEFINER` com `SET search_path TO 'public'`.
+
+#### C. RPCs Administrativas Canônicas
+Todas as mutações são transacionais, validam credenciais do operador (`system_superadmins` ou papel administrativo em `public.unidade_perfil`) e registram eventos em `public.perfil_audit_log`:
+1. `public.admin_cadastrar_veiculo(...)`: Valida dados cadastrais, formata e converte placa para maiúsculas sem traços, assegura unicidade de placa ativa no condomínio e insere registro com `status = 'ativo'`. Registra auditoria `VEHICLE_CREATED`.
+2. `public.admin_atualizar_veiculo(...)`: Atualiza dados descritivos (marca, modelo, cor, ano, vaga) de veículo com `status = 'ativo'`. Rejeita formalmente mutações em veículos inativos. Registra auditoria `VEHICLE_UPDATED`.
+3. `public.admin_corrigir_placa_veiculo(...)`: Corrige erro material de digitação na placa de veículo ativo. Exige motivo textual obrigatório. Rejeita veículos inativos. Registra auditoria `VEHICLE_PLATE_CORRECTED` contendo snapshots da placa anterior e nova placa.
+4. `public.admin_inativar_veiculo(...)`: Encerra o ciclo ativo do veículo (`status = 'inativo'`). Exige motivo. Registra auditoria `VEHICLE_INACTIVATED`.
+5. `public.admin_reativar_veiculo(...)`: Restaura o veículo para `status = 'ativo'`. Valida eventual colisão de placa ativa antes da ativação. Exige motivo. Registra auditoria `VEHICLE_REACTIVATED`.
+
+#### D. Regras de Negócio e Ciclo de Vida do Veículo
+- **Veículo Ativo:**
+  - Permite edição cadastral (`admin_atualizar_veiculo`).
+  - Permite retificação de placa por erro material (`admin_corrigir_placa_veiculo`).
+  - Permite inativação administrativa (`admin_inativar_veiculo`).
+  - UI exibe ações: `[Editar]`, `[Corrigir placa]`, `[Inativar]`.
+- **Veículo Inativo (Histórico Imutável — Gate 3D.2-B.3):**
+  - Constitui registro histórico imutável encerrado.
+  - Proteção em profundidade no banco de dados: RPCs `admin_atualizar_veiculo` e `admin_corrigir_placa_veiculo` disparam exceção (`RAISE EXCEPTION`) se `v_status = 'inativo'`.
+  - Única ação permitida: Reativação (`admin_reativar_veiculo`).
+  - UI reflete a regra ocultando `Editar` e `Corrigir placa`, disponibilizando unicamente `[Reativar]`.
+- **Regra de Correção de Placa vs. Troca de Veículo:**
+  - A correção de placa destina-se *estritamente* a conserto de erro de digitação/cadastro.
+  - A substituição real de veículo (venda/aquisição de outro carro) exige canonicamente:
+    `INATIVAR veículo anterior` + `CADASTRAR novo veículo`.
+- **Auditoria de Placa:** A retificação de placa sempre exige justificativa e grava snapshots de placa anterior e nova para integridade forense.
+
+#### E. Integração com Resident 360º e Prevenção de Erros Mascarados
+- **Tratamento Explícito de Erros de Leitura:** É princípio canônico que *erros de consulta nunca podem ser mascarados como array vazio*. No componente `page.tsx`, o retorno de PostgREST `veiculosError` é inspecionado e repassado explicitamente ao `Resident360Client`. Em caso de erro na consulta, o painel exibe banner de erro com diagnóstico, mantendo distinção cristalina entre "falha de leitura/permissão" e "nenhum veículo cadastrado" (empty state legítimo).
+- **Aba Veículos & Contadores:** Contador reativo no tab `Veículos (N)` exibindo todos os veículos vinculados ao morador. Card visual dedicado com crachá `ATIVO` (verde) ou `INATIVO` (cinza/alerta), dados da unidade/vaga e ações contextuais.
+- **Histórico Administrativo Unificado:** Todas as mutações veiculares geram eventos formais em `public.perfil_audit_log` (`VEHICLE_CREATED`, `VEHICLE_UPDATED`, `VEHICLE_PLATE_CORRECTED`, `VEHICLE_INACTIVATED`, `VEHICLE_REACTIVATED`) que são exibidos de forma cronológica e transparente na linha do tempo da visão 360º do morador.
+
+---
+
 ## TRACEABILITY
 
 | Bloco do Loader Operacional | Fonte Primária no AI-OS | Origem no Monólito / Gate 5.1 |

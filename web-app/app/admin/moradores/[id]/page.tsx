@@ -9,6 +9,7 @@ import Resident360Client, {
   CoResidentData,
   ConviteData,
   PortariaRegistroData,
+  VehicleData,
 } from './resident-360-client'
 
 export const metadata = {
@@ -260,6 +261,60 @@ export default async function Resident360Page(props: PageProps) {
     unidade_apto: l.unidade?.apartamentos?.numero || null,
   }))
 
+  // 10. Fetch vehicles associated with this resident strictly in this condominium (Gate 3D.2-B)
+  const { data: rawVeiculos, error: veiculosError } = await supabase
+    .from('veiculos')
+    .select(`
+      id,
+      condominio_id,
+      perfil_id,
+      unidade_id,
+      placa,
+      tipo,
+      marca,
+      modelo,
+      cor,
+      ano,
+      vaga_numero,
+      observacao,
+      status,
+      created_at,
+      updated_at,
+      unidades (
+        id,
+        blocos ( nome_ou_numero ),
+        apartamentos ( numero )
+      )
+    `)
+    .eq('perfil_id', id)
+    .eq('condominio_id', condoId)
+    .order('status', { ascending: true }) // 'ativo' comes before 'inativo' alphabetically
+    .order('created_at', { ascending: false })
+
+  if (veiculosError) {
+    console.error('[Resident360Page] Falha na consulta de veículos (perfil_id: %s, condo_id: %s):', id, condoId, veiculosError.message)
+  }
+
+  const veiculos: VehicleData[] = (rawVeiculos ?? []).map((v: any) => ({
+    id: v.id,
+    condominio_id: v.condominio_id,
+    perfil_id: v.perfil_id,
+    unidade_id: v.unidade_id,
+    placa: v.placa,
+    tipo: v.tipo,
+    marca: v.marca,
+    modelo: v.modelo,
+    cor: v.cor,
+    ano: v.ano,
+    vaga_numero: v.vaga_numero,
+    observacao: v.observacao,
+    status: v.status,
+    created_at: v.created_at,
+    updated_at: v.updated_at,
+    unidade_bloco: v.unidades?.blocos?.nome_ou_numero || null,
+    unidade_apto: v.unidades?.apartamentos?.numero || null,
+  }))
+
   return (
     <Resident360Client
       resident={resident as ResidentData}
@@ -270,6 +325,8 @@ export default async function Resident360Page(props: PageProps) {
       convites={convites}
       portariaRegistros={portariaRegistros}
       auditLogs={auditLogs}
+      veiculos={veiculos}
+      veiculosError={veiculosError ? 'Não foi possível carregar os dados de veículos devido a uma falha no banco de dados.' : null}
     />
   )
 }

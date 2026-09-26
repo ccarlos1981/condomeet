@@ -814,5 +814,286 @@ export async function adminCreateResidentLink(data: {
   }
 }
 
+// ============================================================================
+// VEÍCULOS CANÔNICOS (Gate 3D.2-B)
+// ============================================================================
 
+export async function adminCreateVehicle(data: {
+  profileId: string
+  unidadeId: string
+  placa: string
+  tipo: string
+  marca: string
+  modelo: string
+  cor: string
+  ano?: number | null
+  observacao?: string | null
+  vagaNumero?: string | null
+}) {
+  try {
+    const supabase = await createClient()
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) return { error: 'Não autorizado' }
 
+    const { data: opProfile } = await supabase
+      .from('perfil')
+      .select('papel_sistema')
+      .eq('id', user.id)
+      .single()
+
+    if (!isAdminRole(opProfile?.papel_sistema)) {
+      return { error: 'Permissão negada. Apenas síndicos e administradores podem cadastrar veículos.' }
+    }
+
+    if (!data.profileId) return { error: 'Identificador do morador é obrigatório.' }
+    if (!data.unidadeId) return { error: 'Identificador da unidade é obrigatório.' }
+    if (!data.placa?.trim()) return { error: 'A placa do veículo é obrigatória.' }
+    if (!data.tipo?.trim()) return { error: 'O tipo do veículo é obrigatório.' }
+    if (!data.marca?.trim()) return { error: 'A marca do veículo é obrigatória.' }
+    if (!data.modelo?.trim()) return { error: 'O modelo do veículo é obrigatório.' }
+    if (!data.cor?.trim()) return { error: 'A cor do veículo é obrigatória.' }
+
+    const { data: rpcResult, error: rpcError } = await supabase.rpc('admin_cadastrar_veiculo', {
+      p_perfil_id: data.profileId,
+      p_unidade_id: data.unidadeId,
+      p_placa: data.placa.trim(),
+      p_tipo: data.tipo.trim(),
+      p_marca: data.marca.trim(),
+      p_modelo: data.modelo.trim(),
+      p_cor: data.cor.trim(),
+      p_ano: data.ano ?? null,
+      p_observacao: data.observacao?.trim() || null,
+      p_vaga_numero: data.vagaNumero?.trim() || null,
+    })
+
+    if (rpcError) {
+      console.error('Erro na RPC admin_cadastrar_veiculo:', rpcError)
+      return { error: rpcError.message }
+    }
+
+    revalidatePath('/admin/moradores')
+    revalidatePath(`/admin/moradores/${data.profileId}`)
+
+    return {
+      success: true,
+      result: rpcResult,
+    }
+  } catch (err: unknown) {
+    console.error('Erro interno em adminCreateVehicle:', err)
+    const msg = err instanceof Error ? err.message : 'Erro interno ao cadastrar veículo.'
+    return { error: msg }
+  }
+}
+
+export async function adminUpdateVehicle(data: {
+  veiculoId: string
+  profileId: string
+  tipo: string
+  marca: string
+  modelo: string
+  cor: string
+  ano?: number | null
+  observacao?: string | null
+  vagaNumero?: string | null
+}) {
+  try {
+    const supabase = await createClient()
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) return { error: 'Não autorizado' }
+
+    const { data: opProfile } = await supabase
+      .from('perfil')
+      .select('papel_sistema')
+      .eq('id', user.id)
+      .single()
+
+    if (!isAdminRole(opProfile?.papel_sistema)) {
+      return { error: 'Permissão negada. Apenas síndicos e administradores podem atualizar veículos.' }
+    }
+
+    if (!data.veiculoId) return { error: 'Identificador do veículo é obrigatório.' }
+    if (!data.tipo?.trim()) return { error: 'O tipo do veículo é obrigatório.' }
+    if (!data.marca?.trim()) return { error: 'A marca do veículo é obrigatória.' }
+    if (!data.modelo?.trim()) return { error: 'O modelo do veículo é obrigatório.' }
+    if (!data.cor?.trim()) return { error: 'A cor do veículo é obrigatória.' }
+
+    const { data: rpcResult, error: rpcError } = await supabase.rpc('admin_atualizar_veiculo', {
+      p_veiculo_id: data.veiculoId,
+      p_tipo: data.tipo.trim(),
+      p_marca: data.marca.trim(),
+      p_modelo: data.modelo.trim(),
+      p_cor: data.cor.trim(),
+      p_ano: data.ano ?? null,
+      p_observacao: data.observacao?.trim() || null,
+      p_vaga_numero: data.vagaNumero?.trim() || null,
+    })
+
+    if (rpcError) {
+      console.error('Erro na RPC admin_atualizar_veiculo:', rpcError)
+      return { error: rpcError.message }
+    }
+
+    revalidatePath('/admin/moradores')
+    if (data.profileId) {
+      revalidatePath(`/admin/moradores/${data.profileId}`)
+    }
+
+    return {
+      success: true,
+      result: rpcResult,
+    }
+  } catch (err: unknown) {
+    console.error('Erro interno em adminUpdateVehicle:', err)
+    const msg = err instanceof Error ? err.message : 'Erro interno ao atualizar veículo.'
+    return { error: msg }
+  }
+}
+
+export async function adminCorrectVehiclePlate(data: {
+  veiculoId: string
+  profileId: string
+  novaPlaca: string
+  motivo: string
+}) {
+  try {
+    const supabase = await createClient()
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) return { error: 'Não autorizado' }
+
+    const { data: opProfile } = await supabase
+      .from('perfil')
+      .select('papel_sistema')
+      .eq('id', user.id)
+      .single()
+
+    if (!isAdminRole(opProfile?.papel_sistema)) {
+      return { error: 'Permissão negada. Apenas síndicos e administradores podem corrigir placas.' }
+    }
+
+    if (!data.veiculoId) return { error: 'Identificador do veículo é obrigatório.' }
+    if (!data.novaPlaca?.trim()) return { error: 'A nova placa é obrigatória.' }
+    if (!data.motivo?.trim()) return { error: 'O motivo da correção da placa é obrigatório.' }
+
+    const { data: rpcResult, error: rpcError } = await supabase.rpc('admin_corrigir_placa_veiculo', {
+      p_veiculo_id: data.veiculoId,
+      p_nova_placa: data.novaPlaca.trim(),
+      p_motivo: data.motivo.trim(),
+    })
+
+    if (rpcError) {
+      console.error('Erro na RPC admin_corrigir_placa_veiculo:', rpcError)
+      return { error: rpcError.message }
+    }
+
+    revalidatePath('/admin/moradores')
+    if (data.profileId) {
+      revalidatePath(`/admin/moradores/${data.profileId}`)
+    }
+
+    return {
+      success: true,
+      result: rpcResult,
+    }
+  } catch (err: unknown) {
+    console.error('Erro interno em adminCorrectVehiclePlate:', err)
+    const msg = err instanceof Error ? err.message : 'Erro interno ao retificar placa.'
+    return { error: msg }
+  }
+}
+
+export async function adminInactivateVehicle(data: {
+  veiculoId: string
+  profileId: string
+  motivo: string
+}) {
+  try {
+    const supabase = await createClient()
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) return { error: 'Não autorizado' }
+
+    const { data: opProfile } = await supabase
+      .from('perfil')
+      .select('papel_sistema')
+      .eq('id', user.id)
+      .single()
+
+    if (!isAdminRole(opProfile?.papel_sistema)) {
+      return { error: 'Permissão negada. Apenas síndicos e administradores podem inativar veículos.' }
+    }
+
+    if (!data.veiculoId) return { error: 'Identificador do veículo é obrigatório.' }
+    if (!data.motivo?.trim()) return { error: 'O motivo da inativação é obrigatório.' }
+
+    const { data: rpcResult, error: rpcError } = await supabase.rpc('admin_inativar_veiculo', {
+      p_veiculo_id: data.veiculoId,
+      p_motivo: data.motivo.trim(),
+    })
+
+    if (rpcError) {
+      console.error('Erro na RPC admin_inativar_veiculo:', rpcError)
+      return { error: rpcError.message }
+    }
+
+    revalidatePath('/admin/moradores')
+    if (data.profileId) {
+      revalidatePath(`/admin/moradores/${data.profileId}`)
+    }
+
+    return {
+      success: true,
+      result: rpcResult,
+    }
+  } catch (err: unknown) {
+    console.error('Erro interno em adminInactivateVehicle:', err)
+    const msg = err instanceof Error ? err.message : 'Erro interno ao inativar veículo.'
+    return { error: msg }
+  }
+}
+
+export async function adminReactivateVehicle(data: {
+  veiculoId: string
+  profileId: string
+  motivo?: string | null
+}) {
+  try {
+    const supabase = await createClient()
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) return { error: 'Não autorizado' }
+
+    const { data: opProfile } = await supabase
+      .from('perfil')
+      .select('papel_sistema')
+      .eq('id', user.id)
+      .single()
+
+    if (!isAdminRole(opProfile?.papel_sistema)) {
+      return { error: 'Permissão negada. Apenas síndicos e administradores podem reativar veículos.' }
+    }
+
+    if (!data.veiculoId) return { error: 'Identificador do veículo é obrigatório.' }
+
+    const { data: rpcResult, error: rpcError } = await supabase.rpc('admin_reativar_veiculo', {
+      p_veiculo_id: data.veiculoId,
+      p_motivo: data.motivo?.trim() || null,
+    })
+
+    if (rpcError) {
+      console.error('Erro na RPC admin_reativar_veiculo:', rpcError)
+      return { error: rpcError.message }
+    }
+
+    revalidatePath('/admin/moradores')
+    if (data.profileId) {
+      revalidatePath(`/admin/moradores/${data.profileId}`)
+    }
+
+    return {
+      success: true,
+      result: rpcResult,
+    }
+  } catch (err: unknown) {
+    console.error('Erro interno em adminReactivateVehicle:', err)
+    const msg = err instanceof Error ? err.message : 'Erro interno ao reativar veículo.'
+    return { error: msg }
+  }
+}

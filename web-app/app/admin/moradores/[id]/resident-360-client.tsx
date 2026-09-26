@@ -27,12 +27,18 @@ import {
   UserX,
   History,
   PlusCircle,
+  Edit2,
+  RefreshCw,
 } from 'lucide-react'
 import { getBlocoLabel, getAptoLabel, formatUnitDisplay, isTechnicalAdminUnit } from '@/lib/labels'
 import { isTechnicalAdminRole } from '@/lib/roles'
 import BlockConfirmModal from '../block-confirm-modal'
 import InactivateConfirmModal from '../inactivate-confirm-modal'
 import CreateResidentLinkModal from '../create-resident-link-modal'
+import VehicleModal from '../vehicle-modal'
+import VehiclePlateModal from '../vehicle-plate-modal'
+import VehicleInactivateModal from '../vehicle-inactivate-modal'
+import VehicleReactivateModal from '../vehicle-reactivate-modal'
 import { adminToggleBlockStatus } from '@/app/admin/actions'
 
 export interface ResidentData {
@@ -124,6 +130,37 @@ interface Props {
   convites: ConviteData[]
   portariaRegistros: PortariaRegistroData[]
   auditLogs?: AuditLogData[]
+  veiculos?: VehicleData[]
+  veiculosError?: string | null
+}
+
+export interface VehicleData {
+  id: string
+  condominio_id: string
+  perfil_id: string
+  unidade_id: string
+  placa: string
+  tipo: string
+  marca: string
+  modelo: string
+  cor: string
+  ano?: number | null
+  vaga_numero?: string | null
+  observacao?: string | null
+  status: 'ativo' | 'inativo'
+  created_at: string
+  updated_at?: string | null
+  unidade_bloco?: string | null
+  unidade_apto?: string | null
+}
+
+export function formatPlateDisplay(plate?: string | null): string {
+  if (!plate) return '—'
+  const clean = plate.toUpperCase().replace(/[^A-Z0-9]/g, '')
+  if (/^[A-Z]{3}[0-9]{4}$/.test(clean)) {
+    return `${clean.slice(0, 3)}-${clean.slice(3)}`
+  }
+  return clean
 }
 
 type TabKey = 'dados-gerais' | 'unidade' | 'veiculos' | 'pets' | 'familia' | 'acessos' | 'historico'
@@ -206,8 +243,10 @@ export default function Resident360Client({
   unitLinks,
   coResidents,
   convites,
-  portariaRegistros,
+  portariaRegistros = [],
   auditLogs = [],
+  veiculos: initialVeiculos = [],
+  veiculosError = null,
 }: Props) {
   const router = useRouter()
   const [activeTab, setActiveTab] = useState<TabKey>('dados-gerais')
@@ -217,6 +256,18 @@ export default function Resident360Client({
   useEffect(() => {
     setResident(initialResident)
   }, [initialResident])
+
+  const [veiculos, setVeiculos] = useState<VehicleData[]>(initialVeiculos)
+  useEffect(() => {
+    setVeiculos(initialVeiculos)
+  }, [initialVeiculos])
+
+  // Vehicle Modals State
+  const [isVehicleModalOpen, setIsVehicleModalOpen] = useState(false)
+  const [editingVehicle, setEditingVehicle] = useState<VehicleData | null>(null)
+  const [correctingVehicle, setCorrectingVehicle] = useState<VehicleData | null>(null)
+  const [inactivatingVehicle, setInactivatingVehicle] = useState<VehicleData | null>(null)
+  const [reactivatingVehicle, setReactivatingVehicle] = useState<VehicleData | null>(null)
 
   // Block / Unblock Modal State
   const [confirmAction, setConfirmAction] = useState<'block' | 'unblock' | null>(null)
@@ -284,7 +335,7 @@ export default function Resident360Client({
   const TABS: { key: TabKey; label: string; icon: React.ReactNode; count?: number }[] = [
     { key: 'dados-gerais', label: 'Dados Gerais', icon: <User size={16} /> },
     { key: 'unidade', label: 'Unidade', icon: <Home size={16} />, count: unitLinks.filter(u => u.status === 'ativo').length },
-    { key: 'veiculos', label: 'Veículos', icon: <Car size={16} /> },
+    { key: 'veiculos', label: 'Veículos', icon: <Car size={16} />, count: veiculosError ? undefined : veiculos.length },
     { key: 'pets', label: 'Pets', icon: <Heart size={16} /> },
     { key: 'familia', label: 'Família', icon: <Users size={16} />, count: coResidents.length > 0 ? coResidents.length + 1 : undefined },
     { key: 'acessos', label: 'Acessos', icon: <KeyRound size={16} />, count: convites.length + portariaRegistros.length },
@@ -786,20 +837,212 @@ export default function Resident360Client({
 
         {/* 3. VEÍCULOS */}
         {activeTab === 'veiculos' && (
-          <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-12 text-center max-w-xl mx-auto">
-            <div className="w-16 h-16 rounded-2xl bg-orange-50 mx-auto flex items-center justify-center mb-4">
-              <Car size={32} className="text-[#FC5931]" />
+          <div className="space-y-6">
+            {/* Aviso discreto caso o morador esteja com acesso bloqueado */}
+            {isBlocked && (
+              <div className="bg-amber-50/80 border border-amber-200/90 rounded-xl p-3.5 flex items-center gap-3">
+                <Lock size={16} className="text-amber-700 shrink-0" />
+                <p className="text-xs text-amber-800">
+                  <strong className="font-semibold">Morador com acesso administrativo bloqueado:</strong> Os veículos cadastrados permanecem vinculados e visíveis para a administração do condomínio.
+                </p>
+              </div>
+            )}
+
+            {/* Aviso para morador inativo */}
+            {isInactive && (
+              <div className="bg-zinc-100 border border-zinc-200 rounded-xl p-3.5 flex items-center gap-3">
+                <Info size={16} className="text-zinc-600 shrink-0" />
+                <p className="text-xs text-zinc-700">
+                  <strong className="font-semibold">Morador inativo:</strong> Exibindo veículos históricos cadastrados. Para cadastrar novos veículos, o morador deve possuir um vínculo residencial ativo.
+                </p>
+              </div>
+            )}
+
+            {/* Erro de consulta na base de veículos */}
+            {veiculosError && (
+              <div className="bg-red-50 border border-red-200 rounded-xl p-3.5 flex items-center gap-3">
+                <AlertCircle size={16} className="text-red-600 shrink-0" />
+                <p className="text-xs text-red-700 font-medium">
+                  {veiculosError}
+                </p>
+              </div>
+            )}
+
+            {/* Cabeçalho da aba de veículos */}
+            <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                <div>
+                  <h2 className="text-base font-bold text-gray-900 flex items-center gap-2">
+                    <Car size={18} className="text-[#FC5931]" />
+                    Veículos {veiculosError ? '' : `(${veiculos.length})`}
+                  </h2>
+                  <p className="text-xs text-gray-500 mt-1">
+                    Veículos cadastrados e vinculados a este morador para controle patrimonial e de vagas.
+                  </p>
+                </div>
+
+                <button
+                  onClick={() => {
+                    setEditingVehicle(null)
+                    setIsVehicleModalOpen(true)
+                  }}
+                  className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-semibold bg-[#FC5931] text-white hover:bg-[#e04820] shadow-sm transition-all self-start sm:self-auto cursor-pointer"
+                >
+                  <PlusCircle size={15} />
+                  + Adicionar veículo
+                </button>
+              </div>
+
+              {/* Lista ou Estado Vazio / Erro */}
+              {veiculosError ? (
+                <div className="py-12 text-center max-w-md mx-auto">
+                  <div className="w-16 h-16 rounded-2xl bg-red-50 mx-auto flex items-center justify-center mb-4">
+                    <AlertCircle size={32} className="text-red-500" />
+                  </div>
+                  <h3 className="text-base font-bold text-gray-900 mb-1">Erro na consulta de veículos</h3>
+                  <p className="text-xs text-gray-500">
+                    Ocorreu uma falha ao consultar o banco de dados. Recarregue a página ou contate o administrador do sistema.
+                  </p>
+                </div>
+              ) : veiculos.length === 0 ? (
+                <div className="py-12 text-center max-w-md mx-auto">
+                  <div className="w-16 h-16 rounded-2xl bg-orange-50 mx-auto flex items-center justify-center mb-4">
+                    <Car size={32} className="text-[#FC5931]" />
+                  </div>
+                  <h3 className="text-base font-bold text-gray-900 mb-1">Nenhum veículo cadastrado.</h3>
+                  <p className="text-xs text-gray-500 mb-6">
+                    Cadastre os veículos deste morador para facilitar a identificação e a gestão de vagas do condomínio.
+                  </p>
+                  <button
+                    onClick={() => {
+                      setEditingVehicle(null)
+                      setIsVehicleModalOpen(true)
+                    }}
+                    className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-semibold bg-[#FC5931] text-white hover:bg-[#e04820] shadow-sm transition-all cursor-pointer"
+                  >
+                    <PlusCircle size={15} />
+                    + Adicionar veículo
+                  </button>
+                </div>
+              ) : (
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mt-6">
+                  {veiculos.map((veiculo) => {
+                    const isAtivo = veiculo.status === 'ativo'
+
+                    return (
+                      <div
+                        key={veiculo.id}
+                        className={`rounded-2xl border p-5 transition-all flex flex-col justify-between ${
+                          isAtivo
+                            ? 'bg-white border-gray-200/90 shadow-sm hover:border-[#FC5931]/30 hover:shadow-md'
+                            : 'bg-zinc-50/80 border-zinc-200 text-zinc-500 shadow-none'
+                        }`}
+                      >
+                        <div className="space-y-3">
+                          {/* Linha Superior: Placa e Badge de Status */}
+                          <div className="flex items-center justify-between gap-2">
+                            {/* Placa estilizada */}
+                            <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-lg bg-zinc-900 text-white font-mono font-extrabold tracking-widest text-sm shadow-xs border border-zinc-800">
+                              <span className="text-[9px] font-sans font-semibold tracking-normal text-zinc-400 uppercase">BR</span>
+                              <span>{formatPlateDisplay(veiculo.placa)}</span>
+                            </div>
+
+                            {/* Status */}
+                            {isAtivo ? (
+                              <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-bold bg-emerald-50 text-emerald-700 border border-emerald-200">
+                                <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
+                                ATIVO
+                              </span>
+                            ) : (
+                              <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-bold bg-zinc-100 text-zinc-600 border border-zinc-200">
+                                <span className="w-1.5 h-1.5 rounded-full bg-zinc-400" />
+                                INATIVO
+                              </span>
+                            )}
+                          </div>
+
+                          {/* Marca e Modelo */}
+                          <div>
+                            <h3 className={`font-bold text-base leading-tight ${isAtivo ? 'text-gray-900' : 'text-zinc-600'}`}>
+                              {veiculo.marca} {veiculo.modelo}
+                            </h3>
+                            <p className="text-xs text-gray-500 mt-1 capitalize">
+                              {veiculo.cor} · {veiculo.tipo} {veiculo.ano ? `· ${veiculo.ano}` : ''}
+                            </p>
+                          </div>
+
+                          {/* Vaga e Unidade */}
+                          <div className="space-y-1 pt-1">
+                            {veiculo.vaga_numero && (
+                              <div className="text-xs text-gray-600 font-medium">
+                                Vaga: <span className="font-semibold text-gray-900">{veiculo.vaga_numero}</span>
+                              </div>
+                            )}
+
+                            {(veiculo.unidade_bloco || veiculo.unidade_apto) && (
+                              <div className="text-[11px] text-gray-400">
+                                Unidade: {blocoLabel} {veiculo.unidade_bloco || '—'} · {aptoLabel} {veiculo.unidade_apto || '—'}
+                              </div>
+                            )}
+                          </div>
+
+                          {/* Observação se houver */}
+                          {veiculo.observacao && (
+                            <p className="text-xs text-gray-500 italic bg-gray-50/80 p-2.5 rounded-xl border border-gray-100 line-clamp-2">
+                              "{veiculo.observacao}"
+                            </p>
+                          )}
+                        </div>
+
+                        {/* Ações Administrativas */}
+                        <div className="pt-4 mt-4 border-t border-gray-100 flex items-center justify-between gap-2 flex-wrap">
+                          {isAtivo ? (
+                            <>
+                              <div className="flex items-center gap-1.5">
+                                <button
+                                  onClick={() => {
+                                    setEditingVehicle(veiculo)
+                                    setIsVehicleModalOpen(true)
+                                  }}
+                                  className="px-2.5 py-1 text-xs font-semibold rounded-lg bg-gray-100 text-gray-700 hover:bg-gray-200 transition-colors cursor-pointer"
+                                >
+                                  Editar
+                                </button>
+                                <button
+                                  onClick={() => setCorrectingVehicle(veiculo)}
+                                  className="px-2.5 py-1 text-xs font-semibold rounded-lg bg-amber-50 text-amber-700 border border-amber-200 hover:bg-amber-100 transition-colors cursor-pointer"
+                                  title="Corrigir erro material de digitação na placa"
+                                >
+                                  Corrigir placa
+                                </button>
+                              </div>
+
+                              <div>
+                                <button
+                                  onClick={() => setInactivatingVehicle(veiculo)}
+                                  className="px-2.5 py-1 text-xs font-semibold rounded-lg bg-red-50 text-red-700 border border-red-200 hover:bg-red-100 transition-colors cursor-pointer"
+                                >
+                                  Inativar
+                                </button>
+                              </div>
+                            </>
+                          ) : (
+                            <div className="w-full flex justify-end">
+                              <button
+                                onClick={() => setReactivatingVehicle(veiculo)}
+                                className="px-3 py-1.5 text-xs font-semibold rounded-lg bg-emerald-50 text-emerald-700 border border-emerald-200 hover:bg-emerald-100 transition-colors cursor-pointer"
+                              >
+                                Reativar
+                              </button>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    )
+                  })}
+                </div>
+              )}
             </div>
-            <h2 className="text-lg font-bold text-gray-900 mb-1">Veículos da Unidade</h2>
-            <p className="text-sm text-gray-500 mb-5">
-              Nenhum veículo cadastrado. O cadastro canônico de veículos (placa, marca, modelo, cor e vaga designada) será disponibilizado na próxima etapa.
-            </p>
-            <button
-              disabled
-              className="px-4 py-2 rounded-xl text-xs font-semibold bg-gray-100 text-gray-400 border border-gray-200 cursor-not-allowed"
-            >
-              + Adicionar Veículo (Em breve)
-            </button>
           </div>
         )}
 
@@ -1035,10 +1278,16 @@ export default function Resident360Client({
                 <div className="space-y-3">
                   {auditLogs.map((log) => {
                     const post = log.estado_posterior || {}
+                    const ant = log.estado_anterior || {}
                     const isUnitInactivation = log.acao === 'UNIT_INACTIVATED'
                     const isUnitLinkCreated = log.acao === 'UNIT_LINK_CREATED'
                     const isDateCorrected = log.acao === 'UNIT_LINK_ENTRY_DATE_CORRECTED'
                     const isTypeChange = log.acao === 'RESIDENT_TYPE_CHANGED'
+                    const isVehicleCreated = log.acao === 'VEHICLE_CREATED'
+                    const isVehicleUpdated = log.acao === 'VEHICLE_UPDATED'
+                    const isVehiclePlateCorrected = log.acao === 'VEHICLE_PLATE_CORRECTED'
+                    const isVehicleInactivated = log.acao === 'VEHICLE_INACTIVATED'
+                    const isVehicleReactivated = log.acao === 'VEHICLE_REACTIVATED'
 
                     return (
                       <div
@@ -1066,6 +1315,31 @@ export default function Resident360Client({
                               <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-bold border bg-blue-50 text-blue-700 border-blue-200">
                                 <Home size={12} />
                                 Tipo de morador alterado
+                              </span>
+                            ) : isVehicleCreated ? (
+                              <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-bold border bg-emerald-50 text-emerald-700 border-emerald-200">
+                                <Car size={12} />
+                                Veículo cadastrado
+                              </span>
+                            ) : isVehicleUpdated ? (
+                              <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-bold border bg-blue-50 text-blue-700 border-blue-200">
+                                <Edit2 size={12} />
+                                Dados do veículo atualizados
+                              </span>
+                            ) : isVehiclePlateCorrected ? (
+                              <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-bold border bg-amber-50 text-amber-700 border-amber-200">
+                                <KeyRound size={12} />
+                                Placa corrigida
+                              </span>
+                            ) : isVehicleInactivated ? (
+                              <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-bold border bg-zinc-100 text-zinc-700 border-zinc-200">
+                                <Car size={12} />
+                                Veículo inativado
+                              </span>
+                            ) : isVehicleReactivated ? (
+                              <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-bold border bg-teal-50 text-teal-700 border-teal-200">
+                                <RefreshCw size={12} />
+                                Veículo reativado
                               </span>
                             ) : (
                               <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-bold border bg-zinc-100 text-zinc-700 border-zinc-200">
@@ -1166,6 +1440,67 @@ export default function Resident360Client({
                           </div>
                         )}
 
+                        {/* Eventos de Veículos (Gate 3D.2-B) */}
+                        {isVehicleCreated && (
+                          <div className="text-xs text-gray-600 bg-white p-3 rounded-lg border border-gray-100 space-y-1">
+                            <p>
+                              • Placa: <strong className="font-mono font-bold text-gray-900">{formatPlateDisplay(post.placa)}</strong>
+                              {post.marca && post.modelo && ` • ${post.marca} ${post.modelo}`}
+                              {post.cor && ` (${post.cor})`}
+                              {post.tipo && ` • Tipo: ${post.tipo}`}
+                            </p>
+                            {post.vaga_numero && (
+                              <p>• Vaga designada: <strong>{post.vaga_numero}</strong></p>
+                            )}
+                            {post.ano && (
+                              <p>• Ano de fabricação: <strong>{post.ano}</strong></p>
+                            )}
+                          </div>
+                        )}
+
+                        {isVehicleUpdated && (
+                          <div className="text-xs text-gray-600 bg-white p-3 rounded-lg border border-gray-100 space-y-1">
+                            <p>
+                              • Placa: <strong className="font-mono font-bold text-gray-900">{formatPlateDisplay(post.placa || ant.placa)}</strong>
+                            </p>
+                            <p>
+                              • Dados atualizados: <strong>{post.marca} {post.modelo}</strong> ({post.cor}) • Tipo: {post.tipo}
+                              {post.vaga_numero ? ` • Vaga: ${post.vaga_numero}` : ''}
+                              {post.ano ? ` • Ano: ${post.ano}` : ''}
+                            </p>
+                          </div>
+                        )}
+
+                        {isVehiclePlateCorrected && (
+                          <div className="text-xs text-gray-600 bg-white p-3 rounded-lg border border-gray-100 space-y-1">
+                            <p>
+                              • Placa anterior: <span className="line-through text-gray-400 font-mono">{formatPlateDisplay(ant.placa)}</span>
+                              {' '} ➔ Nova placa: <strong className="font-mono font-bold text-amber-700">{formatPlateDisplay(post.placa)}</strong>
+                            </p>
+                            <p className="text-[11px] text-gray-500">
+                              • Retificação controlada de erro material de digitação com auditoria.
+                            </p>
+                          </div>
+                        )}
+
+                        {isVehicleInactivated && (
+                          <div className="text-xs text-gray-600 bg-white p-3 rounded-lg border border-gray-100 space-y-1">
+                            <p>
+                              • Placa: <strong className="font-mono font-bold text-gray-900">{formatPlateDisplay(post.placa || ant.placa)}</strong>
+                              {' '} • Status resultante: <strong className="text-zinc-600">Inativo</strong>
+                            </p>
+                          </div>
+                        )}
+
+                        {isVehicleReactivated && (
+                          <div className="text-xs text-gray-600 bg-white p-3 rounded-lg border border-gray-100 space-y-1">
+                            <p>
+                              • Placa: <strong className="font-mono font-bold text-gray-900">{formatPlateDisplay(post.placa || ant.placa)}</strong>
+                              {' '} • Status resultante: <strong className="text-emerald-700">Ativo</strong>
+                            </p>
+                          </div>
+                        )}
+
                         {/* Operador responsável */}
                         <div className="text-[11px] text-gray-400 pt-1 border-t border-gray-100 flex items-center justify-between">
                           <span>Operador responsável: <strong className="text-gray-600">{log.operador_nome}</strong> ({log.operador_papel || 'Admin'})</span>
@@ -1251,6 +1586,77 @@ export default function Resident360Client({
               }))
             }
             setIsCreateLinkModalOpen(false)
+            router.refresh()
+          }}
+        />
+      )}
+
+      {/* Vehicle Add / Edit Modal */}
+      {isVehicleModalOpen && (
+        <VehicleModal
+          isOpen={isVehicleModalOpen}
+          onClose={() => {
+            setIsVehicleModalOpen(false)
+            setEditingVehicle(null)
+          }}
+          profileId={resident.id}
+          residentName={resident.nome_completo || 'Morador'}
+          activeUnits={unitLinks
+            .filter(u => u.status === 'ativo')
+            .map(u => ({
+              id: u.id,
+              unidade_id: u.unidade_id,
+              bloco_nome: u.bloco_nome,
+              apto_numero: u.apto_numero,
+            }))}
+          editingVehicle={editingVehicle}
+          onSuccess={() => {
+            setIsVehicleModalOpen(false)
+            setEditingVehicle(null)
+            router.refresh()
+          }}
+        />
+      )}
+
+      {/* Vehicle Plate Correction Modal */}
+      {correctingVehicle && (
+        <VehiclePlateModal
+          isOpen={Boolean(correctingVehicle)}
+          onClose={() => setCorrectingVehicle(null)}
+          vehicle={correctingVehicle}
+          profileId={resident.id}
+          onSuccess={() => {
+            setCorrectingVehicle(null)
+            router.refresh()
+          }}
+        />
+      )}
+
+      {/* Vehicle Inactivate Modal */}
+      {inactivatingVehicle && (
+        <VehicleInactivateModal
+          isOpen={Boolean(inactivatingVehicle)}
+          onClose={() => setInactivatingVehicle(null)}
+          vehicle={inactivatingVehicle}
+          profileId={resident.id}
+          residentName={resident.nome_completo || 'Morador'}
+          onSuccess={() => {
+            setInactivatingVehicle(null)
+            router.refresh()
+          }}
+        />
+      )}
+
+      {/* Vehicle Reactivate Modal */}
+      {reactivatingVehicle && (
+        <VehicleReactivateModal
+          isOpen={Boolean(reactivatingVehicle)}
+          onClose={() => setReactivatingVehicle(null)}
+          vehicle={reactivatingVehicle}
+          profileId={resident.id}
+          residentName={resident.nome_completo || 'Morador'}
+          onSuccess={() => {
+            setReactivatingVehicle(null)
             router.refresh()
           }}
         />
